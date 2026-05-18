@@ -1,0 +1,120 @@
+# LESSONS.md
+
+Hard-won knowledge about Home Assistant quirks, integration behavior, and patterns that didn't work as expected. Read before proposing workarounds to things that seem "obviously" broken — the obvious solution may already be documented here as having failed.
+
+When a new gotcha is discovered, propose adding it here.
+
+---
+
+## Automations & YAML
+
+### `condition: state` does not accept templated entity IDs
+
+The `condition: state` shorthand requires a literal entity ID. Templates in the `entity_id` field fail silently — the condition evaluates without error but does not behave as expected.
+
+Use `condition: template` with `is_state()` or `states()` instead:
+
+```yaml
+# Wrong — fails silently
+- condition: state
+  entity_id: "light.{{ states('input_text.target_light') }}"
+  state: "on"
+
+# Right
+- condition: template
+  value_template: "{{ is_state('light.' ~ states('input_text.target_light'), 'on') }}"
+```
+
+### Separate automations beat merged ones when shared triggers cause state capture problems
+
+When two pieces of logic share a trigger and one depends on state captured at trigger time, merging them into one automation can produce unreliable state reads. The trigger fires, both branches start executing, and the second branch sees state that has already been mutated by the first.
+
+Splitting into separate automations — each with its own trigger and its own state capture — is more reliable than chaining logic inside one automation with `parallel` or `choose` blocks.
+
+### Restoration branches need guard conditions
+
+An automation that restores a prior state (turning a thermostat back on after a door closes, restoring lights after a guest mode ends) must verify the current state of the target before restoring. Don't assume that because the automation turned something off, it can blindly turn it back on — the user or another automation may have changed it in the interim.
+
+Always include a `condition: state` (or template equivalent) confirming the target is in the state you expect to restore from.
+
+---
+
+## Sensors & Calibration
+
+### Percentual offset calibration cannot eliminate a fixed sensor floor
+
+Some Zigbee sensors report a non-zero floor value even when the measured quantity is zero (e.g., a power meter reading 0.5W with nothing plugged in). Percentual offset calibration in Z2M can scale readings but cannot subtract a constant.
+
+To eliminate a floor:
+
+- Use an **absolute offset** via a `template` sensor that subtracts the floor value
+- Or adjust the **threshold** in any binary logic that consumes the sensor (e.g., "consider it 'on' above 5W instead of above 0W")
+
+### Sensor-derived state values need debouncing for fast-changing inputs
+
+Binary sensors derived from analog values (power above threshold = device on) can chatter rapidly when the input hovers near the threshold. Use `for:` durations on triggers consuming these, or wrap the binary logic in a template sensor with hysteresis.
+
+---
+
+## Zigbee & Lighting Groups
+
+### Prefer HA Light Groups over Zigbee groups for small fixtures
+
+For fixtures with 2–4 bulbs, **HA Light Groups** are simpler and more reliable than Zigbee-level groups:
+
+- Simpler management — defined in YAML or UI, no controller-level config
+- Per-bulb state feedback — HA tracks each bulb individually
+- No conflict with Adaptive Lighting's `manual_control` detection
+
+Reserve Zigbee groups for large installations (12+ bulbs) where the network-level efficiency matters.
+
+### Reset devices before re-pairing to a new Zigbee network
+
+When migrating a device from one Zigbee network to another (ZHA → Z2M, Z2M → Hue), reset the device to factory state first. Devices retain coordinator association in non-volatile memory and may fail to pair or pair partially if not reset.
+
+### Hue-branded devices belong on the Hue bridge; everything else on Z2M
+
+Hue bulbs and accessories work most reliably on the Hue bridge — they get firmware updates, entertainment sync, and the Hue app's native scene management. Non-Hue Zigbee devices live on Z2M, which has better diagnostic visibility and broader device support.
+
+The clean separation (Hue on channel 20, Z2M on channel 11) prevents interference and keeps each network simpler.
+
+---
+
+## Matter & HomeKit
+
+### Use Matter Hub (RiDDiX fork) as the sole bridge
+
+Multiple Matter/HomeKit bridges fighting over the same devices produces unreliable state and duplicated entities in HomeKit. Standardize on Matter Hub and disable other bridges.
+
+### Some integrations need HACS replacements for proper entity types
+
+The default Xiaomi integration exposes pedestal fans as switches, not fans, which breaks HomeKit fan controls (oscillate, speed). The `hass-xiaomi-miot` HACS integration exposes proper `fan` entities. When a device's primary entity type seems wrong, check HACS for a better integration before working around it.
+
+---
+
+## Shell Command Integration
+
+### Optimistic mode for command-line lights
+
+When an HA `light` entity is backed by a `command_line` shell command (e.g., the Litra Glow via `litra-rs`), prefer **optimistic mode** over polling for state. Polling adds latency to every UI interaction and produces flickering between commanded state and stale poll results.
+
+Optimistic mode assumes the command succeeded and updates HA state immediately. Reconcile with reality only when an error occurs or on manual refresh.
+
+### Principle of least privilege for shell access
+
+Shell command integrations that SSH into another machine should use:
+
+- A **dedicated service account** on the remote machine, not the user's normal account
+- A **scoped SSH key** with `command="..."` restrictions in `authorized_keys` if the command set is fixed
+- **Sudoers whitelisting** for any privileged operations, naming the exact commands allowed
+- A **dispatch script** on the remote side that validates inputs rather than passing arbitrary strings to the shell
+
+---
+
+## Physical Setup
+
+### Key light distance matters more than brightness
+
+For reducing facial shine in video calls, **distance** is a more effective variable than brightness. The inverse square law means moving the light twice as far away reduces intensity to a quarter while keeping the same color and spectrum.
+
+Aim for a dimmer, farther light over a brighter, closer one. The brightness floor is whatever your camera needs for good exposure.
