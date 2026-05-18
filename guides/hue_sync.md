@@ -184,10 +184,12 @@ Used for PS5 input when `movie_mode` is off.
 
 | Setting | Value | Rationale |
 |---|---|---|
-| `min_brightness` | `50` | AL baseline — mirrors the wind-down floor in `guides/adaptive_lighting.md`. |
-| `max_brightness` | `100` | Full AL range. |
+| `min_brightness` | `60` | Matches the `switch.adaptive_lighting_standard` baseline. |
+| `max_brightness` | `95` | Matches the `switch.adaptive_lighting_standard` baseline. |
 
 These are passed to `adaptive_lighting.change_switch_settings` with `use_defaults: current` so other AL settings (color temp, schedule, curve) are preserved.
+
+> **Coordinated change:** The `min_brightness` (60) and `max_brightness` (95) values mirror the baseline configuration of `switch.adaptive_lighting_standard` (**Settings → Devices & Services → Adaptive Lighting → Standard → Configure**). If that baseline changes, update both values here and in the Mode Configurator YAML below.
 
 ### Profile selection logic
 
@@ -216,7 +218,7 @@ Before creating the automations, verify all of the following exist and are corre
 | Philips Hue Play HDMI Sync Box integration installed | Provides `switch.living_room_sync_box_power`, `switch.living_room_sync_box_light_sync`, `select.living_room_sync_box_hdmi_input` |
 | `light.living_room_tv_lights` exists | Hue gradient lightstrip, exposed via the Hue integration (not via the sync box) |
 | Hue motion sensor exists with illuminance entity | `sensor.living_room_motion_illuminance` |
-| Adaptive Lighting installed and configured for living room ceiling | `switch.adaptive_lighting_living_room_ceiling_lights` — see `guides/adaptive_lighting.md` |
+| Adaptive Lighting installed and Standard switch exists | `switch.adaptive_lighting_standard` — see `guides/adaptive_lighting.md` |
 | PS5-MQTT integration installed | Provides `switch.living_room_ps5_power`. If not yet installed, automation #5 can be skipped initially. |
 | `input_boolean.movie_mode` helper exists | Created via **Settings → Devices & Services → Helpers → Toggle** |
 | Sonos integration with Night Sound and Speech Enhancement switches | `switch.living_room_sonos_night_sound`, `switch.living_room_sonos_speech_enhancement` |
@@ -463,13 +465,13 @@ actions:
           - condition: trigger
             id: sync_stop
         sequence:
-          - alias: Restore ceiling AL limits (50-100%)
+          - alias: Restore ceiling AL limits for Standard (60-95%)
             action: adaptive_lighting.change_switch_settings
             data:
               use_defaults: current
-              entity_id: switch.adaptive_lighting_living_room_ceiling_lights
-              min_brightness: 50
-              max_brightness: 100
+              entity_id: switch.adaptive_lighting_standard
+              min_brightness: 60
+              max_brightness: 95
       - alias: Reconfigure profile (sync_start, or input/movie_mode change while sync is on)
         conditions:
           - condition: or
@@ -504,7 +506,7 @@ actions:
                     action: adaptive_lighting.change_switch_settings
                     data:
                       use_defaults: current
-                      entity_id: switch.adaptive_lighting_living_room_ceiling_lights
+                      entity_id: switch.adaptive_lighting_standard
                       min_brightness: 25
                       max_brightness: 50
               - alias: PS5 input (movie_mode off) -> game profile
@@ -518,7 +520,7 @@ actions:
                     action: adaptive_lighting.change_switch_settings
                     data:
                       use_defaults: current
-                      entity_id: switch.adaptive_lighting_living_room_ceiling_lights
+                      entity_id: switch.adaptive_lighting_standard
                       min_brightness: 5
                       max_brightness: 10
 mode: restart
@@ -648,7 +650,27 @@ sequence:
 
 ---
 
+## Related HA Config
+
+| Artifact | Entity ID | Type |
+|---|---|---|
+| Living Room TV Power Handler | `automation.living_room_tv_power_handler` | Automation |
+| Living Room TV Bias Light Controller | `automation.living_room_tv_bias_light_controller` | Automation |
+| Living Room Hue Sync Mode Configurator | `automation.living_room_hue_sync_mode_configurator` | Automation |
+| Living Room TV Bias Light Off-TV Guard | `automation.living_room_tv_bias_light_off_tv_guard` | Automation |
+| Living Room Hue Sync Stop on PS5 Power Off | `automation.living_room_hue_sync_stop_on_ps5_power_off` | Automation |
+| Living Room Hue Sync (Video) | `script.living_room_hue_sync_video` | Script |
+| Living Room Hue Sync (Game) | `script.living_room_hue_sync_game` | Script |
+
+---
+
+## Related Files
+
+No on-disk files are created or modified by this integration. All artifacts live in HA.
+
+---
+
 ## Related Documents
 
 - `standards/naming.md` — entity ID and friendly name conventions used throughout this document
-- `guides/adaptive_lighting.md` — the AL configuration this system manipulates via `adaptive_lighting.change_switch_settings`; the 50–100% ceiling restoration value should track AL's baseline
+- `guides/adaptive_lighting.md` — the AL configuration this system manipulates via `adaptive_lighting.change_switch_settings`; the 60–95% ceiling restoration values must track AL Standard's baseline
