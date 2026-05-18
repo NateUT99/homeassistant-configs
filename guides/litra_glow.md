@@ -1,17 +1,9 @@
 # Logitech Litra Glow — Home Assistant Integration
+*Last updated: May 2026*
 
 ## Overview
 
 This document describes how to integrate a Logitech Litra Glow key light with Home Assistant, exposing it as a native light entity with on/off, brightness, and color temperature control. The integration uses the `litra-rs` CLI tool on a Mac Mini, accessed via a dedicated SSH user account from Home Assistant over the local network.
-
----
-
-## Changelog
-
-| Version | Date | Changes |
-|---|---|---|
-| 2.0 | May 2026 | Composite `litra apply` dispatch command applies state, brightness, and temperature in a single SSH call. Template light handlers all route through the composite command and assert `state=on` whenever they send brightness or temperature. Fixes inability to set brightness and color temperature simultaneously. |
-| 1.0 | March 2026 | Initial release |
 
 ---
 
@@ -490,30 +482,6 @@ mode: single
 ```
 
 The `light.turn_on` call uses `brightness_pct` and `color_temp_kelvin`. HA normalizes both to the `brightness` (0–255) and `color_temp` (mireds) variables expected by the template light's `set_temperature` handler before invocation, so the integration applies them correctly without any template changes.
-
----
-
-## Verification
-
-After deployment, test from the HA terminal to confirm the dispatch path works end-to-end. With the Litra physically powered off:
-
-```bash
-ssh -i /config/.ssh/id_ed25519_litra homeassistant@<mac-mini-ip> "litra apply state=on brightness=50 temperature=4500"
-```
-
-The light should physically power on at the specified brightness and temperature. If it does not but the exit code is 0, check:
-
-- The Mac Mini is awake and the active user session matches `RUN_AS` in the dispatch script
-- The Litra is plugged in (`/opt/homebrew/bin/litra devices --json` from the Mac shows it)
-- The dispatch script contains no non-ASCII characters (some clipboards substitute typographic quotes that break zsh parsing): `grep -nP '[^\x00-\x7F]' /usr/local/bin/litra_dispatch.sh`
-
-Then verify each HA path via **Developer Tools → Actions**, starting with the light off each time:
-
-- `light.turn_on` on `light.office_desk_key_light` (no params) — turns on
-- `light.turn_on` with `brightness: 128` — turns on, sets brightness to 50%
-- `light.turn_on` with `color_temp: 250` — turns on, sets temperature
-- `light.turn_on` with `brightness: 128` and `color_temp: 250` — turns on, sets both
-- `light.turn_off` — turns off
 
 ---
 
