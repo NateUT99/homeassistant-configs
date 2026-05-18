@@ -341,9 +341,10 @@ Technical reconstruction documents for custom integrations and configurations. E
 5. **Numbered Steps** — one step per major phase of the implementation, in order
 6. **Scale Conversions or Formula Reference** (if applicable) — table documenting any non-obvious math
 7. **Security Summary** (if applicable) — table summarizing all security controls applied
-8. **File Reference** — table of every file created or modified, its location, and its purpose
+8. **HA Artifact Reference** (if applicable) — table of every HA-resident artifact created or depended on by the guide, with friendly name, entity_id, and type; omit if the guide creates no HA-resident artifacts
+9. **File Reference** — table of every on-disk file created or modified, its location, and its purpose
 
-**Referencing HA-resident artifacts:** Use the *Friendly Name (`entity_id`)* format throughout. For automations and scripts, the canonical version lives in HA — the guide describes the design and provides excerpts as needed, but is not the source of truth for the YAML itself. How much inline YAML to include is author judgment per guide; lean toward enough to explain the design without duplicating the full implementation.
+**Referencing HA-resident artifacts:** Use the *Friendly Name (`entity_id`)* format throughout. Guides include complete, copy-pasteable YAML for every automation, script, and `configuration.yaml` entry they create — this is the disaster recovery record for those artifacts.
 
 **No changelog table.** Implementation Guides describe a build at a point in time. Git history captures what changed and when; the `Last updated` line tells the reader how stale the document might be. Update the date when the build itself changes (not for typo fixes).
 
