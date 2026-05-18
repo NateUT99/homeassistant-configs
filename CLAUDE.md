@@ -341,8 +341,10 @@ Technical reconstruction documents for custom integrations and configurations. E
 5. **Numbered Steps** — one step per major phase of the implementation, in order
 6. **Scale Conversions or Formula Reference** (if applicable) — table documenting any non-obvious math
 7. **Security Summary** (if applicable) — table summarizing all security controls applied
-8. **HA Artifact Reference** (if applicable) — table of every HA-resident artifact created or depended on by the guide, with friendly name, entity_id, and type; omit if the guide creates no HA-resident artifacts
-9. **File Reference** — table of every on-disk file created or modified, its location, and its purpose
+8. **Related HA Config** (if applicable) — table of every HA-resident artifact the guide creates, with friendly name, entity_id, and type
+9. **Related Files** (if applicable) — table of every on-disk file created or modified, with repo path, deployed location, and purpose; omit if the guide creates no on-disk files
+10. **Related Documents** (if applicable) — list of other repo docs this guide depends on, references, or coordinates with
+11. **Troubleshooting** (if applicable) — advanced, non-obvious issues only; assume basic troubleshooting (restart, reload, check logs, verify entity exists) has already been done
 
 **Referencing HA-resident artifacts:** Use the *Friendly Name (`entity_id`)* format throughout. Guides include complete, copy-pasteable YAML for every automation, script, and `configuration.yaml` entry they create — this is the disaster recovery record for those artifacts.
 
@@ -364,7 +366,13 @@ These files don't have a prescribed structure — they are what they are (a `.sh
 - Present tense for descriptions, imperative for instructions
 - Explain *why* a decision was made, not just *what* was done — especially for non-obvious choices
 - Include relevant caveats and gotchas inline where they apply
-- Do not include troubleshooting steps or dead ends — final state only
+- Troubleshooting is optional — see structure item 11. Dead ends, abandoned approaches, and historical context still don't belong in guides; git history captures those.
+
+### Coordinated change callouts (Implementation Guides)
+
+When a value, entity ID, or configuration in a guide depends on or coordinates with something configured elsewhere — another integration's baseline, a value shared across multiple automations, an entity controlled by more than one system — add a blockquote callout immediately adjacent to that value (above or below the YAML block or table row):
+
+> **Coordinated change:** `<what the dependency is>`. If `<upstream thing>` changes, update `<this value/section>` to match.
 
 ### Code blocks (both doc types)
 

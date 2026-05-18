@@ -402,15 +402,6 @@ The `light.turn_on` call uses `brightness_pct` and `color_temp_kelvin`. HA norma
 
 ---
 
-## HA Artifact Reference
-
-| Artifact | Entity ID | Type |
-| --- | --- | --- |
-| Office Desk Key Light | `light.office_desk_key_light` | Template light (`configuration.yaml`) |
-| Control office lights when display camera is being used | `automation.control_office_lights_when_display_camera_is_being_used` | Automation |
-
----
-
 ## Security Summary
 
 | Layer | Detail |
@@ -425,7 +416,16 @@ The `light.turn_on` call uses `brightness_pct` and `color_temp_kelvin`. HA norma
 
 ---
 
-## File Reference
+## Related HA Config
+
+| Artifact | Entity ID | Type |
+| --- | --- | --- |
+| Office Desk Key Light | `light.office_desk_key_light` | Template light (`configuration.yaml`) |
+| Control office lights when display camera is being used | `automation.control_office_lights_when_display_camera_is_being_used` | Automation |
+
+---
+
+## Related Files
 
 | File | Location | Purpose |
 | --- | --- | --- |
