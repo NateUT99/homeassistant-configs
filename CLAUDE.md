@@ -20,21 +20,23 @@ The author has a security engineering background; security controls in any propo
 
 ## Source of Truth
 
-**Home Assistant is the source of truth for HA-resident artifacts.** Automations, scripts, scenes, helpers, dashboards, the entity registry, the area registry, and device assignments all live in HA and are read live via the Home Assistant MCP server. The repo does not store snapshots of these.
+**HA is the live runtime.** The entity registry, area registry, device assignments, and operational state all live in HA and are read live via the Home Assistant MCP server.
 
-When a guide references an automation, script, scene, or other HA-resident artifact, use the format:
+**The repo is the disaster recovery artifact.** For any configuration created or modified in our workflow, the repo maintains enough to fully rebuild the HA instance from scratch. This means:
+
+- Implementation guides contain complete, copy-pasteable YAML for automations, scripts, `configuration.yaml` entries, and template definitions — not design excerpts
+- Shell scripts invoked by HA `shell_command` integrations live in `scripts/` as the authoritative source
+- Changes to HA and the repo happen in the same session and are kept in sync
+
+**Sync discipline:** When we make changes together, the repo is updated in the same commit. When you make changes in the HA UI between sessions, bring those changes back to the relevant guide before the end of the next session.
+
+When a guide references a HA-resident artifact by name, use the format:
 
 > Friendly Name (`entity_id`)
 
 For example: *Water Leak Alerting (`automation.water_leak_alerting`)*.
 
 This gives a human-readable handle while preserving the machine identifier needed to query HA directly.
-
-**The repo is the source of truth for:**
-
-- Documentation (standards, guides, this file, `LESSONS.md`)
-- Shell scripts that HA `shell_command` integrations invoke (in `scripts/`)
-- Custom templates or YAML snippets that aren't UI-editable and aren't part of HA's main config (in `scripts/` for now)
 
 **Migration scope:** The repo is not retroactively mirroring everything from HA. Only artifacts touched as part of work going forward are added. Don't propose bulk dumps of existing HA state into the repo.
 

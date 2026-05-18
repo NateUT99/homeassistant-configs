@@ -166,93 +166,10 @@ The dispatch script acts as a security gatekeeper. The SSH authorized key is loc
 
 The `apply_composite` function handles the composite `litra apply` pseudo-command, which accepts optional `state=`, `brightness=`, and `temperature=` arguments and sequences them in the correct order on the Mac side, all within one SSH session.
 
-```bash
-sudo vi /usr/local/bin/litra_dispatch.sh
-```
+The script is maintained in this repository at `scripts/litra_dispatch.sh`. Before deploying, open it and replace `<your_username>` with your macOS username. Then copy it to the Mac Mini and make it executable:
 
 ```bash
-#!/bin/zsh
-
-LITRA="/opt/homebrew/bin/litra"
-RUN_AS="<your_username>"
-
-# Composite apply: "litra apply [state=on|off] [brightness=N] [temperature=N]"
-# All args optional. Order of operations: turn on -> brightness -> temperature -> turn off.
-apply_composite() {
-  local state="" brightness="" temperature=""
-  for arg in "$@"; do
-    case "$arg" in
-      state=on)         state="on" ;;
-      state=off)        state="off" ;;
-      brightness=*)     brightness="${arg#brightness=}" ;;
-      temperature=*)    temperature="${arg#temperature=}" ;;
-      *) echo "Bad apply arg: $arg" >&2; exit 1 ;;
-    esac
-  done
-
-  # Validate numerics if provided
-  if [[ -n "$brightness" && ! "$brightness" =~ ^[0-9]+$ ]]; then
-    echo "Invalid brightness: $brightness" >&2; exit 1
-  fi
-  if [[ -n "$temperature" && ! "$temperature" =~ ^[0-9]+$ ]]; then
-    echo "Invalid temperature: $temperature" >&2; exit 1
-  fi
-
-  # Turn on first so brightness/temp apply to a powered device
-  if [[ "$state" == "on" ]]; then
-    sudo -u "$RUN_AS" "$LITRA" on || exit 1
-  fi
-  if [[ -n "$brightness" ]]; then
-    sudo -u "$RUN_AS" "$LITRA" brightness --percentage "$brightness" || exit 1
-  fi
-  if [[ -n "$temperature" ]]; then
-    sudo -u "$RUN_AS" "$LITRA" temperature --value "$temperature" || exit 1
-  fi
-  # Turn off last so brightness/temp changes are applied before powering down
-  if [[ "$state" == "off" ]]; then
-    sudo -u "$RUN_AS" "$LITRA" off || exit 1
-  fi
-}
-
-case "$SSH_ORIGINAL_COMMAND" in
-  "litra apply "*)
-    REST="${SSH_ORIGINAL_COMMAND#litra apply }"
-    apply_composite ${=REST} ;;
-  "litra on")                   sudo -u "$RUN_AS" "$LITRA" on ;;
-  "litra off")                  sudo -u "$RUN_AS" "$LITRA" off ;;
-  "litra toggle")               sudo -u "$RUN_AS" "$LITRA" toggle ;;
-  "litra brightness --value "*)
-    LEVEL="${SSH_ORIGINAL_COMMAND#litra brightness --value }"
-    sudo -u "$RUN_AS" "$LITRA" brightness --value "$LEVEL" ;;
-  "litra brightness --percentage "*)
-    PCT="${SSH_ORIGINAL_COMMAND#litra brightness --percentage }"
-    sudo -u "$RUN_AS" "$LITRA" brightness --percentage "$PCT" ;;
-  "litra brightness-up --value "*)
-    LEVEL="${SSH_ORIGINAL_COMMAND#litra brightness-up --value }"
-    sudo -u "$RUN_AS" "$LITRA" brightness-up --value "$LEVEL" ;;
-  "litra brightness-up --percentage "*)
-    PCT="${SSH_ORIGINAL_COMMAND#litra brightness-up --percentage }"
-    sudo -u "$RUN_AS" "$LITRA" brightness-up --percentage "$PCT" ;;
-  "litra brightness-down --value "*)
-    LEVEL="${SSH_ORIGINAL_COMMAND#litra brightness-down --value }"
-    sudo -u "$RUN_AS" "$LITRA" brightness-down --value "$LEVEL" ;;
-  "litra brightness-down --percentage "*)
-    PCT="${SSH_ORIGINAL_COMMAND#litra brightness-down --percentage }"
-    sudo -u "$RUN_AS" "$LITRA" brightness-down --percentage "$PCT" ;;
-  "litra temperature --value "*)
-    TEMP="${SSH_ORIGINAL_COMMAND#litra temperature --value }"
-    sudo -u "$RUN_AS" "$LITRA" temperature --value "$TEMP" ;;
-  "litra temperature-up --value "*)
-    TEMP="${SSH_ORIGINAL_COMMAND#litra temperature-up --value }"
-    sudo -u "$RUN_AS" "$LITRA" temperature-up --value "$TEMP" ;;
-  "litra temperature-down --value "*)
-    TEMP="${SSH_ORIGINAL_COMMAND#litra temperature-down --value }"
-    sudo -u "$RUN_AS" "$LITRA" temperature-down --value "$TEMP" ;;
-  *) echo "Unauthorized command" >&2; exit 1 ;;
-esac
-```
-
-```bash
+sudo cp scripts/litra_dispatch.sh /usr/local/bin/litra_dispatch.sh
 sudo chmod +x /usr/local/bin/litra_dispatch.sh
 ```
 
@@ -503,7 +420,7 @@ The `light.turn_on` call uses `brightness_pct` and `color_temp_kelvin`. HA norma
 
 | File | Location | Purpose |
 | --- | --- | --- |
-| Dispatch script | `/usr/local/bin/litra_dispatch.sh` | Command whitelist gatekeeper on Mac Mini; includes composite `apply_composite` handler |
+| Dispatch script | `scripts/litra_dispatch.sh` in this repo; deployed to `/usr/local/bin/litra_dispatch.sh` on Mac Mini | Command whitelist gatekeeper; includes composite `apply_composite` handler |
 | sudoers rule | `/etc/sudoers.d/homeassistant-litra` | Allows `homeassistant` to run `litra` as `<your_username>` |
 | SSH private key | `/config/.ssh/id_ed25519_litra` | HA's private key for authenticating to Mac Mini |
 | SSH public key | `/config/.ssh/id_ed25519_litra.pub` | Corresponding public key |
