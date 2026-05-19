@@ -337,7 +337,7 @@ Then confirm the bulb actually honors `execute_if_off` before committing to the 
 
 ### Deployed automation: AL Pre-Stage — Standard (`automation.al_pre_stage_standard`)
 
-Covers all Standard and Color Only fixtures with Z2M-managed bulbs. Standard fixtures receive full payloads (brightness + color temp). Entrance Ceiling and Bathroom Hallway Ceiling receive color-only payloads (brightness omitted — adapt_brightness is off for these Color Only fixtures). Kitchen Counter Strip is not pre-staged.
+Covers all Standard and Color Only fixtures with Z2M-managed bulbs. Standard fixtures receive full payloads (brightness + color temp). Entrance Ceiling and Bathroom Hallway Ceiling receive color-only payloads (brightness omitted — adapt_brightness is off for these Color Only fixtures). Kitchen Counter Strip is not pre-staged (not Z2M-managed). Kitchen Sink Bulb is not pre-staged (does not support `execute_if_off`).
 
 ```yaml
 alias: AL Pre-Stage — Standard
