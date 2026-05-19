@@ -10,7 +10,7 @@ The canonical document for Adaptive Lighting (AL) configuration in this home. Co
 Adaptive Lighting adjusts lights' brightness and color temperature through the day based on a configurable sun-position curve. Three canonical AL instances are maintained:
 
 - **Standard** — brightness + color adaptation for main ceiling fixtures (`light.master_bedroom_fan`, `light.living_room_fan`, `light.office_ceiling`).
-- **Color Only** — color-only adaptation (adapt_brightness permanently off) for fixtures where brightness is set manually and for indicator/night-navigation lamps (`light.entrance_ceiling`, `light.kitchen_counter_strip`, `light.kitchen_sink_bulb`, `light.bathroom_hallway_ceiling`, `light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`). `autoreset_control_seconds: 0` ensures manually-set status colors persist indefinitely.
+- **Color Only** — color-only adaptation (adapt_brightness permanently off) for fixtures where brightness is set manually, indicator/night-navigation lamps, and the Avery Room desk lamp (`light.entrance_ceiling`, `light.kitchen_counter_strip`, `light.kitchen_sink_bulb`, `light.bathroom_hallway_ceiling`, `light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`, `light.avery_room_desk_lamp`). `autoreset_control_seconds: 0` ensures manually-set colors persist indefinitely.
 - **Avery Schedule** — brightness + color adaptation on an earlier evening schedule for Avery's room (`light.avery_room_ceiling`).
 
 Four legacy AL instances also exist and are pending decommission — see [Legacy instances](#legacy-instances). They are not part of this guide's configuration model.
@@ -30,7 +30,8 @@ Standard (brightness + color)                Color Only (color only; autoreset o
     (triggers on Standard brightness_pct; │   │  light.bathroom_night_lamp
      covers Standard + Color Only ceiling ┘   │  light.living_room_status_lamp
      fixtures)                                │  light.office_presence_sensor
-                                              └── (no pre-staging for indicator lamps)
+                                              │  light.avery_room_desk_lamp
+                                              └── (no pre-staging for lamps)
 
 Avery Schedule (brightness + color; earlier evening)
 │  light.avery_room_ceiling (2 bulbs)
@@ -167,7 +168,7 @@ Each instance is configured at **Settings → Devices & Services → Adaptive Li
 
 ### 2b. Color Only
 
-**Lights:** `light.entrance_ceiling`, `light.kitchen_counter_strip`, `light.kitchen_sink_bulb`, `light.bathroom_hallway_ceiling`, `light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`
+**Lights:** `light.entrance_ceiling`, `light.kitchen_counter_strip`, `light.kitchen_sink_bulb`, `light.bathroom_hallway_ceiling`, `light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`, `light.avery_room_desk_lamp`
 
 Color Only shares most configuration with Standard. Two distinctions:
 
@@ -667,12 +668,11 @@ Brightness conversion: AL exposes `brightness_pct` (0–100); Z2M expects `brigh
 
 ## Legacy instances
 
-Four AL instances from before the canonical-instance model are pending decommission. They are not managed as part of this guide's configuration model.
+Three AL instances from before the canonical-instance model are pending decommission. They are not managed as part of this guide's configuration model.
 
 - **Office - Bourbon Lamp** — `light.office_bourbon_lamp`
 - **Master Bedroom Accent Lamps** — `light.master_bedroom_nightstand_lamp_left`, `light.portable_accent_lamp`
 - **Outside - Porch Lights** — `light.outside_porch_ceiling`
-- **Avery Room Desk Lamp** — `light.avery_room_desk_lamp`
 
 ---
 
