@@ -26,7 +26,7 @@ Standard (brightness + color; autoreset off)
 │  light.entrance_ceiling (2 bulbs)             ← color-only pre-stage payload
 │  light.bathroom_hallway_ceiling (2 bulbs)     ← color-only pre-stage payload
 │  light.portable_accent_lamp                   ← color-only pre-stage payload
-│  light.kitchen_counter_strip                  (not pre-staged — not Z2M-managed)
+│  light.kitchen_counter_strip                  (not pre-staged — not Z2M-managed; brightness restored on startup)
 │  light.kitchen_sink_bulb                      (not pre-staged — no execute_if_off)
 │  light.bathroom_night_lamp                    (not pre-staged)
 │  light.living_room_status_lamp                (not pre-staged)
@@ -653,9 +653,9 @@ action:
 
 To pre-stage a new fixture, add it to the relevant automation:
 
-- Standard or Color Only ceiling fixture → extend `automation.al_pre_stage_standard`
+- Standard ceiling fixture → extend `automation.al_pre_stage_standard`
 - Avery Schedule fixture → extend `automation.al_pre_stage_avery_schedule`
-- Color Only lamps are not pre-staged (see exclusion list in the automation description above)
+- Lamps are not pre-staged (see exclusion list in the automation description above)
 
 Before extending: confirm the fixture's bulbs are Z2M-managed, collect bulb entity IDs (`light.[area]_[fixture]_bulb_[n]`) and Z2M friendly names, and run the functional test above.
 
@@ -679,6 +679,7 @@ Brightness conversion: AL exposes `brightness_pct` (0–100); Z2M expects `brigh
 | Avery Schedule Sleep Mode | `switch.adaptive_lighting_sleep_mode_avery_schedule` | AL Switch |
 | AL Pre-Stage — Standard | `automation.al_pre_stage_standard` | Automation |
 | AL Pre-Stage — Avery Schedule | `automation.al_pre_stage_avery_schedule` | Automation |
+| AL — Restore Manual Brightness on Startup | `automation.al_restore_manual_brightness_on_startup` | Automation |
 
 ---
 
@@ -705,6 +706,7 @@ No on-disk files are created or modified by this integration. All artifacts live
 | Sleep mode not triggering | "Everyone Sleeping" automation references wrong entity IDs | Verify entity IDs in Step 3 against Developer Tools → States |
 | Specific bulb stuck at wrong brightness/color while others adapt | `skip_redundant_commands` is skipping due to stale HA state after a mesh hiccup or Z2M restart | Disable `skip_redundant_commands` on that switch temporarily; re-enable when resolved |
 | Status lamp color overwritten after a period of time | Standard `autoreset_control_seconds` set to nonzero | Verify `autoreset_control_seconds: 0` on the Standard AL instance |
+| Non-Z2M light jumps to ~95% brightness after HA restart | AL's in-memory manual-control state (brightness paused) is wiped on restart. The light comes back online as a bare turn-on and AL adapts brightness fresh. Only noticeable on always-on lights — others re-establish manual control on first normal use. | `automation.al_restore_manual_brightness_on_startup` corrects this for the kitchen counter strip. Add blocks for other always-on non-Z2M lights if the pattern recurs. |
 
 ### Pre-Staging
 
