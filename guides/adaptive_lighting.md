@@ -56,7 +56,7 @@ Standard and Color Only share the same curve settings and schedule clamps. The d
 - **adapt_brightness switch** — Standard fixtures are dimmer-capable ceiling lights where AL should own both brightness and color. Color Only fixtures (ceiling fixtures and indicator lamps alike) are set to a user-preferred brightness by calling automations; AL only guides color temperature. The `switch.adaptive_lighting_adapt_brightness_color_only` switch is permanently off.
 - **autoreset_control_seconds** — Color Only uses `0` rather than Standard's `1800`. For indicator lamps (`light.living_room_status_lamp`, `light.bathroom_night_lamp`, `light.office_presence_sensor`), this is load-bearing: `automation.sync_living_room_status_lamp_to_alarm_and_guest_modes` sets status colors that must persist indefinitely, and it only re-fires on state changes — a 30-minute autoreset would silently overwrite a red "armed away" indicator. As a side effect, manually set color temperatures on the ceiling fixtures in Color Only also persist indefinitely rather than auto-clearing.
 
-Both instances read from `switch.adaptive_lighting_standard` in the pre-staging automation — they follow the same household schedule and produce identical curve outputs.
+Both instances read from `switch.adaptive_lighting_standard` in `automation.al_pre_stage_standard` — they follow the same household schedule and produce identical curve outputs.
 
 #### 4. Conservative brightness range
 
@@ -87,7 +87,7 @@ AL only sends commands to bulbs that are on. Off bulbs catch up via `intercept: 
 
 Pre-staging addresses both by publishing the current AL target values directly to each bulb via MQTT while the bulb is off. With `execute_if_off: true` enabled on the bulb, Z2M stores the values without turning it on. When any turn-on event occurs, the bulb powers up at the pre-staged values immediately.
 
-The pre-staging automation triggers on `brightness_pct` attribute changes. Both brightness and color temperature are sent in each publish — brightness is chosen as the trigger because it ramps monotonically.
+The pre-staging automation runs on a 10-minute schedule. Both brightness and color temperature are sent in each publish. The interval is short enough that even during the steepest part of the evening ramp, a bulb turning on lands within imperceptible range of the current curve target.
 
 ---
 
@@ -288,35 +288,38 @@ Then confirm the bulb actually honors `execute_if_off` before committing to the 
 5. Turn the bulb on by any method. It should power up at ~20% brightness (~2500K).
 6. Re-enable AL.
 
-### Deployed automation: AL Pre-Stage — Standard (`automation.al_pre_stage_standard`)
+### Deployed automation: AL Pre-Stage — Standard & Color Only (`automation.al_pre_stage_standard`)
 
 Covers all Standard and Color Only ceiling fixtures with Z2M-managed bulbs, plus the Portable Accent Lamp. Standard fixtures receive full payloads (brightness + color temp). Color Only fixtures receive color-only payloads (brightness omitted — adapt_brightness is off). Kitchen Counter Strip is not pre-staged (not Z2M-managed). Kitchen Sink Bulb, Office Bourbon Lamp, and Master Bedroom Nightstand Lamp are not pre-staged (do not support `execute_if_off`). Remaining lamps (`light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`, `light.avery_room_desk_lamp`) are not pre-staged.
 
 ```yaml
-alias: AL Pre-Stage — Standard
+alias: AL Pre-Stage — Standard & Color Only
 description: >-
-  Keeps bulbs covered by both Standard and Color Only pre-loaded with the
-  current Adaptive Lighting values whenever they are off. With execute_if_off
-  enabled on the bulbs (set via direct MQTT publish), Z2M stores the values
-  without turning the bulb on — so the next turn-on, from any source, lands
-  at the correct adapted state instead of the last-on values.
+  Keeps bulbs covered by Standard and Color Only pre-loaded with the
+  current Adaptive Lighting values whenever they are off. With
+  execute_if_off enabled on the bulbs (set via direct MQTT publish),
+  Z2M stores the values without turning the bulb on — so the next
+  turn-on, from any source, lands at the correct adapted state instead
+  of the last-on values.
 
-  Solves the "flash to previous brightness/color before AL catches up" problem
-  for turn-on paths that bypass HA's light.turn_on service: Zigbee bindings,
-  physical power cycles, and any other on-event AL's intercept doesn't see.
+  Solves the "flash to previous brightness/color before AL catches up"
+  problem for turn-on paths that bypass HA's light.turn_on service:
+  Zigbee bindings, physical power cycles, and any other on-event AL's
+  intercept doesn't see.
 
-  Triggered on attribute change of switch.adaptive_lighting_standard
-  (brightness_pct only). Both Standard and Color Only follow the same
-  household schedule and calculate identical curve values, so reading from a
-  single switch is mathematically correct for all covered fixtures.
+  Runs on a 10-minute schedule rather than on every AL recalculation
+  cycle. AL's evening ramp moves slowly enough (~0.4% brightness and
+  ~18 mired per minute) that a 10-minute staleness window is
+  imperceptible on turn-on.
 
   Two payload types are used:
     - Full payload (state, brightness, color_temp) for Standard fixtures.
     - Color-only payload (state, color_temp) for Color Only fixtures —
-      brightness intentionally omitted so the bulb retains its user-set value.
+      brightness intentionally omitted so the bulb retains its
+      user-set value.
 
-  Per-fixture blocks run in series with a 0.5-second stagger to spread the
-  MQTT publish burst over time. Within each fixture, per-bulb publishes run
+  Per-fixture blocks run in series with a 0.5-second stagger to spread
+  the MQTT publish burst. Within each fixture, per-bulb publishes run
   in parallel. Only publishes to bulbs that are currently off.
 
 mode: single
@@ -326,11 +329,8 @@ variables:
   al_switch: switch.adaptive_lighting_standard
 
 trigger:
-  - id: brightness_changed
-    alias: AL recalculated brightness_pct
-    platform: state
-    entity_id: switch.adaptive_lighting_standard
-    attribute: brightness_pct
+  - trigger: time_pattern
+    minutes: /10
 
 action:
   - alias: Pre-stage Office Ceiling bulbs in parallel
