@@ -13,7 +13,7 @@ Adaptive Lighting adjusts lights' brightness and color temperature through the d
 - **Color Only** — color-only adaptation (adapt_brightness permanently off) for fixtures where brightness is set manually, indicator/night-navigation lamps, and portable lamps (`light.entrance_ceiling`, `light.kitchen_counter_strip`, `light.kitchen_sink_bulb`, `light.bathroom_hallway_ceiling`, `light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`, `light.avery_room_desk_lamp`, `light.office_bourbon_lamp`, `light.master_bedroom_nightstand_lamp_left`, `light.portable_accent_lamp`). `autoreset_control_seconds: 0` ensures manually-set colors persist indefinitely.
 - **Avery Schedule** — brightness + color adaptation on an earlier evening schedule for Avery's room (`light.avery_room_ceiling`).
 
-MQTT-based pre-staging is deployed for all Standard and Avery Schedule fixtures, and for the Z2M-managed Color Only ceiling fixtures (entrance ceiling, bathroom hallway ceiling). Kitchen counter strip is not pre-staged (not Z2M-managed). Kitchen sink bulb and Office Bourbon Lamp are not pre-staged (do not support `execute_if_off`). All lamps are not pre-staged.
+MQTT-based pre-staging is deployed for all Standard and Avery Schedule fixtures, the Z2M-managed Color Only ceiling fixtures (entrance ceiling, bathroom hallway ceiling), and the Portable Accent Lamp. Kitchen counter strip is not pre-staged (not Z2M-managed). Kitchen sink bulb, Office Bourbon Lamp, and Master Bedroom Nightstand Lamp are not pre-staged (do not support `execute_if_off`). Remaining lamps are not pre-staged.
 
 ---
 
@@ -25,14 +25,14 @@ Standard (brightness + color)                Color Only (color only; autoreset o
 │  light.living_room_fan (3 bulbs)           │  light.kitchen_counter_strip
 │  light.office_ceiling (2 bulbs)            │  light.kitchen_sink_bulb
 └── automation.al_pre_stage_standard ────┐   │  light.bathroom_hallway_ceiling (2 bulbs)
-    (triggers on Standard brightness_pct; │   │  light.bathroom_night_lamp
-     covers Standard + Color Only ceiling ┘   │  light.living_room_status_lamp
-     fixtures)                                │  light.office_presence_sensor
+    (triggers on Standard brightness_pct; │   │  light.portable_accent_lamp          ← pre-staged
+     covers Standard + Color Only ceiling ┘   │  light.bathroom_night_lamp
+     fixtures + Portable Accent Lamp)         │  light.living_room_status_lamp
+                                              │  light.office_presence_sensor
                                               │  light.avery_room_desk_lamp
                                               │  light.office_bourbon_lamp
                                               │  light.master_bedroom_nightstand_lamp_left
-                                              │  light.portable_accent_lamp
-                                              └── (no pre-staging for lamps)
+                                              └── (remaining lamps not pre-staged)
 
 Avery Schedule (brightness + color; earlier evening)
 │  light.avery_room_ceiling (2 bulbs)
@@ -290,7 +290,7 @@ Then confirm the bulb actually honors `execute_if_off` before committing to the 
 
 ### Deployed automation: AL Pre-Stage — Standard (`automation.al_pre_stage_standard`)
 
-Covers all Standard and Color Only ceiling fixtures with Z2M-managed bulbs. Standard fixtures receive full payloads (brightness + color temp). Entrance Ceiling and Bathroom Hallway Ceiling receive color-only payloads (brightness omitted — adapt_brightness is off for Color Only). Kitchen Counter Strip is not pre-staged (not Z2M-managed). Kitchen Sink Bulb and Office Bourbon Lamp are not pre-staged (do not support `execute_if_off`). All lamps (`light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`, `light.avery_room_desk_lamp`, `light.master_bedroom_nightstand_lamp_left`, `light.portable_accent_lamp`) are not pre-staged.
+Covers all Standard and Color Only ceiling fixtures with Z2M-managed bulbs, plus the Portable Accent Lamp. Standard fixtures receive full payloads (brightness + color temp). Color Only fixtures receive color-only payloads (brightness omitted — adapt_brightness is off). Kitchen Counter Strip is not pre-staged (not Z2M-managed). Kitchen Sink Bulb, Office Bourbon Lamp, and Master Bedroom Nightstand Lamp are not pre-staged (do not support `execute_if_off`). Remaining lamps (`light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`, `light.avery_room_desk_lamp`) are not pre-staged.
 
 ```yaml
 alias: AL Pre-Stage — Standard
@@ -582,6 +582,27 @@ action:
                   "state": null,
                   "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
                 }
+
+  - alias: Stagger before next fixture
+    delay:
+      milliseconds: 500
+
+  - alias: Portable Accent Lamp — pre-stage if currently off (color-only)
+    if:
+      - alias: Lamp is off
+        condition: state
+        entity_id: light.portable_accent_lamp
+        state: "off"
+    then:
+      - alias: Publish current AL color temp to Portable Accent Lamp
+        action: mqtt.publish
+        data:
+          topic: "zigbee2mqtt/Portable Accent Lamp/set"
+          payload: >-
+            {
+              "state": null,
+              "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
+            }
 ```
 
 ### Deployed automation: AL Pre-Stage — Avery Schedule (`automation.al_pre_stage_avery_schedule`)
