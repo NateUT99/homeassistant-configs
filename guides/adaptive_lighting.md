@@ -214,17 +214,21 @@ All other settings match Standard. The morning ramp is shared (same wake-up sche
 
 **Lights:** `light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`
 
-Status Lamps is a flat-brightness AL profile for indicator-style and night-navigation lamps. AL adjusts color temperature following the same schedule as the canonical instances, but brightness is pinned at 35%. This ensures:
+Status Lamps is a color-only AL profile for indicator-style and night-navigation lamps. Like Color Only, `adapt_brightness` is off — AL adjusts color temperature only; brightness is set entirely by the calling automations. Brightness by state:
 
-- Bare `light.turn_on` calls (e.g., the "everyone sleeping" fallback in `automation.luminance_bathroom_night_lamp`) land at a usable brightness, not a 60–95% curve.
-- Status colors (red for alarm, green for guest mode) set by `automation.sync_living_room_status_lamp_to_alarm_and_guest_modes` persist indefinitely — `autoreset_control_seconds: 0` prevents AL from resuming color adaptation after 30 min.
+- **Alarm armed away** (`automation.sync_living_room_status_lamp_to_alarm_and_guest_modes`): red at 50%
+- **Guest mode** (same automation): green at 50%
+- **Everyone sleeping** (same automation): warm white at 35%
+- **Bare turn-on** (`automation.luminance_bathroom_night_lamp`): last brightness (AL does not touch brightness)
+
+`autoreset_control_seconds: 0` prevents AL from resuming color adaptation after any explicit state change — status colors persist until the light is turned off.
 
 **Runtime switches:**
 
 | Entity ID | Default State |
 |---|---|
 | `switch.status_lamps_adaptive_lighting_status_lamps` | on |
-| `switch.adaptive_lighting_status_lamps_adaptive_lighting_adapt_brightness_status_lamps` | on |
+| `switch.adaptive_lighting_status_lamps_adaptive_lighting_adapt_brightness_status_lamps` | **off** — leave this off |
 | `switch.adaptive_lighting_status_lamps_adaptive_lighting_adapt_color_status_lamps` | on |
 | `switch.adaptive_lighting_status_lamps_adaptive_lighting_sleep_mode_status_lamps` | off |
 
@@ -237,9 +241,9 @@ Status Lamps is a flat-brightness AL profile for indicator-style and night-navig
 | `interval` | `90` | Matches Color Only baseline. |
 | `transition` | `45` | |
 | `initial_transition` | `1` | |
-| `min_brightness` | `35` | **Load-bearing.** See callout below. |
-| `max_brightness` | `35` | **Load-bearing.** Flat brightness — no curve. |
-| `sleep_brightness` | `35` | **Load-bearing.** Bathroom night lamp must stay usable when "everyone sleeping" fires. |
+| `min_brightness` | `35` | Not applied (adapt_brightness switch is off). Set as a safe default if brightness adaptation is ever re-enabled. |
+| `max_brightness` | `35` | Same — safe default only. |
+| `sleep_brightness` | `35` | Same — safe default only. |
 | `min_color_temp` | `2000` | |
 | `max_color_temp` | `5500` | |
 | `sleep_color_temp` | `2000` | |
@@ -263,7 +267,7 @@ Status Lamps is a flat-brightness AL profile for indicator-style and night-navig
 | `separate_turn_on_commands` | `true` | |
 | `adapt_delay` | `0` | |
 
-> **Coordinated change:** `min_brightness`, `max_brightness`, `sleep_brightness`, and `autoreset_control_seconds` are load-bearing for two calling automations. `autoreset_control_seconds: 0` prevents AL from overwriting a status color (red alarm indicator, green guest mode) after 30 min — `automation.sync_living_room_status_lamp_to_alarm_and_guest_modes` only re-fires on state changes, so a re-armed alarm would lose its red indicator silently if autoreset were nonzero. `min_brightness: 35`, `max_brightness: 35`, and `sleep_brightness: 35` ensure that `automation.luminance_bathroom_night_lamp`'s bare `light.turn_on` calls land at a navigable brightness at all hours. Do **not** align these four settings to Standard or Color Only.
+> **Coordinated change:** `autoreset_control_seconds: 0` is load-bearing. `automation.sync_living_room_status_lamp_to_alarm_and_guest_modes` only re-fires on alarm/guest/sleep state changes — a re-armed alarm would silently lose its red indicator after 30 min if autoreset were nonzero. Do not align this setting to Standard or Color Only. The `min_brightness`, `max_brightness`, and `sleep_brightness` values are not currently applied (adapt_brightness switch is off) but are set to 35 as a safe default if brightness adaptation is ever re-enabled.
 
 ---
 
