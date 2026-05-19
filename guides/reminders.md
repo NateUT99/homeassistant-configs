@@ -7,7 +7,7 @@
 
 A recurring-reminder framework built from native HA helpers and automations. Each reminder tracks a last-done date and a configurable interval; the system automatically computes when the task is next due, marks it overdue, notifies via iPhone, and closes the loop when the user marks it complete directly from the lock screen.
 
-The framework uses two shared automations that handle every reminder centrally. Per-item configuration is purely a set of helpers and one Calculate Due automation. Adding a new reminder requires only creating those helpers and registering the new sensor in two lists inside the shared automations.
+The framework uses two shared automations that handle every reminder centrally. Per-item configuration is three helpers (last-done date, interval, and an overdue binary sensor) plus a reactive template sensor for the due date. Adding a new reminder requires only creating those artifacts and registering the new sensor in the shared automations.
 
 ---
 
@@ -16,10 +16,8 @@ The framework uses two shared automations that handle every reminder centrally. 
 ```
 input_datetime.<key>       input_number.<key>_offset
         └──────┬───────────────────┘
-               ▼
-  automation.calculate_and_set_<key>_due   (per-item, state trigger)
-               ▼
-   input_datetime.<key>_due
+               ▼ (template sensor, reactive)
+   sensor.<key>_due
                ▼
   binary_sensor.<key>_overdue   (template helper: today() > due)
                │
@@ -42,7 +40,7 @@ input_datetime.<key>       input_number.<key>_offset
    automation.handle_reminder_mark_complete_action
                      ▼
    input_datetime.<key> ← today()
-   (triggers Calculate → rolls _due forward → sensor flips off → notification clears)
+   (sensor.<key>_due updates reactively → overdue sensor flips off → notification clears)
 ```
 
 **Key design decisions:**
@@ -50,7 +48,7 @@ input_datetime.<key>       input_number.<key>_offset
 - *Two shared automations, not one per reminder.* All 8 reminders share `automation.manage_reminder_notifications` and `automation.handle_reminder_mark_complete_action`. New reminders register in two lists; no new automations needed beyond the per-item Calculate Due.
 - *Tag-based notification lifecycle.* Each reminder's notification carries a stable `reminder_<key>` tag. The daily re-send replaces (not stacks) the on-screen notification; the clear path uses the same tag. iOS lock screen never accumulates duplicates.
 - *Action ID encodes the input_datetime key.* The `REMINDER_MARK_COMPLETE_<key>` action ID doubles as the `input_datetime` entity name suffix. The handler parses it at runtime, requiring no lookup table and routing any reminder with one automation.
-- *Calculate Due is intentionally left simple.* It's a state trigger → service call, no conditions, no aliases. All the interesting logic lives in the overdue template and the shared notification automation. Phase 2 will replace these with template date sensors and remove them.
+- *Due date is a reactive template sensor.* `sensor.<key>_due` computes `last-done + offset` as a template. It updates the moment either `input_datetime.<key>` or `input_number.<key>_offset` changes — no automation needed to keep it in sync.
 
 ---
 
@@ -95,18 +93,17 @@ Entity ID will be `input_datetime.<key>` (e.g., `input_datetime.accord_washed`).
 
 Entity ID: `input_number.<key>_offset`.
 
-**3. Create the due-date helper**
+**3. Create the due-date template sensor**
 
-*Helpers → Create Helper → Date and/or time*
+*Settings → Devices & Services → Helpers → Create Helper → Template → Sensor*
 
 | Field | Value |
 |---|---|
 | Name | `<Object> <Action> Due` |
-| Has date | Yes |
-| Has time | No |
-| Icon | `mdi:calendar` |
+| Template | `{{ (strptime(states('input_datetime.<key>'), '%Y-%m-%d') + timedelta(days=states('input_number.<key>_offset') \| int)).strftime('%Y-%m-%d') }}` |
+| Device class | Date |
 
-Entity ID: `input_datetime.<key>_due`. After creating, manually set this to `<last-done date> + <offset>` days to match current state. The Calculate automation will keep it in sync going forward.
+Entity ID: `sensor.<key>_due`. The sensor updates reactively whenever either input changes — no automation needed.
 
 **4. Create the overdue binary sensor**
 
@@ -115,40 +112,12 @@ Entity ID: `input_datetime.<key>_due`. After creating, manually set this to `<la
 | Field | Value |
 |---|---|
 | Name | `<Object> <Action> Overdue` |
-| Template | `{{ now().date() > as_datetime(states('input_datetime.<key>_due')).date() }}` |
+| Template | `{{ now().date() > strptime(states('sensor.<key>_due'), '%Y-%m-%d').date() }}` |
 | Device class | Problem |
 
 Entity ID: `binary_sensor.<key>_overdue`. HA sets it `on` when the template evaluates to `True`.
 
-**5. Create the Calculate Due automation**
-
-*Settings → Automations → Create Automation*
-
-Use the YAML below as a template. Paste via *Edit in YAML* in the automation editor:
-
-```yaml
-alias: "Calculate and set \"<Object> <Action> Due\""
-description: "Recompute the due date when the last-done date or interval changes."
-mode: single
-trigger:
-  - alias: "Last-done date or interval changed"
-    platform: state
-    entity_id:
-      - input_datetime.<key>
-      - input_number.<key>_offset
-action:
-  - alias: "Set due date to last-done + offset"
-    action: input_datetime.set_datetime
-    target:
-      entity_id: input_datetime.<key>_due
-    data:
-      date: >-
-        {% set base = strptime(states('input_datetime.<key>'), '%Y-%m-%d') %}
-        {% set days = states('input_number.<key>_offset') | int %}
-        {{ (base + timedelta(days=days)).strftime('%Y-%m-%d') }}
-```
-
-**6. Register the new sensor in the shared notification automations**
+**5. Register the new sensor in the shared notification automations**
 
 In `automation.manage_reminder_notifications`, add `binary_sensor.<key>_overdue` to **both** the `edge_on` trigger's `entity_id` list and the `edge_off` trigger's `entity_id` list. Also add `<key>` (without `_overdue`) to the `for_each` list in the daily branch.
 
@@ -276,14 +245,14 @@ action:
 
 *Friendly name: Handle reminder Mark Complete action*
 
-When the user taps *Mark Complete* on a reminder notification, this automation sets the corresponding last-done date to today. That triggers the per-item Calculate Due automation, which rolls the due date forward, which flips the overdue sensor off, which triggers the edge_off branch above to clear the notification.
+When the user taps *Mark Complete* on a reminder notification, this automation sets the corresponding last-done date to today. The `sensor.<key>_due` template sensor then updates reactively, which flips the overdue binary sensor off, which triggers the edge_off branch above to clear the notification.
 
 ```yaml
 alias: "Handle reminder Mark Complete action"
 description: >-
   When the user taps Mark Complete on a reminder notification, set the corresponding
-  last-done date to today. This closes the loop: Calculate Due rolls the due date forward,
-  the overdue sensor flips off, and the notification clears automatically.
+  last-done date to today. This closes the loop: the due-date template sensor updates
+  reactively, the overdue sensor flips off, and the notification clears automatically.
 mode: parallel
 max: 8
 trigger:
@@ -322,33 +291,8 @@ action:
 |---|---|---|---|
 | Accord Washed | `input_datetime.accord_washed` | `input_datetime` | Last-done date (user-sets to mark complete) |
 | Accord Washed Offset | `input_number.accord_washed_offset` | `input_number` | 30 days |
-| Accord Washed Due | `input_datetime.accord_washed_due` | `input_datetime` | Derived due date (auto-set by Calculate automation) |
+| Accord Washed Due | `sensor.accord_washed_due` | `sensor` (template, date) | `(last-done + 30 days)` computed reactively |
 | Accord Washed Overdue | `binary_sensor.accord_washed_overdue` | `binary_sensor` (template) | `on` when today > due |
-
-### Per-item Calculate Due automation
-
-Entity ID: `automation.calculate_and_set_accord_washed_due`
-
-```yaml
-alias: "Calculate and set \"Accord Washed Due\""
-mode: single
-trigger:
-  - platform: state
-    entity_id:
-      - input_datetime.accord_washed
-      - input_number.accord_washed_offset
-action:
-  - action: input_datetime.set_datetime
-    target:
-      entity_id: input_datetime.accord_washed_due
-    data:
-      date: >-
-        {% set base = strptime(states('input_datetime.accord_washed'), '%Y-%m-%d') %}
-        {% set days = states('input_number.accord_washed_offset') | int %}
-        {{ (base + timedelta(days=days)).strftime('%Y-%m-%d') }}
-```
-
-> **Note:** The existing Calculate Due automations predate the alias convention in `CLAUDE.md` and do not include `alias` or `description` fields. This will be addressed in the Phase 2 cleanup.
 
 ---
 
@@ -361,22 +305,18 @@ action:
 | Manage reminder notifications | `automation.manage_reminder_notifications` | automation |
 | Handle reminder Mark Complete action | `automation.handle_reminder_mark_complete_action` | automation |
 
-### Per-reminder helpers and automations
+### Per-reminder helpers
 
-| Reminder | Last-Done Helper | Offset Helper | Due Helper | Overdue Sensor | Calculate Automation |
-|---|---|---|---|---|---|
-| Accord Washed | `input_datetime.accord_washed` | `input_number.accord_washed_offset` | `input_datetime.accord_washed_due` | `binary_sensor.accord_washed_overdue` | `automation.calculate_and_set_accord_washed_due` |
-| Coffee Grinder Cleaned | `input_datetime.coffee_grinder_cleaned` | `input_number.coffee_grinder_cleaned_offset` | `input_datetime.coffee_grinder_cleaned_due` | `binary_sensor.coffee_grinder_cleaned_overdue` | `automation.caclulate_and_set_coffee_grinder_cleaned_due` ¹ |
-| Dishwasher Cleaned | `input_datetime.dishwasher_cleaned` | `input_number.dishwasher_cleaned_offset` | `input_datetime.dishwasher_cleaned_due` | `binary_sensor.dishwasher_cleaned_overdue` | `automation.caclulate_and_set_dishwasher_cleaned_due` ¹ |
-| Disposal Cleaned | `input_datetime.disposal_cleaned` | `input_number.disposal_cleaned_offset` | `input_datetime.disposal_cleaned_due` | `binary_sensor.disposal_cleaned_overdue` | `automation.caclulate_and_set_disposal_cleaned_due` ¹ |
-| Razor Blade Changed | `input_datetime.razor_blade_changed` | `input_number.razor_blade_changed_offset` | `input_datetime.razor_blade_changed_due` | `binary_sensor.razor_blade_changed_overdue` | `automation.caclulate_and_set_razor_blade_changed_due` ¹ |
-| Toothbrushes Changed | `input_datetime.toothbrushes_changed` | `input_number.toothbrushes_changed_offset` | `input_datetime.toothbrushes_changed_due` | `binary_sensor.toothbrushes_changed_overdue` | `automation.toothbrush` ² |
-| Washer Cleaned | `input_datetime.washer_cleaned` | `input_number.washer_cleaned_offset` | `input_datetime.washer_cleaned_due` | `binary_sensor.washer_cleaned_overdue` | `automation.caclulate_and_set_washer_cleaned_due` ¹ |
-| Water Filter Changed | `input_datetime.water_filter_changed` | `input_number.water_filter_changed_offset` | `input_datetime.water_filter_changed_due` | `binary_sensor.water_filter_changed_overdue` | `automation.caclulate_and_set_water_filter_changed_due` ¹ |
-
-¹ Entity ID has a typo (`caclulate` instead of `calculate`). Functionally correct; will be renamed in Phase 2.
-
-² Entity ID is `automation.toothbrush` (does not follow the naming pattern). Will be renamed in Phase 2.
+| Reminder | Last-Done Helper | Offset Helper | Due Sensor | Overdue Sensor |
+|---|---|---|---|---|
+| Accord Washed | `input_datetime.accord_washed` | `input_number.accord_washed_offset` | `sensor.accord_washed_due` | `binary_sensor.accord_washed_overdue` |
+| Coffee Grinder Cleaned | `input_datetime.coffee_grinder_cleaned` | `input_number.coffee_grinder_cleaned_offset` | `sensor.coffee_grinder_cleaned_due` | `binary_sensor.coffee_grinder_cleaned_overdue` |
+| Dishwasher Cleaned | `input_datetime.dishwasher_cleaned` | `input_number.dishwasher_cleaned_offset` | `sensor.dishwasher_cleaned_due` | `binary_sensor.dishwasher_cleaned_overdue` |
+| Disposal Cleaned | `input_datetime.disposal_cleaned` | `input_number.disposal_cleaned_offset` | `sensor.disposal_cleaned_due` | `binary_sensor.disposal_cleaned_overdue` |
+| Razor Blade Changed | `input_datetime.razor_blade_changed` | `input_number.razor_blade_changed_offset` | `sensor.razor_blade_changed_due` | `binary_sensor.razor_blade_changed_overdue` |
+| Toothbrushes Changed | `input_datetime.toothbrushes_changed` | `input_number.toothbrushes_changed_offset` | `sensor.toothbrushes_changed_due` | `binary_sensor.toothbrushes_changed_overdue` |
+| Washer Cleaned | `input_datetime.washer_cleaned` | `input_number.washer_cleaned_offset` | `sensor.washer_cleaned_due` | `binary_sensor.washer_cleaned_overdue` |
+| Water Filter Changed | `input_datetime.water_filter_changed` | `input_number.water_filter_changed_offset` | `sensor.water_filter_changed_due` | `binary_sensor.water_filter_changed_overdue` |
 
 ---
 
@@ -392,7 +332,7 @@ action:
 
 The clear fires when the `binary_sensor.<key>_overdue` flips from `on` to `off`. Check:
 1. Did the last-done date actually update? (Check `input_datetime.<key>` state.)
-2. Did the Calculate Due automation fire and update `input_datetime.<key>_due`? (Check `automation.calculate_and_set_<key>_due` traces.)
+2. Did `sensor.<key>_due` update to the new due date? It updates reactively; if it shows `unavailable`, inspect the template in Developer Tools → Template.
 3. Is the overdue sensor's due-date comparison still evaluating correctly? (Check `binary_sensor.<key>_overdue` state and trace via Developer Tools → Template.)
 4. If the sensor flipped off but the notification did not clear, check the `edge_off` branch in `automation.manage_reminder_notifications`. The `tag` must match exactly (`reminder_<key>`) between the send and clear calls.
 

@@ -1,5 +1,5 @@
 # Home Assistant Device & Entity Naming Standard
-*Version 1.0 — March 2026*
+*Version 1.1 — May 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.1 | May 2026 | Added Reminder Naming section (§9) |
 | 1.0 | March 2026 | Initial release |
 
 ---
@@ -236,3 +237,35 @@ The entity ID remains the same, only the domain changes from `switch` to `light`
 | Motion sensor | `binary_sensor.[area]_[device]_motion` | `binary_sensor.bathroom_night_lamp_motion` |
 | Media player | `media_player.[area]_[brand/type]` | `media_player.living_room_sonos` |
 | Vacuum | `vacuum.[model_name]` | `vacuum.roborock_q8_max` |
+
+---
+
+## 9. Reminder Helpers
+
+Reminders are conceptual tasks, not location-bound, so they carry no area prefix. The key is built from the object being acted on and the action performed.
+
+### 9.1 Key Pattern
+
+```
+<object>_<action>
+```
+
+The key is shared across all helpers for a given reminder. For example, `accord_washed` is the key for all four helpers that track the car wash reminder.
+
+### 9.2 Helper Entity ID Patterns
+
+| Helper | Pattern | Example |
+|---|---|---|
+| Last-done date | `input_datetime.<key>` | `input_datetime.accord_washed` |
+| Interval (days) | `input_number.<key>_offset` | `input_number.accord_washed_offset` |
+| Due date | `sensor.<key>_due` | `sensor.accord_washed_due` |
+| Overdue flag | `binary_sensor.<key>_overdue` | `binary_sensor.accord_washed_overdue` |
+
+### 9.3 Rules
+
+- **No area prefix** — reminders describe household tasks, not physical locations.
+- **`_offset` suffix** on the interval helper — not `_interval` or `_days`. Consistent across all reminders.
+- **`_due` suffix** on the due-date sensor — not `_next_due` or `_due_date`.
+- **`_overdue` suffix** on the binary sensor — `device_class: problem`. This suffix drives the notification automation's tag and action ID derivation.
+- **Object before action** in the key — `accord_washed` not `wash_accord`; `dishwasher_cleaned` not `clean_dishwasher`.
+- **Past-tense action** in the key — `washed`, `cleaned`, `changed` — not imperative (`wash`, `clean`, `change`). The key names the event that marks completion.
