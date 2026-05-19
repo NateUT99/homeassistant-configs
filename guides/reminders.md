@@ -19,7 +19,7 @@ input_datetime.<key>       input_number.<key>_offset
                ▼ (template sensor, reactive)
    sensor.<key>_due
                ▼
-  binary_sensor.<key>_overdue   (template helper: today() > due)
+  binary_sensor.<key>_overdue   (template helper: today() >= due)
                │
                │
   on/off edges─┴──── 09:00 daily time trigger
@@ -112,7 +112,7 @@ Entity ID: `sensor.<key>_due`. The sensor updates reactively whenever either inp
 | Field | Value |
 |---|---|
 | Name | `<Object> <Action> Overdue` |
-| Template | `{{ now().date() > strptime(states('sensor.<key>_due'), '%Y-%m-%d').date() }}` |
+| Template | `{{ now().date() >= strptime(states('sensor.<key>_due'), '%Y-%m-%d').date() }}` |
 | Device class | Problem |
 
 Entity ID: `binary_sensor.<key>_overdue`. HA sets it `on` when the template evaluates to `True`.
