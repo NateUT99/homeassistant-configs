@@ -21,6 +21,7 @@ Version-controlled documentation, standards, and supporting scripts for a person
 | [Adaptive Lighting](guides/adaptive_lighting.md) | AL configuration, curve design, and MQTT-based pre-staging procedure for Zigbee bulbs |
 | [Hue Sync & TV Bias Lighting](guides/hue_sync.md) | Living Room bias light and Hue Sync Box automation system |
 | [Logitech Litra Glow](guides/litra_glow.md) | Key light exposed as a native HA light entity via SSH and the `litra-rs` CLI |
+| [Reminder System](guides/reminders.md) | Recurring maintenance reminders with actionable iOS notifications and automatic completion loop |
 
 ### Scripts
 
