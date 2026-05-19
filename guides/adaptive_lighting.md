@@ -612,13 +612,19 @@ Covers Avery Room Ceiling. Same pattern as Standard — full brightness + color 
 ```yaml
 alias: AL Pre-Stage — Avery Schedule
 description: >-
-  Keeps bulbs covered by Avery Schedule pre-loaded with the current Adaptive
-  Lighting brightness and color temperature whenever they are off. Same payload
-  structure as Standard — full brightness + color_temp. The schedule difference
-  (earlier evening) is handled by the AL switch's own configuration.
+  Keeps bulbs covered by Avery Schedule pre-loaded with the current
+  Adaptive Lighting brightness and color temperature whenever they are
+  off. With execute_if_off enabled on the bulbs (set via direct MQTT
+  publish), Z2M stores the values without turning the bulb on — so the
+  next turn-on, from any source, lands at the correct adapted state
+  instead of the last-on values.
 
-  Currently covers Avery Room Ceiling only. The stagger pattern is in place
-  for future additions.
+  Runs on a 10-minute schedule. Reads from
+  switch.adaptive_lighting_avery_schedule so it follows Avery's earlier
+  evening schedule clamp rather than the household schedule.
+
+  Currently covers Avery Room Ceiling only. The stagger pattern is in
+  place for future additions.
 
 mode: single
 max_exceeded: silent
@@ -627,11 +633,8 @@ variables:
   al_switch: switch.adaptive_lighting_avery_schedule
 
 trigger:
-  - id: brightness_changed
-    alias: AL recalculated brightness_pct
-    platform: state
-    entity_id: switch.adaptive_lighting_avery_schedule
-    attribute: brightness_pct
+  - trigger: time_pattern
+    minutes: /10
 
 action:
   - alias: Pre-stage Avery Room Ceiling bulbs in parallel
