@@ -167,7 +167,7 @@ Each instance is configured at **Settings → Devices & Services → Adaptive Li
 
 ### 2b. Color Only
 
-**Lights:** `light.entrance_ceiling`, `light.kitchen_counter_strip`, `light.bathroom_hallway_ceiling`
+**Lights:** `light.entrance_ceiling`, `light.kitchen_counter_strip`, `light.kitchen_sink_bulb`, `light.bathroom_hallway_ceiling`
 
 Color Only has identical configuration to Standard. The distinction is that `switch.adaptive_lighting_adapt_brightness_color_only` is permanently **off** — AL only adjusts color temperature, not brightness, on these fixtures.
 
