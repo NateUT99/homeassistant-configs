@@ -10,12 +10,10 @@ The canonical document for Adaptive Lighting (AL) configuration in this home. Co
 Adaptive Lighting adjusts lights' brightness and color temperature through the day based on a configurable sun-position curve. Three canonical AL instances are maintained:
 
 - **Standard** — brightness + color adaptation for main ceiling fixtures (`light.master_bedroom_fan`, `light.living_room_fan`, `light.office_ceiling`).
-- **Color Only** — color-only adaptation (adapt_brightness permanently off) for fixtures where brightness is set manually, indicator/night-navigation lamps, and portable lamps (`light.entrance_ceiling`, `light.kitchen_counter_strip`, `light.kitchen_sink_bulb`, `light.bathroom_hallway_ceiling`, `light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`, `light.avery_room_desk_lamp`, `light.office_bourbon_lamp`). `autoreset_control_seconds: 0` ensures manually-set colors persist indefinitely.
+- **Color Only** — color-only adaptation (adapt_brightness permanently off) for fixtures where brightness is set manually, indicator/night-navigation lamps, and portable lamps (`light.entrance_ceiling`, `light.kitchen_counter_strip`, `light.kitchen_sink_bulb`, `light.bathroom_hallway_ceiling`, `light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`, `light.avery_room_desk_lamp`, `light.office_bourbon_lamp`, `light.master_bedroom_nightstand_lamp_left`, `light.portable_accent_lamp`). `autoreset_control_seconds: 0` ensures manually-set colors persist indefinitely.
 - **Avery Schedule** — brightness + color adaptation on an earlier evening schedule for Avery's room (`light.avery_room_ceiling`).
 
-Four legacy AL instances also exist and are pending decommission — see [Legacy instances](#legacy-instances). They are not part of this guide's configuration model.
-
-MQTT-based pre-staging is deployed for all Standard and Avery Schedule fixtures, and for the Z2M-managed Color Only ceiling fixtures (entrance ceiling, bathroom hallway ceiling). Kitchen counter strip is not pre-staged (not Z2M-managed). Kitchen sink bulb is not pre-staged (does not support `execute_if_off`). Indicator lamps are not pre-staged.
+MQTT-based pre-staging is deployed for all Standard and Avery Schedule fixtures, and for the Z2M-managed Color Only ceiling fixtures (entrance ceiling, bathroom hallway ceiling). Kitchen counter strip is not pre-staged (not Z2M-managed). Kitchen sink bulb and Office Bourbon Lamp are not pre-staged (do not support `execute_if_off`). All lamps are not pre-staged.
 
 ---
 
@@ -32,6 +30,8 @@ Standard (brightness + color)                Color Only (color only; autoreset o
      fixtures)                                │  light.office_presence_sensor
                                               │  light.avery_room_desk_lamp
                                               │  light.office_bourbon_lamp
+                                              │  light.master_bedroom_nightstand_lamp_left
+                                              │  light.portable_accent_lamp
                                               └── (no pre-staging for lamps)
 
 Avery Schedule (brightness + color; earlier evening)
@@ -169,7 +169,7 @@ Each instance is configured at **Settings → Devices & Services → Adaptive Li
 
 ### 2b. Color Only
 
-**Lights:** `light.entrance_ceiling`, `light.kitchen_counter_strip`, `light.kitchen_sink_bulb`, `light.bathroom_hallway_ceiling`, `light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`, `light.avery_room_desk_lamp`, `light.office_bourbon_lamp`
+**Lights:** `light.entrance_ceiling`, `light.kitchen_counter_strip`, `light.kitchen_sink_bulb`, `light.bathroom_hallway_ceiling`, `light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`, `light.avery_room_desk_lamp`, `light.office_bourbon_lamp`, `light.master_bedroom_nightstand_lamp_left`, `light.portable_accent_lamp`
 
 Color Only shares most configuration with Standard. Two distinctions:
 
@@ -290,7 +290,7 @@ Then confirm the bulb actually honors `execute_if_off` before committing to the 
 
 ### Deployed automation: AL Pre-Stage — Standard (`automation.al_pre_stage_standard`)
 
-Covers all Standard and Color Only ceiling fixtures with Z2M-managed bulbs. Standard fixtures receive full payloads (brightness + color temp). Entrance Ceiling and Bathroom Hallway Ceiling receive color-only payloads (brightness omitted — adapt_brightness is off for Color Only). Kitchen Counter Strip is not pre-staged (not Z2M-managed). Kitchen Sink Bulb and Office Bourbon Lamp are not pre-staged (do not support `execute_if_off`). Remaining Color Only lamps (`light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`, `light.avery_room_desk_lamp`) are not pre-staged.
+Covers all Standard and Color Only ceiling fixtures with Z2M-managed bulbs. Standard fixtures receive full payloads (brightness + color temp). Entrance Ceiling and Bathroom Hallway Ceiling receive color-only payloads (brightness omitted — adapt_brightness is off for Color Only). Kitchen Counter Strip is not pre-staged (not Z2M-managed). Kitchen Sink Bulb and Office Bourbon Lamp are not pre-staged (do not support `execute_if_off`). All lamps (`light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`, `light.avery_room_desk_lamp`, `light.master_bedroom_nightstand_lamp_left`, `light.portable_accent_lamp`) are not pre-staged.
 
 ```yaml
 alias: AL Pre-Stage — Standard
@@ -657,22 +657,13 @@ To pre-stage a new fixture, add it to the relevant automation:
 
 - Standard or Color Only ceiling fixture → extend `automation.al_pre_stage_standard`
 - Avery Schedule fixture → extend `automation.al_pre_stage_avery_schedule`
-- Color Only indicator lamps (`light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`) are not pre-staged
+- Color Only lamps are not pre-staged (see exclusion list in the automation description above)
 
 Before extending: confirm the fixture's bulbs are Z2M-managed, collect bulb entity IDs (`light.[area]_[fixture]_bulb_[n]`) and Z2M friendly names, and run the functional test above.
 
 Add a new `parallel` block following the pattern of existing blocks, followed by a `delay: milliseconds: 500` stagger. For Standard fixtures, use the full payload (brightness + color temp). For Color Only fixtures, use the color-only payload (color temp only).
 
 Brightness conversion: AL exposes `brightness_pct` (0–100); Z2M expects `brightness` (0–254). Template: `{{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }}`.
-
----
-
-## Legacy instances
-
-Two AL instances from before the canonical-instance model are pending decommission. They are not managed as part of this guide's configuration model.
-
-- **Master Bedroom Accent Lamps** — `light.master_bedroom_nightstand_lamp_left`, `light.portable_accent_lamp`
-- **Outside - Porch Lights** — `light.outside_porch_ceiling`
 
 ---
 
