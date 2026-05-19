@@ -1,196 +1,296 @@
 # Adaptive Lighting
 *Last updated: May 2026*
 
-The canonical document for Adaptive Lighting (AL) configuration in this home. Covers the design and rationale for how AL is configured, the procedure for enabling MQTT-based pre-staging on a fixture, and the sleep mode integration required for the "Everyone Sleeping" automation.
+The canonical document for Adaptive Lighting (AL) configuration in this home. Covers the four canonical AL instance profiles, the sleep-mode wiring strategy, and the MQTT-based pre-staging system that prevents bulbs from flashing to their previous state on turn-on.
 
 ---
 
 ## Overview
 
-This document defines the Adaptive Lighting setup for this home: the curve shape, schedule clamps, brightness/color ranges, and behavioral settings shared across all AL switches, plus the procedure for enabling MQTT-based pre-staging — a Z2M-mediated technique that pre-loads current AL target values onto bulbs while they are off so they power up at the correct adapted state regardless of how the turn-on is triggered. The four primary fixtures are `light.living_room_fan`, `light.master_bedroom_fan`, `light.office_ceiling`, and `light.avery_room_ceiling`. The pre-staging procedure is fixture-agnostic and applies to any AL-managed fixture in the home.
+Adaptive Lighting adjusts lights' brightness and color temperature through the day based on a configurable sun-position curve. Four canonical AL instances are maintained:
+
+- **Standard** — brightness + color adaptation for main ceiling fixtures (`light.master_bedroom_fan`, `light.living_room_fan`, `light.office_ceiling`).
+- **Color Only** — color-only adaptation (adapt_brightness permanently off) for fixtures where brightness is set manually (`light.entrance_ceiling`, `light.kitchen_counter_strip`, `light.bathroom_hallway_ceiling`).
+- **Avery Schedule** — brightness + color adaptation on an earlier evening schedule for Avery's room (`light.avery_room_ceiling`).
+- **Status Lamps** — flat-brightness color adaptation for indicator and night-navigation lamps (`light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`). Brightness is pinned at 35%; status colors set by automations persist until the light is turned off.
+
+Five legacy AL instances also exist and are pending decommission — see [Legacy instances](#legacy-instances). They are not part of this guide's configuration model.
+
+MQTT-based pre-staging is deployed for all Standard and Avery Schedule fixtures, and for the Z2M-managed Color Only fixtures (entrance ceiling, bathroom hallway ceiling). Kitchen counter strip is not pre-staged.
 
 ---
 
 ## Architecture
 
-Each fixture has its own AL switch rather than a single shared switch. This allows per-light manual override without affecting other rooms (`take_over_control` is per-switch), per-light disable for troubleshooting, and per-room schedule variations like Avery's earlier sunset clamp. The tradeoff is that settings must be kept synchronized across switches; the Configuration Reference below is the canonical source.
+```
+Standard (brightness + color)                Color Only (color only)
+│  light.master_bedroom_fan (4 bulbs)        │  light.entrance_ceiling (2 bulbs)
+│  light.living_room_fan (3 bulbs)           │  light.kitchen_counter_strip
+│  light.office_ceiling (2 bulbs)            │  light.bathroom_hallway_ceiling (2 bulbs)
+└── automation.al_pre_stage_standard ────────┘
+    (triggers on Standard brightness_pct; covers both groups)
 
-### 1. Hybrid clamping over pure sun-tracking
+Avery Schedule (brightness + color; earlier evening)
+│  light.avery_room_ceiling (2 bulbs)
+└── automation.al_pre_stage_avery_schedule
 
-Adaptive Lighting's default behavior tracks the real sun, which means lights stay bright and cool past 9pm in summer and start warming/dimming by 5pm in winter. This negates the circadian benefit when the user's actual schedule is fixed year-round.
+Status Lamps (flat 35% brightness; autoreset off)
+   light.bathroom_night_lamp
+   light.living_room_status_lamp
+   light.office_presence_sensor
+```
 
-The four clamp settings (`min_sunrise_time`, `max_sunrise_time`, `min_sunset_time`, `max_sunset_time`) bound when AL's "sunrise event" and "sunset event" can occur. Within those bounds, AL still uses real sun position. Outside them, AL uses the clamp.
+### Design decisions
 
-This is the "hybrid sun-based but clamped to schedule" approach: meaningful seasonal variation, but never outside the user's actual day.
+#### 1. Hybrid clamping over pure sun-tracking
 
-### 2. `tanh` brightness mode over `default`
+AL's default behavior tracks the real sun, which means lights stay bright and cool past 9 pm in summer and start warming/dimming by 5 pm in winter. The four clamp settings (`min_sunrise_time`, `max_sunrise_time`, `min_sunset_time`, `max_sunset_time`) bound when AL's "sunrise event" and "sunset event" can occur. Within those bounds, AL still uses real sun position; outside them, AL uses the clamp. The result is meaningful seasonal variation but never outside the user's actual day.
 
-AL's `default` brightness mode produces a bell curve peaked at solar noon — meaning peak brightness is hit at noon, not at the user's preferred mid-morning point.
+#### 2. tanh brightness mode
 
-`tanh` mode decouples brightness ramp shape from sun elevation. Two settings (`brightness_mode_time_dark`, `brightness_mode_time_light`) define a smooth S-curve transition centered on the (clamped) sunrise/sunset events. This gives explicit control over when the morning ramp starts, when it completes, and the equivalent for the evening wind-down.
+AL's `default` brightness mode produces a bell curve peaked at solar noon — peak brightness is hit at noon, not at the user's preferred mid-morning point. `tanh` mode decouples brightness ramp shape from sun elevation. Two settings (`brightness_mode_time_dark`, `brightness_mode_time_light`) define a smooth S-curve centered on the (clamped) sunrise/sunset events, giving explicit control over when the morning ramp completes and when evening wind-down begins.
 
-The result: lights ramp from `min_brightness` to `max_brightness` over a configurable window, then hold at max through the day until the evening wind-down begins.
+#### 3. Standard vs Color Only: same curve, different brightness behavior
 
-### 3. Conservative brightness range
+Standard and Color Only share identical curve settings and schedule clamps. The distinction is behavioral: Standard fixtures are dimmer-capable ceiling lights where AL should own both brightness and color. Color Only fixtures are set to a user-preferred brightness at turn-on; AL should only guide color temperature. The `switch.adaptive_lighting_adapt_brightness_color_only` switch is permanently off.
 
-Range: `min_brightness: 60` to `max_brightness: 95`.
+Both instances read from `switch.adaptive_lighting_standard` in the pre-staging automation — they follow the same household schedule and produce identical curve outputs.
 
-The narrow range reflects two preferences:
+#### 4. Conservative brightness range
 
-- Never run lights at 100% (avoids glare and extends bulb life).
-- The 60% floor is the *evening floor before sleep mode triggers*, not the night floor. Sleep mode drops brightness to 5% independently of this curve.
+Standard range: `min_brightness: 60` to `max_brightness: 95`. The 60% floor is the evening floor *before sleep mode*, not the night floor — sleep mode drops brightness to `sleep_brightness: 2` independently. Tune `min_brightness` toward 40–50 if the wind-down hour feels too active.
 
-If 60% feels too active during the wind-down hour before sleep mode, drop toward 40–50%. The night experience is unaffected because sleep mode handles it.
+#### 5. Sleep mode via automation, not schedule
 
-### 4. Uniform color temperature range across all bulbs
+Sleep mode is not tied to a fixed time. It is triggered explicitly by the "Everyone Sleeping" automation, which calls `switch.turn_on` on each canonical instance's sleep-mode switch entity. This decouples sleep behavior from the AL curve — sleep mode kicks in only when actually going to bed. See [Step 3 — Sleep-mode wiring](#step-3--sleep-mode-wiring) for entity IDs.
 
-All bulbs use the same color temperature range so behavior feels consistent across the house:
+#### 6. Explicit commands win over adaptation
 
-- `min_color_temp` (warmest) = `2000K`. Hue's standard warmest value.
-- `max_color_temp` (coolest) = `5500K`. Below the typical 6500K maximum because 6500K reads as harsh blue-white in residential ceiling fixtures.
-- `sleep_color_temp` = `2000K`. Matches `min_color_temp` — bulb sits at its warmest during sleep mode.
+`adapt_only_on_bare_turn_on: true` means that when `light.turn_on` is called with brightness or color specified (a scene, voice command, "set to 70%"), AL skips adaptation and marks the light as manually controlled. Only "bare" turn-ons — `light.turn_on` with no brightness or color — are adapted to the curve. Apple Home turn-ons via Matter Hub and Z2M Aqara button triggers send bare turn-ons by default.
 
-### 5. Sleep mode handled by automation, not schedule
+#### 7. skip_redundant_commands tradeoff
 
-Sleep mode is not tied to a fixed time. It is triggered explicitly by the "Everyone Sleeping" automation, which calls `switch.turn_on` on each AL switch's sleep mode entity. This decouples sleep behavior from the AL curve — adult bedtime varies, and sleep mode kicks in only when actually going to bed, not on a schedule guess.
+With `skip_redundant_commands: true`, AL compares the target value against HA's recorded state before sending a command. If already equal, the command is skipped.
 
-Sleep settings: `sleep_brightness: 5`, `sleep_color_temp: 2000`.
+**Why enabled:** With ~15 bulbs across five instances running `interval: 90` cycles, redundant commands during flat parts of the curve (midday peak, overnight floor) generate meaningful Zigbee/Hue chatter.
 
-The sleep mode switch entities that the "Everyone Sleeping" automation must control:
+**Tradeoff:** A brief mesh hiccup or Z2M restart can leave HA's recorded state out of step with the bulb's actual state. AL silently skips a command, leaving the bulb at the wrong value until the curve target changes meaningfully. Recovery is automatic — the next sunrise or sunset transition forces fresh commands.
 
-- `switch.adaptive_lighting_sleep_mode_living_room_fan`
-- `switch.adaptive_lighting_sleep_mode_master_bedroom_fan`
-- `switch.adaptive_lighting_sleep_mode_office_ceiling`
-- `switch.adaptive_lighting_sleep_mode_avery_room_ceiling`
+#### 8. MQTT pre-staging for off-state bulbs
 
-> Verify these entity IDs against Developer Tools → States before referencing them in the automation — they may differ if AL switch names diverged from the naming standard during initial setup (e.g., `switch.adaptive_lighting_sleep_mode_office_ceiling_lights`).
+AL only sends commands to bulbs that are on. Off bulbs catch up via `intercept: true` when HA processes a `light.turn_on` call, but this has two failure modes:
 
-### 6. Explicit commands win over adaptation
+1. **Z2M command translation.** Z2M may translate the intercepted call into multiple sequential Zigbee commands — causing a brief flash at the bulb's previous on-state before new values land.
+2. **Turn-on paths that bypass HA.** Zigbee bindings, physical wall switches, or any other path that doesn't go through `light.turn_on`.
 
-When a `light.turn_on` call specifies brightness or color explicitly (e.g., a scene activation, a voice command like "set to 70%", a button bound to a specific level), AL skips adaptation and marks the light as manually controlled. Only "bare" turn-ons — `light.turn_on` with no brightness or color — get adapted to the curve.
+Pre-staging addresses both by publishing the current AL target values directly to each bulb via MQTT while the bulb is off. With `execute_if_off: true` enabled on the bulb, Z2M stores the values without turning it on. When any turn-on event occurs, the bulb powers up at the pre-staged values immediately.
 
-This is controlled by `adapt_only_on_bare_turn_on: true` and complements `take_over_control: true`. Together they implement: AL is the default behavior, but any explicit instruction wins. The light returns to adaptive mode the next time it is turned off and bare-turned-on.
-
-Apple Home turn-on via Matter Hub is compatible — Apple Home toggles arrive as bare `light.turn_on` and adapt as expected. Z2M Aqara button device triggers also send bare turn-ons unless explicitly bound to a brightness level.
-
-### 7. Skip redundant commands — traffic reduction tradeoff
-
-With `skip_redundant_commands: true`, AL compares the target value against HA's recorded state before sending a command. If they're already equal, the command is skipped entirely.
-
-**Why enabled:** With multiple fixtures (~15 bulbs total) all running the same `interval: 90` cycle, redundant commands during flat parts of the curve (midday peak, overnight floor) generate meaningful Zigbee chatter. Skipping them reduces mesh traffic and improves responsiveness for real changes.
-
-**The tradeoff:** A brief mesh hiccup or Z2M restart can leave HA's recorded state out of step with the bulb's actual state. In that window, AL would silently skip a command, leaving the bulb at the wrong value until the next interval where the curve target changes meaningfully. The failure mode is recoverable — the next sunrise or sunset transition forces fresh commands across the curve.
-
-### 8. MQTT pre-staging for off-state bulbs
-
-AL only sends commands to bulbs that are on. Off bulbs catch up via `intercept: true` when HA processes a `light.turn_on` call — AL hooks the call and adds the current brightness/color to the service data before it reaches the bulb.
-
-This is good but not perfect:
-
-1. **Z2M command translation.** Even when the intercepted call carries brightness/color, Z2M may translate it into multiple Zigbee commands (on, then level, then color) — causing a brief flash at the bulb's previous on-state before new values land.
-2. **Turn-on paths that bypass HA entirely.** Zigbee bindings, physical wall switches that cut power, or any other source that doesn't go through `light.turn_on`. Intercept can't help here.
-
-The pre-staging approach addresses both by publishing the current AL target values directly to the bulb via MQTT *while the bulb is off*. Combined with `execute_if_off: true` set on the bulb, Z2M stores these values without turning the bulb on. When any turn-on event occurs, the bulb powers up at the pre-staged values immediately. Bulbs that are currently on are left alone — AL continues to adapt them normally, preserving manual-control detection and smooth transitions.
-
-The pre-staging automation triggers only on `brightness_pct` attribute changes. Both values change in the same AL recalculation cycle and the payload sends both regardless of which attribute triggered, so triggering on one is sufficient. Brightness is chosen because it ramps monotonically and is more perceptually noticeable; color temperature can stay flat for stretches near solar noon where brightness still drifts.
-
-### Configuration Reference
-
-All switches share these values unless noted in [Per-Room Overrides](#per-room-overrides).
-
-#### Brightness
-
-| Setting | Value | Rationale |
-|---|---|---|
-| `min_brightness` | `60` | Evening floor before sleep mode. Tune down if wind-down feels too active. |
-| `max_brightness` | `95` | Daytime ceiling. Never run lights at 100%. |
-| `sleep_brightness` | `5` | Used when "Everyone Sleeping" automation triggers sleep mode. |
-
-#### Color Temperature
-
-| Setting | Value | Rationale |
-|---|---|---|
-| `min_color_temp` | `2000` | Warmest. Hue's standard warmest value. |
-| `max_color_temp` | `5500` | Coolest at solar noon. 6500K reads as harsh in residential ceiling fixtures. |
-| `sleep_color_temp` | `2000` | Matches `min_color_temp` — bulb sits at its warmest during sleep mode. |
-
-#### Curve Shape
-
-| Setting | Value | Rationale |
-|---|---|---|
-| `brightness_mode` | `tanh` | Smooth S-curve. Decouples ramp shape from sun elevation. |
-| `brightness_mode_time_dark` | `1800` | 30 min before clamped sunrise / after clamped sunset. Pre-ramp tail. |
-| `brightness_mode_time_light` | `5400` | 90 min after clamped sunrise / before clamped sunset. Defines when max is reached / when wind-down begins. |
-| `prefer_rgb_color` | `false` | All bulbs are color-temperature-tunable, no full RGB. |
-
-#### Schedule Clamps
-
-| Setting | Value | Rationale |
-|---|---|---|
-| `min_sunrise_time` | `06:30` | Earliest the morning ramp event can be anchored. Prevents 5am ramps in summer. |
-| `max_sunrise_time` | `07:30` | Latest the morning ramp event can be anchored. Ensures ramp is underway by 7am wake-up in winter. |
-| `min_sunset_time` | `20:00` | Earliest evening wind-down can begin. Overridden for Avery's room — see Per-Room Overrides. |
-| `max_sunset_time` | `21:00` | Latest evening wind-down anchor. Ensures fully warm/dim by ~21:30 year-round. |
-
-#### Behavior
-
-| Setting | Value | Rationale |
-|---|---|---|
-| `interval` | `90` | Seconds between adaptation cycles. Reasonable middle ground for Zigbee. |
-| `transition` | `45` | Seconds per adaptation step. Smooth fades on Hue bulbs. |
-| `initial_transition` | `1` | Seconds on first turn-on. Near-instant when manually flipped on. |
-| `take_over_control` | `true` | Manual brightness/color changes pause AL until light is off/on cycle. |
-| `adapt_only_on_bare_turn_on` | `true` | If `light.turn_on` is called with brightness/color specified (e.g., a scene), AL skips adaptation and marks the light as manually controlled. Bare turn-ons still adapt normally. |
-| `skip_redundant_commands` | `true` | Skips adaptation commands when target state already equals recorded state. Reduces Zigbee traffic. See Design Decision §7 for the state-sync caveat. |
-| `detect_non_ha_changes` | `false` | Reduces false-positive manual-control flags. |
-| `only_once` | `false` | Continuous adaptation throughout the day, not just at turn-on. |
-
-### Per-Room Overrides
-
-| Light | Override | Reason |
-|---|---|---|
-| `light.avery_room_ceiling` | `min_sunset_time: 19:30`, `max_sunset_time: 20:00` | Avery's bedtime is ~20:30 weekdays. Lights should be fully warm/dim before reading begins at 20:30. |
-
-All other settings on Avery's switch match the baseline. The morning ramp is shared because Avery wakes on the same schedule as the household.
+The pre-staging automation triggers on `brightness_pct` attribute changes. Both brightness and color temperature are sent in each publish — brightness is chosen as the trigger because it ramps monotonically.
 
 ---
 
 ## Prerequisites
 
-Before enabling pre-staging on a fixture, confirm:
-
-| Item | Why |
+| Item | Notes |
 |---|---|
-| Bulbs are paired to Z2M | The pre-staging mechanism uses Z2M's MQTT interface. |
-| Bulbs support `execute_if_off` | Hue bulbs (White Ambiance, Essentials) all do. The functional test in Step 4 confirms per-fixture. |
-| Fixture has an AL switch already configured | Must include `intercept: true`, `take_over_control: true`, and a sensible curve per this document. |
-| Bulbs are named per the HA naming standard | Entity IDs follow `light.[area]_[fixture]_bulb_[n]`. |
-| Z2M friendly names are known | The MQTT topic uses the Z2M friendly name verbatim, including spaces and case. Verify in the Z2M frontend before building the automation. |
+| HACS installed | Required to install AL. |
+| Bulbs paired to Z2M | Required for MQTT pre-staging. Non-Z2M bulbs (Hue bridge-managed) cannot be pre-staged. |
+| Bulbs support `execute_if_off` | All Hue White Ambiance and Essentials bulbs do. Verified by functional test in Step 4. |
+| Entity IDs follow the naming standard | Bulb entities follow `light.[area]_[fixture]_bulb_[n]`. |
+| Z2M friendly names known per bulb | MQTT topics use Z2M friendly names verbatim, including spaces and case. Verify in Z2M frontend. |
 
 ---
 
-## Implementation Steps
+## Step 1 — Install Adaptive Lighting via HACS
 
-Use this procedure to enable pre-staging on a fixture. The procedure is fixture-agnostic.
+1. Open **HACS → Integrations**, search for "Adaptive Lighting", download.
+2. Restart Home Assistant.
+3. Go to **Settings → Devices & Services → Add Integration**, search for "Adaptive Lighting", add.
+4. Name the first instance "Standard" when prompted.
+5. Repeat steps 3–4 for each remaining canonical instance: Color Only, Avery Schedule, Status Lamps.
 
-### Step 1: Gather fixture information
+Each instance creates a set of switch entities (master, adapt_brightness, adapt_color, sleep_mode) under the AL domain.
 
-Collect the following before generating any artifacts — partial information will produce incorrect output.
+---
 
-| # | Information | How to find | Example |
+## Step 2 — Configure the four canonical AL instances
+
+Each instance is configured at **Settings → Devices & Services → Adaptive Lighting → [Instance Name] → Configure**. All settings below reflect live configuration.
+
+### 2a. Standard
+
+**Lights:** `light.master_bedroom_fan`, `light.living_room_fan`, `light.office_ceiling`
+
+**Runtime switches:**
+
+| Entity ID | Default State |
+|---|---|
+| `switch.adaptive_lighting_standard` | on |
+| `switch.adaptive_lighting_adapt_brightness_standard` | on |
+| `switch.adaptive_lighting_adapt_color_standard` | on |
+| `switch.adaptive_lighting_sleep_mode_standard` | off — controlled by "Everyone Sleeping" automation |
+
+**Settings:**
+
+| Setting | Value | Rationale |
+|---|---|---|
+| `interval` | `90` | Seconds between adaptation cycles. |
+| `transition` | `45` | Seconds per adaptation step. Smooth fades. |
+| `initial_transition` | `1` | Near-instant on first turn-on. |
+| `min_brightness` | `60` | Evening floor before sleep mode. Tune toward 40–50 if wind-down feels too active. |
+| `max_brightness` | `95` | Daytime ceiling. Never run at 100%. |
+| `sleep_brightness` | `2` | Sleep mode floor. |
+| `min_color_temp` | `2000` | Warmest (K). Hue's standard warmest value. |
+| `max_color_temp` | `5500` | Coolest at solar noon. 6500K reads as harsh in residential ceiling fixtures. |
+| `sleep_color_temp` | `2000` | Matches `min_color_temp` — bulb sits at its warmest during sleep mode. |
+| `sleep_rgb_color` | `[131, 17, 0]` | Deep red used if sleep mode is active and an RGB command is issued. |
+| `brightness_mode` | `tanh` | Smooth S-curve; decouples ramp shape from sun elevation. |
+| `brightness_mode_time_dark` | `1800` | 30 min pre-ramp tail before/after clamped sunrise/sunset. |
+| `brightness_mode_time_light` | `5400` | 90 min ramp to reach max / begin wind-down. |
+| `min_sunrise_time` | `06:30` | Earliest the morning ramp can be anchored. Prevents 5 am ramps in summer. |
+| `max_sunrise_time` | `07:30` | Latest morning ramp anchor. Ensures ramp is underway by 7 am in winter. |
+| `min_sunset_time` | `20:00` | Earliest evening wind-down can begin. |
+| `max_sunset_time` | `21:00` | Latest wind-down anchor. Fully warm/dim by ~21:30 year-round. |
+| `take_over_control` | `true` | Manual changes pause AL for that light. |
+| `take_over_control_mode` | `pause_changed` | Pauses only the changed attribute, not the entire light. |
+| `adapt_only_on_bare_turn_on` | `true` | Skip adaptation if `light.turn_on` specifies brightness or color. |
+| `detect_non_ha_changes` | `false` | Avoids false-positive manual-control flags from non-HA sources. |
+| `autoreset_control_seconds` | `1800` | Manual-control pause clears after 30 min. |
+| `skip_redundant_commands` | `true` | Skips commands when target equals recorded state. Reduces Zigbee traffic. See Design Decision §7. |
+| `send_split_delay` | `100` | 100 ms delay between brightness and color commands on the same bulb. |
+| `prefer_rgb_color` | `false` | Use color temperature, not RGB. |
+| `only_once` | `false` | Continuous adaptation throughout the day, not just at turn-on. |
+| `separate_turn_on_commands` | `false` | |
+| `adapt_delay` | `0` | |
+
+> **Coordinated change:** `min_brightness` (60) and `max_brightness` (95) are mirrored by the Living Room Hue Sync Mode Configurator's restore branch (`guides/hue_sync.md`). If you change them here, update the restore branch YAML and the Configuration Reference table in `hue_sync.md` to match.
+
+### 2b. Color Only
+
+**Lights:** `light.entrance_ceiling`, `light.kitchen_counter_strip`, `light.bathroom_hallway_ceiling`
+
+Color Only has identical configuration to Standard. The distinction is that `switch.adaptive_lighting_adapt_brightness_color_only` is permanently **off** — AL only adjusts color temperature, not brightness, on these fixtures.
+
+**Runtime switches:**
+
+| Entity ID | Default State |
+|---|---|
+| `switch.adaptive_lighting_color_only` | on |
+| `switch.adaptive_lighting_adapt_brightness_color_only` | **off** — leave this off |
+| `switch.adaptive_lighting_adapt_color_color_only` | on |
+| `switch.adaptive_lighting_sleep_mode_color_only` | off — controlled by "Everyone Sleeping" automation |
+
+**Settings:** All settings match Standard. See §2a for the full table.
+
+### 2c. Avery Schedule
+
+**Lights:** `light.avery_room_ceiling`
+
+Avery Schedule shares most settings with Standard but uses an earlier evening schedule (Avery's bedtime is ~20:30) and faster adaptation cycles.
+
+**Runtime switches:**
+
+| Entity ID | Default State |
+|---|---|
+| `switch.adaptive_lighting_avery_schedule` | on |
+| `switch.adaptive_lighting_adapt_brightness_avery_schedule` | on |
+| `switch.adaptive_lighting_adapt_color_avery_schedule` | on |
+| `switch.adaptive_lighting_sleep_mode_avery_schedule` | off — controlled by "Everyone Sleeping" automation |
+
+**Settings (deviations from Standard):**
+
+| Setting | Avery Schedule | Standard | Reason |
 |---|---|---|---|
-| 1 | AL switch entity ID | Developer Tools → States, search for the AL switch | `switch.adaptive_lighting_office_ceiling_lights` |
-| 2 | AL switch exposes `brightness_pct` and `color_temp_mired` attributes | Developer Tools → States → view the switch's attributes | Confirm both exist |
-| 3 | Bulb entity IDs (all in the fixture) | Settings → Devices & Services → Z2M → Devices, or HA Lights list | `light.office_ceiling_bulb_1`, `light.office_ceiling_bulb_2` |
-| 4 | Z2M friendly names per bulb (exact match including case and spaces) | Z2M frontend → Devices → friendly name field | `Office Ceiling Bulb 1`, `Office Ceiling Bulb 2` |
-| 5 | Fixture's human-readable name | For automation alias and description | `Office Ceiling` |
-| 6 | Fixture's area | For HA UI assignment after creating the automation | `Office` |
+| `interval` | `45` | `90` | Shorter cycles for more responsive adaptation during wind-down. |
+| `transition` | `90` | `45` | Slower fades feel more gradual at bedtime. |
+| `min_brightness` | `65` | `60` | Slightly higher floor for Avery's room. |
+| `min_sunset_time` | `19:30` | `20:00` | Begin warming earlier to match earlier bedtime. |
+| `max_sunset_time` | `20:00` | `21:00` | Fully warm/dim by 20:30 reading time. |
+| `send_split_delay` | `0` | `100` | Single light; no split delay needed. |
 
-> **Critical:** confirm item #2. If the AL switch does not expose `brightness_pct` and `color_temp_mired` as attributes, the templates in Step 5 will not work as-is — adjust the trigger attribute name and Jinja templates to match whatever attributes are exposed (e.g., `color_temp_kelvin` with a mired conversion).
+All other settings match Standard. The morning ramp is shared (same wake-up schedule).
 
-### Step 2: Configure `execute_if_off` on each bulb
+### 2d. Status Lamps
 
-For every bulb in the fixture, run this in Developer Tools → Actions (YAML mode), substituting the Z2M friendly name:
+**Lights:** `light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`
+
+Status Lamps is a flat-brightness AL profile for indicator-style and night-navigation lamps. AL adjusts color temperature following the same schedule as the canonical instances, but brightness is pinned at 35%. This ensures:
+
+- Bare `light.turn_on` calls (e.g., the "everyone sleeping" fallback in `automation.luminance_bathroom_night_lamp`) land at a usable brightness, not a 60–95% curve.
+- Status colors (red for alarm, green for guest mode) set by `automation.sync_living_room_status_lamp_to_alarm_and_guest_modes` persist indefinitely — `autoreset_control_seconds: 0` prevents AL from resuming color adaptation after 30 min.
+
+**Runtime switches:**
+
+| Entity ID | Default State |
+|---|---|
+| `switch.status_lamps_adaptive_lighting_status_lamps` | on |
+| `switch.adaptive_lighting_status_lamps_adaptive_lighting_adapt_brightness_status_lamps` | on |
+| `switch.adaptive_lighting_status_lamps_adaptive_lighting_adapt_color_status_lamps` | on |
+| `switch.adaptive_lighting_status_lamps_adaptive_lighting_sleep_mode_status_lamps` | off |
+
+> **Note:** Status Lamps switch entity IDs use an unusual naming pattern (title prepended before `adaptive_lighting_`) due to how the integration was originally registered. Verify in Developer Tools → States before referencing in automations.
+
+**Settings:**
+
+| Setting | Value | Notes |
+|---|---|---|
+| `interval` | `90` | Matches Color Only baseline. |
+| `transition` | `45` | |
+| `initial_transition` | `1` | |
+| `min_brightness` | `35` | **Load-bearing.** See callout below. |
+| `max_brightness` | `35` | **Load-bearing.** Flat brightness — no curve. |
+| `sleep_brightness` | `35` | **Load-bearing.** Bathroom night lamp must stay usable when "everyone sleeping" fires. |
+| `min_color_temp` | `2000` | |
+| `max_color_temp` | `5500` | |
+| `sleep_color_temp` | `2000` | |
+| `sleep_rgb_color` | `[131, 17, 0]` | Aligned to Color Only. |
+| `brightness_mode` | `tanh` | |
+| `brightness_mode_time_dark` | `1800` | |
+| `brightness_mode_time_light` | `5400` | |
+| `min_sunrise_time` | `06:30` | Aligned to Color Only. |
+| `max_sunrise_time` | `07:30` | |
+| `min_sunset_time` | `20:00` | |
+| `max_sunset_time` | `21:00` | |
+| `take_over_control` | `true` | |
+| `take_over_control_mode` | `pause_changed` | Aligned to Color Only. Safe in combination with `autoreset_control_seconds: 0`. |
+| `adapt_only_on_bare_turn_on` | `true` | |
+| `detect_non_ha_changes` | `false` | |
+| `autoreset_control_seconds` | `0` | **Load-bearing.** See callout below. |
+| `skip_redundant_commands` | `true` | Aligned to Color Only. |
+| `send_split_delay` | `100` | Aligned to Color Only. |
+| `prefer_rgb_color` | `false` | |
+| `only_once` | `false` | |
+| `separate_turn_on_commands` | `true` | |
+| `adapt_delay` | `0` | |
+
+> **Coordinated change:** `min_brightness`, `max_brightness`, `sleep_brightness`, and `autoreset_control_seconds` are load-bearing for two calling automations. `autoreset_control_seconds: 0` prevents AL from overwriting a status color (red alarm indicator, green guest mode) after 30 min — `automation.sync_living_room_status_lamp_to_alarm_and_guest_modes` only re-fires on state changes, so a re-armed alarm would lose its red indicator silently if autoreset were nonzero. `min_brightness: 35`, `max_brightness: 35`, and `sleep_brightness: 35` ensure that `automation.luminance_bathroom_night_lamp`'s bare `light.turn_on` calls land at a navigable brightness at all hours. Do **not** align these four settings to Standard or Color Only.
+
+---
+
+## Step 3 — Sleep-mode wiring
+
+Sleep mode is not scheduled. The "Everyone Sleeping" automation turns sleep mode on for all canonical instances when `input_boolean.everyone_sleeping` turns on, and off when it turns off.
+
+In the "Everyone Sleeping" automation, call `switch.turn_on` / `switch.turn_off` targeting these entities:
+
+| Instance | Sleep Mode Switch |
+|---|---|
+| Standard | `switch.adaptive_lighting_sleep_mode_standard` |
+| Color Only | `switch.adaptive_lighting_sleep_mode_color_only` |
+| Avery Schedule | `switch.adaptive_lighting_sleep_mode_avery_schedule` |
+| Status Lamps | `switch.adaptive_lighting_status_lamps_adaptive_lighting_sleep_mode_status_lamps` |
+
+> The "Everyone Sleeping" automation is a household-wide automation outside the scope of this guide. This step documents the sleep-mode switch entity IDs it must reference.
+
+---
+
+## Step 4 — MQTT pre-staging
+
+Pre-staging prevents bulbs from flashing to their previous state on turn-on. See [Architecture §8](#8-mqtt-pre-staging-for-off-state-bulbs) for the full rationale.
+
+### Enable execute_if_off on each bulb
+
+For every bulb to be pre-staged, run this in **Developer Tools → Actions** (YAML mode), substituting the Z2M friendly name:
 
 ```yaml
 action: mqtt.publish
@@ -210,29 +310,15 @@ Three settings are pushed in one publish:
 - `level_config.execute_if_off: true` — brightness commands are stored while off
 - `power_on_behavior: previous` — restore previous brightness/color after a power outage rather than booting to full-on
 
-These settings are not exposed in the Z2M "Settings (specific)" tab UI, but they apply correctly via MQTT. Confirmation comes from Step 3.
+### Verify and functional test
 
-### Step 3: Verify the settings applied
+After publishing, open Z2M frontend → device state for one of the bulbs. It should show `execute_if_off: true` in both `color_options` and `level_config`.
 
-Open the Z2M frontend → Devices → click on one of the fixture's bulbs. The reported device state JSON should now include:
+Then confirm the bulb actually honors `execute_if_off` before committing to the automation:
 
-```json
-{
-  "color_options": { "execute_if_off": true },
-  "level_config": { "execute_if_off": true },
-  "power_on_behavior": "previous"
-}
-```
-
-If these don't appear, the publish in Step 2 was not accepted. Common causes: wrong Z2M friendly name in the topic, missing quotes around topics with spaces, bulb offline.
-
-### Step 4: Functional test
-
-This proves the bulbs actually honor `execute_if_off` before committing to the automation.
-
-1. **Disable AL for this fixture.** Turn off the main AL switch to prevent AL's intercept from interfering with the test.
-2. **Turn all bulbs in the fixture off.**
-3. **For one bulb, publish a deliberate dim/warm payload via Developer Tools → Actions:**
+1. Disable AL for the fixture (turn off the main AL switch).
+2. Turn all bulbs in the fixture off.
+3. Publish a deliberate dim/warm payload in Developer Tools → Actions:
 
    ```yaml
    action: mqtt.publish
@@ -241,69 +327,85 @@ This proves the bulbs actually honor `execute_if_off` before committing to the a
      payload: '{"state": null, "brightness": 50, "color_temp": 400}'
    ```
 
-4. **Confirm the Z2M state reports the new values while bulb is off.** The device's reported state should show `brightness: 50`, `color_temp: 400`, `state: "OFF"`.
-5. **Turn the bulb on** by any method (HA, physical switch, Apple Home).
-6. **Observe the bulb:**
-   - Powers up at ~20% brightness (50/254) and ~2500K (400 mireds) → success
-   - Powers up at previous brightness/color → `execute_if_off` not working, do not proceed; investigate Z2M version, bulb firmware, and whether the Step 2 publish was accepted
-7. **Re-enable AL** for the fixture by turning the main AL switch back on.
+4. Confirm Z2M device state shows `brightness: 50`, `color_temp: 400`, `state: "OFF"`.
+5. Turn the bulb on by any method. It should power up at ~20% brightness (~2500K).
+6. Re-enable AL.
 
-### Step 5: Create the pre-staging automation
+### Deployed automation: AL Pre-Stage — Standard (`automation.al_pre_stage_standard`)
 
-Use the template below. Substitute every `<PLACEHOLDER>` with the values gathered in Step 1.
-
-**For each additional bulb in the fixture beyond two, duplicate one of the per-bulb `if/then` blocks inside the `parallel:` action, incrementing the bulb number in the alias and substituting the appropriate entity ID and Z2M friendly name.**
+Covers all Standard and Color Only fixtures with Z2M-managed bulbs. Standard fixtures receive full payloads (brightness + color temp). Entrance Ceiling and Bathroom Hallway Ceiling receive color-only payloads (brightness omitted — adapt_brightness is off for these Color Only fixtures). Kitchen Counter Strip is not pre-staged.
 
 ```yaml
-alias: "AL Pre-Stage — <FIXTURE FRIENDLY NAME>"
+alias: AL Pre-Stage — Standard
 description: >-
-  Keeps <FIXTURE FRIENDLY NAME> bulbs pre-loaded with the current Adaptive Lighting
-  brightness and color temperature whenever they are off. With execute_if_off enabled
-  on the bulbs (set via direct MQTT publish), Z2M stores the values on the bulb without
-  turning it on — so the next turn-on, from any source, lands at the correct adapted
-  state instead of the last-on values.
+  Keeps bulbs covered by both Standard and Color Only pre-loaded with the
+  current Adaptive Lighting values whenever they are off. With execute_if_off
+  enabled on the bulbs (set via direct MQTT publish), Z2M stores the values
+  without turning the bulb on — so the next turn-on, from any source, lands
+  at the correct adapted state instead of the last-on values.
 
+  Solves the "flash to previous brightness/color before AL catches up" problem
+  for turn-on paths that bypass HA's light.turn_on service: Zigbee bindings,
+  physical power cycles, and any other on-event AL's intercept doesn't see.
 
-  Solves the "flash to previous brightness/color before AL catches up" problem for
-  turn-on paths that bypass HA's light.turn_on service: Zigbee bindings, physical power
-  cycles, and any other on-event AL's intercept doesn't see.
+  Triggered on attribute change of switch.adaptive_lighting_standard
+  (brightness_pct only). Both Standard and Color Only follow the same
+  household schedule and calculate identical curve values, so reading from a
+  single switch is mathematically correct for all covered fixtures.
 
+  Two payload types are used:
+    - Full payload (state, brightness, color_temp) for Standard fixtures.
+    - Color-only payload (state, color_temp) for Color Only fixtures —
+      brightness intentionally omitted so the bulb retains its user-set value.
 
-  Triggered on attribute change of <AL SWITCH ENTITY ID> (brightness_pct only).
-  Both brightness and color temperature values are sent in each publish, so triggering
-  on a single attribute is sufficient. Brightness is chosen because it ramps
-  monotonically and is the more perceptually noticeable change. Only publishes to
-  bulbs that are currently off — bulbs that are on continue to be handled by Adaptive
-  Lighting normally, preserving its manual-control detection and smooth transitions.
+  Per-fixture blocks run in series with a 0.5-second stagger to spread the
+  MQTT publish burst over time. Within each fixture, per-bulb publishes run
+  in parallel. Only publishes to bulbs that are currently off.
 
 mode: single
 max_exceeded: silent
 
+variables:
+  al_switch: switch.adaptive_lighting_standard
+
 trigger:
   - id: brightness_changed
-    alias: "AL recalculated brightness_pct"
+    alias: AL recalculated brightness_pct
     platform: state
-    entity_id: <AL SWITCH ENTITY ID>
+    entity_id: switch.adaptive_lighting_standard
     attribute: brightness_pct
 
-variables:
-  al_switch: <AL SWITCH ENTITY ID>
-
 action:
-  - alias: "Pre-stage to all currently-off bulbs in parallel"
+  - alias: Pre-stage Office Ceiling bulbs in parallel
     parallel:
-
-      - alias: "Bulb 1 — pre-stage if currently off"
+      - alias: Office Ceiling Bulb 1 — pre-stage if currently off
         if:
-          - alias: "Bulb 1 is off"
+          - alias: Bulb 1 is off
             condition: state
-            entity_id: <BULB 1 ENTITY ID>
+            entity_id: light.office_ceiling_bulb_1
             state: "off"
         then:
-          - alias: "Publish current AL curve values to Bulb 1"
+          - alias: Publish current AL curve values to Office Ceiling Bulb 1
             action: mqtt.publish
             data:
-              topic: "zigbee2mqtt/<BULB 1 Z2M FRIENDLY NAME>/set"
+              topic: "zigbee2mqtt/Office Ceiling Bulb 1/set"
+              payload: >-
+                {
+                  "state": null,
+                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
+                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
+                }
+      - alias: Office Ceiling Bulb 2 — pre-stage if currently off
+        if:
+          - alias: Bulb 2 is off
+            condition: state
+            entity_id: light.office_ceiling_bulb_2
+            state: "off"
+        then:
+          - alias: Publish current AL curve values to Office Ceiling Bulb 2
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Office Ceiling Bulb 2/set"
               payload: >-
                 {
                   "state": null,
@@ -311,17 +413,279 @@ action:
                   "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
                 }
 
-      - alias: "Bulb 2 — pre-stage if currently off"
+  - alias: Stagger before next fixture
+    delay:
+      milliseconds: 500
+
+  - alias: Pre-stage Master Bedroom Fan bulbs in parallel
+    parallel:
+      - alias: Master Bedroom Fan Bulb 1 — pre-stage if currently off
         if:
-          - alias: "Bulb 2 is off"
+          - alias: Bulb 1 is off
             condition: state
-            entity_id: <BULB 2 ENTITY ID>
+            entity_id: light.master_bedroom_fan_bulb_1
             state: "off"
         then:
-          - alias: "Publish current AL curve values to Bulb 2"
+          - alias: Publish current AL curve values to Master Bedroom Fan Bulb 1
             action: mqtt.publish
             data:
-              topic: "zigbee2mqtt/<BULB 2 Z2M FRIENDLY NAME>/set"
+              topic: "zigbee2mqtt/Master Bedroom Fan Bulb 1/set"
+              payload: >-
+                {
+                  "state": null,
+                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
+                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
+                }
+      - alias: Master Bedroom Fan Bulb 2 — pre-stage if currently off
+        if:
+          - alias: Bulb 2 is off
+            condition: state
+            entity_id: light.master_bedroom_fan_bulb_2
+            state: "off"
+        then:
+          - alias: Publish current AL curve values to Master Bedroom Fan Bulb 2
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Master Bedroom Fan Bulb 2/set"
+              payload: >-
+                {
+                  "state": null,
+                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
+                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
+                }
+      - alias: Master Bedroom Fan Bulb 3 — pre-stage if currently off
+        if:
+          - alias: Bulb 3 is off
+            condition: state
+            entity_id: light.master_bedroom_fan_bulb_3
+            state: "off"
+        then:
+          - alias: Publish current AL curve values to Master Bedroom Fan Bulb 3
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Master Bedroom Fan Bulb 3/set"
+              payload: >-
+                {
+                  "state": null,
+                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
+                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
+                }
+      - alias: Master Bedroom Fan Bulb 4 — pre-stage if currently off
+        if:
+          - alias: Bulb 4 is off
+            condition: state
+            entity_id: light.master_bedroom_fan_bulb_4
+            state: "off"
+        then:
+          - alias: Publish current AL curve values to Master Bedroom Fan Bulb 4
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Master Bedroom Fan Bulb 4/set"
+              payload: >-
+                {
+                  "state": null,
+                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
+                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
+                }
+
+  - alias: Stagger before next fixture
+    delay:
+      milliseconds: 500
+
+  - alias: Pre-stage Living Room Fan bulbs in parallel
+    parallel:
+      - alias: Living Room Fan Bulb 1 — pre-stage if currently off
+        if:
+          - alias: Bulb 1 is off
+            condition: state
+            entity_id: light.living_room_fan_bulb_1
+            state: "off"
+        then:
+          - alias: Publish current AL curve values to Living Room Fan Bulb 1
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Living Room Fan Bulb 1/set"
+              payload: >-
+                {
+                  "state": null,
+                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
+                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
+                }
+      - alias: Living Room Fan Bulb 2 — pre-stage if currently off
+        if:
+          - alias: Bulb 2 is off
+            condition: state
+            entity_id: light.living_room_fan_bulb_2
+            state: "off"
+        then:
+          - alias: Publish current AL curve values to Living Room Fan Bulb 2
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Living Room Fan Bulb 2/set"
+              payload: >-
+                {
+                  "state": null,
+                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
+                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
+                }
+      - alias: Living Room Fan Bulb 3 — pre-stage if currently off
+        if:
+          - alias: Bulb 3 is off
+            condition: state
+            entity_id: light.living_room_fan_bulb_3
+            state: "off"
+        then:
+          - alias: Publish current AL curve values to Living Room Fan Bulb 3
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Living Room Fan Bulb 3/set"
+              payload: >-
+                {
+                  "state": null,
+                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
+                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
+                }
+
+  - alias: Stagger before next fixture
+    delay:
+      milliseconds: 500
+
+  - alias: Pre-stage Entrance Ceiling bulbs in parallel (color-only)
+    parallel:
+      - alias: Entrance Ceiling Bulb 1 — pre-stage if currently off
+        if:
+          - alias: Bulb 1 is off
+            condition: state
+            entity_id: light.entrance_ceiling_bulb_1
+            state: "off"
+        then:
+          - alias: Publish current AL color temp to Entrance Ceiling Bulb 1
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Entrance Ceiling Bulb 1/set"
+              payload: >-
+                {
+                  "state": null,
+                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
+                }
+      - alias: Entrance Ceiling Bulb 2 — pre-stage if currently off
+        if:
+          - alias: Bulb 2 is off
+            condition: state
+            entity_id: light.entrance_ceiling_bulb_2
+            state: "off"
+        then:
+          - alias: Publish current AL color temp to Entrance Ceiling Bulb 2
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Entrance Ceiling Bulb 2/set"
+              payload: >-
+                {
+                  "state": null,
+                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
+                }
+
+  - alias: Stagger before next fixture
+    delay:
+      milliseconds: 500
+
+  - alias: Pre-stage Bathroom Hallway Ceiling bulbs in parallel (color-only)
+    parallel:
+      - alias: Bathroom Hallway Ceiling Bulb 1 — pre-stage if currently off
+        if:
+          - alias: Bulb 1 is off
+            condition: state
+            entity_id: light.bathroom_hallway_ceiling_bulb_1
+            state:
+              - "off"
+        then:
+          - alias: Publish current AL color temp to Bathroom Hallway Ceiling Bulb 1
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Bathroom Hallway Ceiling Bulb 1/set"
+              payload: >-
+                {
+                  "state": null,
+                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
+                }
+      - alias: Bathroom Hallway Ceiling Bulb 2 — pre-stage if currently off
+        if:
+          - alias: Bulb 2 is off
+            condition: state
+            entity_id: light.bathroom_hallway_ceiling_bulb_2
+            state:
+              - "off"
+        then:
+          - alias: Publish current AL color temp to Bathroom Hallway Ceiling Bulb 2
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Bathroom Hallway Ceiling Bulb 2/set"
+              payload: >-
+                {
+                  "state": null,
+                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
+                }
+```
+
+### Deployed automation: AL Pre-Stage — Avery Schedule (`automation.al_pre_stage_avery_schedule`)
+
+Covers Avery Room Ceiling. Same pattern as Standard — full brightness + color temp payload. Reads from `switch.adaptive_lighting_avery_schedule` so it follows Avery's schedule clamp, not the household schedule.
+
+```yaml
+alias: AL Pre-Stage — Avery Schedule
+description: >-
+  Keeps bulbs covered by Avery Schedule pre-loaded with the current Adaptive
+  Lighting brightness and color temperature whenever they are off. Same payload
+  structure as Standard — full brightness + color_temp. The schedule difference
+  (earlier evening) is handled by the AL switch's own configuration.
+
+  Currently covers Avery Room Ceiling only. The stagger pattern is in place
+  for future additions.
+
+mode: single
+max_exceeded: silent
+
+variables:
+  al_switch: switch.adaptive_lighting_avery_schedule
+
+trigger:
+  - id: brightness_changed
+    alias: AL recalculated brightness_pct
+    platform: state
+    entity_id: switch.adaptive_lighting_avery_schedule
+    attribute: brightness_pct
+
+action:
+  - alias: Pre-stage Avery Room Ceiling bulbs in parallel
+    parallel:
+      - alias: Avery Room Ceiling Bulb 1 — pre-stage if currently off
+        if:
+          - alias: Bulb 1 is off
+            condition: state
+            entity_id: light.avery_room_ceiling_bulb_1
+            state: "off"
+        then:
+          - alias: Publish current AL curve values to Avery Room Ceiling Bulb 1
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Avery Room Ceiling Bulb 1/set"
+              payload: >-
+                {
+                  "state": null,
+                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
+                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
+                }
+      - alias: Avery Room Ceiling Bulb 2 — pre-stage if currently off
+        if:
+          - alias: Bulb 2 is off
+            condition: state
+            entity_id: light.avery_room_ceiling_bulb_2
+            state: "off"
+        then:
+          - alias: Publish current AL curve values to Avery Room Ceiling Bulb 2
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Avery Room Ceiling Bulb 2/set"
               payload: >-
                 {
                   "state": null,
@@ -330,30 +694,69 @@ action:
                 }
 ```
 
-**Notes on the template:**
+### Adding a new fixture
 
-- **`action:` vs `service:`** — Current Home Assistant uses `action:` in automation YAML for service calls. Older HA versions used `service:`. Both work for now, but `action:` is the preferred modern form.
-- **Single trigger on `brightness_pct`.** Both brightness and color_temp values are pushed in every publish. Brightness is chosen because it ramps monotonically.
-- **Brightness conversion:** AL exposes `brightness_pct` (0–100). Z2M expects `brightness` (0–254). The Jinja math is `(pct / 100) * 254`, rounded.
-- **Color temp:** AL exposes both `color_temp_kelvin` and `color_temp_mired`. Z2M expects mireds, so use mireds directly — no conversion needed.
-- **`state: null`** — tells Z2M to update brightness/color without changing the bulb's on/off state. Critical for the pre-stage approach.
-- **Mode `single`** with `max_exceeded: silent` — if a second trigger fires before the first completes, the second is silently discarded. Idempotent so no harm done.
-- **Topic quoting** — Z2M friendly names with spaces require the topic to be wrapped in double quotes in YAML.
+To pre-stage a new fixture, add it to the relevant automation:
 
-After creating the automation in Home Assistant, set the following via the automation editor UI (these don't transfer through YAML):
+- Standard or Color Only fixture → extend `automation.al_pre_stage_standard`
+- Avery Schedule fixture → extend `automation.al_pre_stage_avery_schedule`
+- Status Lamps fixtures are not pre-staged (single-entity lamps, not multi-bulb fixtures)
 
-- **Area:** the fixture's area
-- **Category:** Lighting
+Before extending: confirm the fixture's bulbs are Z2M-managed, collect bulb entity IDs (`light.[area]_[fixture]_bulb_[n]`) and Z2M friendly names, and run the functional test above.
 
-### Step 6: Validate the automation
+Add a new `parallel` block following the pattern of existing blocks, followed by a `delay: milliseconds: 500` stagger. For Standard fixtures, use the full payload (brightness + color temp). For Color Only fixtures, use the color-only payload (color temp only).
 
-After enabling, verify it's working:
+Brightness conversion: AL exposes `brightness_pct` (0–100); Z2M expects `brightness` (0–254). Template: `{{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }}`.
 
-1. **Last Triggered timestamp advances.** During an AL ramp window (morning ~6:30–9:30am or evening ~7:30–9:30pm), the automation should fire roughly every 90 seconds.
-2. **Z2M shows updates to off bulbs.** Open the Z2M frontend and watch the device state for one of the fixture's bulbs. While the bulb is reported off, you should see `brightness` and `color_temp` updating over time as the AL curve progresses.
-3. **Real-world turn-on test.** Turn the bulbs off in the evening. The next morning when the AL curve has advanced, turn the bulbs on. They should power up at the morning ramp values, not at the previous evening's warm/dim values.
+---
 
-After successful validation, update the Quick Reference below with the fixture's pre-staging deployment status.
+## Legacy instances
+
+Five AL instances from before the canonical-instance model are pending decommission. They are not managed as part of this guide's configuration model.
+
+- **Office - Bourbon Lamp** — `light.office_bourbon_lamp`
+- **Master Bedroom Accent Lamps** — `light.master_bedroom_nightstand_lamp_left`, `light.portable_accent_lamp`
+- **Master Bedroom - Bathroom Fan** — `light.master_bathroom_fan`
+- **Outside - Porch Lights** — `light.outside_porch_ceiling`
+- **Avery Room Desk Lamp** — `light.avery_room_desk_lamp`
+
+---
+
+## Related HA Config
+
+| Artifact | Entity ID | Type |
+|---|---|---|
+| Standard Adaptive Lighting | `switch.adaptive_lighting_standard` | AL Switch |
+| Standard Adapt Brightness | `switch.adaptive_lighting_adapt_brightness_standard` | AL Switch |
+| Standard Adapt Color | `switch.adaptive_lighting_adapt_color_standard` | AL Switch |
+| Standard Sleep Mode | `switch.adaptive_lighting_sleep_mode_standard` | AL Switch |
+| Color Only Adaptive Lighting | `switch.adaptive_lighting_color_only` | AL Switch |
+| Color Only Adapt Brightness | `switch.adaptive_lighting_adapt_brightness_color_only` | AL Switch |
+| Color Only Adapt Color | `switch.adaptive_lighting_adapt_color_color_only` | AL Switch |
+| Color Only Sleep Mode | `switch.adaptive_lighting_sleep_mode_color_only` | AL Switch |
+| Avery Schedule Adaptive Lighting | `switch.adaptive_lighting_avery_schedule` | AL Switch |
+| Avery Schedule Adapt Brightness | `switch.adaptive_lighting_adapt_brightness_avery_schedule` | AL Switch |
+| Avery Schedule Adapt Color | `switch.adaptive_lighting_adapt_color_avery_schedule` | AL Switch |
+| Avery Schedule Sleep Mode | `switch.adaptive_lighting_sleep_mode_avery_schedule` | AL Switch |
+| Status Lamps Adaptive Lighting | `switch.status_lamps_adaptive_lighting_status_lamps` | AL Switch |
+| Status Lamps Adapt Brightness | `switch.adaptive_lighting_status_lamps_adaptive_lighting_adapt_brightness_status_lamps` | AL Switch |
+| Status Lamps Adapt Color | `switch.adaptive_lighting_status_lamps_adaptive_lighting_adapt_color_status_lamps` | AL Switch |
+| Status Lamps Sleep Mode | `switch.adaptive_lighting_status_lamps_adaptive_lighting_sleep_mode_status_lamps` | AL Switch |
+| AL Pre-Stage — Standard | `automation.al_pre_stage_standard` | Automation |
+| AL Pre-Stage — Avery Schedule | `automation.al_pre_stage_avery_schedule` | Automation |
+
+---
+
+## Related Files
+
+No on-disk files are created or modified by this integration. All artifacts live in HA.
+
+---
+
+## Related Documents
+
+- `standards/naming.md` — entity ID and friendly name conventions used throughout this document
+- `guides/hue_sync.md` — the Hue Sync system that manipulates AL Standard's brightness limits at runtime via `adaptive_lighting.change_switch_settings`; its restore values (60/95%) must track Standard's `min_brightness`/`max_brightness`
 
 ---
 
@@ -364,36 +767,17 @@ After successful validation, update the Quick Reference below with the fixture's
 | Symptom | Likely Cause | Fix |
 |---|---|---|
 | Inconsistent brightness across bulbs in the same fixture | One bulb is "manually controlled" while others are adapting | Toggle the bulb off/on, or call `adaptive_lighting.set_manual_control` to clear the flag |
-| Sleep mode not triggering | "Everyone Sleeping" automation references wrong entity IDs | Verify entity IDs in Architecture §5 above against Developer Tools → States |
-| Specific bulb visibly stuck at wrong brightness/color while others adapt | `skip_redundant_commands` is skipping due to stale HA state after a mesh hiccup or Z2M restart | Disable `skip_redundant_commands` on that switch temporarily; re-enable when resolved |
+| Sleep mode not triggering | "Everyone Sleeping" automation references wrong entity IDs | Verify entity IDs in Step 3 against Developer Tools → States; Status Lamps uses the long entity ID format |
+| Specific bulb stuck at wrong brightness/color while others adapt | `skip_redundant_commands` is skipping due to stale HA state after a mesh hiccup or Z2M restart | Disable `skip_redundant_commands` on that switch temporarily; re-enable when resolved |
+| Status lamp color overwritten after ~30 minutes | Status Lamps `autoreset_control_seconds` set to nonzero | Verify `autoreset_control_seconds: 0` on the Status Lamps AL instance |
 
 ### Pre-Staging
 
 | Symptom | Likely Cause | Fix |
 |---|---|---|
-| Functional test fails — bulb powers up at old values | Bulb didn't accept `execute_if_off`, or Z2M didn't pass it through | Re-run Step 2; verify Z2M device state shows `execute_if_off: true` in both `color_options` and `level_config` |
-| Automation never triggers | Wrong AL switch entity ID, or wrong attribute name | Open Developer Tools → States → AL switch; verify entity ID and `brightness_pct` attribute exist |
-| Automation triggers but Z2M shows no publishes | Wrong topic (Z2M friendly name typo, missing quotes around topics with spaces) | Compare topic against Z2M frontend's exact friendly name; quote topics containing spaces |
+| Bulb powers up at old values after deployment | Bulb didn't accept `execute_if_off`, or Z2M didn't pass it through | Re-run the execute_if_off publish; verify Z2M device state shows `execute_if_off: true` in both `color_options` and `level_config` |
+| Automation never triggers | Wrong AL switch entity ID, or `brightness_pct` attribute absent | Open Developer Tools → States → AL switch; verify entity ID and attribute name |
+| Automation triggers but Z2M shows no publishes | Wrong topic — Z2M friendly name typo, or spaces not quoted | Compare topic against Z2M frontend's exact friendly name |
 | Bulb still flashes on turn-on after deployment | Pre-staged values are stale (AL was off during the last recalc) | Verify AL is enabled for this fixture; check Last Triggered on the automation |
-| One bulb adapts correctly, another doesn't | Only one bulb has `execute_if_off` set | Re-run Step 2 for the affected bulb; verify via Z2M state |
-| Pre-staging conflicts with manual control | Automation publishing to bulbs that are actually on | Check the `condition: state` for each bulb — should be `state: "off"` |
-| AL switch attributes are named differently than expected | Older AL version or custom config | Adjust trigger attribute name and Jinja templates; convert units if Kelvin is exposed instead of mired |
-
----
-
-## Quick Reference
-
-| Light | min_sunset_time | max_sunset_time | Color temp range | Pre-Staging Deployed |
-|---|---|---|---|---|
-| `light.living_room_fan` | `20:00` | `21:00` | 2000–5500K | ⏳ Not yet |
-| `light.master_bedroom_fan` | `20:00` | `21:00` | 2000–5500K | ⏳ Not yet |
-| `light.office_ceiling` | `20:00` | `21:00` | 2000–5500K | ⏳ Trialing — automation deployed, observing |
-| `light.avery_room_ceiling` | `19:30` | `20:00` | 2000–5500K | ⏳ Not yet |
-
-All other settings on these switches match the baseline in the Configuration Reference above. Update the "Pre-Staging Deployed" column as each fixture progresses through the implementation steps.
-
----
-
-## Related Documents
-
-- `standards/naming.md` — entity ID and friendly name conventions used throughout this document
+| One bulb adapts correctly, another doesn't | Only one bulb has `execute_if_off` set | Re-run the execute_if_off publish for the affected bulb; verify via Z2M device state |
+| Pre-staging publishes to bulbs that are on | `condition: state` check missing or wrong | Each bulb block must have an `if` check confirming `state: "off"` before publishing |
