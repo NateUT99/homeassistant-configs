@@ -172,6 +172,8 @@ Every automation has a non-empty `description` field containing:
 
 One-liners are fine for simple automations. Multi-paragraph descriptions are encouraged when the automation has non-obvious invariants, coordination with other automations, or deliberate edge-case handling.
 
+**Formatting:** The description field renders markdown. One-sentence descriptions need no formatting. For multi-paragraph descriptions, use markdown to aid readability: newlines for paragraph breaks, `- ` for lists, `**bold**` for key terms. Avoid headers (`#`) — the description isn't long enough to need navigation, and headers add visual weight without benefit.
+
 ### 5.2 Mode
 
 Specify `mode` explicitly on every automation. Do not rely on the HA default (`single`).
