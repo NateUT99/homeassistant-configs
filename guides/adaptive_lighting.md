@@ -293,12 +293,12 @@ Then confirm the bulb actually honors `execute_if_off` before committing to the 
 5. Turn the bulb on by any method. It should power up at ~20% brightness (~2500K).
 6. Re-enable AL.
 
-### Deployed automation: AL Pre-Stage — Standard (`automation.al_pre_stage_standard`)
+### Deployed automation: AL Pre-Stage — Standard & Color Only (`automation.al_pre_stage_standard`)
 
 Covers Standard and Color Only ceiling fixtures with Z2M-managed bulbs, plus the Portable Accent Lamp. Standard ceiling fixtures (master bedroom fan, living room fan, office ceiling) receive full payloads (brightness + color temp). Color Only ceiling fixtures (entrance ceiling, bathroom hallway ceiling) and Portable Accent Lamp receive color-only payloads — brightness is omitted so the bulb retains its user-set level on turn-on. Kitchen Counter Strip is not pre-staged (not Z2M-managed). Kitchen Sink Bulb, Office Bourbon Lamp, and Master Bedroom Nightstand Lamp are not pre-staged (do not support `execute_if_off`). Remaining lamps (`light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`) are not pre-staged.
 
 ```yaml
-alias: AL Pre-Stage — Standard
+alias: AL Pre-Stage — Standard & Color Only
 description: >-
   Keeps Standard bulbs pre-loaded with the current Adaptive Lighting
   values whenever they are off. With execute_if_off enabled on the
@@ -711,7 +711,7 @@ Brightness conversion: AL exposes `brightness_pct` (0–100); Z2M expects `brigh
 | Avery Schedule Adapt Brightness | `switch.adaptive_lighting_adapt_brightness_avery_schedule` | AL Switch |
 | Avery Schedule Adapt Color | `switch.adaptive_lighting_adapt_color_avery_schedule` | AL Switch |
 | Avery Schedule Sleep Mode | `switch.adaptive_lighting_sleep_mode_avery_schedule` | AL Switch |
-| AL Pre-Stage — Standard | `automation.al_pre_stage_standard` | Automation |
+| AL Pre-Stage — Standard & Color Only | `automation.al_pre_stage_standard` | Automation |
 | AL Pre-Stage — Avery Schedule | `automation.al_pre_stage_avery_schedule` | Automation |
 
 ---
