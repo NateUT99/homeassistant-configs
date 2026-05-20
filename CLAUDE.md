@@ -221,6 +221,10 @@ action:
 
 Automations that restore a prior state (e.g., turning a thermostat back on after a door closes) should verify the current state before restoring. Don't assume that because the automation turned something off, it can blindly turn it back on — the user may have changed it in the interim.
 
+### Avoid unnecessary if/then guards
+
+Don't wrap actions in `if`/`then` blocks when the action is a no-op if the condition is false. Calling `light.turn_off` on an already-off light, or `switch.turn_on` on an already-on switch, does nothing — the guard adds complexity without value. Only add a condition when the action would cause a problem if the condition isn't met.
+
 ### Templated entity IDs in conditions
 
 `condition: state` does not accept templated entity IDs. Use `condition: template` with `states()` instead.
