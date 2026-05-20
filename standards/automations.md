@@ -85,10 +85,12 @@ Applied to automations that belong to a documented integration in `guides/`. The
 |---|---|
 | `int_hue_sync` | Hue Sync |
 | `int_adaptive_lighting` | Adaptive Lighting |
-| `int_reminders` | Reminders |
+| `reminders` | Reminders |
 | `int_litra_glow` | Litra Glow |
 
-When a new guide is added, a matching `int_<guide_name>` label is created (color: purple) before the guide's automations are created or migrated.
+> The `reminders` label predates this taxonomy and already tags reminder-system helpers. Its ID does not carry the `int_` prefix — this is an intentional exception, not a bug to fix.
+
+When a new guide is added, a matching `int_<guide_name>` label is created (color: purple) before the guide's automations are created or migrated. HA does not allow specifying a label ID on creation — use a two-step approach: create the label with the desired ID as the name (HA slugifies it into the ID), then update it with the clean friendly name, color, and icon.
 
 An automation may carry zero, one, or more integration labels. A guide-documented automation always carries its guide's label.
 
