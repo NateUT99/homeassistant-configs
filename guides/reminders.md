@@ -21,14 +21,12 @@ input_datetime.<key>       input_number.<key>_offset
                ▼
   binary_sensor.<key>_overdue   (template helper: today() >= due)
                │
-               │
-  on/off edges─┴──── 09:00 daily time trigger
+  off edge ────┘    09:00 daily time trigger
                      │
                      ▼
    automation.manage_reminder_notifications
-          ├─ edge_on  → send actionable notification  (tag + Mark Complete action)
           ├─ edge_off → clear notification            (clear_notification by tag)
-          └─ daily    → re-send for each still-on sensor
+          └─ daily    → send for each still-on sensor
                      │
                      ▼
          notify.mobile_app_nates_iphone
@@ -45,7 +43,8 @@ input_datetime.<key>       input_number.<key>_offset
 
 **Key design decisions:**
 
-- *Two shared automations, not one per reminder.* All 8 reminders share `automation.manage_reminder_notifications` and `automation.handle_reminder_mark_complete_action`. New reminders register in two lists; no new automations needed beyond the per-item Calculate Due.
+- *Two shared automations, not one per reminder.* All 8 reminders share `automation.manage_reminder_notifications` and `automation.handle_reminder_mark_complete_action`. New reminders register in two lists; no new automations needed.
+- *All notifications send at 09:00.* The daily time trigger is the only send path. No edge-on trigger means no midnight pings when the date rolls over. The `edge_off` trigger remains so the lock-screen notification clears immediately when a reminder is marked complete.
 - *Tag-based notification lifecycle.* Each reminder's notification carries a stable `reminder_<key>` tag. The daily re-send replaces (not stacks) the on-screen notification; the clear path uses the same tag. iOS lock screen never accumulates duplicates.
 - *Action ID encodes the input_datetime key.* The `REMINDER_MARK_COMPLETE_<key>` action ID doubles as the `input_datetime` entity name suffix. The handler parses it at runtime, requiring no lookup table and routing any reminder with one automation.
 - *Due date is a reactive template sensor.* `sensor.<key>_due` computes `last-done + offset` as a template. It updates the moment either `input_datetime.<key>` or `input_number.<key>_offset` changes — no automation needed to keep it in sync.
@@ -131,31 +130,17 @@ In `automation.manage_reminder_notifications`, add `binary_sensor.<key>_overdue`
 
 *Friendly name: Manage reminder notifications*
 
-Single automation covering the entire notification lifecycle: sends an actionable notification when a reminder flips to overdue, re-sends at 09:00 each day while it remains overdue, and clears the iOS lock-screen notification when the reminder resolves.
+Single automation covering the notification lifecycle: sends an actionable notification for each overdue reminder at 09:00 daily, and clears the iOS lock-screen notification when a reminder resolves. All sends go through the daily trigger — there is no edge-on send — so notifications never arrive at midnight when the date rolls over.
 
 ```yaml
 alias: "Manage reminder notifications"
 description: >-
-  Single source of truth for the overdue-notification lifecycle. Sends an actionable
-  iOS notification when a reminder flips overdue, re-sends each one at 09:00 daily
-  while it remains overdue, and clears the lock-screen notification when the reminder
-  flips back to not-overdue.
+  Notification lifecycle for overdue reminders. Sends an actionable iOS notification
+  for each overdue reminder at 09:00 daily, and clears the lock-screen notification
+  when a reminder flips back to not-overdue.
 mode: parallel
-max: 16
+max: 8
 trigger:
-  - id: edge_on
-    alias: "Any reminder flips overdue"
-    platform: state
-    entity_id:
-      - binary_sensor.accord_washed_overdue
-      - binary_sensor.coffee_grinder_cleaned_overdue
-      - binary_sensor.dishwasher_cleaned_overdue
-      - binary_sensor.disposal_cleaned_overdue
-      - binary_sensor.razor_blade_changed_overdue
-      - binary_sensor.toothbrushes_changed_overdue
-      - binary_sensor.washer_cleaned_overdue
-      - binary_sensor.water_filter_changed_overdue
-    to: "on"
   - id: edge_off
     alias: "Any reminder flips back to not overdue"
     platform: state
@@ -175,23 +160,6 @@ trigger:
     at: "09:00:00"
 action:
   - choose:
-      - alias: "Edge ON — notify the reminder that just went overdue"
-        conditions:
-          - condition: trigger
-            id: edge_on
-        sequence:
-          - variables:
-              reminder_key: "{{ trigger.to_state.object_id | replace('_overdue', '') }}"
-          - alias: "Send actionable iOS notification"
-            action: notify.mobile_app_nates_iphone
-            data:
-              title: "Reminder Overdue"
-              message: "{{ trigger.to_state.attributes.friendly_name | replace(' Overdue', '') }}"
-              data:
-                tag: "reminder_{{ reminder_key }}"
-                actions:
-                  - action: "REMINDER_MARK_COMPLETE_{{ reminder_key }}"
-                    title: "Mark Complete"
       - alias: "Edge OFF — clear the notification when reminder completes"
         conditions:
           - condition: trigger
@@ -205,7 +173,7 @@ action:
               message: "clear_notification"
               data:
                 tag: "reminder_{{ reminder_key }}"
-      - alias: "Daily — re-notify each reminder still overdue at 9am"
+      - alias: "Daily — notify each reminder still overdue at 9am"
         conditions:
           - condition: trigger
             id: daily
@@ -222,7 +190,7 @@ action:
                 - washer_cleaned
                 - water_filter_changed
               sequence:
-                - alias: "Re-notify if currently overdue"
+                - alias: "Notify if currently overdue"
                   if:
                     - condition: template
                       value_template: "{{ is_state('binary_sensor.' ~ repeat.item ~ '_overdue', 'on') }}"
