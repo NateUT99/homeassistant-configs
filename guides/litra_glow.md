@@ -276,12 +276,12 @@ template:
           {{ ((l | int - 20) / 230 * 255) | int if l is not none else none }}
         temperature: >-
           {% set k = state_attr('sensor.litra_glow_status', 'temperature_in_kelvin') %}
-          {{ ((((6500 - (k | int)) / 3800) * 347) + 153) | int if k is not none else none }}
+          {{ (1000000 / (k | int)) | int if k is not none else none }}
         turn_on:
           - alias: Turn on (and apply brightness/temp if supplied)
             action: shell_command.litra_apply
             data:
-              args: "state=on{% if brightness is defined %} brightness={{ (brightness / 255 * 100) | int }}{% endif %}{% if color_temp is defined %} temperature={{ (((color_temp | int - 153) / (500 - 153)) * (2700 - 6500) + 6500) | int | round(-2) | int }}{% endif %}"
+              args: "state=on{% if brightness is defined %} brightness={{ (brightness / 255 * 100) | int }}{% endif %}{% if color_temp is defined %} temperature={{ (1000000 / (color_temp | int)) | round(-2) | int }}{% endif %}"
           - alias: Refresh Litra status sensor
             action: homeassistant.update_entity
             target:
@@ -308,7 +308,7 @@ template:
           - alias: Color temp adjustment (also ensures light is on, plus brightness if supplied)
             action: shell_command.litra_apply
             data:
-              args: "state=on temperature={{ (((color_temp | int - 153) / (500 - 153)) * (2700 - 6500) + 6500) | int | round(-2) | int }}{% if brightness is defined %} brightness={{ (brightness / 255 * 100) | int }}{% endif %}"
+              args: "state=on temperature={{ (1000000 / (color_temp | int)) | round(-2) | int }}{% if brightness is defined %} brightness={{ (brightness / 255 * 100) | int }}{% endif %}"
           - alias: Refresh Litra status sensor
             action: homeassistant.update_entity
             target:
@@ -386,8 +386,8 @@ The matrix below assumes the Litra starts in the off state. All cases physically
 |---|---|---|---|
 | `light.turn_on` (no params) | `turn_on` | `state=on` | Light turns on |
 | `light.turn_on` with `brightness=128` | `set_level` | `state=on brightness=50` | Light turns on, brightness set to 50% |
-| `light.turn_on` with `color_temp=250` | `set_temperature` | `state=on temperature=5400` | Light turns on, color temp set to 5400K |
-| `light.turn_on` with `brightness=128, color_temp=250` | `set_temperature` (with `brightness` as side variable) | `state=on temperature=5400 brightness=50` | Light turns on, brightness and temp both set |
+| `light.turn_on` with `color_temp=250` | `set_temperature` | `state=on temperature=4000` | Light turns on, color temp set to 4000K |
+| `light.turn_on` with `brightness=128, color_temp=250` | `set_temperature` (with `brightness` as side variable) | `state=on temperature=4000 brightness=50` | Light turns on, brightness and temp both set |
 | `light.turn_off` | `turn_off` | `state=off` | Light turns off |
 
 HA accepts `brightness_pct: 50` as an alternative to `brightness: 128` in service calls. The template light receives the value normalized to the 0–255 `brightness` variable regardless of which form the caller used.
@@ -398,8 +398,10 @@ HA accepts `brightness_pct: 50` as an alternative to `brightness: 128` in servic
 | --- | --- |
 | HA brightness (0–255) → litra percentage (0–100) | `(brightness / 255 * 100) \| int` |
 | litra brightness_in_lumen (20–250) → HA brightness (0–255) | `((brightness_in_lumen \| int - 20) / 230 * 255) \| int` |
-| HA mireds (153–500) → kelvin (2700–6500) | `(((color_temp \| int - 153) / (500 - 153)) * (2700 - 6500) + 6500) \| int \| round(-2) \| int` |
-| kelvin (2700–6500) → HA mireds (153–500) | `((((6500 - (k \| int)) / 3800) * 347) + 153) \| int` |
+| HA mireds → device kelvin (rounded to nearest 100K) | `(1000000 / (color_temp \| int)) \| round(-2) \| int` |
+| device kelvin → HA mireds | `(1000000 / (temperature_in_kelvin \| int)) \| int` |
+
+The temperature conversions use the standard mireds formula (`1,000,000 / mireds = kelvin`). The Litra Glow's usable range is 2700–6500K (370–153 mireds). HA's default mired range extends beyond this, so the device silently clamps values outside its supported range — the conversion formulas are the only guard. Neither `min_mireds` nor `min_color_temp_kelvin` are valid properties in the template light YAML schema.
 
 The forward conversions (HA → litra) live in the template light handlers. The reverse conversions (litra → HA) live in the `level` and `temperature` templates that read from the status sensor.
 
