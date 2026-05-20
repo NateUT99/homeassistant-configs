@@ -1,43 +1,47 @@
 # Adaptive Lighting
 *Last updated: May 2026*
 
-The canonical document for Adaptive Lighting (AL) configuration in this home. Covers the two canonical AL instance profiles, the sleep-mode wiring strategy, and the MQTT-based pre-staging system that prevents bulbs from flashing to their previous state on turn-on.
+The canonical document for Adaptive Lighting (AL) configuration in this home. Covers the three canonical AL instance profiles, the sleep-mode wiring strategy, and the MQTT-based pre-staging system that prevents bulbs from flashing to their previous state on turn-on.
 
 ---
 
 ## Overview
 
-Adaptive Lighting adjusts lights' brightness and color temperature through the day based on a configurable sun-position curve. Two canonical AL instances are maintained:
+Adaptive Lighting adjusts lights' brightness and color temperature through the day based on a configurable sun-position curve. Three canonical AL instances are maintained:
 
-- **Standard** — brightness + color adaptation for all household lights except Avery's room. Covers ceiling fixtures, indicator/night-navigation lamps, and portable lamps (`light.master_bedroom_fan`, `light.living_room_fan`, `light.office_ceiling`, `light.entrance_ceiling`, `light.kitchen_counter_strip`, `light.kitchen_sink_bulb`, `light.bathroom_hallway_ceiling`, `light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`, `light.office_bourbon_lamp`, `light.master_bedroom_nightstand_lamp_left`, `light.portable_accent_lamp`). `autoreset_control_seconds: 0` ensures manually-set colors and brightness levels persist indefinitely.
+- **Standard** — brightness + color adaptation for ceiling fan fixtures where AL owns brightness entirely (`light.master_bedroom_fan`, `light.living_room_fan`, `light.office_ceiling`).
+- **Color Only** — color temperature adaptation only for all other household lights. `switch.adaptive_lighting_adapt_brightness_color_only` is permanently off, making color-only behavior architectural rather than reliant on ephemeral manual-control state.
 - **Avery Schedule** — brightness + color adaptation on an earlier evening schedule for Avery's room (`light.avery_room_ceiling`, `light.avery_room_desk_lamp`).
 
-MQTT-based pre-staging is deployed for all Standard ceiling fixtures with Z2M-managed bulbs (entrance ceiling and bathroom hallway ceiling receive color-only payloads to preserve user-set brightness), the Portable Accent Lamp, and Avery Schedule fixtures. Kitchen counter strip is not pre-staged (not Z2M-managed). Kitchen sink bulb, Office Bourbon Lamp, and Master Bedroom Nightstand Lamp are not pre-staged (do not support `execute_if_off`). Remaining lamps are not pre-staged.
+MQTT-based pre-staging is deployed for Standard and Color Only ceiling fixtures with Z2M-managed bulbs. Color Only ceiling fixtures (entrance ceiling, bathroom hallway ceiling, portable accent lamp) receive color-only payloads — brightness is omitted so bulbs retain their user-set level on turn-on. Kitchen counter strip is not pre-staged (not Z2M-managed). Kitchen sink bulb, Office Bourbon Lamp, and Master Bedroom Nightstand Lamp are not pre-staged (do not support `execute_if_off`). Remaining lamps are not pre-staged.
 
 ---
 
 ## Architecture
 
 ```
-Standard (brightness + color; autoreset off)
+Standard (brightness + color; AL owns brightness)
 │  light.master_bedroom_fan (4 bulbs)           ← full pre-stage payload
 │  light.living_room_fan (3 bulbs)              ← full pre-stage payload
 │  light.office_ceiling (2 bulbs)               ← full pre-stage payload
+└── automation.al_pre_stage_standard
+
+Color Only (color only; adapt_brightness switch permanently off)
 │  light.entrance_ceiling (2 bulbs)             ← color-only pre-stage payload
 │  light.bathroom_hallway_ceiling (2 bulbs)     ← color-only pre-stage payload
 │  light.portable_accent_lamp                   ← color-only pre-stage payload
-│  light.kitchen_counter_strip                  (not pre-staged — not Z2M-managed; brightness restored on startup)
+│  light.kitchen_counter_strip                  (not pre-staged — not Z2M-managed)
 │  light.kitchen_sink_bulb                      (not pre-staged — no execute_if_off)
 │  light.bathroom_night_lamp                    (not pre-staged)
 │  light.living_room_status_lamp                (not pre-staged)
 │  light.office_presence_sensor                 (not pre-staged)
 │  light.office_bourbon_lamp                    (not pre-staged — no execute_if_off)
 │  light.master_bedroom_nightstand_lamp_left    (not pre-staged — no execute_if_off)
-└── automation.al_pre_stage_standard
+│  light.avery_room_desk_lamp                   (not pre-staged)
+└── automation.al_pre_stage_standard (shared — covers Color Only ceiling fixtures)
 
 Avery Schedule (brightness + color; earlier evening)
-│  light.avery_room_ceiling (2 bulbs)           ← full pre-stage payload
-│  light.avery_room_desk_lamp                   (not pre-staged)
+│  light.avery_room_ceiling (2 bulbs)           (not pre-staged — not compatible)
 └── automation.al_pre_stage_avery_schedule
 ```
 
@@ -51,12 +55,13 @@ AL's default behavior tracks the real sun, which means lights stay bright and co
 
 AL's `default` brightness mode produces a bell curve peaked at solar noon — peak brightness is hit at noon, not at the user's preferred mid-morning point. `tanh` mode decouples brightness ramp shape from sun elevation. Two settings (`brightness_mode_time_dark`, `brightness_mode_time_light`) define a smooth S-curve centered on the (clamped) sunrise/sunset events, giving explicit control over when the morning ramp completes and when evening wind-down begins.
 
-#### 3. Single instance, mixed brightness behavior
+#### 3. Two instances: Standard (full) and Color Only (color only)
 
-Standard covers lights with very different brightness needs — ceiling fixtures where AL owns brightness, indicator lamps where an automation sets a specific level, and portable lamps set manually. This works because of two settings working together:
+Ceiling fan fixtures belong in Standard — AL owns their brightness entirely. All other household lights belong in Color Only.
 
-- **`adapt_only_on_bare_turn_on: true`** — when `light.turn_on` is called with an explicit `brightness_pct`, AL skips adaptation and marks brightness as manually controlled for that light. Lights whose automations always set explicit brightness (bathroom night lamp, desk lamp, status lamps) are therefore never brightness-adapted by AL.
-- **`autoreset_control_seconds: 0`** — manual-control pauses never auto-clear. This is load-bearing for `automation.sync_living_room_status_lamp_to_alarm_and_guest_modes`, which sets status colors (red armed-away, green guest mode) that must persist indefinitely — the automation only re-fires on state changes, so a nonzero autoreset would silently overwrite the indicator. The same setting means user-set brightness on any light persists until explicitly changed.
+The key architectural choice: `switch.adaptive_lighting_adapt_brightness_color_only` is permanently off. This makes it impossible for AL to adapt brightness for Color Only lights regardless of manual-control state or restarts. The alternative — relying on `adapt_only_on_bare_turn_on` and `take_over_control_mode: pause_changed` to build up manual-control state — was fragile: HA restarts wiped the in-memory state, causing lights to jump to AL's brightness curve until manually corrected.
+
+`autoreset_control_seconds: 0` on both instances means manually-set colors persist until the light is turned off. This is load-bearing for `automation.sync_living_room_status_lamp_to_alarm_and_guest_modes`, which sets status colors (red for armed away, green for guest mode) that must survive until state changes again — a nonzero autoreset would silently overwrite a red indicator after the reset interval.
 
 #### 4. Conservative brightness range
 
@@ -121,7 +126,7 @@ Each instance is configured at **Settings → Devices & Services → Adaptive Li
 
 ### 2a. Standard
 
-**Lights:** `light.master_bedroom_fan`, `light.living_room_fan`, `light.office_ceiling`, `light.entrance_ceiling`, `light.kitchen_counter_strip`, `light.kitchen_sink_bulb`, `light.bathroom_hallway_ceiling`, `light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`, `light.office_bourbon_lamp`, `light.master_bedroom_nightstand_lamp_left`, `light.portable_accent_lamp`
+**Lights:** `light.master_bedroom_fan`, `light.living_room_fan`, `light.office_ceiling`
 
 **Runtime switches:**
 
@@ -157,7 +162,7 @@ Each instance is configured at **Settings → Devices & Services → Adaptive Li
 | `take_over_control_mode` | `pause_changed` | Pauses only the changed attribute, not the entire light. |
 | `adapt_only_on_bare_turn_on` | `true` | Skip adaptation if `light.turn_on` specifies brightness or color. |
 | `detect_non_ha_changes` | `false` | Avoids false-positive manual-control flags from non-HA sources. |
-| `autoreset_control_seconds` | `0` | Manual-control pauses never auto-clear. Load-bearing for status color persistence. See Design Decision §3. |
+| `autoreset_control_seconds` | `1800` | AL reclaims control 30 minutes after a manual change. Appropriate for ceiling fixtures where AL fully owns brightness — no status color persistence concern. |
 | `skip_redundant_commands` | `true` | Skips commands when target equals recorded state. Reduces Zigbee traffic. See Design Decision §7. |
 | `send_split_delay` | `100` | 100 ms delay between brightness and color commands on the same bulb. |
 | `prefer_rgb_color` | `false` | Use color temperature, not RGB. |
@@ -167,11 +172,36 @@ Each instance is configured at **Settings → Devices & Services → Adaptive Li
 
 > **Coordinated change:** `min_brightness` (60) and `max_brightness` (95) are mirrored by the Living Room Hue Sync Mode Configurator's restore branch (`guides/hue_sync.md`). If you change them here, update the restore branch YAML and the Configuration Reference table in `hue_sync.md` to match.
 
+### 2b. Color Only
+
+**Lights:** `light.entrance_ceiling`, `light.bathroom_hallway_ceiling`, `light.portable_accent_lamp`, `light.kitchen_counter_strip`, `light.kitchen_sink_bulb`, `light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`, `light.office_bourbon_lamp`, `light.master_bedroom_nightstand_lamp_left`, `light.avery_room_desk_lamp`
+
+**Runtime switches:**
+
+| Entity ID | Default State |
+|---|---|
+| `switch.adaptive_lighting_color_only` | on |
+| `switch.adaptive_lighting_adapt_brightness_color_only` | **off — permanently disabled** |
+| `switch.adaptive_lighting_adapt_color_color_only` | on |
+| `switch.adaptive_lighting_sleep_mode_color_only` | off — controlled by "Everyone Sleeping" automation |
+
+**Settings (deviations from Standard):**
+
+| Setting | Color Only | Standard | Reason |
+|---|---|---|---|
+| `autoreset_control_seconds` | `0` | `1800` | Status lamps (`living_room_status_lamp`, `office_presence_sensor`) hold specific RGB colors (red/green) set by `automation.sync_living_room_status_lamp_to_alarm_and_guest_modes`. A nonzero autoreset would silently overwrite a red "armed away" indicator after the reset interval. |
+
+All other curve and timing settings match Standard. Change them in both instances together if adjusting the curve.
+
 > **Coordinated change:** `autoreset_control_seconds: 0` is load-bearing for `automation.sync_living_room_status_lamp_to_alarm_and_guest_modes`. That automation sets status colors (red for alarm armed away, green for guest mode, warm white for sleep) that must persist until the light is turned off — it only re-fires on state changes. A nonzero autoreset would silently overwrite a red "armed away" indicator after the reset interval. Do not change this setting without also reworking the sync automation to re-fire periodically.
 
-### 2b. Avery Schedule
+> **Note:** `switch.adaptive_lighting_adapt_brightness_color_only` must remain off. Re-enabling it would cause AL to adapt brightness for all Color Only lights, including those whose automations set specific levels (status lamps, bathroom night lamp). See Design Decision §3.
 
-**Lights:** `light.avery_room_ceiling`, `light.avery_room_desk_lamp`
+> **Note:** `light.avery_room_desk_lamp` is in Color Only even though it is in Avery's room — it is a lamp where the user controls brightness, not a ceiling fixture. Its button automation (`automation.avery_s_room_desk_lamp_remote_is_pressed`) uses `adaptive_lighting.set_manual_control` and `adaptive_lighting.apply` referencing `switch.adaptive_lighting_color_only` to re-apply AL color after an explicit brightness turn-on.
+
+### 2c. Avery Schedule
+
+**Lights:** `light.avery_room_ceiling`
 
 Avery Schedule shares most settings with Standard but uses an earlier evening schedule (Avery's bedtime is ~20:30) and faster adaptation cycles.
 
@@ -197,7 +227,6 @@ Avery Schedule shares most settings with Standard but uses an earlier evening sc
 
 All other settings match Standard. The morning ramp is shared (same wake-up schedule).
 
-> **Note:** `light.avery_room_desk_lamp` uses explicit `brightness_pct: 95` on all turn-ons via `automation.avery_s_room_desk_lamp_remote_is_pressed`, so AL never adapts its brightness. The button automation's `adaptive_lighting.set_manual_control` and `adaptive_lighting.apply` calls reference `switch.adaptive_lighting_avery_schedule`.
 
 ---
 
@@ -210,6 +239,7 @@ In the "Everyone Sleeping" automation, call `switch.turn_on` / `switch.turn_off`
 | Instance | Sleep Mode Switch |
 |---|---|
 | Standard | `switch.adaptive_lighting_sleep_mode_standard` |
+| Color Only | `switch.adaptive_lighting_sleep_mode_color_only` |
 | Avery Schedule | `switch.adaptive_lighting_sleep_mode_avery_schedule` |
 
 > The "Everyone Sleeping" automation is a household-wide automation outside the scope of this guide. This step documents the sleep-mode switch entity IDs it must reference.
@@ -265,7 +295,7 @@ Then confirm the bulb actually honors `execute_if_off` before committing to the 
 
 ### Deployed automation: AL Pre-Stage — Standard (`automation.al_pre_stage_standard`)
 
-Covers Standard ceiling fixtures with Z2M-managed bulbs, plus the Portable Accent Lamp. Main ceiling fixtures (master bedroom fan, living room fan, office ceiling) receive full payloads (brightness + color temp). Entrance Ceiling, Bathroom Hallway Ceiling, and Portable Accent Lamp receive color-only payloads — brightness is omitted so the bulb retains its user-set level on turn-on. Kitchen Counter Strip is not pre-staged (not Z2M-managed). Kitchen Sink Bulb, Office Bourbon Lamp, and Master Bedroom Nightstand Lamp are not pre-staged (do not support `execute_if_off`). Remaining lamps (`light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`) are not pre-staged.
+Covers Standard and Color Only ceiling fixtures with Z2M-managed bulbs, plus the Portable Accent Lamp. Standard ceiling fixtures (master bedroom fan, living room fan, office ceiling) receive full payloads (brightness + color temp). Color Only ceiling fixtures (entrance ceiling, bathroom hallway ceiling) and Portable Accent Lamp receive color-only payloads — brightness is omitted so the bulb retains its user-set level on turn-on. Kitchen Counter Strip is not pre-staged (not Z2M-managed). Kitchen Sink Bulb, Office Bourbon Lamp, and Master Bedroom Nightstand Lamp are not pre-staged (do not support `execute_if_off`). Remaining lamps (`light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`) are not pre-staged.
 
 ```yaml
 alias: AL Pre-Stage — Standard
@@ -653,7 +683,7 @@ action:
 
 To pre-stage a new fixture, add it to the relevant automation:
 
-- Standard ceiling fixture → extend `automation.al_pre_stage_standard`
+- Standard or Color Only ceiling fixture → extend `automation.al_pre_stage_standard` (Standard fixtures use full payload; Color Only fixtures use color-only payload)
 - Avery Schedule fixture → extend `automation.al_pre_stage_avery_schedule`
 - Lamps are not pre-staged (see exclusion list in the automation description above)
 
@@ -673,13 +703,16 @@ Brightness conversion: AL exposes `brightness_pct` (0–100); Z2M expects `brigh
 | Standard Adapt Brightness | `switch.adaptive_lighting_adapt_brightness_standard` | AL Switch |
 | Standard Adapt Color | `switch.adaptive_lighting_adapt_color_standard` | AL Switch |
 | Standard Sleep Mode | `switch.adaptive_lighting_sleep_mode_standard` | AL Switch |
+| Color Only Adaptive Lighting | `switch.adaptive_lighting_color_only` | AL Switch |
+| Color Only Adapt Brightness | `switch.adaptive_lighting_adapt_brightness_color_only` | AL Switch (permanently off) |
+| Color Only Adapt Color | `switch.adaptive_lighting_adapt_color_color_only` | AL Switch |
+| Color Only Sleep Mode | `switch.adaptive_lighting_sleep_mode_color_only` | AL Switch |
 | Avery Schedule Adaptive Lighting | `switch.adaptive_lighting_avery_schedule` | AL Switch |
 | Avery Schedule Adapt Brightness | `switch.adaptive_lighting_adapt_brightness_avery_schedule` | AL Switch |
 | Avery Schedule Adapt Color | `switch.adaptive_lighting_adapt_color_avery_schedule` | AL Switch |
 | Avery Schedule Sleep Mode | `switch.adaptive_lighting_sleep_mode_avery_schedule` | AL Switch |
 | AL Pre-Stage — Standard | `automation.al_pre_stage_standard` | Automation |
 | AL Pre-Stage — Avery Schedule | `automation.al_pre_stage_avery_schedule` | Automation |
-| AL — Restore Manual Brightness on Startup | `automation.al_restore_manual_brightness_on_startup` | Automation |
 
 ---
 
@@ -706,7 +739,7 @@ No on-disk files are created or modified by this integration. All artifacts live
 | Sleep mode not triggering | "Everyone Sleeping" automation references wrong entity IDs | Verify entity IDs in Step 3 against Developer Tools → States |
 | Specific bulb stuck at wrong brightness/color while others adapt | `skip_redundant_commands` is skipping due to stale HA state after a mesh hiccup or Z2M restart | Disable `skip_redundant_commands` on that switch temporarily; re-enable when resolved |
 | Status lamp color overwritten after a period of time | Standard `autoreset_control_seconds` set to nonzero | Verify `autoreset_control_seconds: 0` on the Standard AL instance |
-| Light jumps to full AL brightness after HA restart | AL's in-memory manual-control state (brightness paused) is wiped on restart. Always-on lights come back as a bare turn-on and AL adapts brightness fresh. Lights that are off at restart re-establish manual control on first normal use. | Three automations address this: `automation.al_restore_manual_brightness_on_startup` (kitchen counter strip), `automation.sync_living_room_status_lamp_to_alarm_and_guest_modes` (living room status lamp + office presence sensor), and `automation.luminance_bathroom_night_lamp` (bathroom night lamp). All fire 30s after startup to let AL initialize first. |
+| Status lamp color overwritten after HA restart | AL's in-memory manual-control state (color paused) is wiped on restart. Status lamps with specific RGB colors (red/green) come back as a bare turn-on and AL adapts color to its curve. | `automation.sync_living_room_status_lamp_to_alarm_and_guest_modes` fires 30s after startup to re-apply the correct status color based on current alarm/guest/sleep state. Non-status Color Only lights are not affected — AL adapting their color temp on restart is the correct behavior. |
 
 ### Pre-Staging
 
