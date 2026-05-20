@@ -10,7 +10,7 @@ This repository is the version-controlled home for documentation, standards, and
 
 The repository serves three purposes:
 
-1. **Reference standards** that govern how the HA instance is structured (see `standards/naming.md`)
+1. **Reference standards** that govern how the HA instance is structured (see `standards/naming.md` for entities, `standards/automations.md` for automations)
 2. **Implementation guides** for custom integrations, written for the author's future reference and for sharing in HA community forums
 3. **Supporting scripts** that aren't UI-editable and live outside HA's entity registry (shell scripts, complex templates)
 
@@ -181,85 +181,24 @@ Use issue comments for ongoing discussion about an open item. If a conversation 
 
 ---
 
-## Automation & YAML Conventions
+## Automation Standard
 
-These conventions apply to all automations, scripts, and templates in this repo (including those that live in HA but are designed or modified through this repo's workflow). They are firm standards, not suggestions.
+All automation naming, organization (categories, labels, area assignment), and YAML content requirements follow `standards/automations.md`. That document is the source of truth. If a situation isn't covered, flag the gap rather than improvising — extend the standard.
 
-### Aliases everywhere
+Key principles to internalize without re-reading every time:
 
-Every trigger, condition, action, `choose` branch, and `repeat` block gets an `alias` field. Aliases make automations readable in the HA UI trace view and make debugging far easier.
-
-```yaml
-trigger:
-  - alias: "Motion detected in office"
-    platform: state
-    entity_id: binary_sensor.office_motion
-    to: "on"
-condition:
-  - alias: "Only during work hours"
-    condition: time
-    after: "08:00:00"
-    before: "18:00:00"
-action:
-  - alias: "Turn on key light"
-    service: light.turn_on
-    target:
-      entity_id: light.office_key_light
-```
-
-### Parallel vs. sequential actions
-
-- Use **parallel blocks** for independent actions where ordering doesn't matter and concurrent execution is faster.
-- Use **sequential ordering** when actions depend on each other or when perceptible-impact actions should fire first and background housekeeping should fire last.
-
-### Choose blocks
-
-- Every `choose` branch gets an `alias` describing the condition it handles.
-- Include a `default` branch with an alias when the absence of a match is meaningful; omit it when no action is the intended outcome.
-
-### Guards on restoration branches
-
-Automations that restore a prior state (e.g., turning a thermostat back on after a door closes) should verify the current state before restoring. Don't assume that because the automation turned something off, it can blindly turn it back on — the user may have changed it in the interim.
-
-### Avoid unnecessary if/then guards
-
-Don't wrap actions in `if`/`then` blocks when the action is a no-op if the condition is false. Calling `light.turn_off` on an already-off light, or `switch.turn_on` on an already-on switch, does nothing — the guard adds complexity without value. Only add a condition when the action would cause a problem if the condition isn't met.
-
-### Templated entity IDs in conditions
-
-`condition: state` does not accept templated entity IDs. Use `condition: template` with `states()` instead.
-
-```yaml
-# Wrong — fails silently
-- condition: state
-  entity_id: "light.{{ states('input_text.target_light') }}"
-  state: "on"
-
-# Right
-- condition: template
-  value_template: "{{ is_state('light.' ~ states('input_text.target_light'), 'on') }}"
-```
-
-### Mode and concurrency
-
-Specify `mode` explicitly on every automation (`single`, `restart`, `queued`, `parallel`). Don't rely on the default. For automations that respond to fast-firing triggers, `restart` is usually correct; for alert-style automations, `parallel` with `max:` set is safer.
-
-### Inline documentation
-
-- Add a `description` field to every automation explaining what it does and when it fires.
-- Use comments above non-obvious lines to explain reasoning.
-- Document any "magic numbers" (delays, thresholds) with a comment explaining why that value was chosen.
-
-### Entity targeting
-
-- Prefer label-targeted actions when broadcasting to a group of devices (e.g., `label.all_lights_off`).
-- Use `target:` syntax over `data: entity_id:` in service calls — it's the modern form.
+- **Aliases everywhere** — every trigger, condition, action, choose branch, and repeat block
+- **Mode always explicit** — never omit `mode:`
+- **Description always present** — what it does, when it fires, why it exists
+- **Purpose-based entity IDs** — `area_id`, integration code, or `household` prefix; no trigger-type prefixes
+- **8 approved categories** — Lighting, Climate, Security, Person, Media, Notifications, Routines, Maintenance
+- **Labels are orthogonal** — `scope_*` for multi-area; `int_*` for guide-documented integrations
 
 ---
 
 ## Naming Standard
 
-All entity and device naming follows `standards/naming.md`. When proposing new entities or renaming existing ones, that document is the source of truth. If a situation isn't covered, flag the gap rather than improvising — the author will extend the standard.
+All entity and device naming follows `standards/naming.md`. All automation naming and organization follows `standards/automations.md`. When proposing new entities, renaming existing ones, or creating automations, those documents are the source of truth. If a situation isn't covered, flag the gap rather than improvising — the author will extend the standard.
 
 Key principles to internalize without re-reading every time:
 

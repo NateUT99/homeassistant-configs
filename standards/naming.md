@@ -16,6 +16,8 @@
 
 This document defines the standard naming conventions for all devices and entities in the Home Assistant instance. It applies to all integrations including Zigbee (Z2M), Hue, Sonos, Matter, HomeKit, Meross, and others. Consistent naming enables reliable automations, clean dashboards, and easy voice assistant targeting.
 
+> **Automation naming is out of scope here.** Automation entity IDs, friendly names, categories, labels, and area assignment are defined in `standards/automations.md`.
+
 ---
 
 ## 2. Core Principles
