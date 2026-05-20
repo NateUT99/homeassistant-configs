@@ -81,5 +81,6 @@ case "$SSH_ORIGINAL_COMMAND" in
   "litra temperature-down --value "*)
     TEMP="${SSH_ORIGINAL_COMMAND#litra temperature-down --value }"
     sudo -u "$RUN_AS" "$LITRA" temperature-down --value "$TEMP" ;;
+  "litra devices --json")         sudo -u "$RUN_AS" "$LITRA" devices --json ;;
   *) echo "Unauthorized command" >&2; exit 1 ;;
 esac

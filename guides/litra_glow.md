@@ -11,10 +11,13 @@ This document describes how to integrate a Logitech Litra Glow key light with Ho
 
 ```
 Home Assistant
-  └── shell_command (SSH)
+  ├── shell_command.litra_apply (SSH) ── commands (on/off/brightness/temp)
+  └── sensor.litra_glow_status (SSH) ── status query (hourly + after each command)
         └── homeassistant@mac-mini
               └── litra_dispatch.sh (whitelist gatekeeper)
-                    └── apply_composite (sequenced state → brightness → temperature)
+                    ├── litra apply [state=] [brightness=] [temperature=]
+                    │     └── apply_composite: sequenced on → brightness → temp → off
+                    └── litra devices --json
                           └── sudo -u <your_username> /opt/homebrew/bin/litra
                                 └── Logitech Litra Glow (USB HID)
 ```
@@ -25,7 +28,7 @@ Key design decisions:
 - The SSH key is locked to a dispatch script via `restrict,command=` in `authorized_keys`
 - The dispatch script whitelists only specific `litra` commands, rejecting everything else
 - `litra` requires USB HID access, which is only available to the logged-in user (`<your_username>`), so a targeted `sudo` rule allows `homeassistant` to run `litra` as `<your_username>` only
-- The HA light entity runs in optimistic mode — state updates immediately on command without polling
+- A `command_line` sensor (`sensor.litra_glow_status`) polls the device's actual state via `litra devices --json`, serving as the source of truth for the template light's `state`, `level`, and `temperature` templates — the light is no longer in optimistic mode. Each command handler also triggers an immediate sensor refresh so the UI stays in sync without waiting for the hourly poll.
 - A composite `litra apply` command applies on/off, brightness, and temperature in a single SSH invocation, working around Home Assistant's template light convention where only one of `set_level` / `set_temperature` fires when both parameters are supplied to `light.turn_on`
 
 ---
@@ -164,7 +167,7 @@ homeassistant ALL=(<your_username>) NOPASSWD: /opt/homebrew/bin/litra
 
 The dispatch script acts as a security gatekeeper. The SSH authorized key is locked to only execute this script via `restrict,command=`. The script whitelists specific `litra` commands and rejects everything else with a non-zero exit code.
 
-The `apply_composite` function handles the composite `litra apply` pseudo-command, which accepts optional `state=`, `brightness=`, and `temperature=` arguments and sequences them in the correct order on the Mac side, all within one SSH session.
+The `apply_composite` function handles the composite `litra apply` pseudo-command, which accepts optional `state=`, `brightness=`, and `temperature=` arguments and sequences them in the correct order on the Mac side, all within one SSH session. A read-only `litra devices --json` case is also whitelisted for the state-tracking sensor added in Step 8.
 
 The script is maintained in this repository at `scripts/litra_dispatch.sh`. Before deploying, open it and replace `<your_username>` with your macOS username. Then copy it to the Mac Mini and make it executable:
 
@@ -244,12 +247,13 @@ shell_command:
     ssh -i /config/.ssh/id_ed25519_litra
     -o StrictHostKeyChecking=yes
     -o UserKnownHostsFile=/config/.ssh/known_hosts
+    -o ConnectTimeout=5
     homeassistant@<mac-mini-ip> "litra apply {{ args }}"
 ```
 
 ### Template Light (`configuration.yaml`)
 
-The light runs in optimistic mode — no `state` template is defined, so HA reflects commands in the UI immediately without waiting for device confirmation.
+The template light is state-tracked rather than optimistic. A `command_line` sensor (`sensor.litra_glow_status`, defined below) polls the device's actual state and drives the `state`, `level`, and `temperature` templates. After each command handler runs, it triggers an immediate sensor refresh via `homeassistant.update_entity` so the UI reflects the new state within a second rather than waiting for the hourly poll.
 
 All four handlers (`turn_on`, `turn_off`, `set_level`, `set_temperature`) are defined for two reasons:
 
@@ -265,31 +269,112 @@ template:
   - light:
       - name: "Office Desk Key Light"
         unique_id: litra_glow
+        availability: "{{ states('sensor.litra_glow_status') != 'unavailable' }}"
+        state: "{{ is_state('sensor.litra_glow_status', 'on') }}"
+        level: >-
+          {% set l = state_attr('sensor.litra_glow_status', 'brightness_in_lumen') %}
+          {{ ((l | int - 20) / 230 * 255) | int if l is not none else none }}
+        temperature: >-
+          {% set k = state_attr('sensor.litra_glow_status', 'temperature_in_kelvin') %}
+          {{ ((((6500 - (k | int)) / 3800) * 347) + 153) | int if k is not none else none }}
         turn_on:
           - alias: Turn on (and apply brightness/temp if supplied)
             action: shell_command.litra_apply
             data:
               args: "state=on{% if brightness is defined %} brightness={{ (brightness / 255 * 100) | int }}{% endif %}{% if color_temp is defined %} temperature={{ (((color_temp | int - 153) / (500 - 153)) * (2700 - 6500) + 6500) | int | round(-2) | int }}{% endif %}"
+          - alias: Refresh Litra status sensor
+            action: homeassistant.update_entity
+            target:
+              entity_id: sensor.litra_glow_status
         turn_off:
           - alias: Turn off
             action: shell_command.litra_apply
             data:
               args: "state=off"
+          - alias: Refresh Litra status sensor
+            action: homeassistant.update_entity
+            target:
+              entity_id: sensor.litra_glow_status
         set_level:
           - alias: Brightness adjustment (also ensures light is on)
             action: shell_command.litra_apply
             data:
               args: "state=on brightness={{ (brightness / 255 * 100) | int }}"
+          - alias: Refresh Litra status sensor
+            action: homeassistant.update_entity
+            target:
+              entity_id: sensor.litra_glow_status
         set_temperature:
           - alias: Color temp adjustment (also ensures light is on, plus brightness if supplied)
             action: shell_command.litra_apply
             data:
               args: "state=on temperature={{ (((color_temp | int - 153) / (500 - 153)) * (2700 - 6500) + 6500) | int | round(-2) | int }}{% if brightness is defined %} brightness={{ (brightness / 255 * 100) | int }}{% endif %}"
+          - alias: Refresh Litra status sensor
+            action: homeassistant.update_entity
+            target:
+              entity_id: sensor.litra_glow_status
+```
+
+The `availability` template treats `unknown` as available so the entity remains usable while the sensor is refreshing — only `unavailable` (Mac unreachable) hides the light from the UI. The `level` and `temperature` templates return `none` when their source attributes are absent during initial sensor load, which tells HA to leave those values unset rather than silently writing a wrong value.
+
+### Command-line Status Sensor (`configuration.yaml`)
+
+This sensor polls the device state via SSH once per hour as a safety net, and is also refreshed immediately after every command handler runs. It is the source of truth for the template light's `state`, `level`, and `temperature` templates.
+
+`litra devices --json` returns a JSON array. The first element contains the Litra Glow's state. `value_template` normalizes the boolean `is_on` field to the HA-idiomatic `'on'`/`'off'` string so downstream templates can use `is_state()`. `json_attributes_path: "$[0]"` extracts all attributes from the first device object.
+
+```yaml
+command_line:
+  - sensor:
+      name: "Litra Glow Status"
+      unique_id: litra_glow_status
+      command: >-
+        ssh -i /config/.ssh/id_ed25519_litra
+        -o StrictHostKeyChecking=yes
+        -o UserKnownHostsFile=/config/.ssh/known_hosts
+        -o ConnectTimeout=5
+        homeassistant@<mac-mini-ip> "litra devices --json"
+      command_timeout: 10
+      value_template: "{{ 'on' if value_json[0].is_on else 'off' }}"
+      json_attributes_path: "$[0]"
+      json_attributes:
+        - is_on
+        - brightness_in_lumen
+        - temperature_in_kelvin
+        - minimum_brightness_in_lumen
+        - maximum_brightness_in_lumen
+        - minimum_temperature_in_kelvin
+        - maximum_temperature_in_kelvin
+      scan_interval: 3600
+```
+
+`ConnectTimeout=5` and `command_timeout: 10` prevent the sensor from hanging when the Mac is unreachable — a 75-second default SSH connect timeout would freeze HA's command_line integration worker thread for each failed poll. If the Mac is unreachable, the sensor goes `unavailable`, which propagates to the template light via the `availability` template.
+
+### Startup Recovery Automation
+
+On every HA restart, the command_line sensor would otherwise sit idle until its next scheduled poll (up to an hour away). This automation fires on `homeassistant.start` to refresh the sensor immediately, so state is accurate before the first user interaction.
+
+```yaml
+alias: Refresh Litra Glow status on HA start
+description: >
+  Forces sensor.litra_glow_status to poll the device immediately when HA starts up,
+  so the template light reflects accurate state before the next scheduled scan_interval.
+triggers:
+  - alias: HA finished starting
+    trigger: homeassistant
+    event: start
+conditions: []
+actions:
+  - alias: Refresh Litra status sensor
+    action: homeassistant.update_entity
+    target:
+      entity_id: sensor.litra_glow_status
+mode: single
 ```
 
 ### Why every command-sending handler asserts `state=on`
 
-The Litra accepts brightness and temperature commands while off, but does not power up — it stores the settings silently and applies them on the next `litra on`. From the user's perspective, this looks like "HA shows the light at 50% / 5400K but the room is still dark," because HA's optimistic state model assumes the command succeeded.
+The Litra accepts brightness and temperature commands while off, but does not power up — it stores the settings silently and applies them on the next `litra on`. From the user's perspective, this looks like "HA shows the light at 50% / 5400K but the room is still dark."
 
 To eliminate this footgun, `set_level` and `set_temperature` always include `state=on` in their composite args. On an already-on Litra this is a harmless no-op USB call (under 100ms, no visible flicker). On an off Litra it correctly powers up the light alongside the requested adjustment.
 
@@ -311,8 +396,16 @@ HA accepts `brightness_pct: 50` as an alternative to `brightness: 128` in servic
 
 | Direction | Formula |
 | --- | --- |
-| HA brightness (0–255) → litra percentage (0–100) | `(brightness / 255 * 100) | int` |
-| HA mireds (153–500) → kelvin (2700–6500) | `(((color_temp | int - 153) / (500 - 153)) * (2700 - 6500) + 6500) | int | round(-2) | int` |
+| HA brightness (0–255) → litra percentage (0–100) | `(brightness / 255 * 100) \| int` |
+| litra brightness_in_lumen (20–250) → HA brightness (0–255) | `((brightness_in_lumen \| int - 20) / 230 * 255) \| int` |
+| HA mireds (153–500) → kelvin (2700–6500) | `(((color_temp \| int - 153) / (500 - 153)) * (2700 - 6500) + 6500) \| int \| round(-2) \| int` |
+| kelvin (2700–6500) → HA mireds (153–500) | `((((6500 - (k \| int)) / 3800) * 347) + 153) \| int` |
+
+The forward conversions (HA → litra) live in the template light handlers. The reverse conversions (litra → HA) live in the `level` and `temperature` templates that read from the status sensor.
+
+> **Coordinated change:** the forward and reverse conversion formulas must move together. If the Litra's brightness or temperature range changes (e.g., a device firmware update or a different model), update both the forward conversion in the template light handlers and the reverse conversion in the `level` / `temperature` templates simultaneously, or HA's reported and commanded values will drift apart.
+
+The lumens-to-HA-brightness reverse conversion introduces a rounding asymmetry of up to ±1 out of 255 (< 0.4% of range) because `litra brightness --percentage` operates in percent while `litra devices --json` reports back in lumens. The drift is imperceptible and self-corrects on the next user adjustment.
 
 ---
 
@@ -412,6 +505,7 @@ The `light.turn_on` call uses `brightness_pct` and `color_temp_kelvin`. HA norma
 | Command restriction | `restrict,command=` in `authorized_keys` — key can only invoke the dispatch script |
 | Dispatch script | Whitelist-based case statement — only explicit litra commands allowed, all others rejected with exit code 1 |
 | Composite command validation | `apply_composite` rejects any unknown arg key; brightness/temperature values must match `^[0-9]+$` before being passed to `litra` |
+| Status query | `litra devices --json` is whitelisted as a read-only operation; it returns device metadata including serial number — no write capability exposed |
 | sudo scope | `homeassistant` can only run `/opt/homebrew/bin/litra` as `<your_username>`, no password required, nothing else permitted |
 
 ---
@@ -421,7 +515,9 @@ The `light.turn_on` call uses `brightness_pct` and `color_temp_kelvin`. HA norma
 | Artifact | Entity ID | Type |
 | --- | --- | --- |
 | Office Desk Key Light | `light.office_desk_key_light` | Template light (`configuration.yaml`) |
+| Litra Glow Status | `sensor.litra_glow_status` | Command-line sensor (`configuration.yaml`) |
 | Control office lights when display camera is being used | `automation.control_office_lights_when_display_camera_is_being_used` | Automation |
+| Refresh Litra Glow status on HA start | `automation.refresh_litra_glow_status_on_ha_start` | Automation |
 
 ---
 
