@@ -35,7 +35,7 @@ PS5 (PS5-MQTT) ─────────────────────�
 |---|---|---|---|
 | Living Room TV Power Handler | Automation | TV on/off transitions; cleanup on off | single |
 | Living Room TV Bias Light Controller | Automation | Sole owner of the bias light during TV sessions | restart |
-| Living Room Hue Sync Mode Configurator | Automation | Picks video/game profile; adjusts ceiling AL | restart |
+| Living Room Hue Sync Mode Configurator | Automation | Picks video/game profile; dims Living Room Fan | restart |
 | Living Room TV Bias Light Off-TV Guard | Automation | Catches manual bias turn-ons while TV is off | single |
 | Living Room Hue Sync Stop on PS5 Power Off | Automation | Stops sync when PS5 powers off while syncing to PS5 | single |
 | Living Room Hue Sync (Video) | Script | Configures sync box for video content | — |
@@ -165,8 +165,7 @@ Used for Apple TV input, or any input when `movie_mode` is on.
 | Sync box `brightness` | `50` | Conservative — bright enough to be visible, low enough not to distract during dark scenes. |
 | Sync box `intensity` | `high` | Smooth transitions appropriate to film. |
 | Sync box `mode` | `video` | Sync box's video processing mode. |
-| Ceiling AL `min_brightness` | `25` | Low floor for evening viewing. |
-| Ceiling AL `max_brightness` | `50` | Caps ceiling brightness so it doesn't compete with content. |
+| Living Room Fan `brightness_pct` | `40` | Midpoint of prior 25–50% AL clamp. Fan dims without going too dark for viewing. |
 
 #### Game Profile
 
@@ -177,19 +176,11 @@ Used for PS5 input when `movie_mode` is off.
 | Sync box `brightness` | `85` | Punchy — matches the dynamic content of action games. |
 | Sync box `intensity` | `intense` | Rapid, saturated shifts for gaming responsiveness. |
 | Sync box `mode` | `game` | Sync box's low-latency game processing mode. |
-| Ceiling AL `min_brightness` | `5` | Deep dimming for immersive gaming. |
-| Ceiling AL `max_brightness` | `10` | Very low ceiling to keep room dark. |
+| Living Room Fan `brightness_pct` | `8` | Midpoint of prior 5–10% AL clamp. Near-dark room for immersive gaming. |
 
-#### Ceiling AL Restoration (sync off)
+#### Fan Brightness Restoration (sync off)
 
-| Setting | Value | Rationale |
-|---|---|---|
-| `min_brightness` | `60` | Matches the `switch.adaptive_lighting_standard` baseline. |
-| `max_brightness` | `95` | Matches the `switch.adaptive_lighting_standard` baseline. |
-
-These are passed to `adaptive_lighting.change_switch_settings` with `use_defaults: current` so other AL settings (color temp, schedule, curve) are preserved.
-
-> **Coordinated change:** The `min_brightness` (60) and `max_brightness` (95) values mirror the baseline configuration of `switch.adaptive_lighting_standard` (**Settings → Devices & Services → Adaptive Lighting → Standard → Configure**). If that baseline changes, update both values here and in the Mode Configurator YAML below.
+When sync stops, `adaptive_lighting.set_manual_control` is called with `manual_control: false` on `light.living_room_fan`. AL Standard's next adaptation cycle (≤90 sec) resumes brightness control on the fan according to its normal curve. No AL instance settings are modified at runtime.
 
 ### Profile selection logic
 
@@ -418,14 +409,14 @@ mode: restart
 ```yaml
 alias: Living Room Hue Sync Mode Configurator
 description: >-
-  Configures the Hue Sync Box profile and ceiling Adaptive Lighting limits
-  based on the current input and movie_mode flag. The sync switch itself is
-  the user's intent signal: turning it on means "sync this content," and
-  this automation picks the right profile.
+  Configures the Hue Sync Box profile and Living Room Fan brightness based on
+  the current HDMI input and movie_mode flag. The sync switch itself is the
+  user's intent signal: turning it on means "sync this content," and this
+  automation picks the right profile.
 
   Triggers:
-    - Sync switch turning on  -> apply profile, start syncing
-    - Sync switch turning off -> restore ceiling AL limits
+    - Sync switch turning on  -> apply profile (fan dims, sync box configured)
+    - Sync switch turning off -> release fan brightness back to AL
     - Input change (only if sync is on)  -> re-apply profile for new input
     - Movie mode change (only if sync is on) -> re-apply profile
 
@@ -435,43 +426,53 @@ description: >-
     3. PS5 input      -> game profile
 
   Profiles:
-    - Video: brightness 50, intensity high, ceiling AL 25-50%
-    - Game:  brightness 85, intensity intense, ceiling AL 5-10%
+    - Video: sync box brightness 50, intensity high; Living Room Fan 40%
+    - Game:  sync box brightness 85, intensity intense; Living Room Fan 8%
+
+  Living Room Fan brightness is set directly via light.turn_on. AL Standard's
+  take_over_control_mode: pause_changed pauses brightness on the fan while
+  continuing to adapt its color temperature. Master Bedroom Fan and Office
+  Ceiling (also in AL Standard) are unaffected. On sync stop,
+  adaptive_lighting.set_manual_control releases the fan back to AL.
 
   This automation does NOT touch the bias light directly; the Bias Light
   Controller handles that via its sync switch trigger.
 triggers:
-  - trigger: state
+  - alias: Sync switch turned on
+    trigger: state
     entity_id: switch.living_room_sync_box_light_sync
     from: "off"
     to: "on"
     id: sync_start
-  - trigger: state
+  - alias: Sync switch turned off
+    trigger: state
     entity_id: switch.living_room_sync_box_light_sync
     from: "on"
     to: "off"
     id: sync_stop
-  - trigger: state
+  - alias: HDMI input changed
+    trigger: state
     entity_id: select.living_room_sync_box_hdmi_input
     id: input_change
-  - trigger: state
+  - alias: Movie mode toggled
+    trigger: state
     entity_id: input_boolean.movie_mode
     id: movie_mode_change
 conditions: []
 actions:
   - choose:
-      - alias: Sync stopped - restore ceiling AL limits
+      - alias: Sync stopped - release Living Room Fan brightness back to AL
         conditions:
           - condition: trigger
             id: sync_stop
         sequence:
-          - alias: Restore ceiling AL limits for Standard (60-95%)
-            action: adaptive_lighting.change_switch_settings
+          - alias: Release Living Room Fan brightness to AL control
+            action: adaptive_lighting.set_manual_control
             data:
-              use_defaults: current
               entity_id: switch.adaptive_lighting_standard
-              min_brightness: 60
-              max_brightness: 95
+              lights:
+                - light.living_room_fan
+              manual_control: false
       - alias: Reconfigure profile (sync_start, or input/movie_mode change while sync is on)
         conditions:
           - condition: or
@@ -501,28 +502,28 @@ actions:
                         entity_id: select.living_room_sync_box_hdmi_input
                         state: Apple TV
                 sequence:
-                  - action: script.living_room_hue_sync_video
-                  - alias: Ceiling AL limits for video (25-50%)
-                    action: adaptive_lighting.change_switch_settings
+                  - alias: Apply video profile to Hue Sync Box
+                    action: script.living_room_hue_sync_video
+                  - alias: Dim Living Room Fan to 40% (video profile)
+                    action: light.turn_on
+                    target:
+                      entity_id: light.living_room_fan
                     data:
-                      use_defaults: current
-                      entity_id: switch.adaptive_lighting_standard
-                      min_brightness: 25
-                      max_brightness: 50
+                      brightness_pct: 40
               - alias: PS5 input (movie_mode off) -> game profile
                 conditions:
                   - condition: state
                     entity_id: select.living_room_sync_box_hdmi_input
                     state: Playstation 5
                 sequence:
-                  - action: script.living_room_hue_sync_game
-                  - alias: Ceiling AL limits for game (5-10%)
-                    action: adaptive_lighting.change_switch_settings
+                  - alias: Apply game profile to Hue Sync Box
+                    action: script.living_room_hue_sync_game
+                  - alias: Dim Living Room Fan to 8% (game profile)
+                    action: light.turn_on
+                    target:
+                      entity_id: light.living_room_fan
                     data:
-                      use_defaults: current
-                      entity_id: switch.adaptive_lighting_standard
-                      min_brightness: 5
-                      max_brightness: 10
+                      brightness_pct: 8
 mode: restart
 ```
 
@@ -673,4 +674,4 @@ No on-disk files are created or modified by this integration. All artifacts live
 ## Related Documents
 
 - `standards/naming.md` — entity ID and friendly name conventions used throughout this document
-- `guides/adaptive_lighting.md` — the AL configuration this system manipulates via `adaptive_lighting.change_switch_settings`; the 60–95% ceiling restoration values must track AL Standard's baseline
+- `guides/adaptive_lighting.md` — the AL configuration this system interacts with; `take_over_control_mode: pause_changed` (configured in Standard) is load-bearing for the fan brightness pause behavior

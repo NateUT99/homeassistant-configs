@@ -170,8 +170,6 @@ Each instance is configured at **Settings → Devices & Services → Adaptive Li
 | `separate_turn_on_commands` | `false` | |
 | `adapt_delay` | `0` | |
 
-> **Coordinated change:** `min_brightness` (60) and `max_brightness` (95) are mirrored by the Living Room Hue Sync Mode Configurator's restore branch (`guides/hue_sync.md`). If you change them here, update the restore branch YAML and the Configuration Reference table in `hue_sync.md` to match.
-
 ### 2b. Color Only
 
 **Lights:** `light.entrance_ceiling`, `light.bathroom_hallway_ceiling`, `light.portable_accent_lamp`, `light.kitchen_counter_strip`, `light.kitchen_sink_bulb`, `light.bathroom_night_lamp`, `light.living_room_status_lamp`, `light.office_presence_sensor`, `light.office_bourbon_lamp`, `light.master_bedroom_nightstand_lamp_left`, `light.avery_room_desk_lamp`
@@ -725,7 +723,7 @@ No on-disk files are created or modified by this integration. All artifacts live
 ## Related Documents
 
 - `standards/naming.md` — entity ID and friendly name conventions used throughout this document
-- `guides/hue_sync.md` — the Hue Sync system that manipulates AL Standard's brightness limits at runtime via `adaptive_lighting.change_switch_settings`; its restore values (60/95%) must track Standard's `min_brightness`/`max_brightness`
+- `guides/hue_sync.md` — the Hue Sync system that dims the Living Room Fan during sync sessions; it relies on `take_over_control_mode: pause_changed` being configured on Standard to pause per-light brightness without affecting the whole instance
 
 ---
 
