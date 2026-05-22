@@ -31,6 +31,20 @@ When two pieces of logic share a trigger and one depends on state captured at tr
 
 Splitting into separate automations — each with its own trigger and its own state capture — is more reliable than chaining logic inside one automation with `parallel` or `choose` blocks.
 
+### `ha_config_set_automation` `category` parameter is ignored in `python_transform` mode
+
+When calling `ha_config_set_automation` with `python_transform`, the `category` parameter has no effect — the automation's category is left unchanged. The category must be set in a separate `ha_set_entity` call using the `categories` parameter:
+
+```python
+# This does NOT change the category when python_transform is used:
+ha_config_set_automation(identifier="...", python_transform="...", category="some_id")
+
+# Follow up with this instead:
+ha_set_entity(entity_id="automation.foo", categories={"automation": "some_id"})
+```
+
+This does not affect full `config` replacement mode — the `category` parameter works correctly there.
+
 ### Restoration branches need guard conditions
 
 An automation that restores a prior state (turning a thermostat back on after a door closes, restoring lights after a guest mode ends) must verify the current state of the target before restoring. Don't assume that because the automation turned something off, it can blindly turn it back on — the user or another automation may have changed it in the interim.
