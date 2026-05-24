@@ -33,11 +33,11 @@ PS5 (PS5-MQTT) ─────────────────────�
 
 | Component | Type | Responsibility | Mode |
 |---|---|---|---|
-| Living Room TV Power Handler | Automation | TV on/off transitions; cleanup on off | single |
-| Living Room TV Bias Light Controller | Automation | Sole owner of the bias light during TV sessions | restart |
-| Living Room Hue Sync Mode Configurator | Automation | Picks video/game profile; dims Living Room Fan | restart |
-| Living Room TV Bias Light Off-TV Guard | Automation | Catches manual bias turn-ons while TV is off | single |
-| Living Room Hue Sync Stop on PS5 Power Off | Automation | Stops sync when PS5 powers off while syncing to PS5 | single |
+| Living Room: TV Power Handler | Automation | TV on/off transitions; cleanup on off | single |
+| Living Room: TV Bias Light Controller | Automation | Sole owner of the bias light during TV sessions | restart |
+| Living Room: Hue Sync Mode Configurator | Automation | Picks video/game profile; dims Living Room Fan | restart |
+| Living Room: TV Bias Light Off-TV Guard | Automation | Catches manual bias turn-ons while TV is off | single |
+| Living Room: Hue Sync Stop on PS5 Power Off | Automation | Stops sync when PS5 powers off while syncing to PS5 | single |
 | Living Room Hue Sync (Video) | Script | Configures sync box for video content | — |
 | Living Room Hue Sync (Game) | Script | Configures sync box for game content | — |
 
@@ -228,16 +228,16 @@ Each automation below is paste-ready into the HA automation editor (YAML mode). 
 Enable in this order to make troubleshooting easier:
 
 1. Both scripts first (no triggers, safe to have idle)
-2. Living Room TV Power Handler — verify TV on/off cleanup works
-3. Living Room TV Bias Light Controller — verify bias responds to TV state and room dimness
-4. Living Room TV Bias Light Off-TV Guard — verify off-TV protection works
-5. Living Room Hue Sync Mode Configurator — verify sync profile selection works
-6. Living Room Hue Sync Stop on PS5 Power Off — verify PS5 off triggers sync stop (requires PS5-MQTT)
+2. Living Room: TV Power Handler — verify TV on/off cleanup works
+3. Living Room: TV Bias Light Controller — verify bias responds to TV state and room dimness
+4. Living Room: TV Bias Light Off-TV Guard — verify off-TV protection works
+5. Living Room: Hue Sync Mode Configurator — verify sync profile selection works
+6. Living Room: Hue Sync Stop on PS5 Power Off — verify PS5 off triggers sync stop (requires PS5-MQTT)
 
-### Automation 1: Living Room TV Power Handler
+### Automation 1: Living Room: TV Power Handler
 
 ```yaml
-alias: Living Room TV Power Handler
+alias: "Living Room: TV Power Handler"
 description: >-
   Owns TV power transitions. On TV-on, powers up the Hue Sync Box. On TV-off,
   cleans up: powers down the sync box, turns off light sync, clears
@@ -248,17 +248,16 @@ description: >-
   (the network interface drops with power), so both states are treated
   as "TV is off."
 triggers:
-  - trigger: state
+  - alias: TV turned on
+    trigger: state
     entity_id: media_player.living_room_tv
-    from: "off"
+    from:
+      - "off"
+      - "unavailable"
     to: "on"
     id: tv_on
-  - trigger: state
-    entity_id: media_player.living_room_tv
-    from: "unavailable"
-    to: "on"
-    id: tv_on
-  - trigger: state
+  - alias: TV turned off
+    trigger: state
     entity_id: media_player.living_room_tv
     from: "on"
     to:
@@ -267,7 +266,8 @@ triggers:
     id: tv_off
 conditions: []
 actions:
-  - choose:
+  - alias: Route by trigger type
+    choose:
       - alias: TV turned on
         conditions:
           - condition: trigger
@@ -303,10 +303,10 @@ actions:
 mode: single
 ```
 
-### Automation 2: Living Room TV Bias Light Controller
+### Automation 2: Living Room: TV Bias Light Controller
 
 ```yaml
-alias: Living Room TV Bias Light Controller
+alias: "Living Room: TV Bias Light Controller"
 description: >-
   Sole owner of light.living_room_tv_lights during TV sessions. Maintains the
   invariant: bias is ON only when (TV is on) AND (Hue Sync light sync is off)
@@ -333,46 +333,57 @@ description: >-
   and a brief illuminance spike from the strip itself causes a false
   "should be off" decision.
 triggers:
-  - trigger: state
+  - alias: TV turned off
+    trigger: state
     entity_id: media_player.living_room_tv
     from: "on"
     id: tv_off
-  - trigger: state
+  - alias: TV turned on
+    trigger: state
     entity_id: media_player.living_room_tv
     to: "on"
     id: tv_on
-  - trigger: state
+  - alias: Light sync turned off
+    trigger: state
     entity_id: switch.living_room_sync_box_light_sync
     from: "on"
     id: sync_off
-  - trigger: state
+  - alias: Light sync turned on
+    trigger: state
     entity_id: switch.living_room_sync_box_light_sync
     to: "on"
     id: sync_on
-  - trigger: numeric_state
+  - alias: Room became dim (below 15 lux)
+    trigger: numeric_state
     entity_id: sensor.living_room_motion_illuminance
     below: 15
     id: room_dim
-  - trigger: numeric_state
+  - alias: Room became lit (above 25 lux)
+    trigger: numeric_state
     entity_id: sensor.living_room_motion_illuminance
     above: 25
     id: room_lit
 conditions: []
 actions:
-  - choose:
+  - alias: Determine bias state
+    choose:
       - alias: Bias should be ON (TV on, sync off, room dim)
         conditions:
-          - condition: state
+          - alias: TV is on
+            condition: state
             entity_id: media_player.living_room_tv
             state: "on"
-          - condition: state
+          - alias: Light sync is off
+            condition: state
             entity_id: switch.living_room_sync_box_light_sync
             state: "off"
-          - condition: numeric_state
+          - alias: Room is dim (below 15 lux)
+            condition: numeric_state
             entity_id: sensor.living_room_motion_illuminance
             below: 15
         sequence:
-          - delay:
+          - alias: Brief delay for sync box to release strip
+            delay:
               seconds: 1
           - alias: Set bias light to 40% / 6500K
             action: light.turn_on
@@ -383,16 +394,20 @@ actions:
               color_temp_kelvin: 6500
       - alias: Bias stays ON in deadband (already on, illuminance between 15 and 25)
         conditions:
-          - condition: state
+          - alias: TV is on
+            condition: state
             entity_id: media_player.living_room_tv
             state: "on"
-          - condition: state
+          - alias: Light sync is off
+            condition: state
             entity_id: switch.living_room_sync_box_light_sync
             state: "off"
-          - condition: state
+          - alias: Bias light is already on
+            condition: state
             entity_id: light.living_room_tv_lights
             state: "on"
-          - condition: numeric_state
+          - alias: Room is in hysteresis deadband (below 25 lux)
+            condition: numeric_state
             entity_id: sensor.living_room_motion_illuminance
             below: 25
         sequence: []
@@ -404,10 +419,10 @@ actions:
 mode: restart
 ```
 
-### Automation 3: Living Room Hue Sync Mode Configurator
+### Automation 3: Living Room: Hue Sync Mode Configurator
 
 ```yaml
-alias: Living Room Hue Sync Mode Configurator
+alias: "Living Room: Hue Sync Mode Configurator"
 description: >-
   Configures the Hue Sync Box profile and Living Room Fan brightness based on
   the current HDMI input and movie_mode flag. The sync switch itself is the
@@ -460,8 +475,9 @@ triggers:
     id: movie_mode_change
 conditions: []
 actions:
-  - choose:
-      - alias: Sync stopped - release Living Room Fan brightness back to AL
+  - alias: Route by trigger type
+    choose:
+      - alias: Sync stopped - release fan to AL control
         conditions:
           - condition: trigger
             id: sync_stop
@@ -475,22 +491,31 @@ actions:
               manual_control: false
       - alias: Reconfigure profile (sync_start, or input/movie_mode change while sync is on)
         conditions:
-          - condition: or
+          - alias: Sync started, or input/movie_mode changed while sync is on
+            condition: or
             conditions:
-              - condition: trigger
+              - alias: Sync switch just turned on
+                condition: trigger
                 id: sync_start
-              - and:
-                  - condition: or
+              - alias: Input or movie_mode changed while sync is on
+                condition: and
+                conditions:
+                  - alias: Input changed or movie mode toggled
+                    condition: or
                     conditions:
-                      - condition: trigger
+                      - alias: HDMI input changed
+                        condition: trigger
                         id: input_change
-                      - condition: trigger
+                      - alias: Movie mode toggled
+                        condition: trigger
                         id: movie_mode_change
-                  - condition: state
+                  - alias: Sync switch is currently on
+                    condition: state
                     entity_id: switch.living_room_sync_box_light_sync
                     state: "on"
         sequence:
-          - choose:
+          - alias: Select sync profile
+            choose:
               - alias: Movie mode on OR Apple TV input -> video profile
                 conditions:
                   - condition: or
@@ -527,10 +552,10 @@ actions:
 mode: restart
 ```
 
-### Automation 4: Living Room TV Bias Light Off-TV Guard
+### Automation 4: Living Room: TV Bias Light Off-TV Guard
 
 ```yaml
-alias: Living Room TV Bias Light Off-TV Guard
+alias: "Living Room: TV Bias Light Off-TV Guard"
 description: >-
   If the bias light turns on while the TV is off (or unavailable), turn it
   back off. Bias lighting has no off-TV use case, so this catches accidental
@@ -544,26 +569,29 @@ description: >-
   so it cannot create a feedback loop with the controller's own actions.
   It only acts when the TV is off, so it never fires during TV sessions.
 triggers:
-  - trigger: state
+  - alias: Bias light turned on
+    trigger: state
     entity_id: light.living_room_tv_lights
     to: "on"
 conditions:
-  - condition: state
+  - alias: TV is off or unavailable
+    condition: state
     entity_id: media_player.living_room_tv
     state:
       - "off"
       - "unavailable"
 actions:
-  - action: light.turn_off
+  - alias: Turn off bias light
+    action: light.turn_off
     target:
       entity_id: light.living_room_tv_lights
 mode: single
 ```
 
-### Automation 5: Living Room Hue Sync Stop on PS5 Power Off
+### Automation 5: Living Room: Hue Sync Stop on PS5 Power Off
 
 ```yaml
-alias: Living Room Hue Sync Stop on PS5 Power Off
+alias: "Living Room: Hue Sync Stop on PS5 Power Off"
 description: >-
   When the PS5 powers off while sync is active and PS5 is the selected
   HDMI input, stop sync. Without this, sync keeps running pointing at a
@@ -573,19 +601,23 @@ description: >-
   the PS5 - if the user is on Apple TV with sync on while the PS5 happens
   to power off in the background, this does nothing.
 triggers:
-  - trigger: state
+  - alias: PS5 powered off
+    trigger: state
     entity_id: switch.living_room_ps5_power
     from: "on"
     to: "off"
 conditions:
-  - condition: state
+  - alias: Light sync is currently active
+    condition: state
     entity_id: switch.living_room_sync_box_light_sync
     state: "on"
-  - condition: state
+  - alias: PS5 is the selected HDMI input
+    condition: state
     entity_id: select.living_room_sync_box_hdmi_input
     state: Playstation 5
 actions:
-  - action: switch.turn_off
+  - alias: Stop light sync
+    action: switch.turn_off
     target:
       entity_id: switch.living_room_sync_box_light_sync
 mode: single
@@ -655,11 +687,11 @@ sequence:
 
 | Artifact | Entity ID | Type |
 |---|---|---|
-| Living Room TV Power Handler | `automation.living_room_tv_power_handler` | Automation |
-| Living Room TV Bias Light Controller | `automation.living_room_tv_bias_light_controller` | Automation |
-| Living Room Hue Sync Mode Configurator | `automation.living_room_hue_sync_mode_configurator` | Automation |
-| Living Room TV Bias Light Off-TV Guard | `automation.living_room_tv_bias_light_off_tv_guard` | Automation |
-| Living Room Hue Sync Stop on PS5 Power Off | `automation.living_room_hue_sync_stop_on_ps5_power_off` | Automation |
+| Living Room: TV Power Handler | `automation.living_room_tv_power_handler` | Automation |
+| Living Room: TV Bias Light Controller | `automation.living_room_tv_bias_light_controller` | Automation |
+| Living Room: Hue Sync Mode Configurator | `automation.living_room_hue_sync_mode_configurator` | Automation |
+| Living Room: TV Bias Light Off-TV Guard | `automation.living_room_tv_bias_light_off_tv_guard` | Automation |
+| Living Room: Hue Sync Stop on PS5 Power Off | `automation.living_room_hue_sync_stop_on_ps5_power_off` | Automation |
 | Living Room Hue Sync (Video) | `script.living_room_hue_sync_video` | Script |
 | Living Room Hue Sync (Game) | `script.living_room_hue_sync_game` | Script |
 
