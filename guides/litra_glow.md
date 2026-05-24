@@ -420,19 +420,21 @@ Triggers fire on the camera-name sensors (`sensor.*_active_camera`), which repor
 ### Automation
 
 ```yaml
-alias: Control office lights when display camera is being used
+alias: "Office: Camera Lighting"
 description: >
   Turns off ceiling lights and activates camera lighting when the Studio Display
   Camera turns on. Restores monitor light (if Studio Display is active primary)
   and turns off camera lighting when the camera has been off for 15 seconds.
 triggers:
-  - trigger: state
+  - alias: "Studio Display Camera becomes active on either Mac"
+    trigger: state
     entity_id:
       - sensor.nates_mac_mini_active_camera
       - sensor.nates_macbook_pro_active_camera
     to: Studio Display Camera
     id: "on"
-  - trigger: state
+  - alias: "Studio Display Camera inactive for 15 seconds on either Mac"
+    trigger: state
     entity_id:
       - sensor.nates_mac_mini_active_camera
       - sensor.nates_macbook_pro_active_camera
@@ -443,31 +445,37 @@ triggers:
 conditions: []
 actions:
   - choose:
-      - conditions:
-          - condition: trigger
+      - alias: "Camera turned on"
+        conditions:
+          - alias: "Triggered by camera turning on"
+            condition: trigger
             id: "on"
         sequence:
-          - action: light.turn_off
+          - alias: "Turn off office ceiling and screen bar"
+            action: light.turn_off
             target:
               entity_id:
                 - light.office_ceiling
                 - light.office_screen_bar
-            data: {}
-          - action: light.turn_on
+          - alias: "Turn on desk key light for camera"
+            action: light.turn_on
             target:
               entity_id: light.office_desk_key_light
             data:
               brightness_pct: 45
               color_temp_kelvin: 4500
-            enabled: true
-      - conditions:
-          - condition: trigger
+      - alias: "Camera turned off"
+        conditions:
+          - alias: "Triggered by camera turning off"
+            condition: trigger
             id: "off"
         sequence:
-          - action: light.turn_off
+          - alias: "Turn off desk key light"
+            action: light.turn_off
             target:
               entity_id: light.office_desk_key_light
-          - condition: or
+          - alias: "Either active computer has Studio Display as primary"
+            condition: or
             conditions:
               - condition: and
                 conditions:
@@ -485,11 +493,10 @@ actions:
                   - condition: state
                     entity_id: sensor.nates_macbook_pro_primary_display_name
                     state: Studio Display
-          - action: light.turn_on
+          - alias: "Restore screen bar"
+            action: light.turn_on
             target:
-              entity_id:
-                - light.office_screen_bar
-            data: {}
+              entity_id: light.office_screen_bar
 mode: single
 ```
 
@@ -518,7 +525,7 @@ The `light.turn_on` call uses `brightness_pct` and `color_temp_kelvin`. HA norma
 | --- | --- | --- |
 | Office Desk Key Light | `light.office_desk_key_light` | Template light (`configuration.yaml`) |
 | Litra Glow Status | `sensor.litra_glow_status` | Command-line sensor (`configuration.yaml`) |
-| Control office lights when display camera is being used | `automation.control_office_lights_when_display_camera_is_being_used` | Automation |
+| Office: Camera Lighting | `automation.office_camera_lighting` | Automation |
 | Refresh Litra Glow status on HA start | `automation.refresh_litra_glow_status_on_ha_start` | Automation |
 
 ---
