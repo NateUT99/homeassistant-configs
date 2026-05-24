@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.0 — May 2026*
+*Version 1.1 — May 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.1 | May 2026 | Renamed Media category to Entertainment — scope expanded beyond AV to include other entertainment devices (e.g. pinball machines) |
 | 1.0 | May 2026 | Initial release — absorbs automation conventions from CLAUDE.md; adds organization taxonomy (categories, labels, area assignment) and naming rules |
 
 ---
@@ -47,7 +48,7 @@ Every automation belongs to exactly one category, chosen by primary *purpose* (n
 | **Climate** | Thermostat, HVAC, fans, and temperature-driven actions | Includes mode changes, fan speed, and smart scheduling tied to temperature or HVAC state |
 | **Security** | Alarm panel state machine and armed-state-aware automations | Narrow scope — only automations that consult or change the alarm panel state. Safety alerts (water leak, freezer left open) go in **Notifications**, not here |
 | **Person** | Arrivals, departures, and sleep modes — household state derived from what people are doing | Presence and sleep share state and gate each other; they live in one category |
-| **Media** | Sonos, TV bias light, Hue Sync, AppleTV-driven scenes, and mode toggles for the AV experience | Includes Movie Mode toggling since its purpose is the media experience |
+| **Entertainment** | AV equipment, game consoles, pinball machines, and other entertainment devices — including mode toggles for the entertainment experience | Includes Movie Mode toggling since its purpose is the entertainment experience; not limited to audio/video |
 | **Notifications** | All proactive user-facing alerts: push, TTS, reminders, hazard alerts, and bedtime checks | Anything whose primary purpose is to tell a person something — the underlying sensor or schedule is the trigger, not the purpose |
 | **Routines** | Recurring time-based actions: sunrise/sunset cycles, daily resets, holiday loops, scheduled vacuum runs | The defining characteristic is a recurring time trigger with no person-state dependency |
 | **Maintenance** | Housekeeping the user never directly observes | State sync, metadata helpers, startup refreshes, vacuum progress tracking, device-tracker reconciliation, integration housekeeping |
@@ -58,7 +59,7 @@ Every automation belongs to exactly one category, chosen by primary *purpose* (n
 
 - Water leak / freezer alert / bedtime door check → **Notifications** (purpose is alerting; sensor/time is the trigger)
 - Alarm perimeter breach trigger → **Security** (drives the alarm panel; the resulting notification is incidental)
-- Movie Mode toggle automation → **Media** (sets state consumed by media-experience automations)
+- Movie Mode toggle automation → **Entertainment** (sets state consumed by entertainment-experience automations)
 - Holiday Christmas color cycle → **Routines** (time-driven recurring cycle)
 - Litra Glow startup refresh → **Maintenance** (integration housekeeping)
 
