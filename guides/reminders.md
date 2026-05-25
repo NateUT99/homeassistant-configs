@@ -1,5 +1,5 @@
 # Reminder System
-*Last updated: May 2026*
+*Last updated: May 2026 — added Roborock Maintenance Notifications section*
 
 ---
 
@@ -264,6 +264,169 @@ action:
 
 ---
 
+## Roborock Maintenance Notifications
+
+A variant of the reminders pattern scoped to Roborock vacuum consumables. Rather than a calendar-based due date, the Roborock integration itself tracks consumable usage internally and flips four binary sensors to Problem state when maintenance is needed. Notifications fire when the vacuum returns to its dock after cleaning — not on a daily schedule — and include a **Reset** action that presses the corresponding consumable reset button on the integration, closing the loop automatically.
+
+### Architecture
+
+```
+vacuum.roborock_q8_max → "returning"
+         │
+         ▼
+automation.roborock_notify_maintenance_needed
+  └─ for each binary_sensor.roborock_* in Problem state:
+       notify.mobile_app_nates_iphone (tag: roborock_maintenance_<key>)
+         │
+         │     [User taps Reset]
+         ▼
+event: mobile_app_notification_action
+         ▼
+automation.roborock_dispatch_maintenance_reset
+         ▼
+button.roborock_q8_max_reset_*_consumable
+  (Roborock resets counter → sensor flips off → notification clears)
+
+Any sensor flips off (manual or app reset) ──────────────────────────────────┘
+  → edge_off branch → clear_notification by tag
+```
+
+**Key design decisions:**
+
+- *Dock-return trigger, not daily schedule.* Maintenance needs only become relevant after a cleaning run. Notifying at dock return is timely and avoids daily pings for a problem that changes state only during vacuum cycles.
+- *Reset action mirrors the reminders Mark Complete.* Tapping Reset calls `button.press` on the corresponding consumable reset button. The integration resets its internal usage counter, which flips the binary sensor off, which clears the iOS notification — same self-closing lifecycle as the date-based reminders.
+- *Per-sensor clearing, not aggregate.* The four sensors clear independently. If two items need attention and you reset one, that notification clears immediately. The other stays until its sensor resolves. This requires watching all four sensors individually in the `sensor_resolved` trigger rather than watching `sensor.roborock_maintenance_required`, which only goes false when all four are off.
+- *No per-item helpers.* The Roborock integration tracks consumable usage internally. No `input_datetime`, `input_number`, or due-date template sensor is needed.
+
+### Sensor and reset button mapping
+
+| Binary Sensor | Notification Label | Reset Button |
+|---|---|---|
+| `binary_sensor.roborock_clean_sensor` | Clean Sensor | `button.roborock_q8_max_reset_sensor_consumable` |
+| `binary_sensor.roborock_replace_filter` | Replace Filter | `button.roborock_q8_max_reset_air_filter_consumable` |
+| `binary_sensor.roborock_replace_main_brush` | Replace Main Brush | `button.roborock_q8_max_reset_main_brush_consumable` |
+| `binary_sensor.roborock_replace_side_brush` | Replace Side Brush | `button.roborock_q8_max_reset_side_brush_consumable` |
+
+### `automation.roborock_notify_maintenance_needed`
+
+*Friendly name: Roborock: Notify maintenance needed*
+
+```yaml
+alias: "Roborock: Notify maintenance needed"
+description: >-
+  When the vacuum returns to its dock, sends an iOS notification for each Roborock
+  maintenance sensor currently in Problem state. Each notification includes a Reset
+  action that presses the corresponding Roborock consumable reset button. Clears
+  automatically when the sensor resolves.
+mode: parallel
+max: 5
+trigger:
+  - id: returning_to_dock
+    alias: "Vacuum returning to dock"
+    platform: state
+    entity_id:
+      - vacuum.roborock_q8_max
+    to: "returning"
+  - id: sensor_resolved
+    alias: "Maintenance sensor resolved"
+    platform: state
+    entity_id:
+      - binary_sensor.roborock_clean_sensor
+      - binary_sensor.roborock_replace_filter
+      - binary_sensor.roborock_replace_main_brush
+      - binary_sensor.roborock_replace_side_brush
+    to: "off"
+action:
+  - alias: "Route by trigger"
+    choose:
+      - alias: "Returning to dock — notify for any sensors in Problem state"
+        conditions:
+          - condition: trigger
+            id: returning_to_dock
+        sequence:
+          - alias: "Check each maintenance sensor"
+            repeat:
+              for_each:
+                - key: roborock_clean_sensor
+                  label: "Clean Sensor"
+                - key: roborock_replace_filter
+                  label: "Replace Filter"
+                - key: roborock_replace_main_brush
+                  label: "Replace Main Brush"
+                - key: roborock_replace_side_brush
+                  label: "Replace Side Brush"
+              sequence:
+                - alias: "Notify if sensor is in Problem state"
+                  if:
+                    - condition: template
+                      value_template: "{{ is_state('binary_sensor.' ~ repeat.item.key, 'on') }}"
+                  then:
+                    - alias: "Send actionable iOS notification"
+                      action: notify.mobile_app_nates_iphone
+                      data:
+                        title: "Vacuum Maintenance Needed"
+                        message: "{{ repeat.item.label }}"
+                        data:
+                          tag: "roborock_maintenance_{{ repeat.item.key }}"
+                          actions:
+                            - action: "ROBOROCK_RESET_{{ repeat.item.key }}"
+                              title: "Reset"
+      - alias: "Sensor resolved — clear lock-screen notification"
+        conditions:
+          - condition: trigger
+            id: sensor_resolved
+        sequence:
+          - variables:
+              sensor_key: "{{ trigger.to_state.object_id }}"
+          - alias: "Clear the iOS notification by tag"
+            action: notify.mobile_app_nates_iphone
+            data:
+              message: "clear_notification"
+              data:
+                tag: "roborock_maintenance_{{ sensor_key }}"
+```
+
+### `automation.roborock_dispatch_maintenance_reset`
+
+*Friendly name: Roborock: Dispatch Maintenance Reset*
+
+```yaml
+alias: "Roborock: Dispatch Maintenance Reset"
+description: >-
+  When the user taps Reset on a Roborock maintenance notification, presses the
+  corresponding consumable reset button. This resets the Roborock internal counter,
+  which flips the maintenance sensor off, which clears the iOS notification automatically.
+mode: parallel
+max: 4
+trigger:
+  - alias: "iOS notification action fired"
+    platform: event
+    event_type: mobile_app_notification_action
+variables:
+  action_id: "{{ trigger.event.data.action | default('') }}"
+  sensor_key: "{{ action_id | replace('ROBOROCK_RESET_', '') }}"
+  button_map:
+    roborock_clean_sensor: button.roborock_q8_max_reset_sensor_consumable
+    roborock_replace_filter: button.roborock_q8_max_reset_air_filter_consumable
+    roborock_replace_main_brush: button.roborock_q8_max_reset_main_brush_consumable
+    roborock_replace_side_brush: button.roborock_q8_max_reset_side_brush_consumable
+  target_button: "{{ button_map[sensor_key] | default('') }}"
+condition:
+  - alias: "Action is a Roborock reset"
+    condition: template
+    value_template: "{{ action_id.startswith('ROBOROCK_RESET_') }}"
+  - alias: "Target button is valid"
+    condition: template
+    value_template: "{{ target_button != '' }}"
+action:
+  - alias: "Press the consumable reset button"
+    action: button.press
+    target:
+      entity_id: "{{ target_button }}"
+```
+
+---
+
 ## Related HA Config
 
 ### Shared automations
@@ -272,6 +435,19 @@ action:
 |---|---|---|
 | Manage reminder notifications | `automation.manage_reminder_notifications` | automation |
 | Handle reminder Mark Complete action | `automation.handle_reminder_mark_complete_action` | automation |
+
+### Roborock maintenance automations
+
+| Friendly Name | Entity ID | Type |
+|---|---|---|
+| Roborock: Notify maintenance needed | `automation.roborock_notify_maintenance_needed` | automation |
+| Roborock: Dispatch Maintenance Reset | `automation.roborock_dispatch_maintenance_reset` | automation |
+
+### Roborock maintenance sensors
+
+| Friendly Name | Entity ID | Type | Notes |
+|---|---|---|---|
+| Roborock Maintenance Required | `sensor.roborock_maintenance_required` | sensor (template) | `True` when any of the four Roborock binary sensors is in Problem state |
 
 ### Per-reminder helpers
 
