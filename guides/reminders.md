@@ -1,11 +1,11 @@
 # Reminder System
-*Last updated: May 2026 — migrated notify target to notify.household_members group*
+*Last updated: May 2026*
 
 ---
 
 ## Overview
 
-A recurring-reminder framework built from native HA helpers and automations. Each reminder tracks a last-done date and a configurable interval; the system automatically computes when the task is next due, marks it overdue, notifies all household members, and closes the loop when the user marks it complete directly from the lock screen.
+A recurring-reminder framework built from native HA helpers and automations. Each reminder tracks a last-done date and a configurable interval; the system automatically computes when the task is next due, marks it overdue, sends an actionable push notification to Nate's iPhone, and closes the loop when the user marks it complete directly from the lock screen.
 
 The framework uses two shared automations that handle every reminder centrally. Per-item configuration is three helpers (last-done date, interval, and an overdue binary sensor) plus a reactive template sensor for the due date. Adding a new reminder requires only creating those artifacts and registering the new sensor in the shared automations.
 
@@ -29,7 +29,7 @@ input_datetime.<key>       input_number.<key>_offset
           └─ daily    → send for each still-on sensor
                      │
                      ▼
-         notify.household_members
+         notify.mobile_app_nates_iphone
                      │
             [User taps Mark Complete]
                      ▼
@@ -53,8 +53,8 @@ input_datetime.<key>       input_number.<key>_offset
 
 ## Prerequisites
 
-- HA Companion app installed on all household member devices; all enrolled in the `notify.household_members` group
-- Notification actions enabled in the iOS Companion app on each device (Settings → Companion App → Notifications → no restrictions needed beyond standard setup)
+- HA Companion app installed on Nate's iPhone (`notify.mobile_app_nates_iphone`)
+- Notification actions enabled in the iOS Companion app (Settings → Companion App → Notifications → no restrictions needed beyond standard setup)
 - Helpers category `01K6ZGDERD3FBN9BPYKQSBYTGG` exists (all reminder helpers are grouped here for the HA UI)
 
 ---
@@ -168,7 +168,7 @@ action:
           - variables:
               reminder_key: "{{ trigger.to_state.object_id | replace('_overdue', '') }}"
           - alias: "Clear the iOS notification by tag"
-            action: notify.household_members
+            action: notify.mobile_app_nates_iphone
             data:
               message: "clear_notification"
               data:
@@ -196,7 +196,7 @@ action:
                       value_template: "{{ is_state('binary_sensor.' ~ repeat.item ~ '_overdue', 'on') }}"
                   then:
                     - alias: "Send actionable iOS notification"
-                      action: notify.household_members
+                      action: notify.mobile_app_nates_iphone
                       data:
                         title: "Reminder Overdue"
                         message: >-
@@ -276,7 +276,7 @@ vacuum.roborock_q8_max → "returning"
          ▼
 automation.roborock_notify_maintenance_needed
   └─ for each binary_sensor.roborock_* in Problem state:
-       notify.household_members (tag: roborock_maintenance_<key>)
+       notify.mobile_app_nates_iphone (tag: roborock_maintenance_<key>)
          │
          │     [User taps Reset]
          ▼
@@ -362,7 +362,7 @@ action:
                       value_template: "{{ is_state('binary_sensor.' ~ repeat.item.key, 'on') }}"
                   then:
                     - alias: "Send actionable iOS notification"
-                      action: notify.household_members
+                      action: notify.mobile_app_nates_iphone
                       data:
                         title: "Vacuum Maintenance Needed"
                         message: "{{ repeat.item.label }}"
@@ -379,7 +379,7 @@ action:
           - variables:
               sensor_key: "{{ trigger.to_state.object_id }}"
           - alias: "Clear the iOS notification by tag"
-            action: notify.household_members
+            action: notify.mobile_app_nates_iphone
             data:
               message: "clear_notification"
               data:

@@ -31,6 +31,34 @@ When two pieces of logic share a trigger and one depends on state captured at tr
 
 Splitting into separate automations — each with its own trigger and its own state capture — is more reliable than chaining logic inside one automation with `parallel` or `choose` blocks.
 
+### `notify.send_message` does not support iOS-specific notification features
+
+`notify.send_message` is the only way to target a UI-created notify group entity (e.g., `notify.household_members`). Its service schema accepts only `message` and `title` — there is no `data` field. Passing a nested `data` key raises `extra keys not allowed @ data['data']` at runtime.
+
+iOS-specific features — critical sound (`data.data.push`), notification tags (`data.data.tag`), and actionable buttons (`data.data.actions`) — require the native `notify.mobile_app_<device>` services, which accept a full `data` field with a nested `data` sub-key for platform-specific options:
+
+```yaml
+# Correct structure for notify.mobile_app_nates_iphone
+action: notify.mobile_app_nates_iphone
+data:
+  message: "..."
+  title: "..."
+  data:              # platform-specific iOS options live here
+    push:
+      sound:
+        name: default
+        critical: 1
+        volume: 1
+    tag: some_tag
+    actions:
+      - action: "MY_ACTION"
+        title: "Do It"
+```
+
+`notify.notify` (the legacy catch-all) also accepts `data`, but its `target` field routes to legacy service names — not to UI-created group entities — so it does not solve the group-targeting problem either.
+
+**Bottom line:** use `notify.mobile_app_nates_iphone` for any notification that uses iOS features. Reserve `notify.send_message` + a group entity for simple message-only broadcasts with no platform-specific payload.
+
 ### `ha_config_set_automation` `category` parameter is ignored in `python_transform` mode
 
 When calling `ha_config_set_automation` with `python_transform`, the `category` parameter has no effect — the automation's category is left unchanged. The category must be set in a separate `ha_set_entity` call using the `categories` parameter:
