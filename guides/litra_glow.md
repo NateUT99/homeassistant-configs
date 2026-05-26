@@ -355,7 +355,7 @@ command_line:
 On every HA restart, the command_line sensor would otherwise sit idle until its next scheduled poll (up to an hour away). This automation fires on `homeassistant.start` to refresh the sensor immediately, so state is accurate before the first user interaction.
 
 ```yaml
-alias: Refresh Litra Glow status on HA start
+alias: "Office: Litra Status Refresh on HA Start"
 description: >
   Forces sensor.litra_glow_status to poll the device immediately when HA starts up,
   so the template light reflects accurate state before the next scheduled scan_interval.
@@ -526,7 +526,7 @@ The `light.turn_on` call uses `brightness_pct` and `color_temp_kelvin`. HA norma
 | Office Desk Key Light | `light.office_desk_key_light` | Template light (`configuration.yaml`) |
 | Litra Glow Status | `sensor.litra_glow_status` | Command-line sensor (`configuration.yaml`) |
 | Office: Camera Lighting | `automation.office_camera_lighting` | Automation |
-| Refresh Litra Glow status on HA start | `automation.refresh_litra_glow_status_on_ha_start` | Automation |
+| Office: Litra Status Refresh on HA Start | `automation.office_litra_status_refresh_on_start` | Automation |
 
 ---
 
