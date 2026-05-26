@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.2 — May 2026*
+*Version 1.3 — May 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.3 | May 2026 | Added `device_tracker` label — applied to any automation that updates device tracker state via `mqtt.publish` to a `presence/*` topic or `device_tracker.see`; enables auditing the presence tracking pipeline across categories |
 | 1.2 | May 2026 | Removed Notifications category — category describes domain, not delivery mechanism; safety alerts → Security, recurring reminders → Routines, consumable tracking → Maintenance. Added `notification` label to mark any automation that sends a push or TTS notification |
 | 1.1 | May 2026 | Renamed Media category to Entertainment — scope expanded beyond AV to include other entertainment devices (e.g. pinball machines) |
 | 1.0 | May 2026 | Initial release — absorbs automation conventions from CLAUDE.md; adds organization taxonomy (categories, labels, area assignment) and naming rules |
@@ -67,7 +68,7 @@ Every automation belongs to exactly one category, chosen by primary *purpose* (n
 
 ### 3.2 Labels
 
-Labels let automations carry orthogonal metadata that categories can't express. Two label families exist for automation organization, both distinguished from broadcast-target labels by an ID prefix.
+Labels let automations carry orthogonal metadata that categories can't express. Three label families exist for automation organization, both distinguished from broadcast-target labels by an ID prefix.
 
 > **Broadcast-target labels** (e.g., `noonehome`, `everyone_is_sleeping`) are used in service calls to target groups of devices. They serve a different purpose and are not part of this taxonomy. When a broadcast-target label is needed, its name follows the entity-naming convention, not this one.
 
@@ -78,6 +79,14 @@ Applied to every automation that sends a push notification or TTS announcement, 
 | Label ID | Friendly Name | When to apply |
 |---|---|---|
 | `notification` | Notification | Any automation with a `notify.*` action or a `media_player.play_media` announce action |
+
+#### Device Tracker label — icon `mdi:map-marker-account`
+
+Applied to every automation that updates device tracker state, regardless of its primary category. Use this to find all automations that participate in the presence tracking pipeline — useful when debugging presence issues or auditing what breaks if the tracking architecture changes.
+
+| Label ID | Friendly Name | When to apply |
+|---|---|---|
+| `device_tracker` | Device Tracker | Any automation with an `mqtt.publish` call targeting a `presence/*` topic, or a `device_tracker.see` call |
 
 #### Scope labels — color `blue`
 
