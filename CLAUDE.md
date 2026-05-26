@@ -191,8 +191,8 @@ Key principles to internalize without re-reading every time:
 - **Mode always explicit** — never omit `mode:`
 - **Description always present** — what it does, when it fires, why it exists
 - **Purpose-based entity IDs** — `area_id`, integration code, or `household` prefix; no trigger-type prefixes
-- **8 approved categories** — Lighting, Climate, Security, Person, Entertainment, Notifications, Routines, Maintenance
-- **Labels are orthogonal** — `scope_*` for multi-area; `int_*` for guide-documented integrations
+- **7 approved categories** — Lighting, Climate, Security, Person, Entertainment, Routines, Maintenance
+- **Labels are orthogonal** — `scope_*` for multi-area; `int_*` for guide-documented integrations; `notification` for any automation that sends a push or TTS notification
 
 ---
 

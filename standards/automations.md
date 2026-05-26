@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.1 — May 2026*
+*Version 1.2 — May 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.2 | May 2026 | Removed Notifications category — category describes domain, not delivery mechanism; safety alerts → Security, recurring reminders → Routines, consumable tracking → Maintenance. Added `notification` label to mark any automation that sends a push or TTS notification |
 | 1.1 | May 2026 | Renamed Media category to Entertainment — scope expanded beyond AV to include other entertainment devices (e.g. pinball machines) |
 | 1.0 | May 2026 | Initial release — absorbs automation conventions from CLAUDE.md; adds organization taxonomy (categories, labels, area assignment) and naming rules |
 
@@ -46,19 +47,20 @@ Every automation belongs to exactly one category, chosen by primary *purpose* (n
 |---|---|---|
 | **Lighting** | Primary outcome is controlling light state, color, or brightness | Includes button-, motion-, remote-, sensor-, and time-triggered lighting. Any automation whose first-order effect the user would describe as "the lights do something." |
 | **Climate** | Thermostat, HVAC, fans, and temperature-driven actions | Includes mode changes, fan speed, and smart scheduling tied to temperature or HVAC state |
-| **Security** | Alarm panel state machine and armed-state-aware automations | Narrow scope — only automations that consult or change the alarm panel state. Safety alerts (water leak, freezer left open) go in **Notifications**, not here |
+| **Security** | Alarm panel state machine, armed-state-aware automations, and life-safety sensor alerts | Includes alarm state transitions and hazard alerts (water leak, freezer left open) — the notification is the delivery mechanism, not the category |
 | **Person** | Arrivals, departures, and sleep modes — household state derived from what people are doing | Presence and sleep share state and gate each other; they live in one category |
 | **Entertainment** | AV equipment, game consoles, pinball machines, and other entertainment devices — including mode toggles for the entertainment experience | Includes Movie Mode toggling since its purpose is the entertainment experience; not limited to audio/video |
-| **Notifications** | All proactive user-facing alerts: push, TTS, reminders, hazard alerts, and bedtime checks | Anything whose primary purpose is to tell a person something — the underlying sensor or schedule is the trigger, not the purpose |
-| **Routines** | Recurring time-based actions: sunrise/sunset cycles, daily resets, holiday loops, scheduled vacuum runs | The defining characteristic is a recurring time trigger with no person-state dependency |
-| **Maintenance** | Housekeeping the user never directly observes | State sync, metadata helpers, startup refreshes, vacuum progress tracking, device-tracker reconciliation, integration housekeeping |
+| **Routines** | Recurring time-based actions: sunrise/sunset cycles, daily resets, holiday loops, scheduled vacuum runs, reminder notification lifecycle | The defining characteristic is a recurring time trigger; reminder automations belong here because the daily re-send and overdue-clearing logic is time-driven housekeeping |
+| **Maintenance** | Housekeeping the user never directly observes | State sync, metadata helpers, startup refreshes, vacuum progress tracking, consumable lifecycle, device-tracker reconciliation, integration housekeeping |
 
 > The category list is the approved registry. Do not create new categories without extending this standard. Treat an ambiguous automation as an invitation to revisit the boundary note for the categories it might belong to.
 
 **Boundary examples for commonly ambiguous cases:**
 
-- Water leak / freezer alert / bedtime door check → **Notifications** (purpose is alerting; sensor/time is the trigger)
-- Alarm perimeter breach trigger → **Security** (drives the alarm panel; the resulting notification is incidental)
+- Water leak / freezer door alert → **Security** (life-safety sensor alert; notification is the delivery mechanism)
+- Alarm state transition (armed → pending, triggered → disarmed) → **Security** (consults or reacts to alarm panel state)
+- Recurring reminder notification lifecycle → **Routines** (time-driven daily re-send and overdue-clearing)
+- Vacuum consumable lifecycle notifications → **Maintenance** (consumable tracking triggered at dock return)
 - Movie Mode toggle automation → **Entertainment** (sets state consumed by entertainment-experience automations)
 - Holiday Christmas color cycle → **Routines** (time-driven recurring cycle)
 - Litra Glow startup refresh → **Maintenance** (integration housekeeping)
@@ -68,6 +70,14 @@ Every automation belongs to exactly one category, chosen by primary *purpose* (n
 Labels let automations carry orthogonal metadata that categories can't express. Two label families exist for automation organization, both distinguished from broadcast-target labels by an ID prefix.
 
 > **Broadcast-target labels** (e.g., `noonehome`, `everyone_is_sleeping`) are used in service calls to target groups of devices. They serve a different purpose and are not part of this taxonomy. When a broadcast-target label is needed, its name follows the entity-naming convention, not this one.
+
+#### Notification label
+
+Applied to every automation that sends a push notification or TTS announcement, regardless of its primary category. Use this to filter "all automations that touch the notification system" across Security, Routines, Maintenance, and other categories.
+
+| Label ID | Friendly Name | When to apply |
+|---|---|---|
+| `notification` | Notification | Any automation with a `notify.*` action or a `media_player.play_media` announce action |
 
 #### Scope labels — color `blue`
 
@@ -266,7 +276,7 @@ Do not wrap actions in `if`/`then` blocks when the action is a no-op if the cond
 
 | What you're assigning | Tool | Rule |
 |---|---|---|
-| Category | HA category registry | One per automation; use the 8 approved categories only |
+| Category | HA category registry | One per automation; use the 7 approved categories only |
 | Scope label | HA label registry | Only for multi-area or whole-home automations |
 | Integration label | HA label registry | For every automation documented in a `guides/` file |
 | Area | HA entity registry | Single-area automations only; leave unset for multi-area |
