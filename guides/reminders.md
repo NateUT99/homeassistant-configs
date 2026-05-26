@@ -118,22 +118,22 @@ Entity ID: `binary_sensor.<key>_overdue`. HA sets it `on` when the template eval
 
 **5. Register the new sensor in the shared notification automations**
 
-In `automation.manage_reminder_notifications`, add `binary_sensor.<key>_overdue` to **both** the `edge_on` trigger's `entity_id` list and the `edge_off` trigger's `entity_id` list. Also add `<key>` (without `_overdue`) to the `for_each` list in the daily branch.
+In `automation.household_reminder_notifications`, add `binary_sensor.<key>_overdue` to **both** the `edge_on` trigger's `entity_id` list and the `edge_off` trigger's `entity_id` list. Also add `<key>` (without `_overdue`) to the `for_each` list in the daily branch.
 
-> **Coordinated change:** The `for_each` list in `automation.manage_reminder_notifications` and the trigger `entity_id` lists are the canonical registration point for all reminders. Adding a new reminder requires updating all three lists in sync — they are duplicates of the same set.
+> **Coordinated change:** The `for_each` list in `automation.household_reminder_notifications` and the trigger `entity_id` lists are the canonical registration point for all reminders. Adding a new reminder requires updating all three lists in sync — they are duplicates of the same set.
 
 ---
 
 ## Shared Automations
 
-### `automation.manage_reminder_notifications`
+### `automation.household_reminder_notifications`
 
-*Friendly name: Manage reminder notifications*
+*Friendly name: Household: Reminder Notifications*
 
 Single automation covering the notification lifecycle: sends an actionable notification for each overdue reminder at 09:00 daily, and clears the iOS lock-screen notification when a reminder resolves. All sends go through the daily trigger — there is no edge-on send — so notifications never arrive at midnight when the date rolls over.
 
 ```yaml
-alias: "Manage reminder notifications"
+alias: "Household: Reminder Notifications"
 description: >-
   Notification lifecycle for overdue reminders. Sends an actionable iOS notification
   for each overdue reminder at 09:00 daily, and clears the lock-screen notification
@@ -209,14 +209,14 @@ action:
                               title: "Mark Complete"
 ```
 
-### `automation.handle_reminder_mark_complete_action`
+### `automation.household_reminder_mark_complete`
 
-*Friendly name: Handle reminder Mark Complete action*
+*Friendly name: Household: Reminder Mark Complete*
 
 When the user taps *Mark Complete* on a reminder notification, this automation sets the corresponding last-done date to today. The `sensor.<key>_due` template sensor then updates reactively, which flips the overdue binary sensor off, which triggers the edge_off branch above to clear the notification.
 
 ```yaml
-alias: "Handle reminder Mark Complete action"
+alias: "Household: Reminder Mark Complete"
 description: >-
   When the user taps Mark Complete on a reminder notification, set the corresponding
   last-done date to today. This closes the loop: the due-date template sensor updates
@@ -433,8 +433,8 @@ action:
 
 | Friendly Name | Entity ID | Type |
 |---|---|---|
-| Manage reminder notifications | `automation.manage_reminder_notifications` | automation |
-| Handle reminder Mark Complete action | `automation.handle_reminder_mark_complete_action` | automation |
+| Household: Reminder Notifications | `automation.household_reminder_notifications` | automation |
+| Household: Reminder Mark Complete | `automation.household_reminder_mark_complete` | automation |
 
 ### Roborock maintenance automations
 
@@ -468,9 +468,9 @@ action:
 
 **Mark Complete tap does not update the last-done date**
 
-1. Open HA and check `automation.handle_reminder_mark_complete_action` traces. Look at the `action_id` variable — confirm it starts with `REMINDER_MARK_COMPLETE_`.
+1. Open HA and check `automation.household_reminder_mark_complete` traces. Look at the `action_id` variable — confirm it starts with `REMINDER_MARK_COMPLETE_`.
 2. Verify the `target_entity` variable resolves to a real `input_datetime` entity (`states(target_entity)` should not return `unknown`).
-3. If the action ID is wrong, confirm the `manage_reminder_notifications` automation is sending the correct `action:` field in the notification payload. Both must use the same `REMINDER_MARK_COMPLETE_<key>` string.
+3. If the action ID is wrong, confirm the `household_reminder_notifications` automation is sending the correct `action:` field in the notification payload. Both must use the same `REMINDER_MARK_COMPLETE_<key>` string.
 
 **Notification does not clear after marking complete**
 
@@ -478,11 +478,11 @@ The clear fires when the `binary_sensor.<key>_overdue` flips from `on` to `off`.
 1. Did the last-done date actually update? (Check `input_datetime.<key>` state.)
 2. Did `sensor.<key>_due` update to the new due date? It updates reactively; if it shows `unavailable`, inspect the template in Developer Tools → Template.
 3. Is the overdue sensor's due-date comparison still evaluating correctly? (Check `binary_sensor.<key>_overdue` state and trace via Developer Tools → Template.)
-4. If the sensor flipped off but the notification did not clear, check the `edge_off` branch in `automation.manage_reminder_notifications`. The `tag` must match exactly (`reminder_<key>`) between the send and clear calls.
+4. If the sensor flipped off but the notification did not clear, check the `edge_off` branch in `automation.household_reminder_notifications`. The `tag` must match exactly (`reminder_<key>`) between the send and clear calls.
 
 **A reminder is not re-notified at 9am**
 
-The reminder key is likely missing from the `for_each` list in the daily branch of `automation.manage_reminder_notifications`. Verify the key appears as `<key>` (without `binary_sensor.` prefix and without `_overdue` suffix).
+The reminder key is likely missing from the `for_each` list in the daily branch of `automation.household_reminder_notifications`. Verify the key appears as `<key>` (without `binary_sensor.` prefix and without `_overdue` suffix).
 
 **Notification stacks instead of replacing**
 
