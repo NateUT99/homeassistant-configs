@@ -156,7 +156,7 @@ If a person entity does not yet exist, create one in **Settings → People → A
 | Friendly Name | Entity ID | State Topic | Driven By |
 |---|---|---|---|
 | Nate HomeKit | `device_tracker.homekit_nate` | `presence/homekit_nate` | `input_boolean.nate_home` via `automation.household_homekit_presence_sync` |
-| Guest | `device_tracker.guest_tracker` | `presence/guest_tracker` | `input_boolean.guest_mode` via `automation.household_status_lights_home_mode` |
+| Guest | `device_tracker.guest_tracker` | `presence/guest_tracker` | `input_boolean.guest_mode` via `automation.household_guest_presence_sync` |
 
 ---
 
@@ -165,6 +165,7 @@ If a person entity does not yet exist, create one in **Settings → People → A
 | Friendly Name | Entity ID | Type |
 |---|---|---|
 | Household: HomeKit Presence Sync | `automation.household_homekit_presence_sync` | Automation |
+| Household: Guest Presence Sync | `automation.household_guest_presence_sync` | Automation |
 | Nate HomeKit | `device_tracker.homekit_nate` | Device Tracker |
 | Guest | `device_tracker.guest_tracker` | Device Tracker |
 
