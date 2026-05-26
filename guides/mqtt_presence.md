@@ -187,7 +187,7 @@ If the rename fails with "entity with this ID is already registered," check for 
 
 - Confirm the `input_boolean` is exposed via Matter Hub. The helper must appear as a switch in Apple Home before a Home automation can target it.
 - A home hub (HomePod or Apple TV) must be online. Without a hub, geofence automations are evaluated on the device, which requires the device to be in range of the home network — geofence triggers will not fire reliably.
-- The presence sync automation suppresses triggers for 5 minutes after HA startup (uptime guard condition). This is intentional — stale boolean state from before a restart does not cause spurious presence events.
+- The presence sync automation has no startup guard — state restoration on HA restart does not fire `state_changed` events, so no spurious triggers occur at boot.
 
 **Person entity shows `unknown` or wrong state after adding the tracker**
 
