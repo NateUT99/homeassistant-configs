@@ -98,7 +98,7 @@ Entities are auto-generated from device names by HA/Z2M. Override friendly names
 
 - Title Case for all friendly names
 - The domain is **never** included in the friendly name (no `Light`, `Switch`, `Sensor` suffix on primary entities)
-- **Default: drop the area prefix** from primary entities. Area context lives in the entity's area assignment, not the name. "Ceiling", not "Office Ceiling"; "Thermostat", not "Living Room Thermostat".
+- **Default: drop the area prefix** from primary entities. Area context lives in the entity's area assignment, not the name. "Ceiling", not "Office Ceiling"; "Thermostat", not "Living Room Thermostat". Drop only the registered HA area name — sub-location qualifiers within the area ("Hallway", "Closet", "Desk", "Nightstand") are part of the object name and must be kept. `light.bathroom_hallway_ceiling` → "Hallway Ceiling" (not "Ceiling"), because "Hallway" disambiguates from a future fixture elsewhere in the same bathroom area.
 - **Keep a qualifier when bare would be ambiguous** — identical or generic objects that mean nothing alone, or area+object natural-compound phrases. `fan.living_room_ceiling` → "Ceiling Fan" (not "Ceiling", which would collide with a ceiling light entity); `cover.garage_door_garage` → "Garage Door" (natural compound — not just "Door").
 - **Strip concatenation artifacts.** HA prepends the device name for `has_entity_name` entities, producing names like "Garage Door Garage" or "Interior Door Door". Override the Name field to correct them.
 - Secondary entities (temperature, humidity, power) retain a disambiguating qualifier — bare "Temperature" is meaningless in flat contexts like notifications and logbook. "Motion Temperature", not "Temperature".
