@@ -1,5 +1,5 @@
 # Home Assistant Device & Entity Naming Standard
-*Version 1.1 — May 2026*
+*Version 1.2 — May 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.2 | May 2026 | Display-name hybrid rule (§5.1–5.2): drop area prefix from primary entities; codify entity registry Name field override; update §6 group examples |
 | 1.1 | May 2026 | Added Reminder Naming section (§9) |
 | 1.0 | March 2026 | Initial release |
 
@@ -97,26 +98,30 @@ Entities are auto-generated from device names by HA/Z2M. Override friendly names
 
 - Title Case for all friendly names
 - The domain is **never** included in the friendly name (no `Light`, `Switch`, `Sensor` suffix on primary entities)
-- Secondary entities (battery, temperature, power) keep their attribute suffix
-- Blank friendly names are acceptable — HA falls back to `original_name` cleanly
+- **Default: drop the area prefix** from primary entities. Area context lives in the entity's area assignment, not the name. "Ceiling", not "Office Ceiling"; "Thermostat", not "Living Room Thermostat".
+- **Keep a qualifier when bare would be ambiguous** — identical or generic objects that mean nothing alone, or area+object natural-compound phrases. `fan.living_room_ceiling` → "Ceiling Fan" (not "Ceiling", which would collide with a ceiling light entity); `cover.garage_door_garage` → "Garage Door" (natural compound — not just "Door").
+- **Strip concatenation artifacts.** HA prepends the device name for `has_entity_name` entities, producing names like "Garage Door Garage" or "Interior Door Door". Override the Name field to correct them.
+- Secondary entities (temperature, humidity, power) retain a disambiguating qualifier — bare "Temperature" is meaningless in flat contexts like notifications and logbook. "Motion Temperature", not "Temperature".
+- Set display names via the entity registry **Name** field (**Settings → Entities**, pencil icon). This value overrides the entire `friendly_name` everywhere HA surfaces it — dashboards, voice, notifications, logbook, HomeKit — with no device or area name prepended. Area context is preserved by assigning the entity to its area, not by encoding it in the name.
+- If the Name field is cleared, HA falls back to `original_name`. Blank is acceptable when `original_name` is already correct.
 
 ### 5.2 Primary Entity Suffixes by Domain
 
 | Domain | Primary Entity | Friendly Name Pattern | Example |
 |---|---|---|---|
-| `light` | Main light | Device name only | `Office Ceiling` |
-| `switch` | Primary switch | Device name only | `Avery Room Humidifier Plug` |
-| `binary_sensor` (contact) | Door/window state | `[Location] [Object]` | `Kitchen Freezer Door` |
-| `binary_sensor` (motion) | Motion detection | `[Device] Motion` | `Bathroom Night Lamp Motion` |
-| `binary_sensor` (moisture) | Leak detection | `[Location] Leak` | `Kitchen Leak` |
-| `sensor` (temperature) | Temperature reading | `[Device] Temperature` | `Office Sensor Temperature` |
-| `sensor` (humidity) | Humidity reading | `[Device] Humidity` | `Office Sensor Humidity` |
-| `sensor` (battery) | Battery level | `[Device] Battery` | `Office Sensor Battery` |
-| `sensor` (power) | Power consumption | `[Device] Power` | `Office Coke Machine Power` |
-| `media_player` | Speaker/TV/player | Device name only | `Living Room Sonos` |
-| `climate` | Thermostat | Device name only | `Living Room Thermostat` |
-| `fan` | Fan | Device name only | `Office Tower Fan` |
-| `cover` | Garage door | Device name only | `Garage Door` |
+| `light` | Main light | Object name | `Ceiling` |
+| `switch` | Primary switch | Object name | `Humidifier` |
+| `binary_sensor` (contact) | Door/window state | `[Object]` | `Freezer Door` |
+| `binary_sensor` (motion) | Motion detection | `[Device] Motion` | `Night Lamp Motion` |
+| `binary_sensor` (moisture) | Leak detection | `[Location] Leak` — keep area; omitting creates ambiguous notifications | `Kitchen Leak` |
+| `sensor` (temperature) | Temperature reading | `[Device] Temperature` | `Motion Temperature` |
+| `sensor` (humidity) | Humidity reading | `[Device] Humidity` | `Sensor Humidity` |
+| `sensor` (battery) | Battery level | `[Device] Battery` | `Motion Battery` |
+| `sensor` (power) | Power consumption | `[Device] Power` | `Coke Machine Power` |
+| `media_player` | Speaker/TV/player | Object name | `Sonos` |
+| `climate` | Thermostat | Object name | `Thermostat` |
+| `fan` | Fan | Object name; add qualifier when ambiguous (see §5.1) | `Tower Fan` |
+| `cover` | Garage door | Natural compound: keep area+object | `Garage Door` |
 
 ### 5.3 What to Suppress / Disable
 
@@ -154,15 +159,15 @@ light.[area]_[fixture]_bulb_[n]
 
 | Group Entity ID | Friendly Name | Members |
 |---|---|---|
-| `light.living_room_ceiling` | Living Room Ceiling | `living_room_ceiling_bulb_1`, `_2`, `_3` |
-| `light.master_bedroom_fan` | Master Bedroom Fan | `master_bedroom_fan_bulb_1` through `_4` |
-| `light.avery_room_ceiling` | Avery Room Ceiling | `avery_room_ceiling_bulb_1`, `_2` |
-| `light.master_closet_ceiling` | Master Closet Ceiling | `master_closet_ceiling_bulb_1`, `_2` |
-| `light.outside_porch` | Outside Porch | `outside_porch_bulb_1`, `_2` |
-| `light.bathroom_ceiling` | Bathroom Ceiling | `bathroom_ceiling_bulb_1`, `_2` |
-| `light.garage_ceiling` | Garage Ceiling | `garage_ceiling_bulb_1`, `_2` |
-| `light.utility_room_ceiling` | Utility Room Ceiling | `utility_room_ceiling_bulb_1`, `_2` |
-| `light.kitchen_cabinet_accent` | Kitchen Cabinet Accent | `kitchen_cabinet_accent_bar_1` through `_4` |
+| `light.living_room_ceiling` | Ceiling | `living_room_ceiling_bulb_1`, `_2`, `_3` |
+| `light.master_bedroom_fan` | Fan Light | `master_bedroom_fan_bulb_1` through `_4` |
+| `light.avery_room_ceiling` | Ceiling | `avery_room_ceiling_bulb_1`, `_2` |
+| `light.master_closet_ceiling` | Closet Ceiling | `master_closet_ceiling_bulb_1`, `_2` |
+| `light.outside_porch` | Porch | `outside_porch_bulb_1`, `_2` |
+| `light.bathroom_ceiling` | Ceiling | `bathroom_ceiling_bulb_1`, `_2` |
+| `light.garage_ceiling` | Ceiling | `garage_ceiling_bulb_1`, `_2` |
+| `light.utility_room_ceiling` | Ceiling | `utility_room_ceiling_bulb_1`, `_2` |
+| `light.kitchen_cabinet_accent` | Cabinet Accent | `kitchen_cabinet_accent_bar_1` through `_4` |
 
 ### 6.4 Left/Right Member Examples
 
@@ -170,8 +175,8 @@ When devices are physically oriented (facing the object), use `_left` / `_right`
 
 | Group Entity ID | Friendly Name | Members |
 |---|---|---|
-| `light.office_record_cabinets` | Office Record Cabinets | `office_record_cabinet_left`, `office_record_cabinet_right` |
-| `light.master_bedroom_nightstand_lamps` | Master Bedroom Nightstand Lamps | `master_bedroom_nightstand_lamp_left`, `master_bedroom_nightstand_lamp_right` |
+| `light.office_record_cabinets` | Record Cabinets | `office_record_cabinet_left`, `office_record_cabinet_right` |
+| `light.master_bedroom_nightstand_lamps` | Nightstand Lamps | `master_bedroom_nightstand_lamp_left`, `master_bedroom_nightstand_lamp_right` |
 
 ---
 
