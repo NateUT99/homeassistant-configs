@@ -58,11 +58,11 @@ In HA, create a new toggle helper:
 - **Entity ID:** `input_boolean.<name>_home` — e.g., `input_boolean.alex_home`
 - **Name:** `<Name> Home` — e.g., `Alex Home`
 
-### Step 2: Expose the helper to HomeKit
+### Step 2: Expose the helper to Matter Hub
 
-The `input_boolean` must be visible to HomeKit so the Home app can toggle it.
+The `input_boolean` must be bridged to HomeKit via the Matter Hub add-on so the Home app can toggle it.
 
-In HA, go to **Settings → Voice Assistants → Apple** and confirm the new helper is exposed. If it is not listed, enable it.
+In the Matter Hub add-on, add the new `input_boolean.<name>_home` entity to the list of exposed entities. The helper will appear as a switch in Apple Home once bridged.
 
 ### Step 3: Create the HomeKit automation
 
@@ -184,7 +184,7 @@ If the rename fails with "entity with this ID is already registered," check for 
 
 **HomeKit automation does not fire**
 
-- Confirm the `input_boolean` is exposed to Apple under **Settings → Voice Assistants → Apple**.
+- Confirm the `input_boolean` is exposed via Matter Hub. The helper must appear as a switch in Apple Home before a Home automation can target it.
 - A home hub (HomePod or Apple TV) must be online. Without a hub, geofence automations are evaluated on the device, which requires the device to be in range of the home network — geofence triggers will not fire reliably.
 - The presence sync automation suppresses triggers for 5 minutes after HA startup (uptime guard condition). This is intentional — stale boolean state from before a restart does not cause spurious presence events.
 
