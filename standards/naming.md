@@ -7,7 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
-| 1.2 | May 2026 | Display-name hybrid rule (§5.1–5.2): drop area prefix from primary entities; codify entity registry Name field override; update §6 group examples |
+| 1.2 | May 2026 | Display-name hybrid rule (§5.1–5.2): drop area prefix from primary entities; codify entity registry Name field override; update §6 group examples; primary climate sensor rule: designated room temperature/humidity sensor uses bare "Temperature"/"Humidity" |
 | 1.1 | May 2026 | Added Reminder Naming section (§9) |
 | 1.0 | March 2026 | Initial release |
 
@@ -101,7 +101,7 @@ Entities are auto-generated from device names by HA/Z2M. Override friendly names
 - **Default: drop the area prefix** from primary entities. Area context lives in the entity's area assignment, not the name. "Ceiling", not "Office Ceiling"; "Thermostat", not "Living Room Thermostat". Drop only the registered HA area name — sub-location qualifiers within the area ("Hallway", "Closet", "Desk", "Nightstand") are part of the object name and must be kept. `light.bathroom_hallway_ceiling` → "Hallway Ceiling" (not "Ceiling"), because "Hallway" disambiguates from a future fixture elsewhere in the same bathroom area.
 - **Keep a qualifier when bare would be ambiguous** — identical or generic objects that mean nothing alone, or area+object natural-compound phrases. `fan.living_room_ceiling` → "Ceiling Fan" (not "Ceiling", which would collide with a ceiling light entity); `cover.garage_door_garage` → "Garage Door" (natural compound — not just "Door").
 - **Strip concatenation artifacts.** HA prepends the device name for `has_entity_name` entities, producing names like "Garage Door Garage" or "Interior Door Door". Override the Name field to correct them.
-- Secondary entities (temperature, humidity, power) retain a disambiguating qualifier — bare "Temperature" is meaningless in flat contexts like notifications and logbook. "Motion Temperature", not "Temperature".
+- Secondary entities (temperature, humidity, power) retain a disambiguating qualifier — bare "Temperature" is meaningless in flat contexts like notifications and logbook. "Motion Temperature", not "Temperature". **Exception — primary room climate sensor:** the designated primary temperature/humidity sensor for a room drops the qualifier entirely, regardless of whether the device is a `climate` sensor or a thermostat — it IS the room reading. `sensor.avery_room_climate_temperature` → "Temperature"; `sensor.living_room_thermostat_current_temperature` → "Temperature". Sub-location climate sensors keep the sub-location qualifier but drop the device name: `sensor.master_bathroom_climate_temperature` → "Bathroom Temperature". Non-primary sensors from secondary devices always retain their device qualifier: "Ecobee Temperature", "Motion Temperature".
 - Set display names via the entity registry **Name** field (**Settings → Entities**, pencil icon). This value overrides the entire `friendly_name` everywhere HA surfaces it — dashboards, voice, notifications, logbook, HomeKit — with no device or area name prepended. Area context is preserved by assigning the entity to its area, not by encoding it in the name.
 - If the Name field is cleared, HA falls back to `original_name`. Blank is acceptable when `original_name` is already correct.
 
