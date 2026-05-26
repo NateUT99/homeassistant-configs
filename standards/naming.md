@@ -159,12 +159,12 @@ light.[area]_[fixture]_bulb_[n]
 
 | Group Entity ID | Friendly Name | Members |
 |---|---|---|
-| `light.living_room_ceiling` | Ceiling | `living_room_ceiling_bulb_1`, `_2`, `_3` |
-| `light.master_bedroom_fan` | Fan Light | `master_bedroom_fan_bulb_1` through `_4` |
+| `light.living_room_fan` | Ceiling | `living_room_fan_bulb_1` through `_4` |
+| `light.master_bedroom_fan` | Ceiling | `master_bedroom_fan_bulb_1` through `_4` |
 | `light.avery_room_ceiling` | Ceiling | `avery_room_ceiling_bulb_1`, `_2` |
 | `light.master_closet_ceiling` | Closet Ceiling | `master_closet_ceiling_bulb_1`, `_2` |
 | `light.outside_porch` | Porch | `outside_porch_bulb_1`, `_2` |
-| `light.bathroom_ceiling` | Ceiling | `bathroom_ceiling_bulb_1`, `_2` |
+| `light.bathroom_hallway_ceiling` | Ceiling | `bathroom_hallway_ceiling_bulb_1`, `_2` |
 | `light.garage_ceiling` | Ceiling | `garage_ceiling_bulb_1`, `_2` |
 | `light.utility_room_ceiling` | Ceiling | `utility_room_ceiling_bulb_1`, `_2` |
 | `light.kitchen_cabinet_accent` | Cabinet Accent | `kitchen_cabinet_accent_bar_1` through `_4` |
