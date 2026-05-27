@@ -1,5 +1,5 @@
 # Home Assistant Device & Entity Naming Standard
-*Version 1.2 — May 2026*
+*Version 1.3 — May 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.3 | May 2026 | Codify device display name convention (§4.1–4.2): Title Case, location-first, describes physical object; add multi-entity device rule (§4.4) |
 | 1.2 | May 2026 | Display-name hybrid rule (§5.1–5.2): drop area prefix from primary entities; codify entity registry Name field override; update §6 group examples; primary climate sensor rule: designated room temperature/humidity sensor uses bare "Temperature"/"Humidity" |
 | 1.1 | May 2026 | Added Reminder Naming section (§9) |
 | 1.0 | March 2026 | Initial release |
@@ -54,17 +55,30 @@ Areas represent physical rooms or zones. Area IDs must be lowercase snake_case w
 
 ## 4. Device Naming
 
-The device name is set at the integration level (in Z2M, Hue app, etc.) and becomes the basis for entity IDs. It should describe the physical object without redundant type words.
+The device name describes the physical object. It is set at the integration level (in Z2M, the Hue app, or the HA device registry) and is the basis for all entity IDs on that device.
 
 ### 4.1 Format
 
+Device display names use **Title Case**:
+
 ```
-[area]_[fixture_or_appliance]
-[area]_[fixture_or_appliance]_[qualifier]   # if needed for disambiguation
+[Area] [Fixture or Appliance]
+[Area] [Fixture or Appliance] [Qualifier]   # if needed for disambiguation
 ```
+
+Entity IDs are the snake_case equivalent, derived automatically:
+
+```
+"Office Floor Accent Right"  →  light.office_floor_accent_right
+"Kitchen Ceiling Fan"        →  light.kitchen_ceiling_fan_lights
+                                fan.kitchen_ceiling_fan
+```
+
+Z2M and Hue derive entity IDs automatically from the device name. For integrations that auto-generate opaque IDs (HomeKit Controller, Meross, etc.), rename entity IDs manually in HA after pairing — the device name and entity IDs are always set to agree.
 
 ### 4.2 Rules
 
+- Device display names use Title Case; entity IDs are snake_case derived from the display name
 - Use the area name as the prefix — always
 - Describe the physical device, not its function (`ceiling` not `ceiling_lights`)
 - For multi-bulb fixtures, the device is the bulb: `office_ceiling_bulb_1`
@@ -76,17 +90,34 @@ The device name is set at the integration level (in Z2M, Hue app, etc.) and beco
 
 ### 4.3 Device Name Examples
 
+Proposed names are the Title Case display names; entity IDs are the snake_case equivalent.
+
 | Current Device Name | Proposed Device Name | Reason |
 |---|---|---|
-| Avery's Room Ceiling Bulb 1 | `avery_room_ceiling_bulb_1` | Drop apostrophe |
-| Bathroom Hallway Ceiling Bulb 1 | `bathroom_ceiling_bulb_1` | Remove redundant 'hallway' |
-| Master Bedroom Humidifer Plug | `master_bedroom_humidifier_plug` | Fix typo |
-| Office Turnable Lights Power Switch | `office_turntable_switch` | Fix typo + simplify |
-| Living Room Movie Poster Lights | `living_room_movie_poster` | Drop 'lights' — redundant with domain |
-| Master Bedroom Temperature Sensor | `master_bedroom_climate_sensor` | Consistent with mqtt device |
-| Avery's Room Door Sensor | `avery_room_door` | Drop `_sensor` suffix |
-| Kitchen Water Leak Sensor | `kitchen_leak_sensor` | Drop 'water' — all leak sensors are water |
-| Avery's Room Climate Sensor (2nd in room) | `avery_room_climate_nightstand` | Qualify by location within room |
+| Avery's Room Ceiling Bulb 1 | Avery Room Ceiling Bulb 1 | Drop apostrophe |
+| Bathroom Hallway Ceiling Bulb 1 | Bathroom Ceiling Bulb 1 | Remove redundant 'Hallway' |
+| Master Bedroom Humidifer Plug | Master Bedroom Humidifier Plug | Fix typo |
+| Office Turnable Lights Power Switch | Office Turntable Switch | Fix typo + simplify |
+| Living Room Movie Poster Lights | Living Room Movie Poster | Drop 'Lights' — redundant with domain |
+| Master Bedroom Temperature Sensor | Master Bedroom Climate Sensor | Consistent with MQTT device |
+| Avery's Room Door Sensor | Avery Room Door | Drop 'Sensor' suffix |
+| Kitchen Water Leak Sensor | Kitchen Leak Sensor | Drop 'Water' — all leak sensors are water |
+| Avery's Room Climate Sensor (2nd in room) | Avery Room Climate Nightstand | Qualify by location within room |
+
+### 4.4 Multi-Entity Devices
+
+When a device exposes multiple entities, the device display name describes the physical object. Entity IDs extend the device name slug with a domain-appropriate qualifier only where needed.
+
+- **Primary entity** — no additional qualifier beyond the device name slug
+- **Secondary/utility entities** — add a functional qualifier (`_identify`, `_battery`, `_power`, etc.)
+- **Same-domain conflict** — when two entities in the same domain come from one device, qualify by function (e.g., `_lights` on a ceiling fan's light entity to distinguish from the `fan` entity)
+
+| Device Name | Entity ID | Notes |
+|---|---|---|
+| Office Floor Accent Right | `light.office_floor_accent_right` | Primary entity — no qualifier |
+| Office Floor Accent Right | `button.office_floor_accent_right_identify` | Utility entity — add `_identify` |
+| Kitchen Ceiling Fan | `fan.kitchen_ceiling_fan` | Primary fan entity — no qualifier |
+| Kitchen Ceiling Fan | `light.kitchen_ceiling_fan_lights` | Light kit on same device — add `_lights` |
 
 ---
 
