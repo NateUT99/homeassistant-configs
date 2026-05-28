@@ -240,7 +240,7 @@ Always name a smart plug after the device connected to it, not the plug itself. 
 - `switch.master_bedroom_humidifier` — not `switch.master_bedroom_smart_plug`
 - `switch.avery_room_noise_machine` — not `switch.avery_room_plug_1`
 
-The only exception is a general-purpose outlet with no fixed device, which can be named by location: `switch.office_desk_outlet`.
+The only exception is a general-purpose outlet with no fixed device, which can be named by location: `switch.office_desk_outlet`. For multi-outlet devices where each outlet is general-purpose, append `_1` / `_2` / `_n` and pluralize the device name: `switch.outside_porch_outlet_1`, `switch.outside_porch_outlet_2` (device: "Outside Porch Outlets").
 
 ### 7.6 Lights on Smart Plugs (switch_as_x)
 
