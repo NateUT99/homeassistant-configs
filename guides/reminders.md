@@ -5,13 +5,23 @@
 
 ## Overview
 
-A recurring-reminder framework built from native HA helpers and automations. Each reminder tracks a last-done date and a configurable interval; the system automatically computes when the task is next due, marks it overdue, sends an actionable push notification to Nate's iPhone, and closes the loop when the user marks it complete directly from the lock screen.
+Three distinct reminder patterns are documented here. They share a common philosophy — actionable iOS notifications with tag-based lifecycle management and a Mark Complete action — but differ in how they determine when to fire and how they close the loop.
 
-The framework uses two shared automations that handle every reminder centrally. Per-item configuration is three helpers (last-done date, interval, and an overdue binary sensor) plus a reactive template sensor for the due date. Adding a new reminder requires only creating those artifacts and registering the new sensor in the shared automations.
+| Pattern | Trigger | Close loop via | Use for |
+|---|---|---|---|
+| **Recurring Task** | Interval since last done | Mark Complete → set last-done date | Regular maintenance tasks (car wash, filter change, etc.) |
+| **Roborock Maintenance** | Vacuum returns to dock | Mark Complete → press integration reset button | Consumable-driven maintenance tied to vacuum usage |
+| **Trash Pickup** | Calendar event tomorrow | Mark Complete → disarm pending boolean | Fixed-schedule events driven by an external calendar |
 
 ---
 
-## Architecture
+## Recurring Task Reminders
+
+A framework built from native HA helpers and automations. Each reminder tracks a last-done date and a configurable interval; the system automatically computes when the task is next due, marks it overdue, sends an actionable push notification to Nate's iPhone, and closes the loop when the user marks it complete directly from the lock screen.
+
+Two shared automations handle every reminder centrally. Per-item configuration is three helpers (last-done date, interval, overdue binary sensor) plus a reactive template sensor for the due date. Adding a new reminder requires only creating those artifacts and registering the new sensor in the shared automations.
+
+### Architecture
 
 ```
 input_datetime.<key>       input_number.<key>_offset
@@ -24,7 +34,7 @@ input_datetime.<key>       input_number.<key>_offset
   off edge ────┘    09:00 daily time trigger
                      │
                      ▼
-   automation.manage_reminder_notifications
+   automation.household_reminder_notifications
           ├─ edge_off → clear notification            (clear_notification by tag)
           └─ daily    → send for each still-on sensor
                      │
@@ -35,7 +45,7 @@ input_datetime.<key>       input_number.<key>_offset
                      ▼
    event: mobile_app_notification_action
                      ▼
-   automation.handle_reminder_mark_complete_action
+   automation.household_reminder_mark_complete
                      ▼
    input_datetime.<key> ← today()
    (sensor.<key>_due updates reactively → overdue sensor flips off → notification clears)
@@ -43,23 +53,19 @@ input_datetime.<key>       input_number.<key>_offset
 
 **Key design decisions:**
 
-- *Two shared automations, not one per reminder.* All 8 reminders share `automation.manage_reminder_notifications` and `automation.handle_reminder_mark_complete_action`. New reminders register in two lists; no new automations needed.
+- *Two shared automations, not one per reminder.* All reminders share `automation.household_reminder_notifications` and `automation.household_reminder_mark_complete`. New reminders register in two lists; no new automations needed.
 - *All notifications send at 09:00.* The daily time trigger is the only send path. No edge-on trigger means no midnight pings when the date rolls over. The `edge_off` trigger remains so the lock-screen notification clears immediately when a reminder is marked complete.
 - *Tag-based notification lifecycle.* Each reminder's notification carries a stable `reminder_<key>` tag. The daily re-send replaces (not stacks) the on-screen notification; the clear path uses the same tag. iOS lock screen never accumulates duplicates.
 - *Action ID encodes the input_datetime key.* The `REMINDER_MARK_COMPLETE_<key>` action ID doubles as the `input_datetime` entity name suffix. The handler parses it at runtime, requiring no lookup table and routing any reminder with one automation.
 - *Due date is a reactive template sensor.* `sensor.<key>_due` computes `last-done + offset` as a template. It updates the moment either `input_datetime.<key>` or `input_number.<key>_offset` changes — no automation needed to keep it in sync.
 
----
-
-## Prerequisites
+### Prerequisites
 
 - HA Companion app installed on Nate's iPhone (`notify.mobile_app_nates_iphone`)
 - Notification actions enabled in the iOS Companion app (Settings → Companion App → Notifications → no restrictions needed beyond standard setup)
 - Helpers category `01K6ZGDERD3FBN9BPYKQSBYTGG` exists (all reminder helpers are grouped here for the HA UI)
 
----
-
-## Adding a New Reminder
+### Adding a New Reminder
 
 This procedure adds a reminder for a new task. The worked example below (Accord Washed) shows what all artifacts look like after setup.
 
@@ -122,11 +128,9 @@ In `automation.household_reminder_notifications`, add `binary_sensor.<key>_overd
 
 > **Coordinated change:** The `for_each` list in `automation.household_reminder_notifications` and the trigger `entity_id` lists are the canonical registration point for all reminders. Adding a new reminder requires updating all three lists in sync — they are duplicates of the same set.
 
----
+### Shared Automations
 
-## Shared Automations
-
-### `automation.household_reminder_notifications`
+#### `automation.household_reminder_notifications`
 
 *Friendly name: Household: Reminder Notifications*
 
@@ -209,7 +213,7 @@ action:
                               title: "Mark Complete"
 ```
 
-### `automation.household_reminder_mark_complete`
+#### `automation.household_reminder_mark_complete`
 
 *Friendly name: Household: Reminder Mark Complete*
 
@@ -247,13 +251,9 @@ action:
       date: "{{ now().strftime('%Y-%m-%d') }}"
 ```
 
----
-
-## Worked Example — Accord Washed
+### Worked Example — Accord Washed
 
 **Current configuration (as of May 2026):** last washed 2026-02-17, interval 30 days, due 2026-03-19.
-
-### Per-item helpers
 
 | Helper | Entity ID | Type | Value |
 |---|---|---|---|
@@ -262,11 +262,57 @@ action:
 | Accord Washed Due | `sensor.accord_washed_due` | `sensor` (template, date) | `(last-done + 30 days)` computed reactively |
 | Accord Washed Overdue | `binary_sensor.accord_washed_overdue` | `binary_sensor` (template) | `on` when today > due |
 
+### Related HA Config
+
+#### Shared automations
+
+| Friendly Name | Entity ID | Type |
+|---|---|---|
+| Household: Reminder Notifications | `automation.household_reminder_notifications` | automation |
+| Household: Reminder Mark Complete | `automation.household_reminder_mark_complete` | automation |
+
+#### Per-reminder helpers
+
+| Reminder | Last-Done Helper | Offset Helper | Due Sensor | Overdue Sensor |
+|---|---|---|---|---|
+| Accord Washed | `input_datetime.accord_washed` | `input_number.accord_washed_offset` | `sensor.accord_washed_due` | `binary_sensor.accord_washed_overdue` |
+| Coffee Grinder Cleaned | `input_datetime.coffee_grinder_cleaned` | `input_number.coffee_grinder_cleaned_offset` | `sensor.coffee_grinder_cleaned_due` | `binary_sensor.coffee_grinder_cleaned_overdue` |
+| Dishwasher Cleaned | `input_datetime.dishwasher_cleaned` | `input_number.dishwasher_cleaned_offset` | `sensor.dishwasher_cleaned_due` | `binary_sensor.dishwasher_cleaned_overdue` |
+| Disposal Cleaned | `input_datetime.disposal_cleaned` | `input_number.disposal_cleaned_offset` | `sensor.disposal_cleaned_due` | `binary_sensor.disposal_cleaned_overdue` |
+| Razor Blade Changed | `input_datetime.razor_blade_changed` | `input_number.razor_blade_changed_offset` | `sensor.razor_blade_changed_due` | `binary_sensor.razor_blade_changed_overdue` |
+| Toothbrushes Changed | `input_datetime.toothbrushes_changed` | `input_number.toothbrushes_changed_offset` | `sensor.toothbrushes_changed_due` | `binary_sensor.toothbrushes_changed_overdue` |
+| Washer Cleaned | `input_datetime.washer_cleaned` | `input_number.washer_cleaned_offset` | `sensor.washer_cleaned_due` | `binary_sensor.washer_cleaned_overdue` |
+| Water Filter Changed | `input_datetime.water_filter_changed` | `input_number.water_filter_changed_offset` | `sensor.water_filter_changed_due` | `binary_sensor.water_filter_changed_overdue` |
+
+### Troubleshooting
+
+**Mark Complete tap does not update the last-done date**
+
+1. Open HA and check `automation.household_reminder_mark_complete` traces. Look at the `action_id` variable — confirm it starts with `REMINDER_MARK_COMPLETE_`.
+2. Verify the `target_entity` variable resolves to a real `input_datetime` entity (`states(target_entity)` should not return `unknown`).
+3. If the action ID is wrong, confirm the `household_reminder_notifications` automation is sending the correct `action:` field in the notification payload. Both must use the same `REMINDER_MARK_COMPLETE_<key>` string.
+
+**Notification does not clear after marking complete**
+
+The clear fires when the `binary_sensor.<key>_overdue` flips from `on` to `off`. Check:
+1. Did the last-done date actually update? (Check `input_datetime.<key>` state.)
+2. Did `sensor.<key>_due` update to the new due date? It updates reactively; if it shows `unavailable`, inspect the template in Developer Tools → Template.
+3. Is the overdue sensor's due-date comparison still evaluating correctly? (Check `binary_sensor.<key>_overdue` state and trace via Developer Tools → Template.)
+4. If the sensor flipped off but the notification did not clear, check the `edge_off` branch in `automation.household_reminder_notifications`. The `tag` must match exactly (`reminder_<key>`) between the send and clear calls.
+
+**A reminder is not re-notified at 9am**
+
+The reminder key is likely missing from the `for_each` list in the daily branch of `automation.household_reminder_notifications`. Verify the key appears as `<key>` (without `binary_sensor.` prefix and without `_overdue` suffix).
+
+**Notification stacks instead of replacing**
+
+Both the edge_on send and the daily re-send must use the same `tag: reminder_<key>`. If the tag differs between calls (e.g., one uses `binary_sensor.accord_washed_overdue` as the tag and another uses `accord_washed`), iOS treats them as different notifications and stacks them.
+
 ---
 
 ## Roborock Maintenance Notifications
 
-A variant of the reminders pattern scoped to Roborock vacuum consumables. Rather than a calendar-based due date, the Roborock integration itself tracks consumable usage internally and flips four binary sensors to Problem state when maintenance is needed. Notifications fire when the vacuum returns to its dock after cleaning — not on a daily schedule — and include a **Reset** action that presses the corresponding consumable reset button on the integration, closing the loop automatically.
+A variant scoped to Roborock vacuum consumables. Rather than a calendar-based due date, the Roborock integration itself tracks consumable usage internally and flips four binary sensors to Problem state when maintenance is needed. Notifications fire when the vacuum returns to its dock after cleaning — not on a daily schedule — and include a **Reset** action that presses the corresponding consumable reset button on the integration, closing the loop automatically.
 
 ### Architecture
 
@@ -298,7 +344,7 @@ Any sensor flips off (manual or app reset) ────────────�
 - *Per-sensor clearing, not aggregate.* The four sensors clear independently. If two items need attention and you reset one, that notification clears immediately. The other stays until its sensor resolves. This requires watching all four sensors individually in the `sensor_resolved` trigger rather than watching `sensor.roborock_maintenance_required`, which only goes false when all four are off.
 - *No per-item helpers.* The Roborock integration tracks consumable usage internally. No `input_datetime`, `input_number`, or due-date template sensor is needed.
 
-### Sensor and reset button mapping
+### Sensor and Reset Button Mapping
 
 | Binary Sensor | Notification Label | Reset Button |
 |---|---|---|
@@ -425,13 +471,21 @@ action:
       entity_id: "{{ target_button }}"
 ```
 
+### Related HA Config
+
+| Friendly Name | Entity ID | Type |
+|---|---|---|
+| Roborock: Notify maintenance needed | `automation.roborock_notify_maintenance_needed` | automation |
+| Roborock: Dispatch Maintenance Reset | `automation.roborock_dispatch_maintenance_reset` | automation |
+| Roborock Maintenance Required | `sensor.roborock_maintenance_required` | sensor (template) |
+
 ---
 
-## Calendar-Driven Pickup Reminders
+## Trash Pickup Reminders
 
-A variant of the reminders pattern for events driven by an external calendar rather than a user-managed interval. The pickup schedule lives in an iCloud-published calendar subscribed in HA as `calendar.family`. Two all-day event series in that calendar drive the logic: **"Trash Pickup"** (weekly, every Wednesday) and **"Recycling Pickup"** (biweekly, every other Wednesday). Every other Wednesday both events appear on the same date, producing a combined notification.
+A two-stage notification pattern for fixed-schedule events driven by an external calendar. The pickup schedule lives in an iCloud-published calendar subscribed in HA as `calendar.family`. Two all-day event series in that calendar drive the logic: **"Trash Pickup"** (weekly, every Wednesday) and **"Recycling Pickup"** (biweekly, every other Wednesday). Every other Wednesday both events appear on the same date, producing a combined notification.
 
-Unlike the interval-based reminder pattern, there is no `input_datetime` last-done helper and no template due-date sensor — the calendar is the sole source of truth. State tracking is limited to `input_boolean.trash_pickup_pending` (is there an unacknowledged notification outstanding?) and `input_text.trash_pickup_pending_label` (what label to show in the morning escalation?).
+Unlike the recurring task pattern, there is no last-done date or interval — the calendar is the sole source of truth. The system sends an evening notification the day before pickup, then escalates to a critical iOS alarm at 7am on pickup day if not yet acknowledged.
 
 ### Architecture
 
@@ -481,7 +535,7 @@ iCloud "Family" calendar  (subscribed read-only via Remote Calendar integration)
 
 > **Coordinated change:** the exact event summaries `Trash Pickup` and `Recycling Pickup`. If the iCloud calendar event titles change, the `automation.household_pickup_reminder` templates must be updated to match.
 
-### State helpers
+### State Helpers
 
 | Friendly Name | Entity ID | Type | Role |
 |---|---|---|---|
@@ -643,94 +697,28 @@ action:
         tag: "pickup"
 ```
 
----
-
-## Related HA Config
-
-### Shared automations
-
-| Friendly Name | Entity ID | Type |
-|---|---|---|
-| Household: Reminder Notifications | `automation.household_reminder_notifications` | automation |
-| Household: Reminder Mark Complete | `automation.household_reminder_mark_complete` | automation |
-
-### Pickup reminder automations
+### Related HA Config
 
 | Friendly Name | Entity ID | Type |
 |---|---|---|
 | Household: Trash Pickup Reminder | `automation.household_pickup_reminder` | automation |
 | Household: Trash Pickup Morning Critical | `automation.household_pickup_morning_critical` | automation |
 | Household: Trash Pickup Mark Complete | `automation.household_pickup_mark_complete` | automation |
-
-### Pickup reminder helpers
-
-| Friendly Name | Entity ID | Type |
-|---|---|---|
 | Trash Pickup Pending | `input_boolean.trash_pickup_pending` | `input_boolean` |
 | Trash Pickup Pending Label | `input_text.trash_pickup_pending_label` | `input_text` |
 
-### Roborock maintenance automations
+### Troubleshooting
 
-| Friendly Name | Entity ID | Type |
-|---|---|---|
-| Roborock: Notify maintenance needed | `automation.roborock_notify_maintenance_needed` | automation |
-| Roborock: Dispatch Maintenance Reset | `automation.roborock_dispatch_maintenance_reset` | automation |
-
-### Roborock maintenance sensors
-
-| Friendly Name | Entity ID | Type | Notes |
-|---|---|---|---|
-| Roborock Maintenance Required | `sensor.roborock_maintenance_required` | sensor (template) | `True` when any of the four Roborock binary sensors is in Problem state |
-
-### Per-reminder helpers
-
-| Reminder | Last-Done Helper | Offset Helper | Due Sensor | Overdue Sensor |
-|---|---|---|---|---|
-| Accord Washed | `input_datetime.accord_washed` | `input_number.accord_washed_offset` | `sensor.accord_washed_due` | `binary_sensor.accord_washed_overdue` |
-| Coffee Grinder Cleaned | `input_datetime.coffee_grinder_cleaned` | `input_number.coffee_grinder_cleaned_offset` | `sensor.coffee_grinder_cleaned_due` | `binary_sensor.coffee_grinder_cleaned_overdue` |
-| Dishwasher Cleaned | `input_datetime.dishwasher_cleaned` | `input_number.dishwasher_cleaned_offset` | `sensor.dishwasher_cleaned_due` | `binary_sensor.dishwasher_cleaned_overdue` |
-| Disposal Cleaned | `input_datetime.disposal_cleaned` | `input_number.disposal_cleaned_offset` | `sensor.disposal_cleaned_due` | `binary_sensor.disposal_cleaned_overdue` |
-| Razor Blade Changed | `input_datetime.razor_blade_changed` | `input_number.razor_blade_changed_offset` | `sensor.razor_blade_changed_due` | `binary_sensor.razor_blade_changed_overdue` |
-| Toothbrushes Changed | `input_datetime.toothbrushes_changed` | `input_number.toothbrushes_changed_offset` | `sensor.toothbrushes_changed_due` | `binary_sensor.toothbrushes_changed_overdue` |
-| Washer Cleaned | `input_datetime.washer_cleaned` | `input_number.washer_cleaned_offset` | `sensor.washer_cleaned_due` | `binary_sensor.washer_cleaned_overdue` |
-| Water Filter Changed | `input_datetime.water_filter_changed` | `input_number.water_filter_changed_offset` | `sensor.water_filter_changed_due` | `binary_sensor.water_filter_changed_overdue` |
-
----
-
-## Troubleshooting
-
-**Mark Complete tap does not update the last-done date**
-
-1. Open HA and check `automation.household_reminder_mark_complete` traces. Look at the `action_id` variable — confirm it starts with `REMINDER_MARK_COMPLETE_`.
-2. Verify the `target_entity` variable resolves to a real `input_datetime` entity (`states(target_entity)` should not return `unknown`).
-3. If the action ID is wrong, confirm the `household_reminder_notifications` automation is sending the correct `action:` field in the notification payload. Both must use the same `REMINDER_MARK_COMPLETE_<key>` string.
-
-**Notification does not clear after marking complete**
-
-The clear fires when the `binary_sensor.<key>_overdue` flips from `on` to `off`. Check:
-1. Did the last-done date actually update? (Check `input_datetime.<key>` state.)
-2. Did `sensor.<key>_due` update to the new due date? It updates reactively; if it shows `unavailable`, inspect the template in Developer Tools → Template.
-3. Is the overdue sensor's due-date comparison still evaluating correctly? (Check `binary_sensor.<key>_overdue` state and trace via Developer Tools → Template.)
-4. If the sensor flipped off but the notification did not clear, check the `edge_off` branch in `automation.household_reminder_notifications`. The `tag` must match exactly (`reminder_<key>`) between the send and clear calls.
-
-**A reminder is not re-notified at 9am**
-
-The reminder key is likely missing from the `for_each` list in the daily branch of `automation.household_reminder_notifications`. Verify the key appears as `<key>` (without `binary_sensor.` prefix and without `_overdue` suffix).
-
-**Notification stacks instead of replacing**
-
-Both the edge_on send and the daily re-send must use the same `tag: reminder_<key>`. If the tag differs between calls (e.g., one uses `binary_sensor.accord_washed_overdue` as the tag and another uses `accord_washed`), iOS treats them as different notifications and stacks them.
-
-**Pickup reminder: no notification fired Tuesday evening**
+**No notification fired Tuesday evening**
 
 1. In HA Developer Tools → Services, call `calendar.get_events` against `calendar.family` for a window covering tomorrow. Confirm the response contains events with summary exactly `Trash Pickup` or `Recycling Pickup` (case-sensitive). If summaries differ, update the templates in `automation.household_pickup_reminder`.
 2. Check the Remote Calendar integration's last-update timestamp — if `calendar.family` hasn't synced recently, the events may not be populated yet. Trigger a manual reload via **Settings → Devices & Services → [Remote Calendar integration] → Reload**.
 3. Check the `automation.household_pickup_reminder` trace to see whether the `choose` branch evaluated `trash or recycling` as false.
 
-**Pickup reminder: 07:00 critical alarm didn't sound**
+**07:00 critical alarm didn't sound**
 
 The critical alarm requires iOS to grant the entitlement: **iPhone → Settings → Notifications → Home Assistant → Critical Alerts**. If that toggle is off, the notification delivers silently during Do Not Disturb. Enable it, then re-test by manually setting `input_boolean.trash_pickup_pending` to on and running the automation via *Run*.
 
-**Pickup reminder: notification doesn't clear after tapping Mark Complete**
+**Notification doesn't clear after tapping Mark Complete**
 
 Check that the `action:` field in the notification payload exactly matches the trigger `event_data.action` in `automation.household_pickup_mark_complete`. Both must be `PICKUP_MARK_COMPLETE`. Also verify the `tag:` field is `pickup` in both the send and the clear calls — mismatched tags produce a notification that can't be cleared by the handler.
