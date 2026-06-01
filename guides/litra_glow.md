@@ -459,14 +459,14 @@ triggers:
   - alias: "Studio Display Camera becomes active on either Mac"
     trigger: state
     entity_id:
-      - sensor.nates_mac_mini_active_camera
+      - sensor.nate_mac_mini_active_camera
       - sensor.nates_macbook_pro_active_camera
     to: Studio Display Camera
     id: "on"
   - alias: "Studio Display Camera inactive for 15 seconds on either Mac"
     trigger: state
     entity_id:
-      - sensor.nates_mac_mini_active_camera
+      - sensor.nate_mac_mini_active_camera
       - sensor.nates_macbook_pro_active_camera
     from: Studio Display Camera
     id: "off"
@@ -527,10 +527,10 @@ actions:
               - condition: and
                 conditions:
                   - condition: state
-                    entity_id: binary_sensor.nates_mac_mini_active
+                    entity_id: binary_sensor.nate_mac_mini_active
                     state: "on"
                   - condition: state
-                    entity_id: sensor.nates_mac_mini_primary_display_name
+                    entity_id: sensor.nate_mac_mini_primary_display_name
                     state: Studio Display
               - condition: and
                 conditions:
