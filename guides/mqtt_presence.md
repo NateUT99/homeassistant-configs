@@ -75,6 +75,8 @@ A home hub (HomePod or Apple TV) must be online for geofence automations to fire
 
 ### Step 4: Publish the MQTT discovery config
 
+Use **Developer Tools → Actions**, call `mqtt.publish`, and set the topic, payload, and retain fields as shown. Both publishes below require `retain: true` so HA picks them up on restart.
+
 Publish to `homeassistant/device_tracker/homekit_<name>/config` with `retain=true`:
 
 ```json
