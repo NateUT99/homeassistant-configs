@@ -496,7 +496,7 @@ actions:
                     action: notify.mobile_app_nates_macbook_pro  # service name, not entity_id
                     data:
                       title: "⚠️ Camera Lighting Unavailable"
-                      message: "Litra Glow disconnected — joining the call without the camera preset. Replug the USB cable!"
+                      message: "Check the USB cable and replug if needed!"
             default:
               - alias: "Turn off office ceiling and screen bar"
                 action: light.turn_off
