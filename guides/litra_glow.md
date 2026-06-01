@@ -269,7 +269,7 @@ template:
   - light:
       - name: "Office Desk Key Light"
         unique_id: litra_glow
-        availability: "{{ states('sensor.litra_glow_status') != 'unavailable' }}"
+        availability: "{{ states('sensor.litra_glow_status') not in ['unavailable', 'unknown'] }}"
         state: "{{ is_state('sensor.litra_glow_status', 'on') }}"
         level: >-
           {% set l = state_attr('sensor.litra_glow_status', 'brightness_in_lumen') %}
@@ -315,7 +315,7 @@ template:
               entity_id: sensor.litra_glow_status
 ```
 
-The `availability` template treats `unknown` as available so the entity remains usable while the sensor is refreshing — only `unavailable` (Mac unreachable) hides the light from the UI. The `level` and `temperature` templates return `none` when their source attributes are absent during initial sensor load, which tells HA to leave those values unset rather than silently writing a wrong value.
+The `availability` template excludes both `unavailable` (Mac unreachable via SSH) and `unknown` (Mac reachable but Litra not found — typically a USB disconnect). Either state means commands will fail, so the light is hidden from the UI until the sensor reports a real state. The `level` and `temperature` templates return `none` when their source attributes are absent during initial sensor load, which tells HA to leave those values unset rather than silently writing a wrong value.
 
 ### Command-line Status Sensor (`configuration.yaml`)
 
@@ -345,10 +345,12 @@ command_line:
         - maximum_brightness_in_lumen
         - minimum_temperature_in_kelvin
         - maximum_temperature_in_kelvin
-      scan_interval: 3600
+      scan_interval: 120
 ```
 
-`ConnectTimeout=5` and `command_timeout: 10` prevent the sensor from hanging when the Mac is unreachable — a 75-second default SSH connect timeout would freeze HA's command_line integration worker thread for each failed poll. If the Mac is unreachable, the sensor goes `unavailable`, which propagates to the template light via the `availability` template.
+`ConnectTimeout=5` and `command_timeout: 10` prevent the sensor from hanging when the Mac is unreachable — a 75-second default SSH connect timeout would freeze HA's command_line integration worker thread for each failed poll. If the Mac is unreachable, the sensor goes `unavailable`. If the Mac is reachable but the Litra is physically disconnected from USB, `litra devices --json` returns an empty array, which causes the `value_template` to fail and the sensor to go `unknown`. Both states propagate to the template light via the `availability` template.
+
+`scan_interval: 120` polls every 2 minutes, so a USB disconnect surfaces in HA within 2 minutes. Handler-side `update_entity` covers normal post-command latency.
 
 ### Startup Recovery Automation
 
@@ -369,6 +371,34 @@ actions:
     action: homeassistant.update_entity
     target:
       entity_id: sensor.litra_glow_status
+mode: single
+```
+
+### Disconnect Alert Automation
+
+Fires when `sensor.litra_glow_status` stays in `unavailable` or `unknown` for 30 seconds, sending a push notification to the MacBook Pro. The 30-second `for:` absorbs brief transient states during HA startup before the startup recovery automation has had a chance to poll the sensor.
+
+```yaml
+alias: "Office: Litra Glow Disconnected"
+description: >
+  Notifies when sensor.litra_glow_status goes unavailable or unknown for 30 seconds,
+  indicating the Litra Glow has lost its USB connection or the Mac is unreachable.
+triggers:
+  - alias: Litra status sensor unavailable or disconnected
+    trigger: state
+    entity_id: sensor.litra_glow_status
+    to:
+      - unavailable
+      - unknown
+    for:
+      seconds: 30
+conditions: []
+actions:
+  - alias: Notify MacBook Pro
+    action: notify.mobile_app_nates_macbook_pro
+    data:
+      title: "Litra Glow disconnected"
+      message: "Key light is unresponsive. Check the USB cable and replug if needed."
 mode: single
 ```
 
@@ -451,19 +481,36 @@ actions:
             condition: trigger
             id: "on"
         sequence:
-          - alias: "Turn off office ceiling and screen bar"
-            action: light.turn_off
-            target:
-              entity_id:
-                - light.office_ceiling
-                - light.office_screen_bar
-          - alias: "Turn on desk key light for camera"
-            action: light.turn_on
-            target:
-              entity_id: light.office_desk_key_light
-            data:
-              brightness_pct: 45
-              color_temp_kelvin: 4500
+          - alias: Check Litra availability before applying camera preset
+            choose:
+              - alias: Litra unavailable — skip preset and notify
+                conditions:
+                  - alias: Litra Glow is unavailable or disconnected
+                    condition: state
+                    entity_id: sensor.litra_glow_status
+                    state:
+                      - unavailable
+                      - unknown
+                sequence:
+                  - alias: Notify Litra unavailable
+                    action: notify.mobile_app_nates_macbook_pro
+                    data:
+                      title: Camera lighting unavailable
+                      message: "Litra Glow is disconnected — joining the call without the camera preset. Replug the USB cable."
+            default:
+              - alias: "Turn off office ceiling and screen bar"
+                action: light.turn_off
+                target:
+                  entity_id:
+                    - light.office_ceiling
+                    - light.office_screen_bar
+              - alias: "Turn on desk key light for camera"
+                action: light.turn_on
+                target:
+                  entity_id: light.office_desk_key_light
+                data:
+                  brightness_pct: 45
+                  color_temp_kelvin: 4500
       - alias: "Camera turned off"
         conditions:
           - alias: "Triggered by camera turning off"
@@ -527,6 +574,7 @@ The `light.turn_on` call uses `brightness_pct` and `color_temp_kelvin`. HA norma
 | Litra Glow Status | `sensor.litra_glow_status` | Command-line sensor (`configuration.yaml`) |
 | Office: Camera Lighting | `automation.office_camera_lighting` | Automation |
 | Office: Litra Status Refresh on HA Start | `automation.office_litra_status_refresh_on_start` | Automation |
+| Office: Litra Glow Disconnected | `automation.office_litra_glow_disconnected` | Automation |
 
 ---
 
