@@ -397,8 +397,8 @@ actions:
   - alias: Notify MacBook Pro
     action: notify.mobile_app_nates_macbook_pro  # service name, not entity_id
     data:
-      title: "Litra Glow disconnected"
-      message: "Key light is unresponsive. Check the USB cable and replug if needed."
+      title: "⚠️ Litra Glow Disconnected"
+      message: "Check the USB cable and replug if needed!"
 mode: single
 ```
 
@@ -495,8 +495,8 @@ actions:
                   - alias: Notify Litra unavailable
                     action: notify.mobile_app_nates_macbook_pro  # service name, not entity_id
                     data:
-                      title: Camera lighting unavailable
-                      message: "Litra Glow is disconnected — joining the call without the camera preset. Replug the USB cable."
+                      title: "⚠️ Camera Lighting Unavailable"
+                      message: "Litra Glow disconnected — joining the call without the camera preset. Replug the USB cable!"
             default:
               - alias: "Turn off office ceiling and screen bar"
                 action: light.turn_off
