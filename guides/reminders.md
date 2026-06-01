@@ -431,7 +431,7 @@ action:
 
 A variant of the reminders pattern for events driven by an external calendar rather than a user-managed interval. The pickup schedule lives in an iCloud-published calendar subscribed in HA as `calendar.family`. Two all-day event series in that calendar drive the logic: **"Trash Pickup"** (weekly, every Wednesday) and **"Recycling Pickup"** (biweekly, every other Wednesday). Every other Wednesday both events appear on the same date, producing a combined notification.
 
-Unlike the interval-based reminder pattern, there is no `input_datetime` last-done helper and no template due-date sensor — the calendar is the sole source of truth. State tracking is limited to `input_boolean.pickup_pending` (is there an unacknowledged notification outstanding?) and `input_text.pickup_pending_label` (what label to show in the morning escalation?).
+Unlike the interval-based reminder pattern, there is no `input_datetime` last-done helper and no template due-date sensor — the calendar is the sole source of truth. State tracking is limited to `input_boolean.trash_pickup_pending` (is there an unacknowledged notification outstanding?) and `input_text.trash_pickup_pending_label` (what label to show in the morning escalation?).
 
 ### Architecture
 
@@ -446,10 +446,10 @@ iCloud "Family" calendar  (subscribed read-only via Remote Calendar integration)
    automation.household_pickup_reminder
       ├─ calendar.get_events for tomorrow's window
       ├─ filter summaries → trash, recycling flags
-      ├─ if either: input_boolean.pickup_pending ← on
-      │             input_text.pickup_pending_label ← "Trash" | "Recycling" | "Trash & Recycling"
+      ├─ if either: input_boolean.trash_pickup_pending ← on
+      │             input_text.trash_pickup_pending_label ← "Trash" | "Recycling" | "Trash & Recycling"
       │             notify.mobile_app_nates_iphone (tag: pickup, Mark Complete action)
-      └─ else:      input_boolean.pickup_pending ← off (housekeeping)
+      └─ else:      input_boolean.trash_pickup_pending ← off (housekeeping)
                                        │
                           [User taps Mark Complete]
                                        ▼
@@ -457,23 +457,23 @@ iCloud "Family" calendar  (subscribed read-only via Remote Calendar integration)
                        (action: PICKUP_MARK_COMPLETE)
                                        ▼
                    automation.household_pickup_mark_complete
-                      ├─ input_boolean.pickup_pending ← off
+                      ├─ input_boolean.trash_pickup_pending ← off
                       └─ notify.mobile_app_nates_iphone (clear_notification, tag: pickup)
 
                   07:00 daily trigger
                           │
                           ▼
             automation.household_pickup_morning_critical
-                ├─ condition: input_boolean.pickup_pending is on
+                ├─ condition: input_boolean.trash_pickup_pending is on
                 ├─ notify.mobile_app_nates_iphone (CRITICAL sound, tag: pickup)
                 │                                  message uses stored label
-                └─ input_boolean.pickup_pending ← off  (fires at most once per pickup cycle)
+                └─ input_boolean.trash_pickup_pending ← off  (fires at most once per pickup cycle)
 ```
 
 **Key design decisions:**
 
 - *`calendar.get_events` instead of template attributes.* The Family calendar contains many unrelated events. HA's calendar entity state attributes only expose the single next event, which could be any event — not necessarily a pickup event. Calling `calendar.get_events` with a tomorrow window and filtering by summary is the only reliable way to detect pickup events regardless of what else is on the calendar.
-- *Two helpers carry state across the 18:00 → 07:00 gap.* `input_boolean.pickup_pending` arms when the evening notification fires and disarms when the user acks or when the critical fires. `input_text.pickup_pending_label` stores the notification text from the calendar query so the 07:00 critical doesn't have to re-query. State survives HA restarts because HA restores helper state from storage.
+- *Two helpers carry state across the 18:00 → 07:00 gap.* `input_boolean.trash_pickup_pending` arms when the evening notification fires and disarms when the user acks or when the critical fires. `input_text.trash_pickup_pending_label` stores the notification text from the calendar query so the 07:00 critical doesn't have to re-query. State survives HA restarts because HA restores helper state from storage.
 - *Same notification tag for both sends.* The 07:00 critical replaces (not stacks) the 18:00 notification on the lock screen. Mark Complete clears whichever is currently showing.
 - *Pending disarmed after the critical fires.* `automation.household_pickup_morning_critical` turns off the boolean immediately after sending, guaranteeing the critical fires at most once per cycle even if the automation runs again or HA restarts mid-morning.
 - *18:00 always writes pending state.* If no pickup is tomorrow, pending is forced off — a housekeeping gate that prevents stale pending state from a missed 07:00 run from carrying forward.
@@ -485,21 +485,21 @@ iCloud "Family" calendar  (subscribed read-only via Remote Calendar integration)
 
 | Friendly Name | Entity ID | Type | Role |
 |---|---|---|---|
-| Pickup Pending | `input_boolean.pickup_pending` | `input_boolean` | On between 18:00 send and Mark Complete / 07:00 escalation |
-| Pickup Pending Label | `input_text.pickup_pending_label` | `input_text` | Carries "Trash", "Recycling", or "Trash & Recycling" from 18:00 to 07:00 |
+| Trash Pickup Pending | `input_boolean.trash_pickup_pending` | `input_boolean` | On between 18:00 send and Mark Complete / 07:00 escalation |
+| Trash Pickup Pending Label | `input_text.trash_pickup_pending_label` | `input_text` | Carries "Trash", "Recycling", or "Trash & Recycling" from 18:00 to 07:00 |
 
 ### `automation.household_pickup_reminder`
 
-*Friendly name: Household: Pickup Reminder*
+*Friendly name: Household: Trash Pickup Reminder*
 
 ```yaml
-alias: "Household: Pickup Reminder"
+alias: "Household: Trash Pickup Reminder"
 description: >-
   At 18:00 daily, queries the Family calendar for tomorrow. If "Trash Pickup"
   or "Recycling Pickup" is found, sends an actionable iOS notification with
-  Mark Complete and arms input_boolean.pickup_pending so the 07:00 escalation
-  fires if not acknowledged. If neither is found, clears pending state
-  (housekeeping).
+  Mark Complete and arms input_boolean.trash_pickup_pending so the 07:00
+  escalation fires if not acknowledged. If neither is found, clears pending
+  state (housekeeping).
 mode: single
 trigger:
   - alias: "6pm daily check"
@@ -533,7 +533,7 @@ action:
   - alias: "Store the label for the morning critical reminder"
     action: input_text.set_value
     target:
-      entity_id: input_text.pickup_pending_label
+      entity_id: input_text.trash_pickup_pending_label
     data:
       value: "{{ label }}"
   - alias: "Arm or clear pending based on tomorrow's events"
@@ -546,7 +546,7 @@ action:
           - alias: "Arm the pending state"
             action: input_boolean.turn_on
             target:
-              entity_id: input_boolean.pickup_pending
+              entity_id: input_boolean.trash_pickup_pending
           - alias: "Send actionable iOS notification"
             action: notify.mobile_app_nates_iphone
             data:
@@ -561,17 +561,17 @@ action:
       - alias: "No pickup tomorrow — clear pending (housekeeping)"
         action: input_boolean.turn_off
         target:
-          entity_id: input_boolean.pickup_pending
+          entity_id: input_boolean.trash_pickup_pending
 ```
 
 ### `automation.household_pickup_morning_critical`
 
-*Friendly name: Household: Pickup Morning Critical*
+*Friendly name: Household: Trash Pickup Morning Critical*
 
 ```yaml
-alias: "Household: Pickup Morning Critical"
+alias: "Household: Trash Pickup Morning Critical"
 description: >-
-  At 07:00 daily, if input_boolean.pickup_pending is still on (the evening
+  At 07:00 daily, if input_boolean.trash_pickup_pending is still on (the evening
   reminder was not acknowledged), sends a critical iOS alarm with the stored
   label. Disarms pending afterwards so the escalation runs at most once per
   pickup cycle. Requires Critical Alerts entitlement on the iPhone Companion
@@ -584,12 +584,12 @@ trigger:
 condition:
   - alias: "Pending pickup not acknowledged"
     condition: state
-    entity_id: input_boolean.pickup_pending
+    entity_id: input_boolean.trash_pickup_pending
     state: "on"
 action:
   - alias: "Capture the stored label"
     variables:
-      label: "{{ states('input_text.pickup_pending_label') }}"
+      label: "{{ states('input_text.trash_pickup_pending_label') }}"
   - alias: "Send critical iOS alarm"
     action: notify.mobile_app_nates_iphone
     data:
@@ -608,18 +608,18 @@ action:
   - alias: "Disarm pending so this does not repeat"
     action: input_boolean.turn_off
     target:
-      entity_id: input_boolean.pickup_pending
+      entity_id: input_boolean.trash_pickup_pending
 ```
 
 ### `automation.household_pickup_mark_complete`
 
-*Friendly name: Household: Pickup Mark Complete*
+*Friendly name: Household: Trash Pickup Mark Complete*
 
 ```yaml
-alias: "Household: Pickup Mark Complete"
+alias: "Household: Trash Pickup Mark Complete"
 description: >-
   When the user taps Mark Complete on either pickup notification (evening or
-  morning critical), disarms input_boolean.pickup_pending and clears the iOS
+  morning critical), disarms input_boolean.trash_pickup_pending and clears the iOS
   lock-screen notification by tag. Same tag is used for both sends so the
   clear hits whichever is showing.
 mode: parallel
@@ -634,7 +634,7 @@ action:
   - alias: "Disarm pending state"
     action: input_boolean.turn_off
     target:
-      entity_id: input_boolean.pickup_pending
+      entity_id: input_boolean.trash_pickup_pending
   - alias: "Clear the iOS notification by tag"
     action: notify.mobile_app_nates_iphone
     data:
@@ -658,16 +658,16 @@ action:
 
 | Friendly Name | Entity ID | Type |
 |---|---|---|
-| Household: Pickup Reminder | `automation.household_pickup_reminder` | automation |
-| Household: Pickup Morning Critical | `automation.household_pickup_morning_critical` | automation |
-| Household: Pickup Mark Complete | `automation.household_pickup_mark_complete` | automation |
+| Household: Trash Pickup Reminder | `automation.household_pickup_reminder` | automation |
+| Household: Trash Pickup Morning Critical | `automation.household_pickup_morning_critical` | automation |
+| Household: Trash Pickup Mark Complete | `automation.household_pickup_mark_complete` | automation |
 
 ### Pickup reminder helpers
 
 | Friendly Name | Entity ID | Type |
 |---|---|---|
-| Pickup Pending | `input_boolean.pickup_pending` | `input_boolean` |
-| Pickup Pending Label | `input_text.pickup_pending_label` | `input_text` |
+| Trash Pickup Pending | `input_boolean.trash_pickup_pending` | `input_boolean` |
+| Trash Pickup Pending Label | `input_text.trash_pickup_pending_label` | `input_text` |
 
 ### Roborock maintenance automations
 
@@ -729,7 +729,7 @@ Both the edge_on send and the daily re-send must use the same `tag: reminder_<ke
 
 **Pickup reminder: 07:00 critical alarm didn't sound**
 
-The critical alarm requires iOS to grant the entitlement: **iPhone → Settings → Notifications → Home Assistant → Critical Alerts**. If that toggle is off, the notification delivers silently during Do Not Disturb. Enable it, then re-test by manually setting `input_boolean.pickup_pending` to on and running the automation via *Run*.
+The critical alarm requires iOS to grant the entitlement: **iPhone → Settings → Notifications → Home Assistant → Critical Alerts**. If that toggle is off, the notification delivers silently during Do Not Disturb. Enable it, then re-test by manually setting `input_boolean.trash_pickup_pending` to on and running the automation via *Run*.
 
 **Pickup reminder: notification doesn't clear after tapping Mark Complete**
 
