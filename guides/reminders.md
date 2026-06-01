@@ -277,7 +277,7 @@ The eight household maintenance reminders currently configured follow the interv
 | Accord Washed | `input_datetime.accord_washed` | `input_datetime` | Last-done date (user-sets to mark complete) |
 | Accord Washed Offset | `input_number.accord_washed_offset` | `input_number` | 30 days |
 | Accord Washed Due | `sensor.accord_washed_due` | `sensor` (template, date) | `(last-done + 30 days)` computed reactively |
-| Accord Washed Overdue | `binary_sensor.accord_washed_overdue` | `binary_sensor` (template) | `on` when today > due |
+| Accord Washed Overdue | `binary_sensor.accord_washed_overdue` | `binary_sensor` (template) | `on` when today >= due |
 
 ### Related HA Config
 
