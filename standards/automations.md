@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.3 — May 2026*
+*Version 1.4 — June 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.4 | June 2026 | Extended integration labels to non-automation entities directly enrolled in a guide-documented integration; defined the enrollment boundary (direct configuration only, not transitive membership) |
 | 1.3 | May 2026 | Added `device_tracker` label — applied to any automation that updates device tracker state via `mqtt.publish` to a `presence/*` topic or `device_tracker.see`; enables auditing the presence tracking pipeline across categories |
 | 1.2 | May 2026 | Removed Notifications category — category describes domain, not delivery mechanism; safety alerts → Security, recurring reminders → Routines, consumable tracking → Maintenance. Added `notification` label to mark any automation that sends a push or TTS notification |
 | 1.1 | May 2026 | Renamed Media category to Entertainment — scope expanded beyond AV to include other entertainment devices (e.g. pinball machines) |
@@ -99,7 +100,7 @@ Applied to automations that affect more than one area. Single-area automations u
 
 #### Integration labels — color `purple`
 
-Applied to automations that belong to a documented integration in `guides/`. These link automations back to their design document and allow audits of "what automations does removing this integration break?"
+Applied to automations that belong to a documented integration in `guides/`, and to non-automation entities that are directly enrolled in or configured by that integration. These link back to the integration's design document and support audits of "what does removing this integration affect?"
 
 | Label ID | Friendly Name |
 |---|---|
@@ -112,7 +113,7 @@ Applied to automations that belong to a documented integration in `guides/`. The
 
 When a new guide is added, a matching `int_<guide_name>` label is created (color: purple) before the guide's automations are created or migrated. HA does not allow specifying a label ID on creation — use a two-step approach: create the label with the desired ID as the name (HA slugifies it into the ID), then update it with the clean friendly name, color, and icon.
 
-An automation may carry zero, one, or more integration labels. A guide-documented automation always carries its guide's label.
+An automation may carry zero, one, or more integration labels. A guide-documented automation always carries its guide's label. Non-automation entities that are directly configured by the integration also carry the label — for example, lights enrolled in an Adaptive Lighting instance. Entities only transitively affected (such as individual members of a light group that is itself enrolled) do not.
 
 ### 3.3 Area Assignment
 
