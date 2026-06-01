@@ -109,7 +109,7 @@ Applied to automations that belong to a documented integration in `guides/`, and
 | `reminders` | Reminders |
 | `int_litra_glow` | Litra Glow |
 
-> The `reminders` label predates this taxonomy and already tags reminder-system helpers. Its ID does not carry the `int_` prefix — this is an intentional exception, not a bug to fix.
+> The `reminders` label predates this taxonomy and is applied to all reminder-system helpers and automations. Its ID does not carry the `int_` prefix — this is an intentional exception, not a bug to fix.
 
 When a new guide is added, a matching `int_<guide_name>` label is created (color: purple) before the guide's automations are created or migrated. HA does not allow specifying a label ID on creation — use a two-step approach: create the label with the desired ID as the name (HA slugifies it into the ID), then update it with the clean friendly name, color, and icon.
 
