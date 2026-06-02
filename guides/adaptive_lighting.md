@@ -1,5 +1,5 @@
 # Adaptive Lighting
-*Last updated: May 2026*
+*Last updated: June 2026*
 
 The canonical document for Adaptive Lighting (AL) configuration in this home. Covers the three canonical AL instance profiles, the sleep-mode wiring strategy, and the MQTT-based pre-staging system that prevents bulbs from flashing to their previous state on turn-on.
 
@@ -11,7 +11,7 @@ Adaptive Lighting adjusts lights' brightness and color temperature through the d
 
 - **Standard** — brightness + color adaptation for ceiling fan fixtures where AL owns brightness entirely (`light.master_bedroom_fan`, `light.living_room_fan`, `light.office_ceiling`).
 - **Color Only** — color temperature adaptation only for all other household lights. `switch.adaptive_lighting_adapt_brightness_color_only` is permanently off, making color-only behavior architectural rather than reliant on ephemeral manual-control state.
-- **Avery Schedule** — brightness + color adaptation on an earlier evening schedule for Avery's room (`light.avery_room_ceiling`, `light.avery_room_desk_lamp`).
+- **Avery Schedule** — brightness + color adaptation for Avery's ceiling (`light.avery_room_ceiling`), maintained as a separate instance to allow `automation.avery_room_sleep_mode` to enable sleep mode independently before `input_boolean.everyone_sleeping` activates.
 
 MQTT-based pre-staging is deployed for Standard and Color Only ceiling fixtures with Z2M-managed bulbs. Color Only ceiling fixtures receive color-only payloads — brightness is omitted so bulbs retain their user-set level on turn-on. Fixtures not compatible with pre-staging are listed in Step 4.
 
