@@ -160,7 +160,7 @@ mode: single
 variables:
   trigger_description: >-
     {% set label_map = {
-      'cover.garage_door_garage': 'Garage Door Opened',
+      'cover.garage_door': 'Garage Door Opened',
       'binary_sensor.entrance_front_door_contact': 'Front Door Opened',
       'binary_sensor.office_sliding_door_contact': 'Office Sliding Door Opened',
       'binary_sensor.garage_interior_door_contact': 'Garage Interior Door Opened',
@@ -170,12 +170,7 @@ variables:
     } %}
     {{ label_map.get(trigger.entity_id, 'Unknown sensor') }}
 trigger:
-  - alias: "Garage door opened"
-    platform: state
-    entity_id: cover.garage_door_garage
-    id: perimeter
-
-  - alias: "Perimeter door or window opened"
+  - alias: "Perimeter door, window, or garage opened"
     platform: state
     entity_id:
       - binary_sensor.entrance_front_door_contact
@@ -183,6 +178,7 @@ trigger:
       - binary_sensor.garage_interior_door_contact
       - binary_sensor.master_bedroom_windows
       - binary_sensor.avery_room_window
+      - cover.garage_door
     to: "on"
     id: perimeter
 
@@ -502,7 +498,8 @@ action:
 | Camera Fluent | `camera.kitchen_camera_fluent` | `camera` |
 | Camera Siren | `siren.kitchen_camera_siren` | `siren` |
 | Camera Person | `binary_sensor.kitchen_camera_person` | `binary_sensor` |
-| Exterior Door/Window Open | `binary_sensor.exterior_door_window_open` | `binary_sensor` (group) |
+| Garage Door | `cover.garage_door` | `cover` |
+| Garage Interior Door | `binary_sensor.garage_interior_door_contact` | `binary_sensor` |
 
 ---
 
