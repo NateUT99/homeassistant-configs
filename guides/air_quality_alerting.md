@@ -4,7 +4,7 @@
 
 ## Overview
 
-Monitors outdoor air quality via the WAQI (World Air Quality Index) integration and notifies occupants to close windows when the AQI rises above a configured threshold. A companion automation clears the notification automatically when the AQI drops back below threshold or all exterior windows are closed. TTS announcements play on HomePods in the kitchen and office at the time of alert.
+Monitors outdoor air quality via the WAQI (World Air Quality Index) integration and notifies occupants to close exterior doors and windows when the AQI rises above a configured threshold. A companion automation clears the notification automatically when the AQI drops back below threshold or all exterior doors and windows are closed. TTS announcements play on HomePods in the kitchen and office at the time of alert.
 
 ---
 
@@ -21,7 +21,7 @@ WAQI API ──► sensor.toledo_ohio_usa_air_quality_index
            on │                        │ off
               ▼                        ▼
  automation.air_quality_      automation.air_quality_
- window_alert                 alert_clear
+ index_alert                  index_alert_clear
    ├─ iOS push notification     └─ clear iOS notification (tag)
    └─ TTS: kitchen + office
             HomePods
@@ -33,9 +33,9 @@ The alert automation has three entry-path triggers to cover all situations where
 
 - **AQI crosses above threshold** — primary trigger
 - **First person arrives home** — AQI was already bad while no one was home
-- **A window is opened** — someone opened a window while AQI was already bad
+- **A door or window is opened for 3+ minutes** — someone opened an exterior door or window while AQI was already bad; the 3-minute delay prevents alerts from briefly opening a door
 
-In all three cases, conditions (threshold on, windows open, someone home, not sleeping) are evaluated before acting. The clear automation fires unconditionally on its triggers — clearing a non-existent notification is a harmless no-op.
+In all three cases, conditions (threshold on, exterior door/window open, someone home, not sleeping) are evaluated before acting. The clear automation fires unconditionally on its triggers — clearing a non-existent notification is a harmless no-op.
 
 > **Coordinated change:** The threshold value (125) and hysteresis (5) are set on `binary_sensor.home_air_quality_index_high`. If you want to change the alert threshold, update the threshold helper configuration — do not add numeric conditions to the automations.
 
@@ -44,7 +44,7 @@ In all three cases, conditions (threshold on, windows open, someone home, not sl
 ## Prerequisites
 
 - WAQI integration configured with a nearby monitoring station (**Settings → Devices & Services → WAQI**)
-- `binary_sensor.exterior_window_open` — a binary sensor group that is `on` when any exterior window is open
+- `binary_sensor.exterior_door_window_open` — a binary sensor group that is `on` when any exterior door or window is open
 - `input_boolean.everyone_sleeping` — sleep state helper used to suppress alerts overnight
 - HA Companion App installed on `notify.mobile_app_nates_iphone`
 - Nabu Casa subscription active (cloud TTS via `tts.home_assistant_cloud`)
@@ -76,12 +76,12 @@ After creation, rename the entity ID to `binary_sensor.home_air_quality_index_hi
 ### 3. Create the Alert Automation
 
 ```yaml
-alias: Air Quality Window Alert
+alias: Air Quality Index Alert
 description: >-
-  Notifies to close windows when outdoor AQI exceeds 125 with at least one
-  exterior window open, someone home, and everyone not sleeping. Fires on AQI
-  crossing above threshold, first person arrival, or a window opened under
-  already-bad AQI. Notification is cleared by Air Quality Alert Clear.
+  Notifies when outdoor AQI exceeds 125 with at least one exterior door or
+  window open, someone home, and everyone not sleeping. Fires on AQI crossing
+  above threshold, first person arrival, or a door or window opened under
+  already-bad AQI. Notification is cleared by Air Quality Index Alert Clear.
 triggers:
   - trigger: state
     entity_id: binary_sensor.home_air_quality_index_high
@@ -94,19 +94,21 @@ triggers:
     alias: First person arrives home
     id: person_arrives
   - trigger: state
-    entity_id: binary_sensor.exterior_window_open
+    entity_id: binary_sensor.exterior_door_window_open
     to: "on"
-    alias: Exterior window opened
-    id: window_opened
+    for:
+      minutes: 3
+    alias: Exterior door or window opened
+    id: door_window_opened
 conditions:
   - condition: state
     entity_id: binary_sensor.home_air_quality_index_high
     state: "on"
     alias: AQI above threshold
   - condition: state
-    entity_id: binary_sensor.exterior_window_open
+    entity_id: binary_sensor.exterior_door_window_open
     state: "on"
-    alias: Exterior windows are open
+    alias: Exterior door or window is open
   - condition: numeric_state
     entity_id: zone.home
     above: 0
@@ -116,21 +118,19 @@ conditions:
     state: "off"
     alias: Not everyone sleeping
 actions:
-  - alias: Send close-windows air quality notification
+  - alias: Send air quality alert notification
     action: notify.mobile_app_nates_iphone
     data:
-      title: "Close the Windows — Poor Air Quality"
+      title: "Close Doors & Windows — Poor Air Quality"
       message: >-
         Outdoor AQI is {{ states('sensor.toledo_ohio_usa_air_quality_index') }}.
-        Close the windows to keep indoor air clean.
+        Close exterior doors and windows to keep indoor air clean.
       data:
-        tag: air_quality_window_alert
+        tag: air_quality_index_alert
   - alias: Announce on kitchen and office HomePods
     action: media_player.play_media
     target:
-      entity_id:
-        - media_player.kitchen_homepod
-        - media_player.office_homepod
+      entity_id: media_player.kitchen_homepod
     data:
       announce: true
       extra:
@@ -139,40 +139,40 @@ actions:
         media_content_id: >-
           media-source://tts/cloud?message=Heads up — outdoor air quality index is
           {{ states('sensor.toledo_ohio_usa_air_quality_index') }}.
-          Consider closing the windows.
+          Consider closing exterior doors and windows.
         media_content_type: music
 mode: single
 ```
 
-Assign to the **Climate** category with labels `notification` and `scope_whole_home`, area **Outside**.
+Assign to the **Climate** category with labels `notification`, `scope_whole_home`, and `waqi`, area **Outside**.
 
 ### 4. Create the Clear Automation
 
 ```yaml
-alias: Air Quality Alert Clear
+alias: Air Quality Index Alert Clear
 description: >-
-  Clears the air quality close-windows notification when AQI drops back below
-  threshold or all exterior windows are closed. Companion to Air Quality Window Alert.
+  Clears the air quality alert notification when AQI drops back below threshold
+  or all exterior doors and windows are closed. Companion to Air Quality Index Alert.
 triggers:
   - trigger: state
     entity_id: binary_sensor.home_air_quality_index_high
     to: "off"
     alias: AQI drops below threshold
   - trigger: state
-    entity_id: binary_sensor.exterior_window_open
+    entity_id: binary_sensor.exterior_door_window_open
     to: "off"
-    alias: All exterior windows closed
+    alias: All exterior doors / windows closed
 actions:
-  - alias: Clear air quality window alert notification
+  - alias: Clear air quality alert notification
     action: notify.mobile_app_nates_iphone
     data:
       message: clear_notification
       data:
-        tag: air_quality_window_alert
+        tag: air_quality_index_alert
 mode: single
 ```
 
-Assign to the **Climate** category with labels `notification` and `scope_whole_home`, area **Outside**.
+Assign to the **Climate** category with labels `notification`, `scope_whole_home`, and `waqi`, area **Outside**.
 
 ---
 
@@ -182,8 +182,8 @@ Assign to the **Climate** category with labels `notification` and `scope_whole_h
 |---|---|---|
 | Toledo, Ohio, USA Air Quality Index | `sensor.toledo_ohio_usa_air_quality_index` | Sensor (WAQI integration) |
 | Home Air Quality Index High | `binary_sensor.home_air_quality_index_high` | Threshold helper |
-| Air Quality Window Alert | `automation.air_quality_window_alert` | Automation |
-| Air Quality Alert Clear | `automation.air_quality_alert_clear` | Automation |
+| Air Quality Index Alert | `automation.air_quality_index_alert` | Automation |
+| Air Quality Index Alert Clear | `automation.air_quality_index_alert_clear` | Automation |
 
 ---
 
