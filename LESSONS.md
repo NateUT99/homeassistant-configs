@@ -81,6 +81,31 @@ Always include a `condition: state` (or template equivalent) confirming the targ
 
 ---
 
+## TTS & Media
+
+### `tts.speak` fails on HomePods via the Apple TV integration
+
+Calling `tts.speak` with `tts.home_assistant_cloud` targeting a HomePod managed by the Apple TV integration fails with `miniaudio.DecodeError: ('failed to init decoder', -1)`. The Apple TV integration's pyatv RAOP streaming layer downloads the Nabu Casa audio URL and passes it through miniaudio for decoding — the format Nabu Casa generates is incompatible.
+
+Use `media_player.play_media` with `announce: true` and the `media-source://tts/cloud?message=...` URI scheme instead. This routes through HA's announce pipeline and avoids the pyatv decode path entirely:
+
+```yaml
+action: media_player.play_media
+target:
+  entity_id: media_player.kitchen_homepod
+data:
+  announce: true
+  extra:
+    volume: 65
+  media:
+    media_content_id: "media-source://tts/cloud?message=Your message here."
+    media_content_type: music
+```
+
+Templates work inside `media_content_id`.
+
+---
+
 ## Sensors & Calibration
 
 ### Percentual offset calibration cannot eliminate a fixed sensor floor
