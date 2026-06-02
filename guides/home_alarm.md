@@ -175,33 +175,14 @@ trigger:
     entity_id: cover.garage_door_garage
     id: perimeter
 
-  - alias: "Front door opened"
+  - alias: "Perimeter door or window opened"
     platform: state
-    entity_id: binary_sensor.entrance_front_door_contact
-    to: "on"
-    id: perimeter
-
-  - alias: "Office sliding door opened"
-    platform: state
-    entity_id: binary_sensor.office_sliding_door_contact
-    to: "on"
-    id: perimeter
-
-  - alias: "Garage interior door opened"
-    platform: state
-    entity_id: binary_sensor.garage_interior_door_contact
-    to: "on"
-    id: perimeter
-
-  - alias: "Master bedroom windows opened"
-    platform: state
-    entity_id: binary_sensor.master_bedroom_windows
-    to: "on"
-    id: perimeter
-
-  - alias: "Avery room window opened"
-    platform: state
-    entity_id: binary_sensor.avery_room_window
+    entity_id:
+      - binary_sensor.entrance_front_door_contact
+      - binary_sensor.office_sliding_door_contact
+      - binary_sensor.garage_interior_door_contact
+      - binary_sensor.master_bedroom_windows
+      - binary_sensor.avery_room_window
     to: "on"
     id: perimeter
 
