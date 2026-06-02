@@ -142,9 +142,9 @@ alarm_control_panel:
 
 Monitors the five perimeter sensors and the kitchen camera's person detection binary sensor. When the alarm is armed and any trigger fires, it records a description of what opened, optionally captures a camera snapshot, then trips the panel.
 
-The `variables` block computes the trigger description at fire time using `trigger.entity_id` and live sensor state. The description is written to `input_text.alarm_trigger_description` before calling `alarm_control_panel.alarm_trigger` to guarantee the helper is set before the notification automation reads it.
+Each perimeter sensor is listed as a direct trigger rather than the exterior door/window group entity. This means `trigger.entity_id` is the exact sensor that changed, so the `trigger_description` variable is a simple dictionary lookup — no need to iterate sensor state. The description is written to `input_text.alarm_trigger_description` before calling `alarm_control_panel.alarm_trigger` to guarantee the helper is set before the notification automation reads it.
 
-> **Coordinated change:** `trigger_description` hard-codes the five individual perimeter sensor entity IDs in its `sensor_map`. If a new exterior sensor is added (or renamed), add it to both the trigger list and the `sensor_map` dictionary.
+> **Coordinated change:** `trigger_description` hard-codes a `label_map` keyed by entity ID. If a new exterior sensor is added (or renamed), add it to both the trigger list and the `label_map` dictionary.
 
 ```yaml
 alias: "Household: Alarm Perimeter Trigger"
@@ -159,35 +159,49 @@ description: >-
 mode: single
 variables:
   trigger_description: >-
-    {%- if trigger.entity_id == 'cover.garage_door_garage' -%}
-    Garage Door Opened
-    {%- elif trigger.entity_id == 'binary_sensor.kitchen_camera_person' -%}
-    Person Detected (Kitchen Camera)
-    {%- else -%}
-      {%- set sensor_map = {
-        'binary_sensor.entrance_front_door_contact': 'Front Door',
-        'binary_sensor.office_sliding_door_contact': 'Office Sliding Door',
-        'binary_sensor.garage_interior_door_contact': 'Garage Interior Door',
-        'binary_sensor.master_bedroom_windows': 'Master Bedroom Windows',
-        'binary_sensor.avery_room_window': 'Avery Room Window'
-      } -%}
-      {%- set ns = namespace(found=[]) -%}
-      {%- for eid, label in sensor_map.items() -%}
-        {%- if is_state(eid, 'on') -%}
-          {%- set ns.found = ns.found + [label] -%}
-        {%- endif -%}
-      {%- endfor -%}
-      {{ (ns.found | join(', ') + ' Opened') if ns.found else 'Unknown sensor' }}
-    {%- endif %}
+    {% set label_map = {
+      'cover.garage_door_garage': 'Garage Door Opened',
+      'binary_sensor.entrance_front_door_contact': 'Front Door Opened',
+      'binary_sensor.office_sliding_door_contact': 'Office Sliding Door Opened',
+      'binary_sensor.garage_interior_door_contact': 'Garage Interior Door Opened',
+      'binary_sensor.master_bedroom_windows': 'Master Bedroom Windows Opened',
+      'binary_sensor.avery_room_window': 'Avery Room Window Opened',
+      'binary_sensor.kitchen_camera_person': 'Person Detected (Kitchen Camera)'
+    } %}
+    {{ label_map.get(trigger.entity_id, 'Unknown sensor') }}
 trigger:
   - alias: "Garage door opened"
     platform: state
     entity_id: cover.garage_door_garage
     id: perimeter
 
-  - alias: "Exterior door or window opened"
+  - alias: "Front door opened"
     platform: state
-    entity_id: binary_sensor.exterior_door_window_open
+    entity_id: binary_sensor.entrance_front_door_contact
+    to: "on"
+    id: perimeter
+
+  - alias: "Office sliding door opened"
+    platform: state
+    entity_id: binary_sensor.office_sliding_door_contact
+    to: "on"
+    id: perimeter
+
+  - alias: "Garage interior door opened"
+    platform: state
+    entity_id: binary_sensor.garage_interior_door_contact
+    to: "on"
+    id: perimeter
+
+  - alias: "Master bedroom windows opened"
+    platform: state
+    entity_id: binary_sensor.master_bedroom_windows
+    to: "on"
+    id: perimeter
+
+  - alias: "Avery room window opened"
+    platform: state
+    entity_id: binary_sensor.avery_room_window
     to: "on"
     id: perimeter
 
