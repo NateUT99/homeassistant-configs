@@ -513,7 +513,7 @@ iCloud "Family" calendar  (subscribed read-only via Remote Calendar integration)
             ▼
      calendar.family  ─── all-day "Trash Pickup" (weekly Wed) and "Recycling Pickup" (biweekly Wed)
             │
-            │  18:00 daily trigger
+            │  19:00 daily trigger
             ▼
    automation.household_pickup_reminder
       ├─ calendar.get_events for tomorrow's window
@@ -545,10 +545,10 @@ iCloud "Family" calendar  (subscribed read-only via Remote Calendar integration)
 **Key design decisions:**
 
 - *`calendar.get_events` instead of template attributes.* The Family calendar contains many unrelated events. HA's calendar entity state attributes only expose the single next event, which could be any event — not necessarily a pickup event. Calling `calendar.get_events` with a tomorrow window and filtering by summary is the only reliable way to detect pickup events regardless of what else is on the calendar.
-- *Two helpers carry state across the 18:00 → 07:00 gap.* `input_boolean.trash_pickup_pending` arms when the evening notification fires and disarms when the user acks or when the critical fires. `input_text.trash_pickup_pending_label` stores the notification text from the calendar query so the 07:00 critical doesn't have to re-query. State survives HA restarts because HA restores helper state from storage.
+- *Two helpers carry state across the 19:00 → 07:00 gap.* `input_boolean.trash_pickup_pending` arms when the evening notification fires and disarms when the user acks or when the critical fires. `input_text.trash_pickup_pending_label` stores the notification text from the calendar query so the 07:00 critical doesn't have to re-query. State survives HA restarts because HA restores helper state from storage.
 - *Same notification tag for both sends.* The 07:00 critical replaces (not stacks) the 18:00 notification on the lock screen. Mark Complete clears whichever is currently showing.
 - *Pending disarmed after the critical fires.* `automation.household_pickup_morning_critical` turns off the boolean immediately after sending, guaranteeing the critical fires at most once per cycle even if the automation runs again or HA restarts mid-morning.
-- *18:00 always writes pending state.* If no pickup is tomorrow, pending is forced off — a housekeeping gate that prevents stale pending state from a missed 07:00 run from carrying forward.
+- *19:00 always writes pending state.* If no pickup is tomorrow, pending is forced off — a housekeeping gate that prevents stale pending state from a missed 07:00 run from carrying forward.
 - *Critical alert requires iOS entitlement.* iOS will not play the critical alarm sound unless **Settings → Notifications → Home Assistant → Critical Alerts** is enabled on the device. Without this, the 07:00 notification is delivered silently if Do Not Disturb is active.
 
 > **Coordinated change:** the exact event summaries `Trash Pickup` and `Recycling Pickup`. If the iCloud calendar event titles change, the `automation.household_pickup_reminder` templates must be updated to match.
@@ -557,7 +557,7 @@ iCloud "Family" calendar  (subscribed read-only via Remote Calendar integration)
 
 | Friendly Name | Entity ID | Type | Role |
 |---|---|---|---|
-| Trash Pickup Pending | `input_boolean.trash_pickup_pending` | `input_boolean` | On between 18:00 send and Mark Complete / 07:00 escalation |
+| Trash Pickup Pending | `input_boolean.trash_pickup_pending` | `input_boolean` | On between 19:00 send and Mark Complete / 07:00 escalation |
 | Trash Pickup Pending Label | `input_text.trash_pickup_pending_label` | `input_text` | Carries "Trash", "Recycling", or "Trash & Recycling" from 18:00 to 07:00 |
 
 #### `automation.household_pickup_reminder`
@@ -567,16 +567,16 @@ iCloud "Family" calendar  (subscribed read-only via Remote Calendar integration)
 ```yaml
 alias: "Household: Trash Pickup Reminder"
 description: >-
-  At 18:00 daily, queries the Family calendar for tomorrow. If "Trash Pickup"
+  At 19:00 daily, queries the Family calendar for tomorrow. If "Trash Pickup"
   or "Recycling Pickup" is found, sends an actionable iOS notification with
   Mark Complete and arms input_boolean.trash_pickup_pending so the 07:00
   escalation fires if not acknowledged. If neither is found, clears pending
   state (housekeeping).
 mode: single
 trigger:
-  - alias: "6pm daily check"
+  - alias: "7pm daily check"
     platform: time
-    at: "18:00:00"
+    at: "19:00:00"
 action:
   - alias: "Compute tomorrow's window"
     variables:
