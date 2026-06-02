@@ -77,18 +77,6 @@ A home hub (HomePod or Apple TV) must be online for geofence automations to fire
 
 Use **Developer Tools → Actions**, call `mqtt.publish`, and set the topic, payload, and retain fields as shown. Both publishes below require `retain: true` so HA picks them up on restart.
 
-Publish to `homeassistant/device_tracker/homekit_<name>/config` with `retain=true`:
-
-```json
-{
-  "name": "HomeKit <Name>",
-  "unique_id": "homekit_<name>_presence",
-  "state_topic": "presence/homekit_<name>",
-  "payload_home": "home",
-  "payload_not_home": "not_home"
-}
-```
-
 Replace `<name>` and `<Name>` with the person's lowercase and title-case name. Example for "Alex":
 
 - Config topic: `homeassistant/device_tracker/homekit_alex/config`
@@ -104,14 +92,21 @@ Replace `<name>` and `<Name>` with the person's lowercase and title-case name. E
 }
 ```
 
+- Retain: true
+
 HA derives the entity ID by slugifying the `name` field — "HomeKit Alex" → `device_tracker.homekit_alex`. Name the tracker carefully to match the desired entity ID.
 
 > **Note:** The `object_id` field in MQTT discovery payloads is not honored for the `device_tracker` platform. Entity IDs are always derived from the slugified `name` field. If the resulting entity ID does not match what you want, rename it via **Settings → Entities** in the HA UI, or with `ha_set_entity(new_entity_id=...)`. Renaming only updates the HA registry entry; the MQTT discovery config does not need to change.
 
-Then publish an initial state to the state topic:
+Then publish an initial state to the state topic. Use `not_home` as the safe default — the HomeKit automation will correct to `home` if the person is currently home. Example for "Alex":
 
-- Topic: `presence/homekit_<name>` — e.g., `presence/homekit_alex`
-- Payload: `not_home` (safe default; the HomeKit automation will correct to `home` if the person is currently home)
+- State topic: `presence/homekit_alex`
+- Payload:
+
+```
+not_home
+```
+
 - Retain: true
 
 Without an initial retained message, the tracker entity starts in `unknown` state until the next geofence event fires.
@@ -151,6 +146,59 @@ In **Settings → People**, edit the person entity for the new household member 
 
 If a person entity does not yet exist, create one in **Settings → People → Add Person**.
 
+### Step 7: Add the tracker to the startup recovery automation
+
+Add the new tracker to the `for_each` list in `automation.household_tracker_state_recovery`. Each entry maps a tracker entity to its boolean and state topic:
+
+```yaml
+- tracker: device_tracker.homekit_alex
+  boolean: input_boolean.alex_home
+  topic: presence/homekit_alex
+```
+
+---
+
+## Startup State Recovery
+
+`automation.household_tracker_state_recovery` fires on `homeassistant_started` and corrects any tracker in `unknown` state by republishing the correct payload from its corresponding `input_boolean`. This handles the case where the MQTT broker lost retained messages between restarts (e.g., a broker restart without persistence enabled). Trackers already in a known state are not touched.
+
+When adding a new household member, follow Step 7 above to add their tracker to the `for_each` list.
+
+```yaml
+alias: "Household: Tracker State Recovery"
+description: >-
+  Recovers MQTT device tracker state on HA startup when a tracker is in unknown
+  state. Fires on homeassistant_started and republishes the correct home/not_home
+  payload from the corresponding input_boolean to each tracker's state topic with
+  retain: true. Guards on unknown state so known trackers are not disturbed.
+  Handles the case where the MQTT broker lost retained messages between restarts.
+mode: single
+trigger:
+  - alias: "HA finished starting"
+    platform: homeassistant
+    event: start
+action:
+  - alias: "Check and recover each tracker"
+    repeat:
+      for_each:
+        - tracker: device_tracker.homekit_nate
+          boolean: input_boolean.nate_home
+          topic: presence/homekit_nate
+        - tracker: device_tracker.guest_tracker
+          boolean: input_boolean.guest_mode
+          topic: presence/guest_tracker
+      sequence:
+        - alias: "Only if tracker state is unknown"
+          condition: template
+          value_template: "{{ is_state(repeat.item.tracker, 'unknown') }}"
+        - alias: "Publish state derived from boolean"
+          action: mqtt.publish
+          data:
+            topic: "{{ repeat.item.topic }}"
+            payload: "{{ 'home' if is_state(repeat.item.boolean, 'on') else 'not_home' }}"
+            retain: true
+```
+
 ---
 
 ## Existing Trackers
@@ -168,6 +216,7 @@ If a person entity does not yet exist, create one in **Settings → People → A
 |---|---|---|
 | Household: HomeKit Presence Sync | `automation.household_homekit_presence_sync` | Automation |
 | Household: Guest Presence Sync | `automation.household_guest_presence_sync` | Automation |
+| Household: Tracker State Recovery | `automation.household_tracker_state_recovery` | Automation |
 | Nate HomeKit | `device_tracker.homekit_nate` | Device Tracker |
 | Guest | `device_tracker.guest_tracker` | Device Tracker |
 
@@ -177,7 +226,9 @@ If a person entity does not yet exist, create one in **Settings → People → A
 
 **Tracker state is `unknown` after HA restart**
 
-Check that both the discovery config and the state topic were published with `retain=true`. Without retain, the broker drops messages on restart and HA sees no state. Verify with an MQTT client (e.g., MQTT Explorer) that the retained flag is set on both topics.
+`automation.household_tracker_state_recovery` handles this automatically — if a tracker is `unknown` at startup, it republishes the correct state from the corresponding `input_boolean`. Check the automation trace if a tracker is still `unknown` after HA finishes starting.
+
+The root cause is a retained message that was never published or was lost (e.g., broker restart without persistence). Verify with an MQTT client (e.g., MQTT Explorer) that the retained flag is set on both the discovery config topic and the state topic.
 
 **Entity ID created does not match the expected pattern**
 
