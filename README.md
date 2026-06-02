@@ -12,19 +12,19 @@ Version-controlled documentation, standards, and supporting scripts for a person
 
 | Document | Description |
 |---|---|
-| [Automation Standard](standards/automations.md) | Automation naming, categories, labels, area assignment, and YAML content requirements |
-| [Naming Standard](standards/naming.md) | Entity ID and friendly name conventions for all devices and helpers |
+| [Automation](standards/automations.md) | Automation naming, categories, labels, area assignment, and YAML content requirements |
+| [Naming](standards/naming.md) | Entity ID and friendly name conventions for all devices and helpers |
 
 ### Guides
 
 | Document | Description |
 |---|---|
 | [Adaptive Lighting](guides/adaptive_lighting.md) | AL configuration, curve design, and MQTT-based pre-staging procedure for Zigbee bulbs |
+| [Home Alarm](guides/home_alarm.md) | Alarm perimeter detection, camera siren, contextual push notifications, and camera snapshot on person detection |
 | [Hue Sync & TV Bias Lighting](guides/hue_sync.md) | Living Room bias light and Hue Sync Box automation system |
 | [Logitech Litra Glow](guides/litra_glow.md) | Key light exposed as a native HA light entity via SSH and the `litra-rs` CLI |
 | [Mac Mini Bluetooth Peripheral Battery Monitor](guides/mac_mini_bluetooth_battery.md) | Shell script polling ioreg for Bluetooth peripheral battery levels, posted to HA via webhook (decommissioned) |
 | [MQTT Presence Tracking](guides/mqtt_presence.md) | MQTT-backed device trackers driven by HomeKit geofence automations via input_boolean helpers |
-| [Home Alarm](guides/home_alarm.md) | Alarm perimeter detection, camera siren, contextual push notifications, and camera snapshot on person detection |
 | [Reminder System](guides/reminders.md) | Recurring maintenance reminders with actionable iOS notifications and automatic completion loop |
 
 ### Scripts
