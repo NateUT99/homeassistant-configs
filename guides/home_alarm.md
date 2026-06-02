@@ -368,7 +368,7 @@ action:
                   entity_id: tts.home_assistant_cloud
                 data:
                   media_player_entity_id: media_player.master_bedroom_homepod
-                  message: "Alert! The home alarm has been triggered."
+                  message: "Alert! The home alarm has been triggered. {{ states('input_text.alarm_trigger_description') | trim }}."
 
           - alias: "Send critical notifications every 90s while triggered (max 10)"
             repeat:
