@@ -4,7 +4,7 @@
 
 ## Overview
 
-Monitors outdoor air quality via the WAQI (World Air Quality Index) integration and notifies occupants to close exterior doors and windows when the AQI rises above a configured threshold. A companion automation clears the notification automatically when the AQI drops back below threshold or all exterior doors and windows are closed. TTS announcements play on HomePods in the kitchen and office at the time of alert.
+Monitors outdoor air quality via the WAQI (World Air Quality Index) integration and notifies occupants to close exterior doors and windows when the AQI rises above a configured threshold. A companion automation clears the notification automatically when the AQI drops back below threshold or all exterior doors and windows are closed. A TTS announcement plays on the kitchen HomePod at the time of alert.
 
 ---
 
@@ -23,8 +23,7 @@ WAQI API ──► sensor.toledo_ohio_usa_air_quality_index
  automation.air_quality_      automation.air_quality_
  index_alert                  index_alert_clear
    ├─ iOS push notification     └─ clear iOS notification (tag)
-   └─ TTS: kitchen + office
-            HomePods
+   └─ TTS: kitchen HomePod
 ```
 
 The threshold helper (`binary_sensor.home_air_quality_index_high`) is the single source of truth for whether air quality is currently actionable. It goes `on` when AQI exceeds 125 and does not go `off` until AQI drops to 120 (5-point hysteresis), preventing notification churn if the sensor hovers near the boundary.
@@ -98,8 +97,8 @@ triggers:
     to: "on"
     for:
       minutes: 3
-    alias: Exterior door or window opened
-    id: door_window_opened
+    alias: Exterior door or window open for at least 3 minutes
+    id: window_opened
 conditions:
   - condition: state
     entity_id: binary_sensor.home_air_quality_index_high
@@ -127,7 +126,7 @@ actions:
         Close exterior doors and windows to keep indoor air clean.
       data:
         tag: air_quality_index_alert
-  - alias: Announce on kitchen and office HomePods
+  - alias: Announce on kitchen HomePod
     action: media_player.play_media
     target:
       entity_id: media_player.kitchen_homepod
