@@ -12,6 +12,7 @@ Version-controlled documentation, standards, and supporting scripts for a person
 
 | Document | Description |
 |---|---|
+| [Automation Standard](standards/automations.md) | Automation naming, categories, labels, area assignment, and YAML content requirements |
 | [Naming Standard](standards/naming.md) | Entity ID and friendly name conventions for all devices and helpers |
 
 ### Guides
@@ -21,11 +22,18 @@ Version-controlled documentation, standards, and supporting scripts for a person
 | [Adaptive Lighting](guides/adaptive_lighting.md) | AL configuration, curve design, and MQTT-based pre-staging procedure for Zigbee bulbs |
 | [Hue Sync & TV Bias Lighting](guides/hue_sync.md) | Living Room bias light and Hue Sync Box automation system |
 | [Logitech Litra Glow](guides/litra_glow.md) | Key light exposed as a native HA light entity via SSH and the `litra-rs` CLI |
+| [Mac Mini Bluetooth Peripheral Battery Monitor](guides/mac_mini_bluetooth_battery.md) | Shell script polling ioreg for Bluetooth peripheral battery levels, posted to HA via webhook (decommissioned) |
+| [MQTT Presence Tracking](guides/mqtt_presence.md) | MQTT-backed device trackers driven by HomeKit geofence automations via input_boolean helpers |
 | [Reminder System](guides/reminders.md) | Recurring maintenance reminders with actionable iOS notifications and automatic completion loop |
 
 ### Scripts
 
-`scripts/` is reserved for shell scripts invoked by HA's `shell_command` integration and other non-UI-editable artifacts. Currently empty.
+`scripts/` contains shell scripts invoked by HA's `shell_command` integration and other non-UI-editable artifacts.
+
+| Script | Purpose |
+|---|---|
+| [battery_monitor.sh](scripts/battery_monitor.sh) | Polls ioreg for Bluetooth peripheral battery levels and POSTs to HA webhook (decommissioned May 2026) |
+| [litra_dispatch.sh](scripts/litra_dispatch.sh) | SSH dispatch script for Litra Glow key light control via the `litra-rs` CLI |
 
 ## Scope
 
@@ -39,3 +47,5 @@ Documents use placeholder values (e.g. `<your_username>`, `<mac-mini-ip>`) where
 - Mac Mini (macOS, always-on) running the HA Companion App; secondary MacBook Pro
 - Zigbee devices via Zigbee2MQTT (Sonoff EFR32MG24 coordinator)
 - Hue devices via Hue bridge (separate channel from Z2M)
+- SkyConnect ZBT-1 (Thread firmware) as Thread border router, joined to the same Thread fabric as the Apple Thread network (HomePods)
+- Matter/HomeKit bridging via Matter Hub (RiDDiX fork) add-on

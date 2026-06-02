@@ -49,6 +49,7 @@ This gives a human-readable handle while preserving the machine identifier neede
 - **HA Companion App** is installed on Mac Mini, MacBook Pro, and iPhone
 - **Zigbee devices** are managed via Zigbee2MQTT (Sonoff EFR32MG24 coordinator) on channel 11
 - **Hue devices** are managed via the Hue bridge on channel 20 (cleanly separated from Z2M)
+- **Thread network:** A SkyConnect ZBT-1 flashed with Thread firmware acts as the Thread border router, registered in the same Thread fabric as the Apple Thread network (HomePods). Thread and Matter-over-Thread devices are reachable from both HA and Apple Home via this shared fabric.
 - **Matter/HomeKit bridging** via Matter Hub (RiDDiX fork) add-on
 - **Notification targets:** `notify.mobile_app_nates_iphone`, `notify.mobile_app_nate_s_mac_mini`, `notify.mobile_app_nates_macbook_pro`
 - **Media targets:** HomePods in kitchen and master bedroom for TTS announcements
