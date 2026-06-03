@@ -13,7 +13,7 @@ Adaptive Lighting adjusts lights' brightness and color temperature through the d
 - **Color Only** — color temperature adaptation only for all other household lights. `switch.adaptive_lighting_adapt_brightness_color_only` is permanently off, making color-only behavior architectural rather than reliant on ephemeral manual-control state.
 - **Avery Schedule** — brightness + color adaptation for Avery's ceiling (`light.avery_room_ceiling`), maintained as a separate instance to allow `automation.avery_room_sleep_mode` to enable sleep mode independently before `input_boolean.everyone_sleeping` activates.
 
-MQTT-based pre-staging is deployed for Standard and Color Only ceiling fixtures with Z2M-managed bulbs. Color Only ceiling fixtures receive color-only payloads — brightness is omitted so bulbs retain their user-set level on turn-on. Fixtures not compatible with pre-staging are listed in Step 4.
+MQTT-based pre-staging is deployed for Standard, Color Only, and Avery Schedule ceiling fixtures with Z2M-managed bulbs. Color Only ceiling fixtures receive color-only payloads — brightness is omitted so bulbs retain their user-set level on turn-on. Fixtures not compatible with pre-staging are listed in Step 4.
 
 ---
 
@@ -41,7 +41,8 @@ Color Only (color only; adapt_brightness switch permanently off)
 └── automation.al_pre_stage_standard (shared)
 
 Avery Schedule (brightness + color; sleep mode isolation)
-│  light.avery_room_ceiling (2 bulbs)           (not pre-staged — not compatible)
+│  light.avery_room_ceiling (2 bulbs)           ← full pre-stage payload (Avery Schedule instance)
+└── automation.al_pre_stage_standard (shared)
 ```
 
 ### Design decisions
@@ -291,7 +292,6 @@ The following fixtures are under AL control but cannot be pre-staged. All requir
 
 | Fixture | Entity | Instance |
 |---|---|---|
-| Avery Room Ceiling | `light.avery_room_ceiling` | Avery Schedule |
 | Kitchen Counter Strip | `light.kitchen_counter_strip` | Color Only |
 | Kitchen Sink | `light.kitchen_sink_bulb` | Color Only |
 | Bathroom Night Lamp | `light.bathroom_night_lamp` | Color Only |
@@ -303,12 +303,12 @@ The following fixtures are under AL control but cannot be pre-staged. All requir
 
 ### Deployed automation: AL Pre-Stage (`automation.al_pre_stage_standard`)
 
-Covers all pre-stage-compatible fixtures. Standard fixtures receive full payloads (brightness + color temp). Color Only fixtures receive color-only payloads — brightness omitted so the bulb retains its user-set level on turn-on.
+Covers all pre-stage-compatible fixtures. Standard and Avery Schedule fixtures receive full payloads (brightness + color temp), each referencing their respective AL switch. Color Only fixtures receive color-only payloads — brightness omitted so the bulb retains its user-set level on turn-on.
 
 Per-fixture blocks run in series with a 0.5-second stagger. Within each fixture, per-bulb publishes run in parallel. Only publishes to bulbs that are currently off.
 
 ```yaml
-alias: AL Pre-Stage
+alias: "Adaptive Lighting: Pre-Stage"
 description: >-
   Keeps all pre-stage-compatible bulbs loaded with current Adaptive Lighting
   values whenever they are off. With execute_if_off enabled on the bulbs (set
@@ -320,9 +320,10 @@ description: >-
   for turn-on paths that bypass HA's light.turn_on service: Zigbee bindings,
   physical power cycles, and any other on-event AL's intercept doesn't see.
 
-  Runs on a 10-minute schedule. Standard fixtures receive full payloads
-  (brightness + color temp). Color Only fixtures receive color-only payloads —
-  brightness intentionally omitted so the bulb retains its user-set value.
+  Runs on a 10-minute schedule. Standard and Avery Schedule fixtures receive
+  full payloads (brightness + color temp), each referencing their respective AL
+  switch. Color Only fixtures receive color-only payloads — brightness
+  intentionally omitted so the bulb retains its user-set value.
 
   Per-fixture blocks run in series with a 0.5-second stagger to spread the
   MQTT publish burst. Within each fixture, per-bulb publishes run in parallel.
@@ -333,6 +334,7 @@ max_exceeded: silent
 
 variables:
   al_switch: switch.adaptive_lighting_standard
+  al_switch_avery: switch.adaptive_lighting_avery_schedule
 
 trigger:
   - trigger: time_pattern
@@ -609,6 +611,47 @@ action:
               "state": null,
               "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
             }
+
+  - alias: Stagger before next fixture
+    delay:
+      milliseconds: 500
+
+  - alias: Pre-stage Avery Room Ceiling bulbs in parallel (brightness & color)
+    parallel:
+      - alias: Avery Room Ceiling Bulb 1 — pre-stage if currently off
+        if:
+          - alias: Bulb 1 is off
+            condition: state
+            entity_id: light.avery_room_ceiling_bulb_1
+            state: "off"
+        then:
+          - alias: Publish current AL curve values to Avery Room Ceiling Bulb 1
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Avery Room Ceiling Bulb 1/set"
+              payload: >-
+                {
+                  "state": null,
+                  "brightness": {{ ((state_attr(al_switch_avery, 'brightness_pct') / 100) * 254) | round(0) | int }},
+                  "color_temp": {{ state_attr(al_switch_avery, 'color_temp_mired') | int }}
+                }
+      - alias: Avery Room Ceiling Bulb 2 — pre-stage if currently off
+        if:
+          - alias: Bulb 2 is off
+            condition: state
+            entity_id: light.avery_room_ceiling_bulb_2
+            state: "off"
+        then:
+          - alias: Publish current AL curve values to Avery Room Ceiling Bulb 2
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Avery Room Ceiling Bulb 2/set"
+              payload: >-
+                {
+                  "state": null,
+                  "brightness": {{ ((state_attr(al_switch_avery, 'brightness_pct') / 100) * 254) | round(0) | int }},
+                  "color_temp": {{ state_attr(al_switch_avery, 'color_temp_mired') | int }}
+                }
 ```
 
 Assign to the **Maintenance** category with labels **Adaptive Lighting** and **Multi-Area**. Leave area unset — the pre-stage automation covers all areas.
@@ -621,7 +664,6 @@ Add a new `parallel` block following the pattern of existing blocks, followed by
 
 - Standard fixture: full payload (brightness + color temp). Reference `al_switch`.
 - Color Only fixture: color-only payload (color temp only). Reference `al_switch`.
-- Avery Schedule fixture (when compatible bulbs are available): full payload. Add a second variable `al_switch_avery: switch.adaptive_lighting_avery_schedule` to the automation and reference it — this ensures pre-staged values track that instance's `min_brightness` floor independently.
 
 Brightness conversion: AL exposes `brightness_pct` (0–100); Z2M expects `brightness` (0–254). Template: `{{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }}`.
 
