@@ -599,9 +599,8 @@ action:
       recycling: "{{ 'Recycling Pickup' in summaries }}"
       label: >-
         {%- if trash and recycling -%}Trash & Recycling
-        {%- elif trash -%}Trash
-        {%- elif recycling -%}Recycling
-        {%- else -%}{%- endif -%}
+        {%- else -%}Trash
+        {%- endif -%}
   - alias: "Store the label for the morning critical reminder"
     action: input_text.set_value
     target:
@@ -623,7 +622,7 @@ action:
             action: notify.mobile_app_nates_iphone
             data:
               title: "Pickup Tomorrow"
-              message: "{{ label }} — bins out tonight (pickup by 7am)"
+              message: "{{ label }} bin{{ 's' if recycling else '' }} out tonight"
               data:
                 tag: "pickup"
                 actions:
@@ -666,7 +665,7 @@ action:
     action: notify.mobile_app_nates_iphone
     data:
       title: "Pickup TODAY"
-      message: "{{ label }} — bins should be out NOW (pickup by 7am)"
+      message: "{{ label }} bin{{ 's' if 'Recycling' in label else '' }} out NOW"
       data:
         push:
           sound:
