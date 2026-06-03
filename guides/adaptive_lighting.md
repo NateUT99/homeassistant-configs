@@ -611,6 +611,8 @@ action:
             }
 ```
 
+Assign to the **Maintenance** category with labels **Adaptive Lighting** and **Multi-Area**. Leave area unset — the pre-stage automation covers all areas.
+
 ### Adding a new fixture
 
 To pre-stage a new fixture, extend `automation.al_pre_stage_standard`. Before extending, confirm the fixture's bulbs are Z2M-managed, collect bulb entity IDs (`light.[area]_[fixture]_bulb_[n]`) and Z2M friendly names, and run the functional test above.

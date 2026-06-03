@@ -238,10 +238,13 @@ Before creating the automations, verify all of the following exist and are corre
 
 ## Implementation Steps
 
-Each automation below is paste-ready into the HA automation editor (YAML mode). After creating, set the following via the UI:
+Each automation below is paste-ready into the HA automation editor (YAML mode). After creating each automation, assign it in the HA UI:
 
+- **Category:** Entertainment
+- **Label:** Hue Sync
 - **Area:** Living Room
-- **Category:** Lighting
+
+The two scripts do not need category or label assignment.
 
 Enable in this order to make troubleshooting easier:
 

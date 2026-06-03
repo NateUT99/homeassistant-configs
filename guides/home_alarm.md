@@ -255,6 +255,8 @@ action:
               entity_id: alarm_control_panel.home_alarm
 ```
 
+Assign to the **Security** category with labels **Home Alarm** and **Whole Home**. Leave area unset.
+
 ---
 
 ### `automation.household_alarm_state_notifications`
@@ -484,6 +486,8 @@ action:
               data:
                 tag: home_alarm
 ```
+
+Assign to the **Security** category with labels **Notification**, **Home Alarm**, and **Whole Home**. Leave area unset.
 
 ---
 

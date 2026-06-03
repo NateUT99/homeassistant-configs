@@ -213,6 +213,8 @@ action:
                               title: "Mark Complete"
 ```
 
+Assign to the **Routines** category with labels **Notification**, **Reminders**, and **Whole Home**. Leave area unset.
+
 #### `automation.household_reminder_mark_complete`
 
 *Friendly name: Household: Reminder Mark Complete*
@@ -250,6 +252,8 @@ action:
     data:
       date: "{{ now().strftime('%Y-%m-%d') }}"
 ```
+
+Assign to the **Routines** category with labels **Reminders** and **Whole Home**. Leave area unset.
 
 ### Example: Household Maintenance Tasks
 
@@ -446,6 +450,8 @@ action:
                 tag: "roborock_maintenance_{{ sensor_key }}"
 ```
 
+Assign to the **Maintenance** category with labels **Notification** and **Reminders**. Leave area unset.
+
 #### `automation.roborock_dispatch_maintenance_reset`
 
 *Friendly name: Roborock: Dispatch Maintenance Reset*
@@ -484,6 +490,8 @@ action:
     target:
       entity_id: "{{ target_button }}"
 ```
+
+Assign to the **Maintenance** category with label **Reminders**. Leave area unset.
 
 #### Related HA Config
 
@@ -635,6 +643,8 @@ action:
           entity_id: input_boolean.trash_pickup_pending
 ```
 
+Assign to the **Routines** category with labels **Notification** and **Reminders**. Leave area unset.
+
 #### `automation.household_pickup_morning_critical`
 
 *Friendly name: Household: Trash Pickup Morning Critical*
@@ -682,6 +692,8 @@ action:
       entity_id: input_boolean.trash_pickup_pending
 ```
 
+Assign to the **Routines** category with labels **Notification** and **Reminders**. Leave area unset.
+
 #### `automation.household_pickup_mark_complete`
 
 *Friendly name: Household: Trash Pickup Mark Complete*
@@ -713,6 +725,8 @@ action:
       data:
         tag: "pickup"
 ```
+
+Assign to the **Routines** category with labels **Notification** and **Reminders**. Leave area unset.
 
 #### Related HA Config
 
