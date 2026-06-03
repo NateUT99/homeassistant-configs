@@ -25,6 +25,7 @@ Version-controlled documentation, standards, and supporting scripts for a person
 | [Logitech Litra Glow](guides/litra_glow.md) | Key light exposed as a native HA light entity via SSH and the `litra-rs` CLI |
 | [Mac Mini Bluetooth Peripheral Battery Monitor](guides/mac_mini_bluetooth_battery.md) | Shell script polling ioreg for Bluetooth peripheral battery levels, posted to HA via webhook (decommissioned) |
 | [MQTT Presence Tracking](guides/mqtt_presence.md) | MQTT-backed device trackers driven by HomeKit geofence automations via input_boolean helpers |
+| [Outdoor Air Quality Alerting](guides/outdoor_air_quality_alerting.md) | WAQI-based AQI monitoring with TTS and push notification alerts for poor air quality and clearance announcements |
 | [Reminder System](guides/reminders.md) | Recurring maintenance reminders with actionable iOS notifications and automatic completion loop |
 
 ### Scripts
