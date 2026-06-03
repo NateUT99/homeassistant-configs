@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.4 — June 2026*
+*Version 1.5 — June 2026*
 
 ---
 
@@ -7,7 +7,8 @@
 
 | Version | Date | Changes |
 |---|---|---|
-| 1.4 | June 2026 | Extended integration labels to non-automation entities directly enrolled in a guide-documented integration; defined the enrollment boundary (direct configuration only, not transitive membership) |
+| 1.5 | June 2026 | Added `int_home_alarm` (Home Alarm) and `waqi` (WAQI) to integration labels table |
+| 1.4 | June 2026 | Extended integration labels to non-automation entities directly enrolled in a guide-documented integration; defined the enrollment boundary (direct classification only, not transitive membership) |
 | 1.3 | May 2026 | Added `device_tracker` label — applied to any automation that updates device tracker state via `mqtt.publish` to a `presence/*` topic or `device_tracker.see`; enables auditing the presence tracking pipeline across categories |
 | 1.2 | May 2026 | Removed Notifications category — category describes domain, not delivery mechanism; safety alerts → Security, recurring reminders → Routines, consumable tracking → Maintenance. Added `notification` label to mark any automation that sends a push or TTS notification |
 | 1.1 | May 2026 | Renamed Media category to Entertainment — scope expanded beyond AV to include other entertainment devices (e.g. pinball machines) |
@@ -106,8 +107,10 @@ Applied to automations that belong to a documented integration in `guides/`, and
 |---|---|
 | `int_hue_sync` | Hue Sync |
 | `int_adaptive_lighting` | Adaptive Lighting |
-| `reminders` | Reminders |
+| `int_home_alarm` | Home Alarm |
 | `int_litra_glow` | Litra Glow |
+| `reminders` | Reminders |
+| `waqi` | WAQI |
 
 > The `reminders` label predates this taxonomy and is applied to all reminder-system helpers and automations. Its ID does not carry the `int_` prefix — this is an intentional exception, not a bug to fix.
 
