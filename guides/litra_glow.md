@@ -402,6 +402,8 @@ actions:
 mode: single
 ```
 
+> **Known limitation:** Auto-dismissing this notification when the Litra reconnects is not currently possible. The macOS companion app does not support `clear_notification` (the tagged-notification dismissal feature available on iOS and Android). The MacBook Pro notification must be dismissed manually.
+
 ### Why every command-sending handler asserts `state=on`
 
 The Litra accepts brightness and temperature commands while off, but does not power up — it stores the settings silently and applies them on the next `litra on`. From the user's perspective, this looks like "HA shows the light at 50% / 5400K but the room is still dark."
