@@ -136,7 +136,8 @@ conditions:
 actions:
   - alias: Branch on sleeping state and trigger
     choose:
-      - conditions:
+      - alias: Everyone sleeping — push notification
+        conditions:
           - condition: state
             entity_id: input_boolean.everyone_sleeping
             state: "on"
@@ -151,9 +152,11 @@ actions:
                 Close exterior doors and windows to keep indoor air clean.
               data:
                 tag: air_quality_index_alert
-      - conditions:
+      - alias: Everyone wakes up — master bedroom TTS
+        conditions:
           - condition: trigger
             id: sleeping_ends
+            alias: Everyone wakes up trigger
         sequence:
           - alias: Announce on master bedroom HomePod
             action: media_player.play_media
@@ -169,9 +172,11 @@ actions:
                   {{ states('sensor.toledo_ohio_usa_air_quality_index') }}.
                   Consider keeping doors and windows closed.
                 media_content_type: music
-      - conditions:
+      - alias: Person arrives with door open — kitchen TTS after garage entry
+        conditions:
           - condition: trigger
             id: person_arrives
+            alias: Person arrives trigger
           - condition: state
             entity_id: binary_sensor.exterior_door_window_open
             state: "on"
@@ -203,9 +208,11 @@ actions:
                   {{ states('sensor.toledo_ohio_usa_air_quality_index') }}.
                   Consider closing exterior doors and windows.
                 media_content_type: music
-      - conditions:
+      - alias: AQI spikes with door open — kitchen TTS
+        conditions:
           - condition: trigger
             id: aqi_spike
+            alias: AQI rises above threshold trigger
           - condition: state
             entity_id: binary_sensor.exterior_door_window_open
             state: "on"
