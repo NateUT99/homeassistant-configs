@@ -201,7 +201,7 @@ All other curve and timing settings match Standard. Change them in both instance
 
 **Lights:** `light.avery_room_ceiling`
 
-Avery Schedule shares all settings with Standard except for a slightly higher brightness floor. A separate instance is maintained to allow `automation.avery_room_sleep_mode` to enable sleep mode on Avery's ceiling independently, before `input_boolean.everyone_sleeping` activates.
+Avery Schedule shares all settings with Standard. A separate instance is maintained to allow `automation.avery_room_sleep_mode` to enable sleep mode on Avery's ceiling independently, before `input_boolean.everyone_sleeping` activates.
 
 **Runtime switches:**
 
@@ -212,13 +212,7 @@ Avery Schedule shares all settings with Standard except for a slightly higher br
 | `switch.adaptive_lighting_adapt_color_avery_schedule` | on |
 | `switch.adaptive_lighting_sleep_mode_avery_schedule` | off — controlled by "Everyone Sleeping" automation |
 
-**Settings (deviations from Standard):**
-
-| Setting | Avery Schedule | Standard | Reason |
-|---|---|---|---|
-| `min_brightness` | `65` | `60` | Slightly higher floor for Avery's room. |
-
-All other settings match Standard.
+All settings match Standard.
 
 
 ---
@@ -321,9 +315,10 @@ description: >-
   physical power cycles, and any other on-event AL's intercept doesn't see.
 
   Runs on a 10-minute schedule. Standard and Avery Schedule fixtures receive
-  full payloads (brightness + color temp), each referencing their respective AL
-  switch. Color Only fixtures receive color-only payloads — brightness
-  intentionally omitted so the bulb retains its user-set value.
+  full payloads (brightness + color temp). Color Only fixtures receive
+  color-only payloads — brightness intentionally omitted so the bulb retains
+  its user-set value. Brightness and color temp are pre-computed once per run
+  in the variables block and referenced in each payload.
 
   Per-fixture blocks run in series with a 0.5-second stagger to spread the
   MQTT publish burst. Within each fixture, per-bulb publishes run in parallel.
@@ -334,7 +329,8 @@ max_exceeded: silent
 
 variables:
   al_switch: switch.adaptive_lighting_standard
-  al_switch_avery: switch.adaptive_lighting_avery_schedule
+  brightness: "{{ ((state_attr('switch.adaptive_lighting_standard', 'brightness_pct') / 100) * 254) | round(0) | int }}"
+  color_temp: "{{ state_attr('switch.adaptive_lighting_standard', 'color_temp_mired') | int }}"
 
 trigger:
   - trigger: time_pattern
@@ -354,12 +350,7 @@ action:
             action: mqtt.publish
             data:
               topic: "zigbee2mqtt/Office Ceiling Bulb 1/set"
-              payload: >-
-                {
-                  "state": null,
-                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
-                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
-                }
+              payload: '{"state": null, "brightness": {{ brightness }}, "color_temp": {{ color_temp }}}'
       - alias: Office Ceiling Bulb 2 — pre-stage if currently off
         if:
           - alias: Bulb 2 is off
@@ -371,12 +362,7 @@ action:
             action: mqtt.publish
             data:
               topic: "zigbee2mqtt/Office Ceiling Bulb 2/set"
-              payload: >-
-                {
-                  "state": null,
-                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
-                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
-                }
+              payload: '{"state": null, "brightness": {{ brightness }}, "color_temp": {{ color_temp }}}'
 
   - alias: Stagger before next fixture
     delay:
@@ -395,12 +381,7 @@ action:
             action: mqtt.publish
             data:
               topic: "zigbee2mqtt/Master Bedroom Fan Bulb 1/set"
-              payload: >-
-                {
-                  "state": null,
-                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
-                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
-                }
+              payload: '{"state": null, "brightness": {{ brightness }}, "color_temp": {{ color_temp }}}'
       - alias: Master Bedroom Fan Bulb 2 — pre-stage if currently off
         if:
           - alias: Bulb 2 is off
@@ -412,12 +393,7 @@ action:
             action: mqtt.publish
             data:
               topic: "zigbee2mqtt/Master Bedroom Fan Bulb 2/set"
-              payload: >-
-                {
-                  "state": null,
-                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
-                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
-                }
+              payload: '{"state": null, "brightness": {{ brightness }}, "color_temp": {{ color_temp }}}'
       - alias: Master Bedroom Fan Bulb 3 — pre-stage if currently off
         if:
           - alias: Bulb 3 is off
@@ -429,12 +405,7 @@ action:
             action: mqtt.publish
             data:
               topic: "zigbee2mqtt/Master Bedroom Fan Bulb 3/set"
-              payload: >-
-                {
-                  "state": null,
-                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
-                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
-                }
+              payload: '{"state": null, "brightness": {{ brightness }}, "color_temp": {{ color_temp }}}'
       - alias: Master Bedroom Fan Bulb 4 — pre-stage if currently off
         if:
           - alias: Bulb 4 is off
@@ -446,12 +417,7 @@ action:
             action: mqtt.publish
             data:
               topic: "zigbee2mqtt/Master Bedroom Fan Bulb 4/set"
-              payload: >-
-                {
-                  "state": null,
-                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
-                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
-                }
+              payload: '{"state": null, "brightness": {{ brightness }}, "color_temp": {{ color_temp }}}'
 
   - alias: Stagger before next fixture
     delay:
@@ -470,12 +436,7 @@ action:
             action: mqtt.publish
             data:
               topic: "zigbee2mqtt/Living Room Fan Bulb 1/set"
-              payload: >-
-                {
-                  "state": null,
-                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
-                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
-                }
+              payload: '{"state": null, "brightness": {{ brightness }}, "color_temp": {{ color_temp }}}'
       - alias: Living Room Fan Bulb 2 — pre-stage if currently off
         if:
           - alias: Bulb 2 is off
@@ -487,12 +448,7 @@ action:
             action: mqtt.publish
             data:
               topic: "zigbee2mqtt/Living Room Fan Bulb 2/set"
-              payload: >-
-                {
-                  "state": null,
-                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
-                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
-                }
+              payload: '{"state": null, "brightness": {{ brightness }}, "color_temp": {{ color_temp }}}'
       - alias: Living Room Fan Bulb 3 — pre-stage if currently off
         if:
           - alias: Bulb 3 is off
@@ -504,12 +460,7 @@ action:
             action: mqtt.publish
             data:
               topic: "zigbee2mqtt/Living Room Fan Bulb 3/set"
-              payload: >-
-                {
-                  "state": null,
-                  "brightness": {{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }},
-                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
-                }
+              payload: '{"state": null, "brightness": {{ brightness }}, "color_temp": {{ color_temp }}}'
 
   - alias: Stagger before next fixture
     delay:
@@ -528,11 +479,7 @@ action:
             action: mqtt.publish
             data:
               topic: "zigbee2mqtt/Entrance Ceiling Bulb 1/set"
-              payload: >-
-                {
-                  "state": null,
-                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
-                }
+              payload: '{"state": null, "color_temp": {{ color_temp }}}'
       - alias: Entrance Ceiling Bulb 2 — pre-stage if currently off
         if:
           - alias: Bulb 2 is off
@@ -544,11 +491,7 @@ action:
             action: mqtt.publish
             data:
               topic: "zigbee2mqtt/Entrance Ceiling Bulb 2/set"
-              payload: >-
-                {
-                  "state": null,
-                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
-                }
+              payload: '{"state": null, "color_temp": {{ color_temp }}}'
 
   - alias: Stagger before next fixture
     delay:
@@ -568,11 +511,7 @@ action:
             action: mqtt.publish
             data:
               topic: "zigbee2mqtt/Bathroom Hallway Ceiling Bulb 1/set"
-              payload: >-
-                {
-                  "state": null,
-                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
-                }
+              payload: '{"state": null, "color_temp": {{ color_temp }}}'
       - alias: Bathroom Hallway Ceiling Bulb 2 — pre-stage if currently off
         if:
           - alias: Bulb 2 is off
@@ -585,11 +524,7 @@ action:
             action: mqtt.publish
             data:
               topic: "zigbee2mqtt/Bathroom Hallway Ceiling Bulb 2/set"
-              payload: >-
-                {
-                  "state": null,
-                  "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
-                }
+              payload: '{"state": null, "color_temp": {{ color_temp }}}'
 
   - alias: Stagger before next fixture
     delay:
@@ -606,11 +541,7 @@ action:
         action: mqtt.publish
         data:
           topic: "zigbee2mqtt/Portable Accent Lamp/set"
-          payload: >-
-            {
-              "state": null,
-              "color_temp": {{ state_attr(al_switch, 'color_temp_mired') | int }}
-            }
+          payload: '{"state": null, "color_temp": {{ color_temp }}}'
 
   - alias: Stagger before next fixture
     delay:
@@ -629,12 +560,7 @@ action:
             action: mqtt.publish
             data:
               topic: "zigbee2mqtt/Avery Room Ceiling Bulb 1/set"
-              payload: >-
-                {
-                  "state": null,
-                  "brightness": {{ ((state_attr(al_switch_avery, 'brightness_pct') / 100) * 254) | round(0) | int }},
-                  "color_temp": {{ state_attr(al_switch_avery, 'color_temp_mired') | int }}
-                }
+              payload: '{"state": null, "brightness": {{ brightness }}, "color_temp": {{ color_temp }}}'
       - alias: Avery Room Ceiling Bulb 2 — pre-stage if currently off
         if:
           - alias: Bulb 2 is off
@@ -646,12 +572,7 @@ action:
             action: mqtt.publish
             data:
               topic: "zigbee2mqtt/Avery Room Ceiling Bulb 2/set"
-              payload: >-
-                {
-                  "state": null,
-                  "brightness": {{ ((state_attr(al_switch_avery, 'brightness_pct') / 100) * 254) | round(0) | int }},
-                  "color_temp": {{ state_attr(al_switch_avery, 'color_temp_mired') | int }}
-                }
+              payload: '{"state": null, "brightness": {{ brightness }}, "color_temp": {{ color_temp }}}'
 ```
 
 Assign to the **Maintenance** category with labels **Adaptive Lighting** and **Multi-Area**. Leave area unset — the pre-stage automation covers all areas.
@@ -665,7 +586,7 @@ Add a new `parallel` block following the pattern of existing blocks, followed by
 - Standard fixture: full payload (brightness + color temp). Reference `al_switch`.
 - Color Only fixture: color-only payload (color temp only). Reference `al_switch`.
 
-Brightness conversion: AL exposes `brightness_pct` (0–100); Z2M expects `brightness` (0–254). Template: `{{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }}`.
+Brightness and color temp are pre-computed in the automation's `variables` block as `brightness` and `color_temp`. Use `{{ brightness }}` and `{{ color_temp }}` in full payloads; `{{ color_temp }}` alone in color-only payloads. If you ever need the raw conversion: `{{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }}`.
 
 ---
 
