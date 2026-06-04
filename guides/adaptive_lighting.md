@@ -41,7 +41,7 @@ Color Only (color only; adapt_brightness switch permanently off)
 └── automation.al_pre_stage_standard (shared)
 
 Avery Schedule (brightness + color; sleep mode isolation)
-│  light.avery_room_ceiling (2 bulbs)           ← full pre-stage payload (Avery Schedule instance)
+│  light.avery_room_ceiling (2 bulbs)           ← full pre-stage payload
 └── automation.al_pre_stage_standard (shared)
 ```
 
@@ -328,7 +328,6 @@ mode: single
 max_exceeded: silent
 
 variables:
-  al_switch: switch.adaptive_lighting_standard
   brightness: "{{ ((state_attr('switch.adaptive_lighting_standard', 'brightness_pct') / 100) * 254) | round(0) | int }}"
   color_temp: "{{ state_attr('switch.adaptive_lighting_standard', 'color_temp_mired') | int }}"
 
@@ -466,6 +465,37 @@ action:
     delay:
       milliseconds: 500
 
+  - alias: Pre-stage Avery Room Ceiling bulbs in parallel (brightness & color)
+    parallel:
+      - alias: Avery Room Ceiling Bulb 1 — pre-stage if currently off
+        if:
+          - alias: Bulb 1 is off
+            condition: state
+            entity_id: light.avery_room_ceiling_bulb_1
+            state: "off"
+        then:
+          - alias: Publish current AL curve values to Avery Room Ceiling Bulb 1
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Avery Room Ceiling Bulb 1/set"
+              payload: '{"state": null, "brightness": {{ brightness }}, "color_temp": {{ color_temp }}}'
+      - alias: Avery Room Ceiling Bulb 2 — pre-stage if currently off
+        if:
+          - alias: Bulb 2 is off
+            condition: state
+            entity_id: light.avery_room_ceiling_bulb_2
+            state: "off"
+        then:
+          - alias: Publish current AL curve values to Avery Room Ceiling Bulb 2
+            action: mqtt.publish
+            data:
+              topic: "zigbee2mqtt/Avery Room Ceiling Bulb 2/set"
+              payload: '{"state": null, "brightness": {{ brightness }}, "color_temp": {{ color_temp }}}'
+
+  - alias: Stagger before next fixture
+    delay:
+      milliseconds: 500
+
   - alias: Pre-stage Entrance Ceiling bulbs in parallel (color)
     parallel:
       - alias: Entrance Ceiling Bulb 1 — pre-stage if currently off
@@ -542,37 +572,6 @@ action:
         data:
           topic: "zigbee2mqtt/Portable Accent Lamp/set"
           payload: '{"state": null, "color_temp": {{ color_temp }}}'
-
-  - alias: Stagger before next fixture
-    delay:
-      milliseconds: 500
-
-  - alias: Pre-stage Avery Room Ceiling bulbs in parallel (brightness & color)
-    parallel:
-      - alias: Avery Room Ceiling Bulb 1 — pre-stage if currently off
-        if:
-          - alias: Bulb 1 is off
-            condition: state
-            entity_id: light.avery_room_ceiling_bulb_1
-            state: "off"
-        then:
-          - alias: Publish current AL curve values to Avery Room Ceiling Bulb 1
-            action: mqtt.publish
-            data:
-              topic: "zigbee2mqtt/Avery Room Ceiling Bulb 1/set"
-              payload: '{"state": null, "brightness": {{ brightness }}, "color_temp": {{ color_temp }}}'
-      - alias: Avery Room Ceiling Bulb 2 — pre-stage if currently off
-        if:
-          - alias: Bulb 2 is off
-            condition: state
-            entity_id: light.avery_room_ceiling_bulb_2
-            state: "off"
-        then:
-          - alias: Publish current AL curve values to Avery Room Ceiling Bulb 2
-            action: mqtt.publish
-            data:
-              topic: "zigbee2mqtt/Avery Room Ceiling Bulb 2/set"
-              payload: '{"state": null, "brightness": {{ brightness }}, "color_temp": {{ color_temp }}}'
 ```
 
 Assign to the **Maintenance** category with labels **Adaptive Lighting** and **Multi-Area**. Leave area unset — the pre-stage automation covers all areas.
@@ -583,10 +582,10 @@ To pre-stage a new fixture, extend `automation.al_pre_stage_standard`. Before ex
 
 Add a new `parallel` block following the pattern of existing blocks, followed by a `delay: milliseconds: 500` stagger.
 
-- Standard fixture: full payload (brightness + color temp). Reference `al_switch`.
-- Color Only fixture: color-only payload (color temp only). Reference `al_switch`.
+- Standard/Avery fixture: full payload — `'{"state": null, "brightness": {{ brightness }}, "color_temp": {{ color_temp }}}'`
+- Color Only fixture: color-only payload — `'{"state": null, "color_temp": {{ color_temp }}}'`
 
-Brightness and color temp are pre-computed in the automation's `variables` block as `brightness` and `color_temp`. Use `{{ brightness }}` and `{{ color_temp }}` in full payloads; `{{ color_temp }}` alone in color-only payloads. If you ever need the raw conversion: `{{ ((state_attr(al_switch, 'brightness_pct') / 100) * 254) | round(0) | int }}`.
+`brightness` and `color_temp` are pre-computed in the automation's `variables` block from `switch.adaptive_lighting_standard`. If you ever need the raw conversion: `{{ ((state_attr('switch.adaptive_lighting_standard', 'brightness_pct') / 100) * 254) | round(0) | int }}`.
 
 ---
 
@@ -640,7 +639,7 @@ No on-disk files are created or modified by this integration. All artifacts live
 | Symptom | Likely Cause | Fix |
 |---|---|---|
 | Bulb powers up at old values after deployment | Bulb didn't accept `execute_if_off`, or Z2M didn't pass it through | Re-run the execute_if_off publish; verify Z2M device state shows `execute_if_off: true` in both `color_options` and `level_config` |
-| Automation never triggers | Wrong AL switch entity ID, or `brightness_pct` attribute absent | Open Developer Tools → States → AL switch; verify entity ID and attribute name |
+| Automation never triggers | `brightness_pct` or `color_temp_mired` attribute absent on the AL switch | Open Developer Tools → States → `switch.adaptive_lighting_standard`; verify both attributes are present |
 | Automation triggers but Z2M shows no publishes | Wrong topic — Z2M friendly name typo, or spaces not quoted | Compare topic against Z2M frontend's exact friendly name |
 | Bulb still flashes on turn-on after deployment | Pre-staged values are stale (AL was off during the last recalc) | Verify AL is enabled for this fixture; check Last Triggered on the automation |
 | One bulb adapts correctly, another doesn't | Only one bulb has `execute_if_off` set | Re-run the execute_if_off publish for the affected bulb; verify via Z2M device state |
