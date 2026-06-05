@@ -21,14 +21,15 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   │
 │   ├── [chip strip section — no title]
 │   │   │
-│   │   ├── Strip 1: General Alerts  ← icon-only red chips, hidden when quiet
-│   │   │   ├── Water leak          (any of 4 sensors active → navigate to /water-leaks)
-│   │   │   ├── Freezer open        (binary_sensor.kitchen_freezer_door_contact)
-│   │   │   ├── Exterior door open  (+ sleeping or away gate)
-│   │   │   ├── Garage door open    (orange: open + home + awake; red: open + sleeping or away)
-│   │   │   ├── Trash pickup        (input_boolean.trash_pickup_pending, label from input_text)
-│   │   │   ├── Alarm active        (triggered/pending = red; arming = orange)
-│   │   │   └── Overdue reminders   (number.overdue_reminders_count > 0, shows count)
+│   │   ├── Strip 1: General Alerts  ← icon-only, hidden when quiet
+│   │   │   ├── Water leak [red]     any of 4 sensors not off → tap navigates to /water-leaks; count shown if 2+
+│   │   │   ├── Freezer open [red]   kitchen_freezer_door_contact not off → tap more-info
+│   │   │   ├── Exterior door [red]  not off AND (sleeping OR nobody home) → tap more-info
+│   │   │   ├── Garage open [red]    not closed AND (sleeping OR nobody home) → tap closes w/ confirm
+│   │   │   ├── Garage open [orange] not closed AND someone home AND awake → tap closes w/ confirm
+│   │   │   ├── Trash pickup [red]   trash_pickup_pending on → label "Trash", "Recycling", or "Both"
+│   │   │   ├── Alarm alert [red/orange] triggered or pending = red; arming = orange → tap more-info
+│   │   │   └── Overdue reminders [red] count > 0 → tap navigates to /reminders; count shown if 2+
 │   │   │
 │   │   ├── Strip 2: Device & Persistent Status
 │   │   │   ├── Vacuum active       (vacuum.roborock_q8_max not docked → /vacuum)
