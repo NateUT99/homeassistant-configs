@@ -31,8 +31,9 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   │   │   ├── Alarm alert [red/orange] triggered or pending = red; arming = orange → tap more-info
 │   │   │   └── Overdue reminders [red] count > 0 → tap navigates to /reminders; count shown if 2+
 │   │   │
-│   │   ├── Strip 2: Device & Persistent Status
-│   │   │   ├── Vacuum active       (vacuum.roborock_q8_max not docked → /vacuum)
+│   │   ├── Strip 2: Device & Persistent Status  ← always visible
+│   │   │   ├── Vacuum [grey/orange/green]   grey=docked+not run today, orange=running, green=docked+ran today → /vacuum
+│   │   │   ├── Thermostat [grey/orange/blue] grey=idle, orange=heating, blue=cooling; shows current temp → /climate
 │   │   │   ├── Alarm status        (green shield, Away/Home/Off, hidden during alert)
 │   │   │   └── Reminders OK        (green calendar-check, hidden when any overdue)
 │   │   │
@@ -63,7 +64,7 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   │   └── Vacuum    vacuum.roborock_q8_max
 │   │
 │   └── Weather
-│       ├── Daily forecast  weather.ktol
+│       ├── Daily forecast  weather.apartment
 │       ├── Temperature     sensor.outside_temperature
 │       └── Humidity        sensor.outside_humidity
 │
@@ -87,6 +88,12 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   ├── Status      state, battery, area, duration
 │   ├── Controls    native tile with vacuum-commands feature
 │   └── Consumables filter, main brush, sensor, side brush (hours remaining)
+│
+├── Climate       (utility subview — tap target for thermostat chip)
+│   ├── Controls    tile card: hvac modes, target temp, fan modes (grid_options full-width)
+│   ├── Inside      temp+humidity pairs: living room, master bedroom, avery's room, office
+│   ├── Outside     sensor.outside_temperature + sensor.outside_humidity
+│   └── 24h Runtime history-graph: thermostat mode + indoor temp
 │
 └── [pending subviews]
     Master Bedroom, Avery's Room, Office, Kitchen, Bathroom, Garage, Outside
@@ -131,7 +138,9 @@ When the strip is empty (no active alerts), it renders as zero-height and no vis
 
 Always-present indicators that represent ongoing or normal-state conditions. Uses `type: entity` chips where state-based coloring is appropriate.
 
-**Vacuum** — Conditional: visible when `vacuum.roborock_q8_max` is not `docked`. Taps to the Vacuum subview.
+**Vacuum** — Always visible. Three color states driven by `type: template`: orange when actively running (state not `docked`), green when docked and `input_select.vacuum_ran_today` = Yes, grey when docked and not yet run today. Taps to the Vacuum subview.
+
+**Thermostat** — Always visible. Shows current indoor temperature as content. Color reflects the `hvac_action` attribute (not the mode state): blue = cooling, orange = heating, grey = idle. Taps to the Climate subview.
 
 **Alarm status** — Green `mdi:shield-home` showing "Away", "Home", or "Off" depending on `alarm_control_panel.home_alarm` state. Hides when the alarm is in any alert state (triggered/pending/arming), at which point the strip 1 alarm chip takes over.
 
@@ -216,6 +225,19 @@ Four sections:
 - **Status** — 2-col grid: vacuum state, battery, cleaning area, duration
 - **Controls** — Native `tile` card with `vacuum-commands` feature (start/pause, stop, return home). Only place in this dashboard where a native tile card is used; Mushroom has no vacuum-specific card.
 - **Consumables** — 2-col grid of the four time-left sensors (read-only; actionable reset is in the Reminders subview)
+
+---
+
+## Climate Subview
+
+Tap target for the thermostat chip on strip 2. Four sections:
+
+- **Controls** — Native `tile` card for `climate.living_room_thermostat` with three features: HVAC modes (off/heat/cool/heat_cool), target temperature, and fan modes (auto/on). `grid_options: {columns: 12, rows: 4}` forces the card to span the full section width; without it the tile renders at half-width in a sections view. `features_position: bottom` keeps the controls below the state display.
+- **Inside** — 2-col grid of temp/humidity pairs for four key rooms: Living Room, Master Bedroom, Avery's Room, Office. Each pair is two side-by-side `mushroom-entity-card` instances (temp + humidity).
+- **Outside** — Same pattern: outside temp + humidity pair.
+- **24h Runtime** — `history-graph` showing thermostat mode state and indoor temperature over 24 hours as a proxy for HVAC runtime. Mode state transitions (e.g. `cool` → `heat_cool` → `off`) are visible in the graph.
+
+> **Note on `grid_options`:** The `tile` card in a `sections` view defaults to a 1-column layout and renders at half-width unless you set `grid_options: {columns: 12}`. This is different from `grid` cards, which fill available width automatically.
 
 ---
 
@@ -428,20 +450,23 @@ views:
             card_mod:
               style: "ha-card { --chip-height: 30px; --chip-padding: 0 6px; }"
             chips:
-              - type: conditional
-                conditions:
-                  - condition: state
-                    entity: vacuum.roborock_q8_max
-                    state_not: docked
-                chip:
-                  type: entity
-                  entity: vacuum.roborock_q8_max
-                  icon: mdi:robot-vacuum
-                  icon_color: green
-                  content_info: state
-                  tap_action: {action: navigate, navigation_path: /mobile-3/vacuum}
-                  hold_action: {action: more-info}
-                  double_tap_action: {action: none}
+              # Vacuum — always visible; 3 states: orange=running, green=ran today, grey=not run yet
+              - type: template
+                icon: mdi:robot-vacuum
+                icon_color: "{{ 'orange' if states('vacuum.roborock_q8_max') != 'docked' else ('green' if is_state('input_select.vacuum_ran_today', 'Yes') else 'grey') }}"
+                content: ""
+                tap_action: {action: navigate, navigation_path: /mobile-3/vacuum}
+                hold_action: {action: none}
+                double_tap_action: {action: none}
+              # Thermostat — always visible; color = hvac_action (blue=cooling, orange=heating, grey=idle)
+              # Uses hvac_action attribute, not mode state, to reflect what the system is actually doing
+              - type: template
+                icon: mdi:home-thermometer
+                icon_color: "{{ 'blue' if state_attr('climate.living_room_thermostat', 'hvac_action') == 'cooling' else ('orange' if state_attr('climate.living_room_thermostat', 'hvac_action') == 'heating' else 'grey') }}"
+                content: "{{ state_attr('climate.living_room_thermostat', 'current_temperature') | int }}°"
+                tap_action: {action: navigate, navigation_path: /mobile-3/climate}
+                hold_action: {action: none}
+                double_tap_action: {action: none}
               # Alarm status — green when normal; hides when strip 1 alarm chip is active
               - type: conditional
                 conditions:
@@ -696,7 +721,7 @@ views:
       - title: Weather
         cards:
           - type: weather-forecast
-            entity: weather.ktol
+            entity: weather.apartment
             forecast_type: daily
           - type: grid
             columns: 2
@@ -781,6 +806,92 @@ views:
           - type: custom:mushroom-entity-card
             entity: binary_sensor.living_room_motion_occupancy
             name: Motion
+
+  # ── Climate (utility subview) ────────────────────────────────────────────
+  - title: Climate
+    path: climate
+    type: sections
+    subview: true
+    max_columns: 1
+    sections:
+      - title: Controls
+        cards:
+          # grid_options: columns: 12 forces full-width; tile cards default to half-width in sections view
+          - type: tile
+            grid_options:
+              columns: 12
+              rows: 4
+            entity: climate.living_room_thermostat
+            name: Thermostat
+            state_content: [current_temperature, current_humidity]
+            features:
+              - type: climate-hvac-modes
+                hvac_modes: [off, heat, cool, heat_cool]
+              - type: target-temperature
+              - type: climate-fan-modes
+                fan_modes: [auto, on]
+            features_position: bottom
+      - title: Inside
+        cards:
+          - type: grid
+            columns: 2
+            square: false
+            cards:
+              - type: custom:mushroom-entity-card
+                entity: sensor.living_room_thermostat_current_temperature
+                name: Living Room
+                content_info: state
+              - type: custom:mushroom-entity-card
+                entity: sensor.living_room_thermostat_current_humidity
+                name: Humidity
+                content_info: state
+              - type: custom:mushroom-entity-card
+                entity: sensor.master_bedroom_climate_temperature
+                name: Master Bedroom
+                content_info: state
+              - type: custom:mushroom-entity-card
+                entity: sensor.master_bedroom_climate_humidity
+                name: Humidity
+                content_info: state
+              - type: custom:mushroom-entity-card
+                entity: sensor.avery_room_climate_temperature
+                name: Avery's Room
+                content_info: state
+              - type: custom:mushroom-entity-card
+                entity: sensor.avery_room_climate_humidity
+                name: Humidity
+                content_info: state
+              - type: custom:mushroom-entity-card
+                entity: sensor.office_climate_temperature
+                name: Office
+                content_info: state
+              - type: custom:mushroom-entity-card
+                entity: sensor.office_climate_humidity
+                name: Humidity
+                content_info: state
+      - title: Outside
+        cards:
+          - type: grid
+            columns: 2
+            square: false
+            cards:
+              - type: custom:mushroom-entity-card
+                entity: sensor.outside_temperature
+                name: Outside
+                content_info: state
+              - type: custom:mushroom-entity-card
+                entity: sensor.outside_humidity
+                name: Humidity
+                content_info: state
+      - title: 24h Runtime
+        cards:
+          - type: history-graph
+            entities:
+              - entity: climate.living_room_thermostat
+                name: Mode
+              - entity: sensor.living_room_thermostat_current_temperature
+                name: Indoor Temp
+            hours_to_show: 24
 
   # ── Water Leaks (utility subview) ─────────────────────────────────────────
   - title: Water Leaks
@@ -1080,6 +1191,7 @@ views:
 | Mobile 3.0 dashboard | `mobile-3` | Lovelace dashboard |
 | Home alarm | `alarm_control_panel.home_alarm` | Entity |
 | Living room thermostat | `climate.living_room_thermostat` | Entity |
+| Apartment weather | `weather.apartment` | Entity |
 | Roborock Q8 Max | `vacuum.roborock_q8_max` | Entity |
 | Apartment map image | `image.roborock_q8_max_apartment` | Entity |
 | Kitchen water leak | `binary_sensor.kitchen_leak_water_leak` | Entity |
