@@ -25,7 +25,7 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   │   │   ├── Water leak          (any of 4 sensors active → navigate to /water-leaks)
 │   │   │   ├── Freezer open        (binary_sensor.kitchen_freezer_door_contact)
 │   │   │   ├── Exterior door open  (+ sleeping or away gate)
-│   │   │   ├── Garage door open    (+ sleeping or away gate)
+│   │   │   ├── Garage door open    (orange: open + home + awake; red: open + sleeping or away)
 │   │   │   ├── Trash pickup        (input_boolean.trash_pickup_pending, label from input_text)
 │   │   │   ├── Alarm active        (triggered/pending = red; arming = orange)
 │   │   │   └── Overdue reminders   (number.overdue_reminders_count > 0, shows count)
@@ -116,13 +116,15 @@ When the strip is empty (no active alerts), it renders as zero-height and no vis
 
 **Freezer door** — Always-alert: no contextual gate.
 
-**Exterior door / Garage door** — Compound condition: entity not closed AND (everyone sleeping OR nobody home). Suppressed during normal daytime use.
+**Exterior door** — Compound condition: entity not closed AND (everyone sleeping OR nobody home). Suppressed during normal daytime use.
+
+**Garage door** — Two chips, mutually exclusive. Orange when the door is open AND someone is home AND nobody is sleeping (informational — door left open during normal hours). Red when open AND (sleeping OR away) — the contextual alert. Only one chip is ever visible at a time. Both chips use tap-to-close with confirmation; hold shows `more-info`.
 
 **Trash pickup** — `input_boolean.trash_pickup_pending` is the gate; content templates off `input_text.trash_pickup_pending_label`, substituting "Both" for "Trash & Recycling" to keep the chip compact.
 
 **Alarm** — Single chip covering three states: `triggered` and `pending` render red (`mdi:shield-alert`); `arming` renders orange. The chip disappears when the alarm is disarmed or armed normally — those states show as a green chip on strip 2 instead.
 
-**Overdue reminders** — Moved here from strip 3. The only strip 1 chip with a content label: shows the overdue count as an integer. Tapping navigates to `/mobile-3/reminders`.
+**Overdue reminders** — Moved here from strip 3. Shows a count label only when 2 or more reminders are overdue; icon-only when exactly 1 is overdue. Tapping navigates to `/mobile-3/reminders`.
 
 ### Strip 2 — Device and Persistent Status
 
@@ -248,6 +250,7 @@ views:
               style: "ha-card { --chip-height: 30px; --chip-padding: 0 6px; }"
             chips:
               # Water leaks — grouped: one chip for all 4 sensors, navigates to subview
+              # Count shown only when 2 or more sensors are active
               - type: conditional
                 conditions:
                   - condition: or
@@ -268,7 +271,13 @@ views:
                   type: template
                   icon: mdi:water-alert
                   icon_color: red
-                  content: ""
+                  content: >-
+                    {% set c = [states('binary_sensor.kitchen_leak_water_leak'),
+                    states('binary_sensor.bathroom_leak_water_leak'),
+                    states('binary_sensor.master_bathroom_leak_water_leak'),
+                    states('binary_sensor.utility_room_leak_water_leak')]
+                    | select('ne', 'off') | list | count %}
+                    {{ c if c >= 2 else '' }}
                   tap_action: {action: navigate, navigation_path: /mobile-3/water-leaks}
                   hold_action: {action: none}
                   double_tap_action: {action: none}
@@ -309,7 +318,7 @@ views:
                   tap_action: {action: more-info, entity: binary_sensor.exterior_door_open}
                   hold_action: {action: none}
                   double_tap_action: {action: none}
-              # Garage — same compound condition as exterior door
+              # Garage (red) — open AND (sleeping OR away); tap closes with confirmation
               - type: conditional
                 conditions:
                   - condition: and
@@ -330,8 +339,36 @@ views:
                   icon: mdi:garage-open-variant
                   icon_color: red
                   content: ""
-                  tap_action: {action: more-info, entity: cover.garage_door}
-                  hold_action: {action: none}
+                  tap_action:
+                    action: perform-action
+                    perform_action: cover.close_cover
+                    target: {entity_id: cover.garage_door}
+                    confirmation: true
+                  hold_action: {action: more-info, entity: cover.garage_door}
+                  double_tap_action: {action: none}
+              # Garage (orange) — open AND home AND awake (informational); tap closes with confirmation
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: cover.garage_door
+                    state_not: closed
+                  - condition: state
+                    entity: input_boolean.everyone_sleeping
+                    state: "off"
+                  - condition: numeric_state
+                    entity: zone.home
+                    above: 0
+                chip:
+                  type: template
+                  icon: mdi:garage-open-variant
+                  icon_color: orange
+                  content: ""
+                  tap_action:
+                    action: perform-action
+                    perform_action: cover.close_cover
+                    target: {entity_id: cover.garage_door}
+                    confirmation: true
+                  hold_action: {action: more-info, entity: cover.garage_door}
                   double_tap_action: {action: none}
               # Trash — label "Both" substituted for "Trash & Recycling" to keep chip compact
               - type: conditional
@@ -369,7 +406,7 @@ views:
                   tap_action: {action: more-info, entity: alarm_control_panel.home_alarm}
                   hold_action: {action: none}
                   double_tap_action: {action: none}
-              # Overdue reminders — only strip 1 chip with content; shows count
+              # Overdue reminders — count shown only when 2 or more overdue
               - type: conditional
                 conditions:
                   - condition: numeric_state
@@ -379,7 +416,7 @@ views:
                   type: template
                   icon: mdi:calendar-alert
                   icon_color: red
-                  content: "{{ states('number.overdue_reminders_count') | int }}"
+                  content: "{% set c = states('number.overdue_reminders_count') | int %}{{ c if c >= 2 else '' }}"
                   tap_action: {action: navigate, navigation_path: /mobile-3/reminders}
                   hold_action: {action: none}
                   double_tap_action: {action: none}
