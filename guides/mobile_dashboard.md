@@ -231,7 +231,7 @@ Tap target for the thermostat chip on strip 2. Four sections:
 - **Controls** — Three cards in one section. (1) `tile` for `climate.living_room_thermostat` with HVAC modes, target temperature, and fan mode features; `grid_options: {columns: 6}` and `features_position: bottom`. (2) `tile` for `select.living_room_thermostat_current_mode` with `select-options` feature — shows Home/Sleep/Away as tappable buttons. (3) `tile` for `button.living_room_thermostat_clear_hold` to clear any active hold.
 - **Inside** — 2-col grid of temp/humidity pairs for three rooms: Master Bedroom, Avery's Room, Office. Living Room is omitted — current temp/humidity are already visible in the thermostat tile's `state_content`.
 - **Outside** — Outside temp + humidity pair.
-- **24h Runtime** — `history-graph` showing thermostat mode state and indoor temperature over 24 hours as a proxy for HVAC runtime.
+- **HVAC Runtime** — `statistics-graph` bar chart (`period: day`, `stat_types: [max]`, `days_to_show: 14`) for `sensor.cooling_today` and `sensor.heating_today`. Daily max = daily total since both sensors reset at midnight. Shows 14 days for week-over-week comparison. Below the chart, a 2-col grid shows today's live hours for both sensors.
 
 > **Note on `grid_options`:** The `tile` card in a `sections` view defaults to a 1-column layout and renders at half-width unless you set `grid_options: {columns: 12}` (or `columns: full`). This is different from `grid` cards, which fill available width automatically.
 
@@ -909,15 +909,32 @@ views:
                 entity: sensor.outside_humidity
                 name: Humidity
                 content_info: state
-      - title: 24h Runtime
+      # HVAC Runtime — daily max = daily total since sensors reset at midnight
+      # 14 days gives week-over-week comparison; today's bar is partial until midnight
+      - title: HVAC Runtime
         cards:
-          - type: history-graph
+          - type: statistics-graph
             entities:
-              - entity: climate.living_room_thermostat
-                name: Mode
-              - entity: sensor.living_room_thermostat_current_temperature
-                name: Indoor Temp
-            hours_to_show: 24
+              - entity: sensor.cooling_today
+                name: Cooling
+              - entity: sensor.heating_today
+                name: Heating
+            stat_types: [max]
+            period: day
+            days_to_show: 14
+            chart_type: bar
+          - type: grid
+            columns: 2
+            square: false
+            cards:
+              - type: custom:mushroom-entity-card
+                entity: sensor.cooling_today
+                name: Cooling Today
+                content_info: state
+              - type: custom:mushroom-entity-card
+                entity: sensor.heating_today
+                name: Heating Today
+                content_info: state
 
   # ── Water Leaks (utility subview) ─────────────────────────────────────────
   - title: Water Leaks
@@ -1225,6 +1242,10 @@ views:
 | Home alarm | `alarm_control_panel.home_alarm` | Entity |
 | Living room thermostat | `climate.living_room_thermostat` | Entity |
 | Apartment weather | `weather.apartment` | Entity |
+| Cooling runtime today | `sensor.cooling_today` | Entity |
+| Heating runtime today | `sensor.heating_today` | Entity |
+| Thermostat comfort mode | `select.living_room_thermostat_current_mode` | Entity |
+| Thermostat clear hold | `button.living_room_thermostat_clear_hold` | Entity |
 | Roborock Q8 Max | `vacuum.roborock_q8_max` | Entity |
 | Apartment map image | `image.roborock_q8_max_apartment` | Entity |
 | Kitchen water leak | `binary_sensor.kitchen_leak_water_leak` | Entity |
