@@ -18,18 +18,74 @@ Mobile 2.0 remains available as a fallback. Retirement is tracked separately, pe
 mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │
 ├── Home (sections, max_columns=1)
+│   │
 │   ├── [chip strip section — no title]
-│   │   ├── Strip 1: Safety alerts       ← conditional, red template chips
-│   │   ├── Strip 2: Device status       ← conditional, active-device chips
-│   │   ├── Strip 3: Modes + Reminders   ← conditional modes + persistent reminder
-│   │   └── Strip 4: Presence            ← always-visible person chips
-│   ├── Rooms    ← 2-col mushroom-light-card grid, tap=subview, hold=toggle
-│   ├── House    ← climate, alarm, vacuum
-│   └── Weather  ← daily forecast + outside temp/humidity
+│   │   │
+│   │   ├── Strip 1: General Alerts  ← icon-only red chips, hidden when quiet
+│   │   │   ├── Water leak          (any of 4 sensors active → navigate to /water-leaks)
+│   │   │   ├── Freezer open        (binary_sensor.kitchen_freezer_door_contact)
+│   │   │   ├── Exterior door open  (+ sleeping or away gate)
+│   │   │   ├── Garage door open    (+ sleeping or away gate)
+│   │   │   ├── Trash pickup        (input_boolean.trash_pickup_pending, label from input_text)
+│   │   │   ├── Alarm active        (triggered/pending = red; arming = orange)
+│   │   │   └── Overdue reminders   (number.overdue_reminders_count > 0, shows count)
+│   │   │
+│   │   ├── Strip 2: Device & Persistent Status
+│   │   │   ├── Vacuum active       (vacuum.roborock_q8_max not docked → /vacuum)
+│   │   │   ├── Alarm status        (green shield, Away/Home/Off, hidden during alert)
+│   │   │   └── Reminders OK        (green calendar-check, hidden when any overdue)
+│   │   │
+│   │   ├── Strip 3: Modes          ← conditional, all hidden when inactive
+│   │   │   ├── Avery sleeping      (input_boolean.avery_sleeping, if not everyone sleeping)
+│   │   │   ├── Everyone sleeping   (input_boolean.everyone_sleeping)
+│   │   │   ├── Light sync          (sync box + TV both on)
+│   │   │   ├── Movie mode          (TV on)
+│   │   │   └── Quiet mode          (TV on)
+│   │   │
+│   │   └── Strip 4: Presence       ← always visible
+│   │       ├── Nate                (person.nate, entity picture, shows location state)
+│   │       └── Guest               (person.guest, hold-to-toggle input_boolean.guest_mode)
+│   │
+│   ├── Rooms     ← 2-col mushroom-light-card grid, tap=subview, hold=toggle
+│   │   ├── Living Room     light.living_room_fan
+│   │   ├── Master Bedroom  light.master_bedroom_fan
+│   │   ├── Avery's Room    light.avery_room_ceiling
+│   │   ├── Office          light.office_ceiling
+│   │   ├── Kitchen         light.kitchen_ceiling
+│   │   ├── Bathroom        light.bathroom_hallway_ceiling
+│   │   ├── Garage          cover.garage_door (cover-card fallback)
+│   │   └── Outside         sensor.outside_temperature (entity-card fallback)
+│   │
+│   ├── House     ← cross-room utilities
+│   │   ├── Climate   climate.living_room_thermostat
+│   │   ├── Alarm     alarm_control_panel.home_alarm
+│   │   └── Vacuum    vacuum.roborock_q8_max
+│   │
+│   └── Weather
+│       ├── Daily forecast  weather.ktol
+│       ├── Temperature     sensor.outside_temperature
+│       └── Humidity        sensor.outside_humidity
 │
-├── Living Room   (subview — reference implementation, fully built)
-├── Reminders     (utility subview — household tasks + vacuum maintenance)
-├── Vacuum        (utility subview — map, status, controls, consumables)
+├── Living Room   (subview — reference implementation)
+│   ├── Lights    ceiling, movie posters, status lamp, tv lights
+│   ├── Fan       fan.living_room_ceiling
+│   ├── Climate   climate.living_room_thermostat
+│   ├── Media     Apple TV + Sonos
+│   └── Sensors   motion/occupancy
+│
+├── Water Leaks   (utility subview — tap target for water alert chip)
+│   └── Sensors   2×2 grid: kitchen, bathroom, master bath, utility
+│
+├── Reminders     (utility subview)
+│   ├── Household        car, coffee grinder, dishwasher, disposal,
+│   │                    razor, toothbrushes, washer, water filter
+│   └── Vacuum Maint.    filter, main brush, side brush, sensor
+│
+├── Vacuum        (utility subview)
+│   ├── Map         conditional picture-entity
+│   ├── Status      state, battery, area, duration
+│   ├── Controls    native tile with vacuum-commands feature
+│   └── Consumables filter, main brush, sensor, side brush (hours remaining)
 │
 └── [pending subviews]
     Master Bedroom, Avery's Room, Office, Kitchen, Bathroom, Garage, Outside
@@ -50,25 +106,47 @@ The chip strip section has no title. This is intentional: HA renders an empty se
 
 ## Chip Strip Design
 
-### Strip 1 — Safety Alerts
+### Strip 1 — General Alerts
 
-Surfaces active hazards. All chips use `type: template` (not `type: entity`) so `icon_color: red` is always respected regardless of entity state. See `standards/dashboards.md` for the explanation of why `type: entity` breaks this.
+Surfaces any active hazard or condition requiring attention. All chips are icon-only (no content label) and use `type: template` so `icon_color: red` is always respected regardless of entity state. See `standards/dashboards.md` for why `type: entity` breaks static icon colors for sensors in `unknown` state.
 
-Water leak sensors use `state_not: "off"` so that `unknown` state (sensor offline or not yet reported) also triggers the chip — a conservative choice for water alerts.
+When the strip is empty (no active alerts), it renders as zero-height and no visual gap remains.
 
-Door and garage chips use a compound condition: only alert when the entity is open AND the household is sleeping OR nobody is home. This prevents daytime noise from routine opens.
+**Water leaks** — A single chip replaces four individual sensors. An OR condition across all four sensors (`state_not: "off"`) activates it; tapping navigates to the Water Leaks subview showing all four. `state_not: "off"` is intentional: `unknown` state (sensor offline) also triggers the chip as a conservative default for water detection.
 
-### Strip 2 — Device Status
+**Freezer door** — Always-alert: no contextual gate.
 
-Currently contains only the vacuum chip (shows when `vacuum.roborock_q8_max` is not `docked`). Add other active-device indicators here as needed.
+**Exterior door / Garage door** — Compound condition: entity not closed AND (everyone sleeping OR nobody home). Suppressed during normal daytime use.
 
-### Strip 3 — Modes and Reminders
+**Trash pickup** — `input_boolean.trash_pickup_pending` is the gate; content templates off `input_text.trash_pickup_pending_label`, substituting "Both" for "Trash & Recycling" to keep the chip compact.
 
-Contextual sleeping and entertainment mode indicators, plus the reminders badge. The reminders badge is the only always-present element in this strip: green `mdi:calendar-check` when overdue count is zero, red `mdi:calendar-alert` with the count when nonzero. Both states navigate to `/mobile-3/reminders`.
+**Alarm** — Single chip covering three states: `triggered` and `pending` render red (`mdi:shield-alert`); `arming` renders orange. The chip disappears when the alarm is disarmed or armed normally — those states show as a green chip on strip 2 instead.
+
+**Overdue reminders** — Moved here from strip 3. The only strip 1 chip with a content label: shows the overdue count as an integer. Tapping navigates to `/mobile-3/reminders`.
+
+### Strip 2 — Device and Persistent Status
+
+Always-present indicators that represent ongoing or normal-state conditions. Uses `type: entity` chips where state-based coloring is appropriate.
+
+**Vacuum** — Conditional: visible when `vacuum.roborock_q8_max` is not `docked`. Taps to the Vacuum subview.
+
+**Alarm status** — Green `mdi:shield-home` showing "Away", "Home", or "Off" depending on `alarm_control_panel.home_alarm` state. Hides when the alarm is in any alert state (triggered/pending/arming), at which point the strip 1 alarm chip takes over.
+
+**Reminders OK** — Green `mdi:calendar-check`, visible when `number.overdue_reminders_count` is below 1. No content label. Taps to `/mobile-3/reminders`. Disappears when any reminder is overdue; strip 1 shows the red count chip instead.
+
+### Strip 3 — Modes
+
+Contextual indicators for active household modes. All conditional; the strip may be entirely empty.
+
+- **Avery sleeping** — visible when `input_boolean.avery_sleeping` is on AND `input_boolean.everyone_sleeping` is off (prevents duplicate when both fire)
+- **Everyone sleeping** — `input_boolean.everyone_sleeping`
+- **Light sync** — visible when both `switch.living_room_sync_box_power` and `media_player.living_room_tv` are on
+- **Movie mode** — `input_boolean.movie_mode`, gated on TV being on
+- **Quiet mode** — `input_boolean.sonos_night_mode`, gated on TV being on; uses yellow rather than green
 
 ### Strip 4 — Presence
 
-Always visible. Nate's chip uses `use_entity_picture: true`. Guest chip uses hold-to-toggle `input_boolean.guest_mode` (tap is disabled to prevent accidental activation).
+Always visible. Nate's chip uses `use_entity_picture: true`. Guest chip disables tap (preventing accidental activation) and uses hold-to-toggle `input_boolean.guest_mode`.
 
 ---
 
@@ -105,12 +183,18 @@ Pending room subviews follow this same section structure, including only section
 
 ---
 
+## Water Leaks Subview
+
+Tap target for the grouped water alert chip on strip 1. Displays all four water leak sensors in a 2×2 grid using `mushroom-entity-card`. Mushroom's device-class awareness for `moisture` sensors provides appropriate icons and state coloring without additional configuration.
+
+---
+
 ## Reminders Subview
 
 Two sections:
 
 **Household** — 2-col grid of `mushroom-template-card` for each tracked household task. Each card:
-- Shows the task name and formatted due date as secondary text
+- Shows the task name and formatted due date as secondary text (`strptime().strftime('%B %-d, %Y')`)
 - Icon is red when overdue, green when not (Jinja template on `icon_color`)
 - Tap opens `more-info` on the `input_datetime` (shows history, allows manual date edit)
 - Hold sets `input_datetime` to today (marks complete), with confirmation
@@ -149,70 +233,43 @@ views:
   - title: Home
     type: sections
     max_columns: 1
+    card_mod:
+      style: ":host { --ha-view-sections-column-gap: 8px; } hui-sections-view { --ha-view-sections-column-gap: 8px; }"
     sections:
 
       # Chip strips — no section title so the block collapses when quiet
       - cards:
 
-          # Strip 1 — Safety alerts
-          # type: template required (not type: entity) so icon_color: red is
-          # always respected regardless of entity state (unknown/unavailable
-          # would trigger device-class color override in type: entity chips)
+          # Strip 1 — General alerts (icon-only; type: template required so
+          # icon_color: red is always respected regardless of entity state)
           - type: custom:mushroom-chips-card
             alignment: center
             card_mod:
               style: "ha-card { --chip-height: 30px; --chip-padding: 0 6px; }"
             chips:
+              # Water leaks — grouped: one chip for all 4 sensors, navigates to subview
               - type: conditional
                 conditions:
-                  - condition: state
-                    entity: binary_sensor.kitchen_leak_water_leak
-                    state_not: "off"
+                  - condition: or
+                    conditions:
+                      - condition: state
+                        entity: binary_sensor.kitchen_leak_water_leak
+                        state_not: "off"
+                      - condition: state
+                        entity: binary_sensor.bathroom_leak_water_leak
+                        state_not: "off"
+                      - condition: state
+                        entity: binary_sensor.master_bathroom_leak_water_leak
+                        state_not: "off"
+                      - condition: state
+                        entity: binary_sensor.utility_room_leak_water_leak
+                        state_not: "off"
                 chip:
                   type: template
                   icon: mdi:water-alert
                   icon_color: red
-                  content: Kitchen
-                  tap_action: {action: more-info, entity: binary_sensor.kitchen_leak_water_leak}
-                  hold_action: {action: none}
-                  double_tap_action: {action: none}
-              - type: conditional
-                conditions:
-                  - condition: state
-                    entity: binary_sensor.bathroom_leak_water_leak
-                    state_not: "off"
-                chip:
-                  type: template
-                  icon: mdi:water-alert
-                  icon_color: red
-                  content: Bathroom
-                  tap_action: {action: more-info, entity: binary_sensor.bathroom_leak_water_leak}
-                  hold_action: {action: none}
-                  double_tap_action: {action: none}
-              - type: conditional
-                conditions:
-                  - condition: state
-                    entity: binary_sensor.master_bathroom_leak_water_leak
-                    state_not: "off"
-                chip:
-                  type: template
-                  icon: mdi:water-alert
-                  icon_color: red
-                  content: Master Bath
-                  tap_action: {action: more-info, entity: binary_sensor.master_bathroom_leak_water_leak}
-                  hold_action: {action: none}
-                  double_tap_action: {action: none}
-              - type: conditional
-                conditions:
-                  - condition: state
-                    entity: binary_sensor.utility_room_leak_water_leak
-                    state_not: "off"
-                chip:
-                  type: template
-                  icon: mdi:water-alert
-                  icon_color: red
-                  content: Utility
-                  tap_action: {action: more-info, entity: binary_sensor.utility_room_leak_water_leak}
+                  content: ""
+                  tap_action: {action: navigate, navigation_path: /mobile-3/water-leaks}
                   hold_action: {action: none}
                   double_tap_action: {action: none}
               - type: conditional
@@ -224,7 +281,7 @@ views:
                   type: template
                   icon: mdi:fridge-alert
                   icon_color: red
-                  content: Freezer
+                  content: ""
                   tap_action: {action: more-info, entity: binary_sensor.kitchen_freezer_door_contact}
                   hold_action: {action: none}
                   double_tap_action: {action: none}
@@ -276,8 +333,58 @@ views:
                   tap_action: {action: more-info, entity: cover.garage_door}
                   hold_action: {action: none}
                   double_tap_action: {action: none}
+              # Trash — label "Both" substituted for "Trash & Recycling" to keep chip compact
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_boolean.trash_pickup_pending
+                    state: "on"
+                chip:
+                  type: template
+                  icon: mdi:trash-can
+                  icon_color: red
+                  content: "{{ 'Both' if states('input_text.trash_pickup_pending_label') == 'Trash & Recycling' else states('input_text.trash_pickup_pending_label') }}"
+                  tap_action: {action: more-info, entity: input_boolean.trash_pickup_pending}
+                  hold_action: {action: none}
+                  double_tap_action: {action: none}
+              # Alarm — orange when arming, red when triggered or pending
+              - type: conditional
+                conditions:
+                  - condition: or
+                    conditions:
+                      - condition: state
+                        entity: alarm_control_panel.home_alarm
+                        state: triggered
+                      - condition: state
+                        entity: alarm_control_panel.home_alarm
+                        state: pending
+                      - condition: state
+                        entity: alarm_control_panel.home_alarm
+                        state: arming
+                chip:
+                  type: template
+                  icon: mdi:shield-alert
+                  icon_color: "{{ 'orange' if is_state('alarm_control_panel.home_alarm', 'arming') else 'red' }}"
+                  content: ""
+                  tap_action: {action: more-info, entity: alarm_control_panel.home_alarm}
+                  hold_action: {action: none}
+                  double_tap_action: {action: none}
+              # Overdue reminders — only strip 1 chip with content; shows count
+              - type: conditional
+                conditions:
+                  - condition: numeric_state
+                    entity: number.overdue_reminders_count
+                    above: 0
+                chip:
+                  type: template
+                  icon: mdi:calendar-alert
+                  icon_color: red
+                  content: "{{ states('number.overdue_reminders_count') | int }}"
+                  tap_action: {action: navigate, navigation_path: /mobile-3/reminders}
+                  hold_action: {action: none}
+                  double_tap_action: {action: none}
 
-          # Strip 2 — Device active status
+          # Strip 2 — Device and persistent status
           - type: custom:mushroom-chips-card
             alignment: center
             card_mod:
@@ -297,8 +404,43 @@ views:
                   tap_action: {action: navigate, navigation_path: /mobile-3/vacuum}
                   hold_action: {action: more-info}
                   double_tap_action: {action: none}
+              # Alarm status — green when normal; hides when strip 1 alarm chip is active
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: alarm_control_panel.home_alarm
+                    state_not: triggered
+                  - condition: state
+                    entity: alarm_control_panel.home_alarm
+                    state_not: pending
+                  - condition: state
+                    entity: alarm_control_panel.home_alarm
+                    state_not: arming
+                chip:
+                  type: template
+                  icon: mdi:shield-home
+                  icon_color: green
+                  content: "{{ 'Away' if is_state('alarm_control_panel.home_alarm', 'armed_away') else ('Home' if is_state('alarm_control_panel.home_alarm', 'armed_home') else 'Off') }}"
+                  tap_action: {action: more-info, entity: alarm_control_panel.home_alarm}
+                  hold_action: {action: none}
+                  double_tap_action: {action: none}
+              # Reminders OK — hides when any reminder is overdue (strip 1 shows count instead)
+              - type: conditional
+                conditions:
+                  - condition: numeric_state
+                    entity: number.overdue_reminders_count
+                    below: 1
+                chip:
+                  type: entity
+                  entity: number.overdue_reminders_count
+                  icon: mdi:calendar-check
+                  icon_color: green
+                  content_info: none
+                  tap_action: {action: navigate, navigation_path: /mobile-3/reminders}
+                  hold_action: {action: none}
+                  double_tap_action: {action: none}
 
-          # Strip 3 — Modes and persistent status
+          # Strip 3 — Modes (all conditional)
           - type: custom:mushroom-chips-card
             alignment: center
             card_mod:
@@ -378,35 +520,6 @@ views:
                   content_info: name
                   icon_color: yellow
                   tap_action: {action: toggle}
-                  hold_action: {action: none}
-                  double_tap_action: {action: none}
-              # Reminders — always present: green check (0 overdue) or red alert (>0)
-              - type: conditional
-                conditions:
-                  - condition: numeric_state
-                    entity: number.overdue_reminders_count
-                    below: 1
-                chip:
-                  type: entity
-                  entity: number.overdue_reminders_count
-                  icon: mdi:calendar-check
-                  icon_color: green
-                  content_info: none
-                  tap_action: {action: navigate, navigation_path: /mobile-3/reminders}
-                  hold_action: {action: none}
-                  double_tap_action: {action: none}
-              - type: conditional
-                conditions:
-                  - condition: numeric_state
-                    entity: number.overdue_reminders_count
-                    above: 0
-                chip:
-                  type: entity
-                  entity: number.overdue_reminders_count
-                  icon: mdi:calendar-alert
-                  icon_color: red
-                  content_info: state
-                  tap_action: {action: navigate, navigation_path: /mobile-3/reminders}
                   hold_action: {action: none}
                   double_tap_action: {action: none}
 
@@ -630,6 +743,32 @@ views:
           - type: custom:mushroom-entity-card
             entity: binary_sensor.living_room_motion_occupancy
             name: Motion
+
+  # ── Water Leaks (utility subview) ─────────────────────────────────────────
+  - title: Water Leaks
+    path: water-leaks
+    type: sections
+    subview: true
+    max_columns: 1
+    sections:
+      - title: Sensors
+        cards:
+          - type: grid
+            columns: 2
+            square: false
+            cards:
+              - type: custom:mushroom-entity-card
+                entity: binary_sensor.kitchen_leak_water_leak
+                name: Kitchen
+              - type: custom:mushroom-entity-card
+                entity: binary_sensor.bathroom_leak_water_leak
+                name: Bathroom
+              - type: custom:mushroom-entity-card
+                entity: binary_sensor.master_bathroom_leak_water_leak
+                name: Master Bath
+              - type: custom:mushroom-entity-card
+                entity: binary_sensor.utility_room_leak_water_leak
+                name: Utility
 
   # ── Reminders (utility subview) ──────────────────────────────────────────
   - title: Reminders
@@ -905,6 +1044,15 @@ views:
 | Living room thermostat | `climate.living_room_thermostat` | Entity |
 | Roborock Q8 Max | `vacuum.roborock_q8_max` | Entity |
 | Apartment map image | `image.roborock_q8_max_apartment` | Entity |
+| Kitchen water leak | `binary_sensor.kitchen_leak_water_leak` | Entity |
+| Bathroom water leak | `binary_sensor.bathroom_leak_water_leak` | Entity |
+| Master bath water leak | `binary_sensor.master_bathroom_leak_water_leak` | Entity |
+| Utility room water leak | `binary_sensor.utility_room_leak_water_leak` | Entity |
+| Kitchen freezer door | `binary_sensor.kitchen_freezer_door_contact` | Entity |
+| Exterior door open | `binary_sensor.exterior_door_open` | Entity |
+| Garage door | `cover.garage_door` | Entity |
+| Trash pickup pending | `input_boolean.trash_pickup_pending` | Helper |
+| Trash pickup label | `input_text.trash_pickup_pending_label` | Helper |
 | Vacuum ran today | `input_select.vacuum_ran_today` | Helper |
 | Overdue reminders count | `number.overdue_reminders_count` | Helper |
 | Everyone sleeping | `input_boolean.everyone_sleeping` | Helper |
