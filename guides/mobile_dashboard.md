@@ -86,9 +86,10 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   └── Consumables filter, main brush, sensor, side brush (hours remaining)
 │
 ├── Climate       (utility subview — tap target for thermostat chip)
-│   ├── Controls    thermostat tile + comfort select (home/sleep/away) + clear hold + 14-day runtime chart
-│   ├── Inside      temp+humidity pairs: master bedroom, avery's room, office
-│   └── Outside     sensor.outside_temperature + sensor.outside_humidity
+│   │             Badges: Inside temp+humidity (apartment sensors, blue), Outside temp+humidity (amber)
+│   ├── Controls  thermostat tile + comfort select (home/sleep/away) + clear hold
+│   │             + HVAC Runtime subtitle + 28-day line chart (cooling + heating)
+│   └── Weather   weather.apartment daily forecast
 │
 └── [pending subviews]
     Master Bedroom, Avery's Room, Office, Kitchen, Bathroom, Garage, Outside
@@ -225,11 +226,14 @@ Four sections:
 
 ## Climate Subview
 
-Tap target for the thermostat chip on strip 2. Four sections:
+Tap target for the thermostat chip on strip 2.
 
-- **Controls** — Four cards in one section. (1) `tile` for `climate.living_room_thermostat` with HVAC modes, target temperature, and fan mode features; `grid_options: {columns: 6}` and `features_position: bottom`. (2) `tile` for `select.living_room_thermostat_current_mode` with `select-options` feature — shows Home/Sleep/Away as tappable buttons. (3) `tile` for `button.living_room_thermostat_clear_hold` to clear any active hold. (4) `statistics-graph` bar-stack chart (`period: day`, `stat_types: [max]`, `days_to_show: 14`, `grid_options: {columns: full}`) for `sensor.cooling_today` and `sensor.heating_today` — daily max equals daily total since both sensors reset at midnight; 14 days gives week-over-week comparison.
-- **Inside** — 2-col grid of temp/humidity pairs for three rooms: Master Bedroom, Avery's Room, Office. Living Room is omitted — current temp/humidity are already visible in the thermostat tile's `state_content`.
-- **Outside** — Outside temp + humidity pair.
+**Badges** — Four entity badges in the view header. Blue pair (`mdi:home-thermometer` + `mdi:water-percent`, both labeled "Inside"): `sensor.apartment_temperature` and `sensor.apartment_humidity`. Amber pair (`mdi:sun-thermometer` + `mdi:water-percent`, both labeled "Outside"): `sensor.outside_temperature` and `sensor.outside_humidity`. Icon differentiates temperature from humidity within each pair; color differentiates inside from outside.
+
+Two sections:
+
+- **Controls** — Thermostat tile (`climate.living_room_thermostat`, `grid_options: {columns: 6}`, `features_position: bottom`, HVAC modes + target temperature + fan modes, `state_content: [current_temperature, current_humidity]`). Comfort Setting tile (`select.living_room_thermostat_current_mode` with `select-options` feature — Home/Sleep/Away). Clear Hold tile (`button.living_room_thermostat_clear_hold`). Below these, an "HVAC Runtime" subtitle heading followed by a `statistics-graph` line chart (`chart_type: line`, `period: day`, `stat_types: [max]`, `days_to_show: 28`, `grid_options: {columns: full}`) for `sensor.cooling_today` and `sensor.heating_today` — two lines showing cooling and heating daily totals over 4 weeks; daily max equals daily total since both sensors reset at midnight.
+- **Weather** — `weather-forecast` card for `weather.apartment` (`forecast_type: daily`).
 
 > **Note on `grid_options`:** The `tile` card in a `sections` view defaults to a 1-column layout and renders at half-width unless you set `grid_options: {columns: 12}` (or `columns: full`). This is different from `grid` cards, which fill available width automatically.
 
@@ -836,9 +840,32 @@ views:
     type: sections
     subview: true
     max_columns: 1
+    badges:
+      # Blue = inside; amber = outside. Icon differentiates temp from humidity within each pair.
+      - type: entity
+        entity: sensor.apartment_temperature
+        name: Inside
+        icon: mdi:home-thermometer
+        color: blue
+      - type: entity
+        entity: sensor.apartment_humidity
+        name: Inside
+        icon: mdi:water-percent
+        color: blue
+      - type: entity
+        entity: sensor.outside_temperature
+        name: Outside
+        icon: mdi:sun-thermometer
+        color: amber
+      - type: entity
+        entity: sensor.outside_humidity
+        name: Outside
+        icon: mdi:water-percent
+        color: amber
     sections:
-      - title: Controls
-        cards:
+      - cards:
+          - type: heading
+            heading: Controls
           - type: tile
             grid_options:
               columns: 6
@@ -862,8 +889,11 @@ views:
           - type: tile
             entity: button.living_room_thermostat_clear_hold
             name: Clear Hold
-          # HVAC Runtime — daily max = daily total since sensors reset at midnight
-          # 14 days gives week-over-week comparison; today's bar is partial until midnight
+          - type: heading
+            heading: HVAC Runtime
+            heading_style: subtitle
+          # 28-day line: daily max = daily total since sensors reset at midnight
+          # Two lines (cooling + heating) show usage pattern and week-over-week trend
           - type: statistics-graph
             grid_options:
               columns: full
@@ -875,53 +905,14 @@ views:
                 name: Heating
             stat_types: [max]
             period: day
-            days_to_show: 14
-            chart_type: bar-stack
-      # Inside — LR omitted: current temp/humidity shown in thermostat tile state_content
-      - title: Inside
-        cards:
-          - type: grid
-            columns: 2
-            square: false
-            cards:
-              - type: custom:mushroom-entity-card
-                entity: sensor.master_bedroom_climate_temperature
-                name: Master Bedroom
-                content_info: state
-              - type: custom:mushroom-entity-card
-                entity: sensor.master_bedroom_climate_humidity
-                name: Humidity
-                content_info: state
-              - type: custom:mushroom-entity-card
-                entity: sensor.avery_room_climate_temperature
-                name: Avery's Room
-                content_info: state
-              - type: custom:mushroom-entity-card
-                entity: sensor.avery_room_climate_humidity
-                name: Humidity
-                content_info: state
-              - type: custom:mushroom-entity-card
-                entity: sensor.office_climate_temperature
-                name: Office
-                content_info: state
-              - type: custom:mushroom-entity-card
-                entity: sensor.office_climate_humidity
-                name: Humidity
-                content_info: state
-      - title: Outside
-        cards:
-          - type: grid
-            columns: 2
-            square: false
-            cards:
-              - type: custom:mushroom-entity-card
-                entity: sensor.outside_temperature
-                name: Outside
-                content_info: state
-              - type: custom:mushroom-entity-card
-                entity: sensor.outside_humidity
-                name: Humidity
-                content_info: state
+            days_to_show: 28
+            chart_type: line
+      - cards:
+          - type: heading
+            heading: Weather
+          - type: weather-forecast
+            entity: weather.apartment
+            forecast_type: daily
 
   # ── Water Leaks (utility subview) ─────────────────────────────────────────
   - title: Water Leaks
@@ -1228,6 +1219,8 @@ views:
 | Mobile 3.0 dashboard | `mobile-3` | Lovelace dashboard |
 | Home alarm | `alarm_control_panel.home_alarm` | Entity |
 | Living room thermostat | `climate.living_room_thermostat` | Entity |
+| Apartment temperature | `sensor.apartment_temperature` | Entity |
+| Apartment humidity | `sensor.apartment_humidity` | Entity |
 | Apartment weather | `weather.apartment` | Entity |
 | Cooling runtime today | `sensor.cooling_today` | Entity |
 | Heating runtime today | `sensor.heating_today` | Entity |
