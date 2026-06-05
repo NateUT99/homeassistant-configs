@@ -86,10 +86,9 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   └── Consumables filter, main brush, sensor, side brush (hours remaining)
 │
 ├── Climate       (utility subview — tap target for thermostat chip)
-│   ├── Controls    thermostat tile + comfort select (home/sleep/away) + clear hold button
+│   ├── Controls    thermostat tile + comfort select (home/sleep/away) + clear hold + 14-day runtime chart
 │   ├── Inside      temp+humidity pairs: master bedroom, avery's room, office
-│   ├── Outside     sensor.outside_temperature + sensor.outside_humidity
-│   └── 24h Runtime history-graph: thermostat mode + indoor temp
+│   └── Outside     sensor.outside_temperature + sensor.outside_humidity
 │
 └── [pending subviews]
     Master Bedroom, Avery's Room, Office, Kitchen, Bathroom, Garage, Outside
@@ -126,7 +125,7 @@ When the strip is empty (no active alerts), it renders as zero-height and no vis
 
 **Garage door** — Two chips, mutually exclusive. Orange when the door is open AND someone is home AND nobody is sleeping (informational — door left open during normal hours). Red when open AND (sleeping OR away) — the contextual alert. Only one chip is ever visible at a time. Both chips use tap-to-close with confirmation; hold shows `more-info`.
 
-**Trash pickup** — `input_boolean.trash_pickup_pending` is the gate; content templates off `input_text.trash_pickup_pending_label`, substituting "Both" for "Trash & Recycling" to keep the chip compact.
+**Trash pickup** — `input_boolean.trash_pickup_pending` is the gate. Icon-only; no content label.
 
 **Overdue reminders** — Moved here from strip 3. Shows a count label only when 2 or more reminders are overdue; icon-only when exactly 1 is overdue. Tapping navigates to `/mobile-3/reminders`.
 
@@ -228,10 +227,9 @@ Four sections:
 
 Tap target for the thermostat chip on strip 2. Four sections:
 
-- **Controls** — Three cards in one section. (1) `tile` for `climate.living_room_thermostat` with HVAC modes, target temperature, and fan mode features; `grid_options: {columns: 6}` and `features_position: bottom`. (2) `tile` for `select.living_room_thermostat_current_mode` with `select-options` feature — shows Home/Sleep/Away as tappable buttons. (3) `tile` for `button.living_room_thermostat_clear_hold` to clear any active hold.
+- **Controls** — Four cards in one section. (1) `tile` for `climate.living_room_thermostat` with HVAC modes, target temperature, and fan mode features; `grid_options: {columns: 6}` and `features_position: bottom`. (2) `tile` for `select.living_room_thermostat_current_mode` with `select-options` feature — shows Home/Sleep/Away as tappable buttons. (3) `tile` for `button.living_room_thermostat_clear_hold` to clear any active hold. (4) `statistics-graph` bar-stack chart (`period: day`, `stat_types: [max]`, `days_to_show: 14`, `grid_options: {columns: full}`) for `sensor.cooling_today` and `sensor.heating_today` — daily max equals daily total since both sensors reset at midnight; 14 days gives week-over-week comparison.
 - **Inside** — 2-col grid of temp/humidity pairs for three rooms: Master Bedroom, Avery's Room, Office. Living Room is omitted — current temp/humidity are already visible in the thermostat tile's `state_content`.
 - **Outside** — Outside temp + humidity pair.
-- **HVAC Runtime** — `statistics-graph` bar chart (`period: day`, `stat_types: [max]`, `days_to_show: 14`) for `sensor.cooling_today` and `sensor.heating_today`. Daily max = daily total since both sensors reset at midnight. Shows 14 days for week-over-week comparison. Below the chart, a 2-col grid shows today's live hours for both sensors.
 
 > **Note on `grid_options`:** The `tile` card in a `sections` view defaults to a 1-column layout and renders at half-width unless you set `grid_options: {columns: 12}` (or `columns: full`). This is different from `grid` cards, which fill available width automatically.
 
@@ -456,7 +454,7 @@ views:
                     confirmation: true
                   hold_action: {action: more-info, entity: cover.garage_door}
                   double_tap_action: {action: none}
-              # Trash — label "Both" substituted for "Trash & Recycling" to keep chip compact
+              # Trash — icon-only
               - type: conditional
                 conditions:
                   - condition: state
@@ -466,7 +464,7 @@ views:
                   type: template
                   icon: mdi:trash-can
                   icon_color: red
-                  content: "{{ 'Both' if states('input_text.trash_pickup_pending_label') == 'Trash & Recycling' else states('input_text.trash_pickup_pending_label') }}"
+                  content: ""
                   tap_action: {action: more-info, entity: input_boolean.trash_pickup_pending}
                   hold_action: {action: none}
                   double_tap_action: {action: none}
@@ -864,6 +862,21 @@ views:
           - type: tile
             entity: button.living_room_thermostat_clear_hold
             name: Clear Hold
+          # HVAC Runtime — daily max = daily total since sensors reset at midnight
+          # 14 days gives week-over-week comparison; today's bar is partial until midnight
+          - type: statistics-graph
+            grid_options:
+              columns: full
+              rows: auto
+            entities:
+              - entity: sensor.cooling_today
+                name: Cooling
+              - entity: sensor.heating_today
+                name: Heating
+            stat_types: [max]
+            period: day
+            days_to_show: 14
+            chart_type: bar-stack
       # Inside — LR omitted: current temp/humidity shown in thermostat tile state_content
       - title: Inside
         cards:
@@ -908,32 +921,6 @@ views:
               - type: custom:mushroom-entity-card
                 entity: sensor.outside_humidity
                 name: Humidity
-                content_info: state
-      # HVAC Runtime — daily max = daily total since sensors reset at midnight
-      # 14 days gives week-over-week comparison; today's bar is partial until midnight
-      - title: HVAC Runtime
-        cards:
-          - type: statistics-graph
-            entities:
-              - entity: sensor.cooling_today
-                name: Cooling
-              - entity: sensor.heating_today
-                name: Heating
-            stat_types: [max]
-            period: day
-            days_to_show: 14
-            chart_type: bar
-          - type: grid
-            columns: 2
-            square: false
-            cards:
-              - type: custom:mushroom-entity-card
-                entity: sensor.cooling_today
-                name: Cooling Today
-                content_info: state
-              - type: custom:mushroom-entity-card
-                entity: sensor.heating_today
-                name: Heating Today
                 content_info: state
 
   # ── Water Leaks (utility subview) ─────────────────────────────────────────
