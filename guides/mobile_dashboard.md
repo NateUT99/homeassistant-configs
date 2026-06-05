@@ -33,9 +33,9 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   │   │   └── Overdue reminders [red]     count > 0 → tap navigates to /reminders; count if 2+
 │   │   │
 │   │   ├── Strip 2: Device & Persistent Status  ← always visible
+│   │   │   ├── Alarm status        (green shield, Away/Home/Off, hidden during alert) ← col 1 mirrors strip 1
 │   │   │   ├── Vacuum [grey/orange/green]   grey=docked+not run today, orange=running, green=docked+ran today → /vacuum
 │   │   │   ├── Thermostat [grey/orange/blue] grey=idle, orange=heating, blue=cooling; shows current temp → /climate
-│   │   │   ├── Alarm status        (green shield, Away/Home/Off, hidden during alert)
 │   │   │   └── Reminders OK        (green calendar-check, hidden when any overdue)
 │   │   │
 │   │   ├── Strip 3: Modes          ← conditional, all hidden when inactive
@@ -139,11 +139,11 @@ When the strip is empty (no active alerts), it renders as zero-height and no vis
 
 Always-present indicators that represent ongoing or normal-state conditions. Uses `type: entity` chips where state-based coloring is appropriate.
 
+**Alarm status** — Position 1, mirroring the strip 1 alarm chip. Green `mdi:shield-home` showing "Away", "Home", or "Off" depending on `alarm_control_panel.home_alarm` state. Hides when the alarm is in any alert state (triggered/pending/arming), at which point the strip 1 alarm chip takes over at the same column position.
+
 **Vacuum** — Always visible. Three color states driven by `type: template`: orange when actively running (state not `docked`), green when docked and `input_select.vacuum_ran_today` = Yes, grey when docked and not yet run today. Taps to the Vacuum subview.
 
 **Thermostat** — Always visible. Shows current indoor temperature as content. Color reflects the `hvac_action` attribute (not the mode state): blue = cooling, orange = heating, grey = idle. Taps to the Climate subview.
-
-**Alarm status** — Green `mdi:shield-home` showing "Away", "Home", or "Off" depending on `alarm_control_panel.home_alarm` state. Hides when the alarm is in any alert state (triggered/pending/arming), at which point the strip 1 alarm chip takes over.
 
 **Reminders OK** — Green `mdi:calendar-check`, visible when `number.overdue_reminders_count` is below 1. No content label. Taps to `/mobile-3/reminders`. Disappears when any reminder is overdue; strip 1 shows the red count chip instead.
 
@@ -496,24 +496,8 @@ views:
             card_mod:
               style: "ha-card { --chip-height: 30px; --chip-padding: 0 6px; }"
             chips:
-              # Vacuum — always visible; 3 states: orange=running, green=ran today, grey=not run yet
-              - type: template
-                icon: mdi:robot-vacuum
-                icon_color: "{{ 'orange' if states('vacuum.roborock_q8_max') != 'docked' else ('green' if is_state('input_select.vacuum_ran_today', 'Yes') else 'grey') }}"
-                content: ""
-                tap_action: {action: navigate, navigation_path: /mobile-3/vacuum}
-                hold_action: {action: none}
-                double_tap_action: {action: none}
-              # Thermostat — always visible; color = hvac_action (blue=cooling, orange=heating, grey=idle)
-              # Uses hvac_action attribute, not mode state, to reflect what the system is actually doing
-              - type: template
-                icon: mdi:home-thermometer
-                icon_color: "{{ 'blue' if state_attr('climate.living_room_thermostat', 'hvac_action') == 'cooling' else ('orange' if state_attr('climate.living_room_thermostat', 'hvac_action') == 'heating' else 'grey') }}"
-                content: "{{ state_attr('climate.living_room_thermostat', 'current_temperature') | int }}°"
-                tap_action: {action: navigate, navigation_path: /mobile-3/climate}
-                hold_action: {action: none}
-                double_tap_action: {action: none}
-              # Alarm status — green when normal; hides when strip 1 alarm chip is active
+              # Alarm status — position 1, mirrors strip 1 alarm chip column position
+              # Green when normal; hides when strip 1 alarm chip is active
               - type: conditional
                 conditions:
                   - condition: state
@@ -533,6 +517,23 @@ views:
                   tap_action: {action: more-info, entity: alarm_control_panel.home_alarm}
                   hold_action: {action: none}
                   double_tap_action: {action: none}
+              # Vacuum — always visible; 3 states: orange=running, green=ran today, grey=not run yet
+              - type: template
+                icon: mdi:robot-vacuum
+                icon_color: "{{ 'orange' if states('vacuum.roborock_q8_max') != 'docked' else ('green' if is_state('input_select.vacuum_ran_today', 'Yes') else 'grey') }}"
+                content: ""
+                tap_action: {action: navigate, navigation_path: /mobile-3/vacuum}
+                hold_action: {action: none}
+                double_tap_action: {action: none}
+              # Thermostat — always visible; color = hvac_action (blue=cooling, orange=heating, grey=idle)
+              # Uses hvac_action attribute, not mode state, to reflect what the system is actually doing
+              - type: template
+                icon: mdi:home-thermometer
+                icon_color: "{{ 'blue' if state_attr('climate.living_room_thermostat', 'hvac_action') == 'cooling' else ('orange' if state_attr('climate.living_room_thermostat', 'hvac_action') == 'heating' else 'grey') }}"
+                content: "{{ state_attr('climate.living_room_thermostat', 'current_temperature') | int }}°"
+                tap_action: {action: navigate, navigation_path: /mobile-3/climate}
+                hold_action: {action: none}
+                double_tap_action: {action: none}
               # Reminders OK — hides when any reminder is overdue (strip 1 shows count instead)
               - type: conditional
                 conditions:
