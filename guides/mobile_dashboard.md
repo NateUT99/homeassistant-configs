@@ -22,14 +22,15 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   ├── [chip strip section — no title]
 │   │   │
 │   │   ├── Strip 1: General Alerts  ← icon-only, hidden when quiet
-│   │   │   ├── Water leak [red]     any of 4 sensors not off → tap navigates to /water-leaks; count shown if 2+
-│   │   │   ├── Freezer open [red]   kitchen_freezer_door_contact not off → tap more-info
-│   │   │   ├── Exterior door [red]  not off AND (sleeping OR nobody home) → tap more-info
-│   │   │   ├── Garage open [red]    not closed AND (sleeping OR nobody home) → tap closes w/ confirm
-│   │   │   ├── Garage open [orange] not closed AND someone home AND awake → tap closes w/ confirm
-│   │   │   ├── Trash pickup [red]   trash_pickup_pending on → label "Trash", "Recycling", or "Both"
-│   │   │   ├── Alarm alert [red/orange] triggered or pending = red; arming = orange → tap more-info
-│   │   │   └── Overdue reminders [red] count > 0 → tap navigates to /reminders; count shown if 2+
+│   │   │   ├── Alarm alert [red/orange]    triggered or pending = red; arming = orange → tap more-info
+│   │   │   ├── Water leak [red]            any of 4 sensors not off → tap navigates to /water-leaks; count if 2+
+│   │   │   ├── Freezer open [red]          kitchen_freezer_door_contact not off → tap more-info
+│   │   │   ├── Exterior door [red]         any of 3 doors open AND (sleeping OR away) → count if 2+
+│   │   │   ├── Exterior door [orange]      any of 3 doors open AND home AND awake → count if 2+
+│   │   │   ├── Garage open [red]           not closed AND (sleeping OR away) → tap closes w/ confirm
+│   │   │   ├── Garage open [orange]        not closed AND home AND awake → tap closes w/ confirm
+│   │   │   ├── Trash pickup [red]          trash_pickup_pending on → label "Trash", "Recycling", or "Both"
+│   │   │   └── Overdue reminders [red]     count > 0 → tap navigates to /reminders; count if 2+
 │   │   │
 │   │   ├── Strip 2: Device & Persistent Status  ← always visible
 │   │   │   ├── Vacuum [grey/orange/green]   grey=docked+not run today, orange=running, green=docked+ran today → /vacuum
@@ -120,17 +121,17 @@ Surfaces any active hazard or condition requiring attention. All chips are icon-
 
 When the strip is empty (no active alerts), it renders as zero-height and no visual gap remains.
 
+**Alarm** — First chip; highest urgency. Covers three states: `triggered` and `pending` render red (`mdi:shield-alert`); `arming` renders orange. Disappears when the alarm is disarmed or armed normally — those states show as a green chip on strip 2 instead.
+
 **Water leaks** — A single chip replaces four individual sensors. An OR condition across all four sensors (`state_not: "off"`) activates it; tapping navigates to the Water Leaks subview showing all four. `state_not: "off"` is intentional: `unknown` state (sensor offline) also triggers the chip as a conservative default for water detection.
 
 **Freezer door** — Always-alert: no contextual gate.
 
-**Exterior door** — Compound condition: entity not closed AND (everyone sleeping OR nobody home). Suppressed during normal daytime use.
+**Exterior doors** — Two chips, mutually exclusive, covering three sensors: garage interior door (`binary_sensor.garage_interior_door_contact`), front door (`binary_sensor.entrance_front_door_contact`), and office sliding door (`binary_sensor.office_sliding_door_contact`). Orange when any door is open AND someone is home AND awake (informational). Red when any door is open AND (sleeping OR nobody home) — the contextual alert. Count shown when 2 or more doors are open.
 
 **Garage door** — Two chips, mutually exclusive. Orange when the door is open AND someone is home AND nobody is sleeping (informational — door left open during normal hours). Red when open AND (sleeping OR away) — the contextual alert. Only one chip is ever visible at a time. Both chips use tap-to-close with confirmation; hold shows `more-info`.
 
 **Trash pickup** — `input_boolean.trash_pickup_pending` is the gate; content templates off `input_text.trash_pickup_pending_label`, substituting "Both" for "Trash & Recycling" to keep the chip compact.
-
-**Alarm** — Single chip covering three states: `triggered` and `pending` render red (`mdi:shield-alert`); `arming` renders orange. The chip disappears when the alarm is disarmed or armed normally — those states show as a green chip on strip 2 instead.
 
 **Overdue reminders** — Moved here from strip 3. Shows a count label only when 2 or more reminders are overdue; icon-only when exactly 1 is overdue. Tapping navigates to `/mobile-3/reminders`.
 
@@ -272,6 +273,28 @@ views:
             card_mod:
               style: "ha-card { --chip-height: 30px; --chip-padding: 0 6px; }"
             chips:
+              # Alarm — highest urgency; appears first; orange when arming, red when triggered or pending
+              - type: conditional
+                conditions:
+                  - condition: or
+                    conditions:
+                      - condition: state
+                        entity: alarm_control_panel.home_alarm
+                        state: triggered
+                      - condition: state
+                        entity: alarm_control_panel.home_alarm
+                        state: pending
+                      - condition: state
+                        entity: alarm_control_panel.home_alarm
+                        state: arming
+                chip:
+                  type: template
+                  icon: mdi:shield-alert
+                  icon_color: "{{ 'orange' if is_state('alarm_control_panel.home_alarm', 'arming') else 'red' }}"
+                  content: ""
+                  tap_action: {action: more-info, entity: alarm_control_panel.home_alarm}
+                  hold_action: {action: none}
+                  double_tap_action: {action: none}
               # Water leaks — grouped: one chip for all 4 sensors, navigates to subview
               # Count shown only when 2 or more sensors are active
               - type: conditional
@@ -317,28 +340,73 @@ views:
                   tap_action: {action: more-info, entity: binary_sensor.kitchen_freezer_door_contact}
                   hold_action: {action: none}
                   double_tap_action: {action: none}
-              # Exterior door — compound condition: open AND (sleeping OR away)
+              # Exterior doors (red) — any of 3 doors open AND (sleeping OR away)
+              # Count shown when 2 or more doors are open
               - type: conditional
                 conditions:
-                  - condition: and
+                  - condition: or
                     conditions:
                       - condition: state
-                        entity: binary_sensor.exterior_door_open
+                        entity: binary_sensor.garage_interior_door_contact
                         state_not: "off"
-                      - condition: or
-                        conditions:
-                          - condition: state
-                            entity: input_boolean.everyone_sleeping
-                            state: "on"
-                          - condition: numeric_state
-                            entity: zone.home
-                            below: 1
+                      - condition: state
+                        entity: binary_sensor.entrance_front_door_contact
+                        state_not: "off"
+                      - condition: state
+                        entity: binary_sensor.office_sliding_door_contact
+                        state_not: "off"
+                  - condition: or
+                    conditions:
+                      - condition: state
+                        entity: input_boolean.everyone_sleeping
+                        state: "on"
+                      - condition: numeric_state
+                        entity: zone.home
+                        below: 1
                 chip:
                   type: template
                   icon: mdi:door-open
                   icon_color: red
-                  content: ""
-                  tap_action: {action: more-info, entity: binary_sensor.exterior_door_open}
+                  content: >-
+                    {% set c = [states('binary_sensor.garage_interior_door_contact'),
+                    states('binary_sensor.entrance_front_door_contact'),
+                    states('binary_sensor.office_sliding_door_contact')]
+                    | select('ne', 'off') | list | count %}
+                    {{ c if c >= 2 else '' }}
+                  tap_action: {action: none}
+                  hold_action: {action: none}
+                  double_tap_action: {action: none}
+              # Exterior doors (orange) — any of 3 doors open AND home AND awake (informational)
+              - type: conditional
+                conditions:
+                  - condition: or
+                    conditions:
+                      - condition: state
+                        entity: binary_sensor.garage_interior_door_contact
+                        state_not: "off"
+                      - condition: state
+                        entity: binary_sensor.entrance_front_door_contact
+                        state_not: "off"
+                      - condition: state
+                        entity: binary_sensor.office_sliding_door_contact
+                        state_not: "off"
+                  - condition: state
+                    entity: input_boolean.everyone_sleeping
+                    state: "off"
+                  - condition: numeric_state
+                    entity: zone.home
+                    above: 0
+                chip:
+                  type: template
+                  icon: mdi:door-open
+                  icon_color: orange
+                  content: >-
+                    {% set c = [states('binary_sensor.garage_interior_door_contact'),
+                    states('binary_sensor.entrance_front_door_contact'),
+                    states('binary_sensor.office_sliding_door_contact')]
+                    | select('ne', 'off') | list | count %}
+                    {{ c if c >= 2 else '' }}
+                  tap_action: {action: none}
                   hold_action: {action: none}
                   double_tap_action: {action: none}
               # Garage (red) — open AND (sleeping OR away); tap closes with confirmation
@@ -405,28 +473,6 @@ views:
                   icon_color: red
                   content: "{{ 'Both' if states('input_text.trash_pickup_pending_label') == 'Trash & Recycling' else states('input_text.trash_pickup_pending_label') }}"
                   tap_action: {action: more-info, entity: input_boolean.trash_pickup_pending}
-                  hold_action: {action: none}
-                  double_tap_action: {action: none}
-              # Alarm — orange when arming, red when triggered or pending
-              - type: conditional
-                conditions:
-                  - condition: or
-                    conditions:
-                      - condition: state
-                        entity: alarm_control_panel.home_alarm
-                        state: triggered
-                      - condition: state
-                        entity: alarm_control_panel.home_alarm
-                        state: pending
-                      - condition: state
-                        entity: alarm_control_panel.home_alarm
-                        state: arming
-                chip:
-                  type: template
-                  icon: mdi:shield-alert
-                  icon_color: "{{ 'orange' if is_state('alarm_control_panel.home_alarm', 'arming') else 'red' }}"
-                  content: ""
-                  tap_action: {action: more-info, entity: alarm_control_panel.home_alarm}
                   hold_action: {action: none}
                   double_tap_action: {action: none}
               # Overdue reminders — count shown only when 2 or more overdue
@@ -1199,7 +1245,9 @@ views:
 | Master bath water leak | `binary_sensor.master_bathroom_leak_water_leak` | Entity |
 | Utility room water leak | `binary_sensor.utility_room_leak_water_leak` | Entity |
 | Kitchen freezer door | `binary_sensor.kitchen_freezer_door_contact` | Entity |
-| Exterior door open | `binary_sensor.exterior_door_open` | Entity |
+| Garage interior door | `binary_sensor.garage_interior_door_contact` | Entity |
+| Front door | `binary_sensor.entrance_front_door_contact` | Entity |
+| Office sliding door | `binary_sensor.office_sliding_door_contact` | Entity |
 | Garage door | `cover.garage_door` | Entity |
 | Trash pickup pending | `input_boolean.trash_pickup_pending` | Helper |
 | Trash pickup label | `input_text.trash_pickup_pending_label` | Helper |
