@@ -59,11 +59,6 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   │   ├── Garage          cover.garage_door (cover-card fallback)
 │   │   └── Outside         sensor.outside_temperature (entity-card fallback)
 │   │
-│   ├── House     ← cross-room utilities
-│   │   ├── Climate   climate.living_room_thermostat
-│   │   ├── Alarm     alarm_control_panel.home_alarm
-│   │   └── Vacuum    vacuum.roborock_q8_max
-│   │
 │   └── Weather
 │       ├── Daily forecast  weather.apartment
 │       ├── Temperature     sensor.outside_temperature
@@ -91,8 +86,8 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   └── Consumables filter, main brush, sensor, side brush (hours remaining)
 │
 ├── Climate       (utility subview — tap target for thermostat chip)
-│   ├── Controls    tile card: hvac modes, target temp, fan modes (grid_options full-width)
-│   ├── Inside      temp+humidity pairs: living room, master bedroom, avery's room, office
+│   ├── Controls    thermostat tile + comfort select (home/sleep/away) + clear hold button
+│   ├── Inside      temp+humidity pairs: master bedroom, avery's room, office
 │   ├── Outside     sensor.outside_temperature + sensor.outside_humidity
 │   └── 24h Runtime history-graph: thermostat mode + indoor temp
 │
@@ -224,7 +219,7 @@ Four sections:
 
 - **Map** — `picture-entity` showing `image.roborock_q8_max_apartment`, conditionally visible when vacuum is not docked OR `input_select.vacuum_ran_today` is "Yes"
 - **Status** — 2-col grid: vacuum state, battery, cleaning area, duration
-- **Controls** — Native `tile` card with `vacuum-commands` feature (start/pause, stop, return home). Only place in this dashboard where a native tile card is used; Mushroom has no vacuum-specific card.
+- **Controls** — Native `tile` card with `vacuum-commands` feature (start/pause, stop, return home); `color: green`, `state_content: [state, area_name]`, `grid_options: {columns: full}`, `features_position: inline`. Only place in this dashboard where a native tile card is used; Mushroom has no vacuum-specific card.
 - **Consumables** — 2-col grid of the four time-left sensors (read-only; actionable reset is in the Reminders subview)
 
 ---
@@ -233,12 +228,12 @@ Four sections:
 
 Tap target for the thermostat chip on strip 2. Four sections:
 
-- **Controls** — Native `tile` card for `climate.living_room_thermostat` with three features: HVAC modes (off/heat/cool/heat_cool), target temperature, and fan modes (auto/on). `grid_options: {columns: 12, rows: 4}` forces the card to span the full section width; without it the tile renders at half-width in a sections view. `features_position: bottom` keeps the controls below the state display.
-- **Inside** — 2-col grid of temp/humidity pairs for four key rooms: Living Room, Master Bedroom, Avery's Room, Office. Each pair is two side-by-side `mushroom-entity-card` instances (temp + humidity).
-- **Outside** — Same pattern: outside temp + humidity pair.
-- **24h Runtime** — `history-graph` showing thermostat mode state and indoor temperature over 24 hours as a proxy for HVAC runtime. Mode state transitions (e.g. `cool` → `heat_cool` → `off`) are visible in the graph.
+- **Controls** — Three cards in one section. (1) `tile` for `climate.living_room_thermostat` with HVAC modes, target temperature, and fan mode features; `grid_options: {columns: 6}` and `features_position: bottom`. (2) `tile` for `select.living_room_thermostat_current_mode` with `select-options` feature — shows Home/Sleep/Away as tappable buttons. (3) `tile` for `button.living_room_thermostat_clear_hold` to clear any active hold.
+- **Inside** — 2-col grid of temp/humidity pairs for three rooms: Master Bedroom, Avery's Room, Office. Living Room is omitted — current temp/humidity are already visible in the thermostat tile's `state_content`.
+- **Outside** — Outside temp + humidity pair.
+- **24h Runtime** — `history-graph` showing thermostat mode state and indoor temperature over 24 hours as a proxy for HVAC runtime.
 
-> **Note on `grid_options`:** The `tile` card in a `sections` view defaults to a 1-column layout and renders at half-width unless you set `grid_options: {columns: 12}`. This is different from `grid` cards, which fill available width automatically.
+> **Note on `grid_options`:** The `tile` card in a `sections` view defaults to a 1-column layout and renders at half-width unless you set `grid_options: {columns: 12}` (or `columns: full`). This is different from `grid` cards, which fill available width automatically.
 
 ---
 
@@ -747,23 +742,6 @@ views:
                 hold_action: {action: none}
                 double_tap_action: {action: none}
 
-      # House
-      - title: House
-        cards:
-          - type: custom:mushroom-climate-card
-            entity: climate.living_room_thermostat
-            show_temperature_control: true
-            tap_action: {action: more-info}
-          - type: custom:mushroom-alarm-control-panel-card
-            entity: alarm_control_panel.home_alarm
-            name: Home Alarm
-            tap_action: {action: more-info}
-          - type: custom:mushroom-entity-card
-            entity: vacuum.roborock_q8_max
-            name: Roborock
-            icon: mdi:robot-vacuum
-            tap_action: {action: more-info}
-
       # Weather
       - title: Weather
         cards:
@@ -863,11 +841,9 @@ views:
     sections:
       - title: Controls
         cards:
-          # grid_options: columns: 12 forces full-width; tile cards default to half-width in sections view
           - type: tile
             grid_options:
-              columns: 12
-              rows: 4
+              columns: 6
             entity: climate.living_room_thermostat
             name: Thermostat
             state_content: [current_temperature, current_humidity]
@@ -878,20 +854,23 @@ views:
               - type: climate-fan-modes
                 fan_modes: [auto, on]
             features_position: bottom
+          # Comfort setting — Home/Sleep/Away buttons
+          - type: tile
+            entity: select.living_room_thermostat_current_mode
+            name: Comfort Setting
+            features:
+              - type: select-options
+          # Clear Hold — removes any active thermostat hold
+          - type: tile
+            entity: button.living_room_thermostat_clear_hold
+            name: Clear Hold
+      # Inside — LR omitted: current temp/humidity shown in thermostat tile state_content
       - title: Inside
         cards:
           - type: grid
             columns: 2
             square: false
             cards:
-              - type: custom:mushroom-entity-card
-                entity: sensor.living_room_thermostat_current_temperature
-                name: Living Room
-                content_info: state
-              - type: custom:mushroom-entity-card
-                entity: sensor.living_room_thermostat_current_humidity
-                name: Humidity
-                content_info: state
               - type: custom:mushroom-entity-card
                 entity: sensor.master_bedroom_climate_temperature
                 name: Master Bedroom
@@ -1200,11 +1179,18 @@ views:
         # Native tile used here — Mushroom has no vacuum-specific card
         cards:
           - type: tile
+            grid_options:
+              rows: auto
+              columns: full
             entity: vacuum.roborock_q8_max
             name: Roborock Q8 Max
+            color: green
+            state_content: [state, area_name]
+            vertical: false
             features:
               - type: vacuum-commands
                 commands: [start_pause, stop, return_home]
+            features_position: inline
       - title: Consumables
         cards:
           - type: grid
