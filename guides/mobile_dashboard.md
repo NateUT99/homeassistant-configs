@@ -510,7 +510,8 @@ views:
                     action: perform-action
                     perform_action: cover.close_cover
                     target: {entity_id: cover.garage_door}
-                    confirmation: true
+                    confirmation:
+                      text: "Close garage door?"
                   hold_action: {action: more-info, entity: cover.garage_door}
                   double_tap_action: {action: none}
               # Garage (orange) — open AND home AND awake (informational); tap closes with confirmation
@@ -534,7 +535,8 @@ views:
                     action: perform-action
                     perform_action: cover.close_cover
                     target: {entity_id: cover.garage_door}
-                    confirmation: true
+                    confirmation:
+                      text: "Close garage door?"
                   hold_action: {action: more-info, entity: cover.garage_door}
                   double_tap_action: {action: none}
               # Trash — icon-only
@@ -571,7 +573,10 @@ views:
                   entity: input_boolean.avery_sleeping
                   content_info: name
                   icon_color: green
-                  tap_action: {action: toggle, confirmation: true}
+                  tap_action:
+                    action: toggle
+                    confirmation:
+                      text: "Mark Avery as awake?"
                   hold_action: {action: more-info}
                   double_tap_action: {action: none}
               - type: conditional
@@ -585,7 +590,10 @@ views:
                   name: Everyone Sleeping
                   content_info: name
                   icon_color: green
-                  tap_action: {action: toggle, confirmation: true}
+                  tap_action:
+                    action: toggle
+                    confirmation:
+                      text: "Wake everyone up?"
                   hold_action: {action: more-info}
                   double_tap_action: {action: none}
               - type: conditional
@@ -953,7 +961,7 @@ views:
                   perform_action: input_datetime.set_datetime
                   target: {entity_id: input_datetime.accord_washed}
                   data: {date: "{{ now().date() | string }}"}
-                  confirmation: true
+                  confirmation: {text: "Mark Car Washed as done today?"}
                 double_tap_action: {action: none}
               - type: custom:mushroom-template-card
                 primary: Coffee Grinder
@@ -967,7 +975,7 @@ views:
                   perform_action: input_datetime.set_datetime
                   target: {entity_id: input_datetime.coffee_grinder_cleaned}
                   data: {date: "{{ now().date() | string }}"}
-                  confirmation: true
+                  confirmation: {text: "Mark Coffee Grinder as done today?"}
                 double_tap_action: {action: none}
               - type: custom:mushroom-template-card
                 primary: Dishwasher
@@ -981,7 +989,7 @@ views:
                   perform_action: input_datetime.set_datetime
                   target: {entity_id: input_datetime.dishwasher_cleaned}
                   data: {date: "{{ now().date() | string }}"}
-                  confirmation: true
+                  confirmation: {text: "Mark Dishwasher as done today?"}
                 double_tap_action: {action: none}
               - type: custom:mushroom-template-card
                 primary: Disposal
@@ -995,7 +1003,7 @@ views:
                   perform_action: input_datetime.set_datetime
                   target: {entity_id: input_datetime.disposal_cleaned}
                   data: {date: "{{ now().date() | string }}"}
-                  confirmation: true
+                  confirmation: {text: "Mark Disposal as done today?"}
                 double_tap_action: {action: none}
               - type: custom:mushroom-template-card
                 primary: Razor Blade
@@ -1009,7 +1017,7 @@ views:
                   perform_action: input_datetime.set_datetime
                   target: {entity_id: input_datetime.razor_blade_changed}
                   data: {date: "{{ now().date() | string }}"}
-                  confirmation: true
+                  confirmation: {text: "Mark Razor Blade as done today?"}
                 double_tap_action: {action: none}
               - type: custom:mushroom-template-card
                 primary: Toothbrushes
@@ -1023,7 +1031,7 @@ views:
                   perform_action: input_datetime.set_datetime
                   target: {entity_id: input_datetime.toothbrushes_changed}
                   data: {date: "{{ now().date() | string }}"}
-                  confirmation: true
+                  confirmation: {text: "Mark Toothbrushes as done today?"}
                 double_tap_action: {action: none}
               - type: custom:mushroom-template-card
                 primary: Washer
@@ -1037,7 +1045,7 @@ views:
                   perform_action: input_datetime.set_datetime
                   target: {entity_id: input_datetime.washer_cleaned}
                   data: {date: "{{ now().date() | string }}"}
-                  confirmation: true
+                  confirmation: {text: "Mark Washer as done today?"}
                 double_tap_action: {action: none}
               - type: custom:mushroom-template-card
                 primary: Water Filter
@@ -1051,7 +1059,7 @@ views:
                   perform_action: input_datetime.set_datetime
                   target: {entity_id: input_datetime.water_filter_changed}
                   data: {date: "{{ now().date() | string }}"}
-                  confirmation: true
+                  confirmation: {text: "Mark Water Filter as done today?"}
                 double_tap_action: {action: none}
   # ── Vacuum (utility subview) ──────────────────────────────────────────────
   - title: Vacuum
@@ -1132,7 +1140,7 @@ views:
                   action: perform-action
                   perform_action: button.press
                   target: {entity_id: button.roborock_q8_max_reset_air_filter_consumable}
-                  confirmation: true
+                  confirmation: {text: "Reset filter usage counter?"}
                 hold_action: {action: none}
                 double_tap_action: {action: none}
               - type: custom:mushroom-template-card
@@ -1144,7 +1152,7 @@ views:
                   action: perform-action
                   perform_action: button.press
                   target: {entity_id: button.roborock_q8_max_reset_main_brush_consumable}
-                  confirmation: true
+                  confirmation: {text: "Reset main brush usage counter?"}
                 hold_action: {action: none}
                 double_tap_action: {action: none}
               - type: custom:mushroom-template-card
@@ -1156,7 +1164,7 @@ views:
                   action: perform-action
                   perform_action: button.press
                   target: {entity_id: button.roborock_q8_max_reset_side_brush_consumable}
-                  confirmation: true
+                  confirmation: {text: "Reset side brush usage counter?"}
                 hold_action: {action: none}
                 double_tap_action: {action: none}
               - type: custom:mushroom-template-card
@@ -1168,7 +1176,7 @@ views:
                   action: perform-action
                   perform_action: button.press
                   target: {entity_id: button.roborock_q8_max_reset_sensor_consumable}
-                  confirmation: true
+                  confirmation: {text: "Reset sensor usage counter?"}
                 hold_action: {action: none}
                 double_tap_action: {action: none}
 ```

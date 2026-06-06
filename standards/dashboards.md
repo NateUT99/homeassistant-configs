@@ -194,7 +194,22 @@ Utility subviews (Reminders, Vacuum, and future equivalents) are not room subvie
 For reminder cards, use `custom:mushroom-template-card` with:
 - `icon_color` as a Jinja template (`red` when overdue, `green` otherwise)
 - `secondary` showing the formatted due date: `strptime(...).strftime('%B %-d, %Y')`
-- `hold_action` calling `input_datetime.set_datetime` with today's date (mark complete), with `confirmation: true`
+- `hold_action` calling `input_datetime.set_datetime` with today's date (mark complete), with `confirmation: {text: "Mark <name> as done today?"}`
+
+---
+
+**Confirmation dialogs must always include descriptive text.** Never use `confirmation: true` (bare boolean). Always use the object form with a `text` field that tells the user exactly what will happen:
+
+```yaml
+# Wrong
+confirmation: true
+
+# Correct
+confirmation:
+  text: "Close garage door?"
+```
+
+The text should describe the irreversible or consequential action in plain language. Match tense to the action: "Close garage door?", "Reset filter usage counter?", "Mark Car Washed as done today?".
 
 ---
 
@@ -210,3 +225,4 @@ For reminder cards, use `custom:mushroom-template-card` with:
 | Chip sizing | `card_mod` → `--chip-height: 30px` | Applied to every `mushroom-chips-card` |
 | Subview nav | `type: sections, subview: true` | HA renders back arrow automatically |
 | Vacuum controls | Native `tile` with `vacuum-commands` feature | Only place native tile is used |
+| Confirmation dialog | `confirmation: {text: "..."}` | Never bare `confirmation: true` |
