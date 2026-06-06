@@ -26,10 +26,12 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   │   │   ├── AQI [green/accent/red]       mdi:smog; green ≤100 / accent 101–125 / red ≥126 → more-info
 │   │   │   └── Thermostat [grey/orange/blue] grey=idle, orange=heating, blue=cooling; current temp → /climate
 │   │   │
-│   │   ├── Strip 2: Status & Alerts  ← 3 chips always visible; alert chips append when active
+│   │   ├── Strip 2: Status & Alerts  ← 4 chips always visible; alert chips append when active
 │   │   │   ├── Alarm status [green]        normal state → Away/Night/Home/Off; hides during alert
 │   │   │   │   Alarm alert [red/orange]    alert state → triggered/pending=red, arming=orange; mutually exclusive with status
 │   │   │   ├── Vacuum [grey/orange/green]  grey=docked+not run, orange=running, green=ran today → /vacuum
+│   │   │   ├── Garage [green]              closed → more-info; hides when open (alert chips take over)
+│   │   │   │   Garage [red/orange]         open + sleeping/away=red, open + home/awake=orange → close w/ confirm
 │   │   │   ├── Reminders OK [green]        hidden when any overdue; mutually exclusive with overdue count
 │   │   │   │   Overdue reminders [red]     count > 0 → /reminders; count if 2+
 │   │   │   ├── Water leak [red]            any of 4 sensors not off → /water-leaks; count if 2+
@@ -118,15 +120,17 @@ Always-visible ambient context strip. Three chips, always present; no conditiona
 
 ### Strip 2 — Status & Alerts
 
-A single strip combining persistent status indicators with conditional alert chips. Three chips are always visible (the status anchors); alert chips append to the right when active. In a quiet house the strip shows three chips; in an alert state the count grows without disturbing the anchored positions.
+A single strip combining persistent status indicators with conditional alert chips. Four chips are always visible (the status anchors); alert chips append to the right when active. In a quiet house the strip shows four chips; in an alert state the count grows without disturbing the anchored positions.
 
-**Ordering rationale:** status chips are fixed at positions 1–3 so the strip never looks empty. Alert chips occupy positions 4+ and only appear when needed.
+**Ordering rationale:** status chips are fixed at positions 1–4 so the strip never looks empty. Alert chips occupy positions 5+ and only appear when needed.
 
 **Alarm status / Alarm alert** — Position 1; mutually exclusive pair. Alarm status (green `mdi:shield-home`, "Away" / "Night" / "Home" / "Off") is always visible during normal operation. It hides when the alarm transitions to `triggered`, `pending`, or `arming`, at which point the alarm alert chip (`mdi:shield-alert`, red or orange) takes its place at position 1.
 
 **Vacuum** — Position 2; always visible. Three color states: orange when actively running, green when docked and ran today (`input_select.vacuum_ran_today` = Yes), grey otherwise. Taps to the Vacuum subview.
 
-**Reminders OK / Overdue reminders** — Position 3; mutually exclusive pair. Green `mdi:calendar-check` when `number.overdue_reminders_count` is below 1. Replaced by a red `mdi:calendar-alert` count chip (taps to `/mobile-3/reminders`) when any reminder is overdue. Count label shown only when 2 or more are overdue.
+**Garage** — Position 3; three mutually exclusive states. Green `mdi:garage` when closed (taps to `more-info`). Replaced by `mdi:garage-open-variant` when open: red when sleeping or away (tap closes with confirmation), orange when home and awake (tap closes with confirmation). Hold always shows `more-info`.
+
+**Reminders OK / Overdue reminders** — Position 4; mutually exclusive pair. Green `mdi:calendar-check` when `number.overdue_reminders_count` is below 1. Replaced by a red `mdi:calendar-alert` count chip (taps to `/mobile-3/reminders`) when any reminder is overdue. Count label shown only when 2 or more are overdue.
 
 **Water leaks** — Conditional. A single chip replaces four individual sensors via OR condition (`state_not: "off"`). `state_not: "off"` is intentional: `unknown` (sensor offline) also triggers as a conservative default for water detection. Taps to the Water Leaks subview.
 
@@ -483,6 +487,20 @@ views:
                     | select('ne', 'off') | list | count %}
                     {{ c if c >= 2 else '' }}
                   tap_action: {action: none}
+                  hold_action: {action: none}
+                  double_tap_action: {action: none}
+              # Garage (closed) — always visible when closed; replaced by alert chips when open
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: cover.garage_door
+                    state: closed
+                chip:
+                  type: template
+                  icon: mdi:garage
+                  icon_color: green
+                  content: ""
+                  tap_action: {action: more-info, entity: cover.garage_door}
                   hold_action: {action: none}
                   double_tap_action: {action: none}
               # Garage (red) — open AND (sleeping OR away); tap closes with confirmation
