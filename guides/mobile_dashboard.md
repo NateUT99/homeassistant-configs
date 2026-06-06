@@ -18,15 +18,18 @@ Mobile 2.0 remains available as a fallback. Retirement is tracked separately, pe
 mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │
 ├── Home (sections, max_columns=1)
-│   │   Badges: Weather (state+temp), AQI (green ≤100 / accent 101–124 / red ≥126)
 │   │
 │   ├── [chip strip section — no title]
 │   │   │
-│   │   ├── Strip 1: Status & Alerts  ← 4 chips always visible; alert chips append when active
+│   │   ├── Strip 1: Environment    ← always 3 chips
+│   │   │   ├── Weather [icon+temp]          dynamic MDI icon (mdi:weather-<state>); °F → more-info
+│   │   │   ├── AQI [green/accent/red]       mdi:smog; green ≤100 / accent 101–125 / red ≥126 → more-info
+│   │   │   └── Thermostat [grey/orange/blue] grey=idle, orange=heating, blue=cooling; current temp → /climate
+│   │   │
+│   │   ├── Strip 2: Status & Alerts  ← 3 chips always visible; alert chips append when active
 │   │   │   ├── Alarm status [green]        normal state → Away/Night/Home/Off; hides during alert
 │   │   │   │   Alarm alert [red/orange]    alert state → triggered/pending=red, arming=orange; mutually exclusive with status
 │   │   │   ├── Vacuum [grey/orange/green]  grey=docked+not run, orange=running, green=ran today → /vacuum
-│   │   │   ├── Thermostat [grey/orange/blue] grey=idle, orange=heating, blue=cooling; shows current temp → /climate
 │   │   │   ├── Reminders OK [green]        hidden when any overdue; mutually exclusive with overdue count
 │   │   │   │   Overdue reminders [red]     count > 0 → /reminders; count if 2+
 │   │   │   ├── Water leak [red]            any of 4 sensors not off → /water-leaks; count if 2+
@@ -37,14 +40,14 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   │   │   ├── Garage open [orange]        not closed AND home AND awake → tap closes w/ confirm
 │   │   │   └── Trash pickup [red]          trash_pickup_pending on → icon-only
 │   │   │
-│   │   ├── Strip 2: Modes          ← conditional, all hidden when inactive
+│   │   ├── Strip 3: Modes          ← conditional, all hidden when inactive
 │   │   │   ├── Avery sleeping      (input_boolean.avery_sleeping, if not everyone sleeping)
 │   │   │   ├── Everyone sleeping   (input_boolean.everyone_sleeping)
 │   │   │   ├── Light sync          (sync box + TV both on)
 │   │   │   ├── Movie mode          (TV on)
 │   │   │   └── Quiet mode          (TV on)
 │   │   │
-│   │   └── Strip 3: Presence       ← always visible
+│   │   └── Strip 4: Presence       ← always visible
 │   │       ├── Nate                (person.nate, entity picture, shows location state)
 │   │       └── Guest               (person.guest, hold-to-toggle input_boolean.guest_mode)
 │   │
@@ -69,15 +72,14 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   └── Sensors   2×2 grid: kitchen, bathroom, master bath, utility
 │
 ├── Reminders     (utility subview)
-│   ├── Household        car, coffee grinder, dishwasher, disposal,
-│   │                    razor, toothbrushes, washer, water filter
-│   └── Vacuum Maint.    filter, main brush, side brush, sensor
+│   └── Household        car, coffee grinder, dishwasher, disposal,
+│                        razor, toothbrushes, washer, water filter
 │
 ├── Vacuum        (utility subview)
 │   ├── Map         conditional picture-entity
 │   ├── Status      state, battery, area, duration
 │   ├── Controls    native tile with vacuum-commands feature
-│   └── Consumables filter, main brush, sensor, side brush (hours remaining)
+│   └── Consumables filter, main brush, sensor, side brush (hours remaining; tap to reset w/ confirmation)
 │
 ├── Climate       (utility subview — tap target for thermostat chip)
 │   │             Badges: Inside temp+humidity (blue); tap shows per-room breakdown
@@ -102,87 +104,29 @@ The chip strip section has no title. This is intentional: HA renders an empty se
 
 ---
 
-## Home View Header Badges
-
-The Home view carries four view-level badges that are always visible above the chip strips. They provide ambient environmental context — weather state and AQI — without requiring any scroll or navigation.
-
-**Weather** — a single entity badge on `weather.apartment` showing `state_content: [state, temperature]` with no label (`show_name: false`). Gives current conditions and temperature at a glance.
-
-**AQI** — three conditional copies of `sensor.toledo_ohio_usa_air_quality_index`, each with a different static `color` and a `visibility` condition that makes exactly one visible at a time:
-
-| Range | Color | Visibility condition |
-|---|---|---|
-| ≤ 100 (Good) | `green` | `numeric_state below: 101` |
-| 101–124 (Moderate) | `accent` | `numeric_state above: 100, below: 125` |
-| ≥ 126 (Unhealthy+) | `red` | `numeric_state above: 125` |
-
-> **Note:** AQI = 125 falls in a gap between the accent and red conditions (both use strict inequality). This matches the current live config; adjust thresholds if needed.
-
-The three-badge pattern is the standard approach for driving badge color dynamically — entity badges do not support template colors, so conditional visibility is the only way to change color based on state.
-
-```yaml
-badges:
-  # Weather — state + current temperature, no label
-  - type: entity
-    show_name: false
-    show_state: true
-    show_icon: true
-    entity: weather.apartment
-    state_content: [state, temperature]
-  # AQI — three conditional badges drive color; only one visible at a time
-  - type: entity
-    show_name: true
-    show_state: true
-    show_icon: true
-    entity: sensor.toledo_ohio_usa_air_quality_index
-    name: AQI
-    state_content: state
-    color: red
-    visibility:
-      - condition: numeric_state
-        above: 125
-  - type: entity
-    show_name: true
-    show_state: true
-    show_icon: true
-    entity: sensor.toledo_ohio_usa_air_quality_index
-    name: AQI
-    state_content: state
-    color: accent
-    visibility:
-      - condition: numeric_state
-        above: 100
-        below: 125
-  - type: entity
-    show_name: true
-    show_state: true
-    show_icon: true
-    entity: sensor.toledo_ohio_usa_air_quality_index
-    name: AQI
-    state_content: state
-    color: green
-    visibility:
-      - condition: numeric_state
-        below: 101
-```
-
----
-
 ## Chip Strip Design
 
-### Strip 1 — Status & Alerts
+### Strip 1 — Environment
 
-A single strip combining persistent status indicators with conditional alert chips. Four chips are always visible (the status anchors); alert chips append to the right when active. In a quiet house the strip shows four chips; in an alert state the count grows without disturbing the anchored positions.
+Always-visible ambient context strip. Three chips, always present; no conditional logic.
 
-**Ordering rationale:** status chips are fixed at positions 1–4 so the strip never looks empty. Alert chips occupy positions 5+ and only appear when needed.
+**Weather** — Dynamic icon using `mdi:weather-{{ states('weather.apartment') }}` (with a special-case for `partlycloudy` → `mdi:weather-partly-cloudy`). Content shows current temperature in °F from `state_attr('weather.apartment', 'temperature')`. Taps to `more-info` on `weather.apartment`.
+
+**AQI** — `mdi:smog` with conditional `icon_color` driven by `sensor.toledo_ohio_usa_air_quality_index`: green ≤ 100, accent 101–125, red ≥ 126. Content shows the raw number only — the smog icon provides sufficient context. Taps to `more-info` on the sensor. Using a template chip (not an entity badge) lets `icon_color` be set via Jinja, which also fixes the gap in the old badge approach where AQI = 125 was uncovered.
+
+**Thermostat** — `mdi:home-thermometer` with `icon_color` from `hvac_action`: blue = cooling, orange = heating, grey = idle. Content shows current indoor temperature. Taps to the Climate subview.
+
+### Strip 2 — Status & Alerts
+
+A single strip combining persistent status indicators with conditional alert chips. Three chips are always visible (the status anchors); alert chips append to the right when active. In a quiet house the strip shows three chips; in an alert state the count grows without disturbing the anchored positions.
+
+**Ordering rationale:** status chips are fixed at positions 1–3 so the strip never looks empty. Alert chips occupy positions 4+ and only appear when needed.
 
 **Alarm status / Alarm alert** — Position 1; mutually exclusive pair. Alarm status (green `mdi:shield-home`, "Away" / "Night" / "Home" / "Off") is always visible during normal operation. It hides when the alarm transitions to `triggered`, `pending`, or `arming`, at which point the alarm alert chip (`mdi:shield-alert`, red or orange) takes its place at position 1.
 
 **Vacuum** — Position 2; always visible. Three color states: orange when actively running, green when docked and ran today (`input_select.vacuum_ran_today` = Yes), grey otherwise. Taps to the Vacuum subview.
 
-**Thermostat** — Position 3; always visible. Shows current indoor temperature. Color reflects `hvac_action` attribute: blue = cooling, orange = heating, grey = idle. Taps to the Climate subview.
-
-**Reminders OK / Overdue reminders** — Position 4; mutually exclusive pair. Green `mdi:calendar-check` when `number.overdue_reminders_count` is below 1. Replaced by a red `mdi:calendar-alert` count chip (taps to `/mobile-3/reminders`) when any reminder is overdue. Count label shown only when 2 or more are overdue.
+**Reminders OK / Overdue reminders** — Position 3; mutually exclusive pair. Green `mdi:calendar-check` when `number.overdue_reminders_count` is below 1. Replaced by a red `mdi:calendar-alert` count chip (taps to `/mobile-3/reminders`) when any reminder is overdue. Count label shown only when 2 or more are overdue.
 
 **Water leaks** — Conditional. A single chip replaces four individual sensors via OR condition (`state_not: "off"`). `state_not: "off"` is intentional: `unknown` (sensor offline) also triggers as a conservative default for water detection. Taps to the Water Leaks subview.
 
@@ -194,7 +138,7 @@ A single strip combining persistent status indicators with conditional alert chi
 
 **Trash pickup** — Conditional. Icon-only; `input_boolean.trash_pickup_pending` is the gate.
 
-### Strip 2 — Modes
+### Strip 3 — Modes
 
 Contextual indicators for active household modes. All conditional; the strip may be entirely empty.
 
@@ -204,7 +148,7 @@ Contextual indicators for active household modes. All conditional; the strip may
 - **Movie mode** — `input_boolean.movie_mode`, gated on TV being on
 - **Quiet mode** — `input_boolean.sonos_night_mode`, gated on TV being on; uses yellow rather than green
 
-### Strip 3 — Presence
+### Strip 4 — Presence
 
 Always visible. Nate's chip uses `use_entity_picture: true`. Guest chip disables tap (preventing accidental activation) and uses hold-to-toggle `input_boolean.guest_mode`.
 
@@ -261,7 +205,6 @@ Two sections:
 
 Entity triplet per task: `input_datetime.<name>` (last done), `sensor.<name>_due` (computed due date), `binary_sensor.<name>_overdue` (boolean overdue flag).
 
-**Vacuum Maintenance** — 2-col grid of `mushroom-template-card` for the four Roborock Q8 Max consumables. Each card shows hours remaining and taps to reset the consumable (with confirmation). Icon is red when the consumable's overdue binary sensor is active.
 
 ---
 
@@ -272,15 +215,15 @@ Four sections:
 - **Map** — `picture-entity` showing `image.roborock_q8_max_apartment`, conditionally visible when vacuum is not docked OR `input_select.vacuum_ran_today` is "Yes"
 - **Status** — 2-col grid: vacuum state, battery, cleaning area, duration
 - **Controls** — Native `tile` card with `vacuum-commands` feature (start/pause, stop, return home); `color: green`, `state_content: [state, area_name]`, `grid_options: {columns: full}`, `features_position: inline`. Only place in this dashboard where a native tile card is used; Mushroom has no vacuum-specific card.
-- **Consumables** — 2-col grid of the four time-left sensors (read-only; actionable reset is in the Reminders subview)
+- **Consumables** — 2-col grid of `mushroom-template-card` for filter, main brush, side brush, and sensor. Each card shows hours remaining as secondary text and icon color (red when overdue binary sensor is on, green otherwise). Tap resets the consumable via `button.press` with confirmation. `number.overdue_reminders_count` does not include vacuum consumables — they are tracked independently here.
 
 ---
 
 ## Climate Subview
 
-Tap target for the thermostat chip on strip 1.
+Tap target for the thermostat chip on strip 1 (Environment).
 
-**Badges** — Two entity badges in the view header, both blue: `sensor.apartment_temperature` (`mdi:home-thermometer`, labeled "Inside") and `sensor.apartment_humidity` (`mdi:water-percent`, labeled "Inside"). Both are group sensors — tapping either opens more-info showing readings from all member room sensors. Outdoor conditions are available via the Home view header badges.
+**Badges** — Two entity badges in the view header, both blue: `sensor.apartment_temperature` (`mdi:home-thermometer`, labeled "Inside") and `sensor.apartment_humidity` (`mdi:water-percent`, labeled "Inside"). Both are group sensors — tapping either opens more-info showing readings from all member room sensors. Outdoor AQI is accessible via the AQI chip on strip 1 (Home view).
 
 Two sections:
 
@@ -308,50 +251,7 @@ views:
   - title: Home
     type: sections
     max_columns: 1
-    badges:
-      # Weather — state + current temperature, no label
-      - type: entity
-        show_name: false
-        show_state: true
-        show_icon: true
-        entity: weather.apartment
-        state_content: [state, temperature]
-      # AQI — three conditional badges drive color; only one visible at a time
-      # (entity badges don't support template colors, so conditional visibility is the workaround)
-      - type: entity
-        show_name: true
-        show_state: true
-        show_icon: true
-        entity: sensor.toledo_ohio_usa_air_quality_index
-        name: AQI
-        state_content: state
-        color: red
-        visibility:
-          - condition: numeric_state
-            above: 125
-      - type: entity
-        show_name: true
-        show_state: true
-        show_icon: true
-        entity: sensor.toledo_ohio_usa_air_quality_index
-        name: AQI
-        state_content: state
-        color: accent
-        visibility:
-          - condition: numeric_state
-            above: 100
-            below: 125
-      - type: entity
-        show_name: true
-        show_state: true
-        show_icon: true
-        entity: sensor.toledo_ohio_usa_air_quality_index
-        name: AQI
-        state_content: state
-        color: green
-        visibility:
-          - condition: numeric_state
-            below: 101
+    badges: []
     card_mod:
       style: ":host { --ha-view-sections-column-gap: 8px; } hui-sections-view { --ha-view-sections-column-gap: 8px; }"
     sections:
@@ -359,8 +259,38 @@ views:
       # Chip strips — no section title so the block collapses when quiet
       - cards:
 
-          # Strip 1 — Status anchors (positions 1–4, always visible) + alert chips (conditional)
-          # Quiet state: 4 chips. Alert chips append to the right without shifting anchors.
+          # Strip 1 — Environment (always 3 chips)
+          - type: custom:mushroom-chips-card
+            alignment: center
+            card_mod:
+              style: "ha-card { --chip-height: 30px; --chip-padding: 0 6px; }"
+            chips:
+              # Weather — dynamic icon from state; partlycloudy handled specially (MDI naming mismatch)
+              - type: template
+                icon: "{% set w = states('weather.apartment') %}{% if w == 'partlycloudy' %}mdi:weather-partly-cloudy{% else %}mdi:weather-{{ w }}{% endif %}"
+                content: "{{ state_attr('weather.apartment', 'temperature') | int }}°F"
+                tap_action: {action: more-info, entity: weather.apartment}
+                hold_action: {action: none}
+                double_tap_action: {action: none}
+              # AQI — template chip fixes the badge gap (125 now covered by accent); mdi:smog = outdoor context
+              - type: template
+                icon: mdi:smog
+                icon_color: "{% set aqi = states('sensor.toledo_ohio_usa_air_quality_index') | int %}{% if aqi >= 126 %}red{% elif aqi >= 101 %}accent{% else %}green{% endif %}"
+                content: "{{ states('sensor.toledo_ohio_usa_air_quality_index') }}"
+                tap_action: {action: more-info, entity: sensor.toledo_ohio_usa_air_quality_index}
+                hold_action: {action: none}
+                double_tap_action: {action: none}
+              # Thermostat — color = hvac_action; shows current indoor temp
+              - type: template
+                icon: mdi:home-thermometer
+                icon_color: "{% set a = state_attr('climate.living_room_thermostat', 'hvac_action') %}{% if a == 'cooling' %}blue{% elif a == 'heating' %}orange{% else %}grey{% endif %}"
+                content: "{{ state_attr('climate.living_room_thermostat', 'current_temperature') | int }}°"
+                tap_action: {action: navigate, navigation_path: /mobile-3/climate}
+                hold_action: {action: none}
+                double_tap_action: {action: none}
+
+          # Strip 2 — Status anchors (positions 1–3, always visible) + alert chips (conditional)
+          # Quiet state: 3 chips. Alert chips append to the right without shifting anchors.
           - type: custom:mushroom-chips-card
             alignment: center
             card_mod:
@@ -415,15 +345,7 @@ views:
                 tap_action: {action: navigate, navigation_path: /mobile-3/vacuum}
                 hold_action: {action: none}
                 double_tap_action: {action: none}
-              # Position 3: Thermostat — always visible; color = hvac_action not mode state
-              - type: template
-                icon: mdi:home-thermometer
-                icon_color: "{{ 'blue' if state_attr('climate.living_room_thermostat', 'hvac_action') == 'cooling' else ('orange' if state_attr('climate.living_room_thermostat', 'hvac_action') == 'heating' else 'grey') }}"
-                content: "{{ state_attr('climate.living_room_thermostat', 'current_temperature') | int }}°"
-                tap_action: {action: navigate, navigation_path: /mobile-3/climate}
-                hold_action: {action: none}
-                double_tap_action: {action: none}
-              # Position 4: Reminders OK (normal) / Overdue reminders (alert) — mutually exclusive
+              # Position 3: Reminders OK (normal) / Overdue reminders (alert) — mutually exclusive
               - type: conditional
                 conditions:
                   - condition: numeric_state
@@ -630,7 +552,7 @@ views:
                   hold_action: {action: none}
                   double_tap_action: {action: none}
 
-          # Strip 2 — Modes (all conditional)
+          # Strip 3 — Modes (all conditional)
           - type: custom:mushroom-chips-card
             alignment: center
             card_mod:
@@ -713,7 +635,7 @@ views:
                   hold_action: {action: none}
                   double_tap_action: {action: none}
 
-          # Strip 3 — Presence (always visible)
+          # Strip 4 — Presence (always visible)
           - type: custom:mushroom-chips-card
             alignment: center
             card_mod:
@@ -1131,61 +1053,6 @@ views:
                   data: {date: "{{ now().date() | string }}"}
                   confirmation: true
                 double_tap_action: {action: none}
-      - title: Vacuum Maintenance
-        cards:
-          - type: grid
-            columns: 2
-            square: false
-            cards:
-              - type: custom:mushroom-template-card
-                primary: Filter
-                secondary: "{{ states('sensor.roborock_q8_max_filter_time_left') | round(0) | int }}h remaining"
-                icon: mdi:air-filter
-                icon_color: "{{ 'red' if is_state('binary_sensor.roborock_replace_filter', 'on') else 'green' }}"
-                tap_action:
-                  action: perform-action
-                  perform_action: button.press
-                  target: {entity_id: button.roborock_q8_max_reset_air_filter_consumable}
-                  confirmation: true
-                hold_action: {action: none}
-                double_tap_action: {action: none}
-              - type: custom:mushroom-template-card
-                primary: Main Brush
-                secondary: "{{ states('sensor.roborock_q8_max_main_brush_time_left') | round(0) | int }}h remaining"
-                icon: mdi:brush
-                icon_color: "{{ 'red' if is_state('binary_sensor.roborock_replace_main_brush', 'on') else 'green' }}"
-                tap_action:
-                  action: perform-action
-                  perform_action: button.press
-                  target: {entity_id: button.roborock_q8_max_reset_main_brush_consumable}
-                  confirmation: true
-                hold_action: {action: none}
-                double_tap_action: {action: none}
-              - type: custom:mushroom-template-card
-                primary: Side Brush
-                secondary: "{{ states('sensor.roborock_q8_max_side_brush_time_left') | round(0) | int }}h remaining"
-                icon: mdi:fan
-                icon_color: "{{ 'red' if is_state('binary_sensor.roborock_replace_side_brush', 'on') else 'green' }}"
-                tap_action:
-                  action: perform-action
-                  perform_action: button.press
-                  target: {entity_id: button.roborock_q8_max_reset_side_brush_consumable}
-                  confirmation: true
-                hold_action: {action: none}
-                double_tap_action: {action: none}
-              - type: custom:mushroom-template-card
-                primary: Sensor
-                secondary: "{{ states('sensor.roborock_q8_max_sensor_time_left') | round(0) | int }}h remaining"
-                icon: mdi:smoke-detector
-                icon_color: "{{ 'red' if is_state('binary_sensor.roborock_clean_sensor', 'on') else 'green' }}"
-                tap_action:
-                  action: perform-action
-                  perform_action: button.press
-                  target: {entity_id: button.roborock_q8_max_reset_sensor_consumable}
-                  confirmation: true
-                hold_action: {action: none}
-                double_tap_action: {action: none}
-
   # ── Vacuum (utility subview) ──────────────────────────────────────────────
   - title: Vacuum
     path: vacuum
@@ -1256,22 +1123,54 @@ views:
             columns: 2
             square: false
             cards:
-              - type: custom:mushroom-entity-card
-                entity: sensor.roborock_q8_max_filter_time_left
-                name: Filter
-                content_info: state
-              - type: custom:mushroom-entity-card
-                entity: sensor.roborock_q8_max_main_brush_time_left
-                name: Main Brush
-                content_info: state
-              - type: custom:mushroom-entity-card
-                entity: sensor.roborock_q8_max_sensor_time_left
-                name: Sensor
-                content_info: state
-              - type: custom:mushroom-entity-card
-                entity: sensor.roborock_q8_max_side_brush_time_left
-                name: Side Brush
-                content_info: state
+              - type: custom:mushroom-template-card
+                primary: Filter
+                secondary: "{{ states('sensor.roborock_q8_max_filter_time_left') | round(0) | int }}h remaining"
+                icon: mdi:air-filter
+                icon_color: "{{ 'red' if is_state('binary_sensor.roborock_replace_filter', 'on') else 'green' }}"
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target: {entity_id: button.roborock_q8_max_reset_air_filter_consumable}
+                  confirmation: true
+                hold_action: {action: none}
+                double_tap_action: {action: none}
+              - type: custom:mushroom-template-card
+                primary: Main Brush
+                secondary: "{{ states('sensor.roborock_q8_max_main_brush_time_left') | round(0) | int }}h remaining"
+                icon: mdi:brush
+                icon_color: "{{ 'red' if is_state('binary_sensor.roborock_replace_main_brush', 'on') else 'green' }}"
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target: {entity_id: button.roborock_q8_max_reset_main_brush_consumable}
+                  confirmation: true
+                hold_action: {action: none}
+                double_tap_action: {action: none}
+              - type: custom:mushroom-template-card
+                primary: Side Brush
+                secondary: "{{ states('sensor.roborock_q8_max_side_brush_time_left') | round(0) | int }}h remaining"
+                icon: mdi:fan
+                icon_color: "{{ 'red' if is_state('binary_sensor.roborock_replace_side_brush', 'on') else 'green' }}"
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target: {entity_id: button.roborock_q8_max_reset_side_brush_consumable}
+                  confirmation: true
+                hold_action: {action: none}
+                double_tap_action: {action: none}
+              - type: custom:mushroom-template-card
+                primary: Sensor
+                secondary: "{{ states('sensor.roborock_q8_max_sensor_time_left') | round(0) | int }}h remaining"
+                icon: mdi:smoke-detector
+                icon_color: "{{ 'red' if is_state('binary_sensor.roborock_clean_sensor', 'on') else 'green' }}"
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target: {entity_id: button.roborock_q8_max_reset_sensor_consumable}
+                  confirmation: true
+                hold_action: {action: none}
+                double_tap_action: {action: none}
 ```
 
 ---

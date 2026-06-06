@@ -52,9 +52,9 @@ Do not introduce additional HACS frontend resources without explicit decision. W
 
 ## Home View Structure
 
-Every dashboard's primary view is titled **Home**, uses `type: sections` and `max_columns: 1` (mobile). It contains view-level header badges and three sections.
+Every dashboard's primary view is titled **Home**, uses `type: sections` and `max_columns: 1` (mobile). It contains three sections and optionally view-level header badges.
 
-**Header badges** — ambient environmental context that is always visible without scrolling (weather, AQI). Use three conditional copies of the same entity to drive color via `visibility` conditions rather than templating (entity badges don't support template colors). Only put read-only, non-navigational context here — header badges have limited tap affordance and no conditional-hide behavior.
+**Header badges** — optional ambient environmental context visible without scrolling. Use only for read-only, non-navigational context; badges have limited tap affordance and no conditional-hide behavior. If color differentiation is needed, use three conditional copies of the same entity with distinct static `color` values and `visibility` conditions (entity badges don't support template colors). An alternative approach: place always-visible ambient context in a dedicated first chip strip instead of badges — this eliminates the badge-to-section spacing gap and allows `type: template` color logic directly.
 
 **Sections**, in this order:
 
@@ -68,7 +68,7 @@ Do not reorder these sections or add sections between them without updating this
 
 ## Chip Strip System
 
-The chip strip section contains four `custom:mushroom-chips-card` rows stacked vertically. Apply card-mod sizing to every strip:
+The chip strip section contains `custom:mushroom-chips-card` rows stacked vertically (Mobile 3.0 uses four). Apply card-mod sizing to every strip:
 
 ```yaml
 card_mod:
