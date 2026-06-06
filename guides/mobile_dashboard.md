@@ -18,6 +18,7 @@ Mobile 2.0 remains available as a fallback. Retirement is tracked separately, pe
 mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │
 ├── Home (sections, max_columns=1)
+│   │   Badges: Weather (state+temp), AQI (green ≤100 / accent 101–124 / red ≥126)
 │   │
 │   ├── [chip strip section — no title]
 │   │   │
@@ -29,7 +30,6 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   │   │   ├── Exterior door [orange]      any of 3 doors open AND home AND awake → count if 2+
 │   │   │   ├── Garage open [red]           not closed AND (sleeping OR away) → tap closes w/ confirm
 │   │   │   ├── Garage open [orange]        not closed AND home AND awake → tap closes w/ confirm
-│   │   │   ├── AQI high [red]              outdoor_air_quality_index_high on → shows live AQI value → tap more-info
 │   │   │   ├── Trash pickup [red]          trash_pickup_pending on → icon-only
 │   │   │   └── Overdue reminders [red]     count > 0 → tap navigates to /reminders; count if 2+
 │   │   │
@@ -85,8 +85,8 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   │             Badges: Inside temp+humidity (blue), Outside temp+humidity + AQI (amber)
 │   ├── Controls  thermostat tile + comfort select (home/sleep/away) + clear hold
 │   │             + HVAC Runtime subtitle + 28-day line chart (cooling + heating)
-│   └── Weather   forecast (6col) + 7-day hourly AQI line (6col) side-by-side
-│                 + 3-col grid: dominant pollutant, PM2.5, ozone
+│   └── Weather   forecast (6col, 2 slots) + 7-day hourly AQI line (6col) side-by-side
+│                 + 2-col grid: PM2.5, ozone
 │
 └── [pending subviews]
     Master Bedroom, Avery's Room, Office, Kitchen, Bathroom, Garage, Outside
@@ -102,6 +102,72 @@ The chip strip section has no title. This is intentional: HA renders an empty se
 - Mushroom Cards installed via HACS (`lovelace-mushroom`)
 - card-mod installed via HACS (`lovelace-card-mod`)
 - Adaptive Lighting integration active (justifies no-slider rule)
+
+---
+
+## Home View Header Badges
+
+The Home view carries four view-level badges that are always visible above the chip strips. They provide ambient environmental context — weather state and AQI — without requiring any scroll or navigation.
+
+**Weather** — a single entity badge on `weather.apartment` showing `state_content: [state, temperature]` with no label (`show_name: false`). Gives current conditions and temperature at a glance.
+
+**AQI** — three conditional copies of `sensor.toledo_ohio_usa_air_quality_index`, each with a different static `color` and a `visibility` condition that makes exactly one visible at a time:
+
+| Range | Color | Visibility condition |
+|---|---|---|
+| ≤ 100 (Good) | `green` | `numeric_state below: 101` |
+| 101–124 (Moderate) | `accent` | `numeric_state above: 100, below: 125` |
+| ≥ 126 (Unhealthy+) | `red` | `numeric_state above: 125` |
+
+> **Note:** AQI = 125 falls in a gap between the accent and red conditions (both use strict inequality). This matches the current live config; adjust thresholds if needed.
+
+The three-badge pattern is the standard approach for driving badge color dynamically — entity badges do not support template colors, so conditional visibility is the only way to change color based on state.
+
+```yaml
+badges:
+  # Weather — state + current temperature, no label
+  - type: entity
+    show_name: false
+    show_state: true
+    show_icon: true
+    entity: weather.apartment
+    state_content: [state, temperature]
+  # AQI — three conditional badges drive color; only one visible at a time
+  - type: entity
+    show_name: true
+    show_state: true
+    show_icon: true
+    entity: sensor.toledo_ohio_usa_air_quality_index
+    name: AQI
+    state_content: state
+    color: red
+    visibility:
+      - condition: numeric_state
+        above: 125
+  - type: entity
+    show_name: true
+    show_state: true
+    show_icon: true
+    entity: sensor.toledo_ohio_usa_air_quality_index
+    name: AQI
+    state_content: state
+    color: accent
+    visibility:
+      - condition: numeric_state
+        above: 100
+        below: 125
+  - type: entity
+    show_name: true
+    show_state: true
+    show_icon: true
+    entity: sensor.toledo_ohio_usa_air_quality_index
+    name: AQI
+    state_content: state
+    color: green
+    visibility:
+      - condition: numeric_state
+        below: 101
+```
 
 ---
 
@@ -123,8 +189,6 @@ When the strip is empty (no active alerts), it renders as zero-height and no vis
 
 **Garage door** — Two chips, mutually exclusive. Orange when the door is open AND someone is home AND nobody is sleeping (informational — door left open during normal hours). Red when open AND (sleeping OR away) — the contextual alert. Only one chip is ever visible at a time. Both chips use tap-to-close with confirmation; hold shows `more-info`.
 
-**AQI high** — `binary_sensor.outdoor_air_quality_index_high` is the gate. Shows the live integer value of `sensor.toledo_ohio_usa_air_quality_index` as the content label. Tap opens `more-info` on the AQI sensor.
-
 **Trash pickup** — `input_boolean.trash_pickup_pending` is the gate. Icon-only; no content label.
 
 **Overdue reminders** — Moved here from strip 3. Shows a count label only when 2 or more reminders are overdue; icon-only when exactly 1 is overdue. Tapping navigates to `/mobile-3/reminders`.
@@ -133,7 +197,7 @@ When the strip is empty (no active alerts), it renders as zero-height and no vis
 
 Always-present indicators that represent ongoing or normal-state conditions. Uses `type: entity` chips where state-based coloring is appropriate.
 
-**Alarm status** — Position 1, mirroring the strip 1 alarm chip. Green `mdi:shield-home` showing "Away", "Home", or "Off" depending on `alarm_control_panel.home_alarm` state. Hides when the alarm is in any alert state (triggered/pending/arming), at which point the strip 1 alarm chip takes over at the same column position.
+**Alarm status** — Position 1, mirroring the strip 1 alarm chip. Green `mdi:shield-home` showing "Away", "Night", "Home", or "Off" depending on `alarm_control_panel.home_alarm` state. Hides when the alarm is in any alert state (triggered/pending/arming), at which point the strip 1 alarm chip takes over at the same column position.
 
 **Vacuum** — Always visible. Three color states driven by `type: template`: orange when actively running (state not `docked`), green when docked and `input_select.vacuum_ran_today` = Yes, grey when docked and not yet run today. Taps to the Vacuum subview.
 
@@ -232,7 +296,7 @@ Tap target for the thermostat chip on strip 2.
 Two sections:
 
 - **Controls** — Thermostat tile (`climate.living_room_thermostat`, `grid_options: {columns: 6}`, `features_position: bottom`, HVAC modes + target temperature + fan modes, `state_content: [current_temperature, current_humidity]`). Comfort Setting tile (`select.living_room_thermostat_current_mode` with `select-options` feature — Home/Sleep/Away). Clear Hold tile (`button.living_room_thermostat_clear_hold`). Below these, an "HVAC Runtime" subtitle heading followed by a `statistics-graph` line chart (`chart_type: line`, `period: day`, `stat_types: [max]`, `days_to_show: 28`, `grid_options: {columns: full}`) for `sensor.cooling_today` and `sensor.heating_today` — two lines showing cooling and heating daily totals over 4 weeks; daily max equals daily total since both sensors reset at midnight.
-- **Weather** — Side-by-side layout using `grid_options`: `weather-forecast` card (3-slot daily, `grid_options: {columns: 6, rows: 4}`) and a `statistics-graph` line chart for `sensor.toledo_ohio_usa_air_quality_index` (`period: hour`, `stat_types: [mean]`, `days_to_show: 7`, `grid_options: {columns: 6, rows: 4}`) sit next to each other at equal width. Below, a 3-column grid shows dominant pollutant, PM2.5, and ozone. AQI is not in the grid — it's shown in the chart above and as a badge in the header.
+- **Weather** — Side-by-side layout using `grid_options`: `weather-forecast` card (2-slot daily, `grid_options: {columns: 6, rows: 4}`) and a `statistics-graph` line chart for `sensor.toledo_ohio_usa_air_quality_index` (`period: hour`, `stat_types: [mean]`, `days_to_show: 7`, `grid_options: {columns: 6, rows: 4}`) sit next to each other at equal width. Below, a 2-column grid shows PM2.5 and ozone. AQI and dominant pollutant are not in the grid — AQI is shown in the chart above and as a Home view header badge.
 
 > **Note on `grid_options`:** The `tile` card in a `sections` view defaults to a 1-column layout and renders at half-width unless you set `grid_options: {columns: 12}` (or `columns: full`). This is different from `grid` cards, which fill available width automatically.
 
@@ -255,6 +319,50 @@ views:
   - title: Home
     type: sections
     max_columns: 1
+    badges:
+      # Weather — state + current temperature, no label
+      - type: entity
+        show_name: false
+        show_state: true
+        show_icon: true
+        entity: weather.apartment
+        state_content: [state, temperature]
+      # AQI — three conditional badges drive color; only one visible at a time
+      # (entity badges don't support template colors, so conditional visibility is the workaround)
+      - type: entity
+        show_name: true
+        show_state: true
+        show_icon: true
+        entity: sensor.toledo_ohio_usa_air_quality_index
+        name: AQI
+        state_content: state
+        color: red
+        visibility:
+          - condition: numeric_state
+            above: 125
+      - type: entity
+        show_name: true
+        show_state: true
+        show_icon: true
+        entity: sensor.toledo_ohio_usa_air_quality_index
+        name: AQI
+        state_content: state
+        color: accent
+        visibility:
+          - condition: numeric_state
+            above: 100
+            below: 125
+      - type: entity
+        show_name: true
+        show_state: true
+        show_icon: true
+        entity: sensor.toledo_ohio_usa_air_quality_index
+        name: AQI
+        state_content: state
+        color: green
+        visibility:
+          - condition: numeric_state
+            below: 101
     card_mod:
       style: ":host { --ha-view-sections-column-gap: 8px; } hui-sections-view { --ha-view-sections-column-gap: 8px; }"
     sections:
@@ -457,20 +565,6 @@ views:
                     confirmation: true
                   hold_action: {action: more-info, entity: cover.garage_door}
                   double_tap_action: {action: none}
-              # AQI high — shows live AQI value; gate is binary_sensor not the sensor itself
-              - type: conditional
-                conditions:
-                  - condition: state
-                    entity: binary_sensor.outdoor_air_quality_index_high
-                    state: "on"
-                chip:
-                  type: template
-                  icon: mdi:smog
-                  icon_color: red
-                  content: "{{ states('sensor.toledo_ohio_usa_air_quality_index') | int }}"
-                  tap_action: {action: more-info, entity: sensor.toledo_ohio_usa_air_quality_index}
-                  hold_action: {action: none}
-                  double_tap_action: {action: none}
               # Trash — icon-only
               - type: conditional
                 conditions:
@@ -523,7 +617,7 @@ views:
                   type: template
                   icon: mdi:shield-home
                   icon_color: green
-                  content: "{{ 'Away' if is_state('alarm_control_panel.home_alarm', 'armed_away') else ('Home' if is_state('alarm_control_panel.home_alarm', 'armed_home') else 'Off') }}"
+                  content: "{{ 'Away' if is_state('alarm_control_panel.home_alarm', 'armed_away') else ('Night' if is_state('alarm_control_panel.home_alarm', 'armed_night') else ('Home' if is_state('alarm_control_panel.home_alarm', 'armed_home') else 'Off')) }}"
                   tap_action: {action: more-info, entity: alarm_control_panel.home_alarm}
                   hold_action: {action: none}
                   double_tap_action: {action: none}
@@ -918,7 +1012,8 @@ views:
             forecast_type: daily
             show_current: true
             show_forecast: true
-            forecast_slots: 3
+            forecast_slots: 2
+            round_temperature: true
             grid_options:
               columns: 6
               rows: 4
@@ -935,18 +1030,13 @@ views:
             days_to_show: 7
             chart_type: line
             hide_legend: false
-          # AQI omitted from grid — it's shown in chart above and as a badge
           - type: grid
-            columns: 3
+            columns: 2
             square: false
             grid_options:
               columns: full
               rows: auto
             cards:
-              - type: custom:mushroom-entity-card
-                entity: sensor.toledo_ohio_usa_dominant_pollutant
-                name: Dominant
-                content_info: state
               - type: custom:mushroom-entity-card
                 entity: sensor.toledo_ohio_usa_pm2_5
                 name: PM2.5
@@ -1282,7 +1372,6 @@ views:
 | Outdoor AQI | `sensor.toledo_ohio_usa_air_quality_index` | Entity |
 | Outdoor PM2.5 | `sensor.toledo_ohio_usa_pm2_5` | Entity |
 | Outdoor ozone | `sensor.toledo_ohio_usa_ozone` | Entity |
-| Outdoor dominant pollutant | `sensor.toledo_ohio_usa_dominant_pollutant` | Entity |
 | AQI high alert | `binary_sensor.outdoor_air_quality_index_high` | Entity |
 | Trash pickup pending | `input_boolean.trash_pickup_pending` | Helper |
 | Trash pickup label | `input_text.trash_pickup_pending_label` | Helper |

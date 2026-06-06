@@ -52,12 +52,15 @@ Do not introduce additional HACS frontend resources without explicit decision. W
 
 ## Home View Structure
 
-Every dashboard's primary view is titled **Home**, uses `type: sections` and `max_columns: 1` (mobile). It contains four sections in this order:
+Every dashboard's primary view is titled **Home**, uses `type: sections` and `max_columns: 1` (mobile). It contains view-level header badges and three sections.
+
+**Header badges** — ambient environmental context that is always visible without scrolling (weather, AQI). Use three conditional copies of the same entity to drive color via `visibility` conditions rather than templating (entity badges don't support template colors). Only put read-only, non-navigational context here — header badges have limited tap affordance and no conditional-hide behavior.
+
+**Sections**, in this order:
 
 1. **Chip strips** — no section title (omitting the title lets the section collapse visually when all chips are inactive)
 2. **Rooms** — room tile grid
 3. **House** — cross-room utility controls (climate, alarm, vacuum)
-4. **Weather** — forecast and outside conditions
 
 Do not reorder these sections or add sections between them without updating this standard.
 
