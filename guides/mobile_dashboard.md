@@ -82,11 +82,10 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   └── Consumables filter, main brush, sensor, side brush (hours remaining)
 │
 ├── Climate       (utility subview — tap target for thermostat chip)
-│   │             Badges: Inside temp+humidity (blue), Outside temp+humidity + AQI (amber)
+│   │             Badges: Inside temp+humidity (blue); tap shows per-room breakdown
 │   ├── Controls  thermostat tile + comfort select (home/sleep/away) + clear hold
-│   │             + HVAC Runtime subtitle + 28-day line chart (cooling + heating)
-│   └── Weather   forecast (6col, 2 slots) + 7-day hourly AQI line (6col) side-by-side
-│                 + 2-col grid: PM2.5, ozone
+│   │             + HVAC Runtime subtitle + today's cooling/heating summary card
+│   └── HVAC History  (collapsed by default) 28-day line chart (cooling + heating)
 │
 └── [pending subviews]
     Master Bedroom, Avery's Room, Office, Kitchen, Bathroom, Garage, Outside
@@ -291,12 +290,12 @@ Four sections:
 
 Tap target for the thermostat chip on strip 2.
 
-**Badges** — Five entity badges in the view header. Blue pair (`mdi:home-thermometer` + `mdi:water-percent`, both labeled "Inside"): `sensor.apartment_temperature` and `sensor.apartment_humidity`. Amber trio (`mdi:sun-thermometer` + `mdi:water-percent` + `mdi:smog`, all labeled "Outside" / "AQI"): `sensor.outside_temperature`, `sensor.outside_humidity`, and `sensor.toledo_ohio_usa_air_quality_index`. Icon differentiates temperature from humidity from air quality; color differentiates inside from outside.
+**Badges** — Two entity badges in the view header, both blue: `sensor.apartment_temperature` (`mdi:home-thermometer`, labeled "Inside") and `sensor.apartment_humidity` (`mdi:water-percent`, labeled "Inside"). Both are group sensors — tapping either opens more-info showing readings from all member room sensors. Outdoor conditions are available via the Home view header badges.
 
 Two sections:
 
-- **Controls** — Thermostat tile (`climate.living_room_thermostat`, `grid_options: {columns: 6}`, `features_position: bottom`, HVAC modes + target temperature + fan modes, `state_content: [current_temperature, current_humidity]`). Comfort Setting tile (`select.living_room_thermostat_current_mode` with `select-options` feature — Home/Sleep/Away). Clear Hold tile (`button.living_room_thermostat_clear_hold`). Below these, an "HVAC Runtime" subtitle heading followed by a `statistics-graph` line chart (`chart_type: line`, `period: day`, `stat_types: [max]`, `days_to_show: 28`, `grid_options: {columns: full}`) for `sensor.cooling_today` and `sensor.heating_today` — two lines showing cooling and heating daily totals over 4 weeks; daily max equals daily total since both sensors reset at midnight.
-- **Weather** — Side-by-side layout using `grid_options`: `weather-forecast` card (2-slot daily, `grid_options: {columns: 6, rows: 4}`) and a `statistics-graph` line chart for `sensor.toledo_ohio_usa_air_quality_index` (`period: hour`, `stat_types: [mean]`, `days_to_show: 7`, `grid_options: {columns: 6, rows: 4}`) sit next to each other at equal width. Below, a 2-column grid shows PM2.5 and ozone. AQI and dominant pollutant are not in the grid — AQI is shown in the chart above and as a Home view header badge.
+- **Controls** — Thermostat tile (`climate.living_room_thermostat`, `grid_options: {columns: 6}`, `features_position: bottom`, HVAC modes + target temperature + fan modes, `state_content: [current_temperature, current_humidity]`). Comfort Setting tile (`select.living_room_thermostat_current_mode` with `select-options` feature — Home/Sleep/Away). Clear Hold tile (`button.living_room_thermostat_clear_hold`). Below these, an "HVAC Runtime" subtitle heading followed by a `mushroom-template-card` showing today's totals ("Cooling: X.X h · Heating: X.X h") from `sensor.cooling_today` and `sensor.heating_today`. Icon color reflects which mode ran today: blue = cooling, orange = heating, grey = neither.
+- **HVAC History** (`collapsed: true`) — 28-day `statistics-graph` line chart (`chart_type: line`, `period: day`, `stat_types: [max]`, `days_to_show: 28`) for `sensor.cooling_today` and `sensor.heating_today`. Hidden by default; tap the section header to expand. Daily max equals daily total since both sensors reset at midnight.
 
 > **Note on `grid_options`:** The `tile` card in a `sections` view defaults to a 1-column layout and renders at half-width unless you set `grid_options: {columns: 12}` (or `columns: full`). This is different from `grid` cards, which fill available width automatically.
 
@@ -932,7 +931,7 @@ views:
     subview: true
     max_columns: 1
     badges:
-      # Blue = inside; amber = outside. Icon differentiates temp from humidity within each pair.
+      # Both blue; both are group sensors — tap opens per-room breakdown via more-info
       - type: entity
         entity: sensor.apartment_temperature
         name: Inside
@@ -943,21 +942,6 @@ views:
         name: Inside
         icon: mdi:water-percent
         color: blue
-      - type: entity
-        entity: sensor.outside_temperature
-        name: Outside
-        icon: mdi:sun-thermometer
-        color: amber
-      - type: entity
-        entity: sensor.outside_humidity
-        name: Outside
-        icon: mdi:water-percent
-        color: amber
-      - type: entity
-        entity: sensor.toledo_ohio_usa_air_quality_index
-        name: AQI
-        icon: mdi:smog
-        color: amber
     sections:
       - cards:
           - type: heading
@@ -988,8 +972,21 @@ views:
           - type: heading
             heading: HVAC Runtime
             heading_style: subtitle
-          # 28-day line: daily max = daily total since sensors reset at midnight
-          # Two lines (cooling + heating) show usage pattern and week-over-week trend
+          # icon_color: blue=cooling ran today, orange=heating ran today, grey=neither
+          - type: custom:mushroom-template-card
+            primary: Today
+            secondary: "Cooling: {{ states('sensor.cooling_today') | float | round(1) }} h · Heating: {{ states('sensor.heating_today') | float | round(1) }} h"
+            icon: mdi:heat-pump
+            icon_color: "{{ 'blue' if states('sensor.cooling_today') | float > 0 else ('orange' if states('sensor.heating_today') | float > 0 else 'grey') }}"
+            tap_action: {action: none}
+            hold_action: {action: none}
+            double_tap_action: {action: none}
+
+      # Collapsed by default — tap section header to expand
+      - title: HVAC History
+        collapsed: true
+        cards:
+          # daily max = daily total since sensors reset at midnight
           - type: statistics-graph
             grid_options:
               columns: full
@@ -1003,48 +1000,6 @@ views:
             period: day
             days_to_show: 28
             chart_type: line
-      - cards:
-          - type: heading
-            heading: Weather
-          # Weather forecast and AQI chart sit side-by-side at equal width (6col each)
-          - type: weather-forecast
-            entity: weather.apartment
-            forecast_type: daily
-            show_current: true
-            show_forecast: true
-            forecast_slots: 2
-            round_temperature: true
-            grid_options:
-              columns: 6
-              rows: 4
-          # 7-day hourly AQI line — hourly resolution gives a richer picture than daily mean
-          - type: statistics-graph
-            grid_options:
-              columns: 6
-              rows: 4
-            entities:
-              - entity: sensor.toledo_ohio_usa_air_quality_index
-                name: AQI
-            stat_types: [mean]
-            period: hour
-            days_to_show: 7
-            chart_type: line
-            hide_legend: false
-          - type: grid
-            columns: 2
-            square: false
-            grid_options:
-              columns: full
-              rows: auto
-            cards:
-              - type: custom:mushroom-entity-card
-                entity: sensor.toledo_ohio_usa_pm2_5
-                name: PM2.5
-                content_info: state
-              - type: custom:mushroom-entity-card
-                entity: sensor.toledo_ohio_usa_ozone
-                name: Ozone
-                content_info: state
 
   # ── Water Leaks (utility subview) ─────────────────────────────────────────
   - title: Water Leaks
@@ -1370,9 +1325,6 @@ views:
 | Office sliding door | `binary_sensor.office_sliding_door_contact` | Entity |
 | Garage door | `cover.garage_door` | Entity |
 | Outdoor AQI | `sensor.toledo_ohio_usa_air_quality_index` | Entity |
-| Outdoor PM2.5 | `sensor.toledo_ohio_usa_pm2_5` | Entity |
-| Outdoor ozone | `sensor.toledo_ohio_usa_ozone` | Entity |
-| AQI high alert | `binary_sensor.outdoor_air_quality_index_high` | Entity |
 | Trash pickup pending | `input_boolean.trash_pickup_pending` | Helper |
 | Trash pickup label | `input_text.trash_pickup_pending_label` | Helper |
 | Vacuum ran today | `input_select.vacuum_ran_today` | Helper |
