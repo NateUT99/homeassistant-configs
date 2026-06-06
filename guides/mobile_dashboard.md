@@ -29,7 +29,7 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   │   ├── Strip 2: Status & Alerts  ← 4 chips always visible; alert chips append when active
 │   │   │   ├── Alarm status [green]        normal state → Away/Night/Home/Off; hides during alert
 │   │   │   │   Alarm alert [red/orange]    alert state → triggered/pending=red, arming=orange; mutually exclusive with status
-│   │   │   ├── Vacuum [grey/orange/green]  grey=docked+not run, orange=running, green=ran today → /vacuum
+│   │   │   ├── Vacuum [grey/orange/green/red]  grey=not run, orange=running, green=ran+clear, red=ran+maintenance due → /vacuum
 │   │   │   ├── Garage [green]              closed → more-info; hides when open (alert chips take over)
 │   │   │   │   Garage [red/orange]         open + sleeping/away=red, open + home/awake=orange → close w/ confirm
 │   │   │   ├── Reminders OK [green]        hidden when any overdue; mutually exclusive with overdue count
@@ -78,10 +78,11 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │                        razor, toothbrushes, washer, water filter
 │
 ├── Vacuum        (utility subview)
-│   ├── Map         conditional picture-entity
-│   ├── Status      state, battery, area, duration
-│   ├── Controls    native tile with vacuum-commands feature
-│   └── Consumables filter, main brush, sensor, side brush (hours remaining; tap to reset w/ confirmation)
+│   ├── Map          conditional picture-entity (no section title)
+│   ├── Controls     native tile with vacuum-commands feature (no section title; before Status)
+│   ├── Status       state, battery, area, duration; Current Room when cleaning
+│   ├── Mop Settings mop intensity, mode, water supply — section hidden when mop not attached
+│   └── Consumables  filter, main brush, side brush, sensor (hours remaining; tap to reset w/ confirmation)
 │
 ├── Climate       (utility subview — tap target for thermostat chip)
 │   │             Badges: Inside temp+humidity (blue); tap shows per-room breakdown
@@ -126,7 +127,7 @@ A single strip combining persistent status indicators with conditional alert chi
 
 **Alarm status / Alarm alert** — Position 1; mutually exclusive pair. Alarm status (green `mdi:shield-home`, "Away" / "Night" / "Home" / "Off") is always visible during normal operation. It hides when the alarm transitions to `triggered`, `pending`, or `arming`, at which point the alarm alert chip (`mdi:shield-alert`, red or orange) takes its place at position 1.
 
-**Vacuum** — Position 2; always visible. Three color states: orange when actively running, green when docked and ran today (`input_select.vacuum_ran_today` = Yes), grey otherwise. Taps to the Vacuum subview.
+**Vacuum** — Position 2; always visible. Four states driven by two template fields (`icon` and `icon_color`): cleaning/returning/paused → orange `mdi:robot-vacuum`; ran today AND `binary_sensor.roborock_maintenance_required` on → red `mdi:robot-vacuum-alert`; not run today → grey `mdi:robot-vacuum-off`; ran today and all clear → green `mdi:robot-vacuum`. Taps to the Vacuum subview.
 
 **Garage** — Position 3; three mutually exclusive states. Green `mdi:garage` when closed (taps to `more-info`). Replaced by `mdi:garage-open-variant` when open: red when sleeping or away (tap closes with confirmation), orange when home and awake (tap closes with confirmation). Hold always shows `more-info`.
 
@@ -179,13 +180,13 @@ Eight rooms in a 2-column grid. Primary entity is the main ceiling light for the
 
 ## Living Room Subview (Reference Implementation)
 
-The Living Room subview is the pattern for all room subviews. It has five sections:
+The Living Room subview is the reference pattern for all room subviews. It uses native `tile` cards throughout — Mushroom cards appear only in the Consumables and Climate runtime cards where Jinja `icon_color` is required (see Vacuum and Climate subviews). Five sections:
 
-- **Lights** — 2-col grid of all light entities in the area, no sliders
-- **Fan** — `mushroom-fan-card` with speed percentage control
-- **Climate** — `mushroom-climate-card` with temperature control
-- **Media** — Apple TV (playback controls) and Sonos (volume controls)
-- **Sensors** — motion/occupancy binary sensor
+- **Lights** — 2-col grid of `tile` cards, one per light entity; no sliders
+- **Fan** — `tile` with `fan-speed` feature
+- **Climate** — `tile` with `climate-hvac-modes` and `target-temperature` features
+- **Media** — Apple TV and Sonos, each a `tile` with `media-player-controls` feature (no explicit `controls` list — HA auto-detects supported controls per entity; specifying unsupported controls causes a configuration error badge)
+- **Sensors** — `tile` per binary sensor (motion, occupancy, door, etc.)
 
 Pending room subviews follow this same section structure, including only sections that apply.
 
@@ -193,7 +194,7 @@ Pending room subviews follow this same section structure, including only section
 
 ## Water Leaks Subview
 
-Tap target for the grouped water alert chip on strip 1. Displays all four water leak sensors in a 2×2 grid using `mushroom-entity-card`. Mushroom's device-class awareness for `moisture` sensors provides appropriate icons and state coloring without additional configuration.
+Tap target for the grouped water alert chip on Strip 2. Displays all four water leak sensors in a 2×2 grid using native `tile` cards. The tile card handles the `moisture` device class natively, providing appropriate icons and state coloring.
 
 ---
 
@@ -214,12 +215,13 @@ Entity triplet per task: `input_datetime.<name>` (last done), `sensor.<name>_due
 
 ## Vacuum Subview
 
-Four sections:
+Five sections:
 
-- **Map** — `picture-entity` showing `image.roborock_q8_max_apartment`, conditionally visible when vacuum is not docked OR `input_select.vacuum_ran_today` is "Yes"
-- **Status** — 2-col grid: vacuum state, battery, cleaning area, duration
-- **Controls** — Native `tile` card with `vacuum-commands` feature (start/pause, stop, return home); `color: green`, `state_content: [state, area_name]`, `grid_options: {columns: full}`, `features_position: inline`. Only place in this dashboard where a native tile card is used; Mushroom has no vacuum-specific card.
-- **Consumables** — 2-col grid of `mushroom-template-card` for filter, main brush, side brush, and sensor. Each card shows hours remaining as secondary text and icon color (red when overdue binary sensor is on, green otherwise). Tap resets the consumable via `button.press` with confirmation. `number.overdue_reminders_count` does not include vacuum consumables — they are tracked independently here.
+- **Map** — `picture-entity` showing `image.roborock_q8_max_apartment`, conditionally visible when vacuum is not docked OR `input_select.vacuum_ran_today` is "Yes". No section title; renders minimal gap when hidden.
+- **Controls** — Native `tile` card with `vacuum-commands` feature (start/pause, stop, return home); `color: green`, `state_content: [state, area_name]`, `grid_options: {columns: full}`, `features_position: inline`. No section title. Appears before Status.
+- **Status** — 2-col grid of native `tile` cards: vacuum state, battery, cleaning area, duration. A conditional `tile` for `sensor.roborock_q8_max_current_room` appears in the grid only when `binary_sensor.roborock_q8_max_cleaning` is on.
+- **Mop Settings** — Section-level `visibility` gates the entire block on `binary_sensor.roborock_q8_max_mop_attached` being on. Contains: Mop Intensity (`select.roborock_q8_max_mop_intensity` + `select-options`), Mop Mode (`select.roborock_q8_max_mop_mode` + `select-options`), Water Supply (`binary_sensor.roborock_q8_max_water_shortage`).
+- **Consumables** — 2-col grid of `mushroom-template-card` for filter, main brush, side brush, and sensor. Each card shows hours remaining as secondary text; icon color is red when the overdue binary sensor is on, green otherwise (`mushroom-template-card` used because native `tile` has no Jinja `icon_color` equivalent). Tap resets the consumable via `button.press` with confirmation. `number.overdue_reminders_count` does not include vacuum consumables — they are tracked independently here.
 
 ---
 
@@ -341,10 +343,14 @@ views:
                   tap_action: {action: more-info, entity: alarm_control_panel.home_alarm}
                   hold_action: {action: none}
                   double_tap_action: {action: none}
-              # Position 2: Vacuum — always visible
+              # Position 2: Vacuum — always visible; 4 states
+              # cleaning/returning/paused=orange mdi:robot-vacuum
+              # ran today + maintenance required=red mdi:robot-vacuum-alert
+              # not run today=grey mdi:robot-vacuum-off
+              # ran today + all clear=green mdi:robot-vacuum
               - type: template
-                icon: mdi:robot-vacuum
-                icon_color: "{{ 'orange' if states('vacuum.roborock_q8_max') != 'docked' else ('green' if is_state('input_select.vacuum_ran_today', 'Yes') else 'grey') }}"
+                icon: "{% set vac = states('vacuum.roborock_q8_max') %}{% set active = vac in ['cleaning','returning','paused'] %}{% set ran = is_state('input_select.vacuum_ran_today','Yes') %}{% set maint = is_state('binary_sensor.roborock_maintenance_required','on') %}{% if active %}mdi:robot-vacuum{% elif ran and maint %}mdi:robot-vacuum-alert{% elif not ran %}mdi:robot-vacuum-off{% else %}mdi:robot-vacuum{% endif %}"
+                icon_color: "{% set vac = states('vacuum.roborock_q8_max') %}{% set active = vac in ['cleaning','returning','paused'] %}{% set ran = is_state('input_select.vacuum_ran_today','Yes') %}{% set maint = is_state('binary_sensor.roborock_maintenance_required','on') %}{% if active %}orange{% elif ran and maint %}red{% elif not ran %}grey{% else %}green{% endif %}"
                 content: ""
                 tap_action: {action: navigate, navigation_path: /mobile-3/vacuum}
                 hold_action: {action: none}
@@ -777,75 +783,70 @@ views:
 
 
   # ── Living Room (subview — reference implementation) ──────────────────────
+  # Native tile cards throughout. Mushroom-template-card used only where
+  # Jinja icon_color is required (Consumables, Climate HVAC runtime).
   - title: Living Room
     path: living-room
     type: sections
     subview: true
     max_columns: 1
     sections:
-      - title: Lights
-        cards:
+      - cards:
+          - type: heading
+            heading: Lights
           - type: grid
             columns: 2
             square: false
             cards:
-              - type: custom:mushroom-light-card
+              - type: tile
                 entity: light.living_room_fan
                 name: Ceiling
-                use_light_color: true
-                show_brightness_control: false
-                show_color_temp_control: false
-                show_color_control: false
-              - type: custom:mushroom-light-card
+              - type: tile
                 entity: light.living_room_movie_posters
                 name: Movie Posters
-                use_light_color: true
-                show_brightness_control: false
-                show_color_temp_control: false
-                show_color_control: false
-              - type: custom:mushroom-light-card
+              - type: tile
                 entity: light.living_room_status_lamp
                 name: Status Lamp
-                use_light_color: true
-                show_brightness_control: false
-                show_color_temp_control: false
-                show_color_control: false
-              - type: custom:mushroom-light-card
+              - type: tile
                 entity: light.living_room_tv_lights
                 name: TV Lights
-                use_light_color: true
-                show_brightness_control: false
-                show_color_temp_control: false
-                show_color_control: false
-      - title: Fan
-        cards:
-          - type: custom:mushroom-fan-card
+      - cards:
+          - type: heading
+            heading: Fan
+          - type: tile
             entity: fan.living_room_ceiling
             name: Ceiling Fan
-            show_percentage_control: true
-            show_oscillate_control: false
-      - title: Climate
-        cards:
-          - type: custom:mushroom-climate-card
+            features:
+              - type: fan-speed
+      - cards:
+          - type: heading
+            heading: Climate
+          - type: tile
             entity: climate.living_room_thermostat
-            show_temperature_control: true
-      - title: Media
-        cards:
-          - type: custom:mushroom-media-player-card
+            features:
+              - type: climate-hvac-modes
+                hvac_modes: [off, heat, cool, heat_cool]
+              - type: target-temperature
+      - cards:
+          - type: heading
+            heading: Media
+          # No explicit controls list — HA auto-detects per entity.
+          # Specifying unsupported controls (e.g. volume_set as a button)
+          # causes a configuration error badge in the UI.
+          - type: tile
             entity: media_player.living_room_appletv
             name: Apple TV
-            use_media_info: true
-            show_volume_level: true
-            media_controls: [play_pause_stop, previous, next]
-          - type: custom:mushroom-media-player-card
+            features:
+              - type: media-player-controls
+          - type: tile
             entity: media_player.living_room_sonos
             name: Sonos
-            use_media_info: true
-            show_volume_level: true
-            volume_controls: [volume_set, volume_mute]
-      - title: Sensors
-        cards:
-          - type: custom:mushroom-entity-card
+            features:
+              - type: media-player-controls
+      - cards:
+          - type: heading
+            heading: Sensors
+          - type: tile
             entity: binary_sensor.living_room_motion_occupancy
             name: Motion
 
@@ -933,22 +934,23 @@ views:
     subview: true
     max_columns: 1
     sections:
-      - title: Sensors
-        cards:
+      - cards:
+          - type: heading
+            heading: Sensors
           - type: grid
             columns: 2
             square: false
             cards:
-              - type: custom:mushroom-entity-card
+              - type: tile
                 entity: binary_sensor.kitchen_leak_water_leak
                 name: Kitchen
-              - type: custom:mushroom-entity-card
+              - type: tile
                 entity: binary_sensor.bathroom_leak_water_leak
                 name: Bathroom
-              - type: custom:mushroom-entity-card
+              - type: tile
                 entity: binary_sensor.master_bathroom_leak_water_leak
                 name: Master Bath
-              - type: custom:mushroom-entity-card
+              - type: tile
                 entity: binary_sensor.utility_room_leak_water_leak
                 name: Utility
 
@@ -1086,8 +1088,8 @@ views:
     subview: true
     max_columns: 1
     sections:
-      - title: Map
-        cards:
+      - cards:
+          # No section title — renders minimal gap when map is not shown
           # Map shown when vacuum is active OR ran today (input_select set by automation)
           - type: conditional
             conditions:
@@ -1104,32 +1106,9 @@ views:
               entity: image.roborock_q8_max_apartment
               show_state: false
               show_name: false
-      - title: Status
-        cards:
-          - type: grid
-            columns: 2
-            square: false
-            cards:
-              - type: custom:mushroom-entity-card
-                entity: vacuum.roborock_q8_max
-                name: Vacuum
-                content_info: state
-                tap_action: {action: more-info}
-              - type: custom:mushroom-entity-card
-                entity: sensor.roborock_q8_max_battery
-                name: Battery
-                content_info: state
-              - type: custom:mushroom-entity-card
-                entity: sensor.roborock_q8_max_cleaning_area
-                name: "Area (m²)"
-                content_info: state
-              - type: custom:mushroom-entity-card
-                entity: sensor.roborock_q8_max_cleaning_time
-                name: Duration (min)
-                content_info: state
-      - title: Controls
-        # Native tile used here — Mushroom has no vacuum-specific card
-        cards:
+      - cards:
+          # No section title. Controls before Status.
+          # Native tile used here — Mushroom has no vacuum-specific card.
           - type: tile
             grid_options:
               rows: auto
@@ -1143,8 +1122,64 @@ views:
               - type: vacuum-commands
                 commands: [start_pause, stop, return_home]
             features_position: inline
-      - title: Consumables
+      - cards:
+          - type: heading
+            heading: Status
+          - type: grid
+            columns: 2
+            square: false
+            cards:
+              - type: tile
+                entity: vacuum.roborock_q8_max
+                name: Vacuum
+              - type: tile
+                entity: sensor.roborock_q8_max_battery
+                name: Battery
+              - type: tile
+                entity: sensor.roborock_q8_max_cleaning_area
+                name: "Area (m²)"
+              - type: tile
+                entity: sensor.roborock_q8_max_cleaning_time
+                name: Duration (min)
+              # Current Room — only visible while actively cleaning
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: binary_sensor.roborock_q8_max_cleaning
+                    state: "on"
+                card:
+                  type: tile
+                  entity: sensor.roborock_q8_max_current_room
+                  name: Current Room
+      # Mop Settings — entire section hidden when mop is not attached
+      - visibility:
+          - condition: state
+            entity: binary_sensor.roborock_q8_max_mop_attached
+            state: "on"
         cards:
+          - type: heading
+            heading: Mop Settings
+          - type: grid
+            columns: 2
+            square: false
+            cards:
+              - type: tile
+                entity: select.roborock_q8_max_mop_intensity
+                name: Mop Intensity
+                features:
+                  - type: select-options
+              - type: tile
+                entity: select.roborock_q8_max_mop_mode
+                name: Mop Mode
+                features:
+                  - type: select-options
+              - type: tile
+                entity: binary_sensor.roborock_q8_max_water_shortage
+                name: Water Supply
+      - cards:
+          - type: heading
+            heading: Consumables
+          # mushroom-template-card used here for Jinja icon_color — no native equivalent
           - type: grid
             columns: 2
             square: false
@@ -1217,6 +1252,25 @@ views:
 | Thermostat clear hold | `button.living_room_thermostat_clear_hold` | Entity |
 | Roborock Q8 Max | `vacuum.roborock_q8_max` | Entity |
 | Apartment map image | `image.roborock_q8_max_apartment` | Entity |
+| Vacuum cleaning (binary) | `binary_sensor.roborock_q8_max_cleaning` | Entity |
+| Maintenance required (aggregated) | `binary_sensor.roborock_maintenance_required` | Entity |
+| Replace filter | `binary_sensor.roborock_replace_filter` | Entity |
+| Replace main brush | `binary_sensor.roborock_replace_main_brush` | Entity |
+| Replace side brush | `binary_sensor.roborock_replace_side_brush` | Entity |
+| Clean sensor | `binary_sensor.roborock_clean_sensor` | Entity |
+| Mop attached | `binary_sensor.roborock_q8_max_mop_attached` | Entity |
+| Water shortage | `binary_sensor.roborock_q8_max_water_shortage` | Entity |
+| Mop intensity | `select.roborock_q8_max_mop_intensity` | Entity |
+| Mop mode | `select.roborock_q8_max_mop_mode` | Entity |
+| Current room | `sensor.roborock_q8_max_current_room` | Entity |
+| Filter time left | `sensor.roborock_q8_max_filter_time_left` | Entity |
+| Main brush time left | `sensor.roborock_q8_max_main_brush_time_left` | Entity |
+| Side brush time left | `sensor.roborock_q8_max_side_brush_time_left` | Entity |
+| Sensor time left | `sensor.roborock_q8_max_sensor_time_left` | Entity |
+| Reset filter | `button.roborock_q8_max_reset_air_filter_consumable` | Entity |
+| Reset main brush | `button.roborock_q8_max_reset_main_brush_consumable` | Entity |
+| Reset side brush | `button.roborock_q8_max_reset_side_brush_consumable` | Entity |
+| Reset sensor | `button.roborock_q8_max_reset_sensor_consumable` | Entity |
 | Kitchen water leak | `binary_sensor.kitchen_leak_water_leak` | Entity |
 | Bathroom water leak | `binary_sensor.bathroom_leak_water_leak` | Entity |
 | Master bath water leak | `binary_sensor.master_bathroom_leak_water_leak` | Entity |

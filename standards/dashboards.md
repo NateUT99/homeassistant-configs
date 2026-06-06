@@ -1,9 +1,10 @@
 # Dashboard Design Standard
 
-Version 0.1
+Version 0.2
 
 | Version | Date | Changes |
 |---|---|---|
+| 0.2 | June 2026 | Native-first principle: tile cards are default in subviews; Mushroom exceptions documented with justification; Room Subview Structure and Quick Reference updated accordingly |
 | 0.1 | June 2026 | Initial draft — patterns established during Mobile 3.0 build |
 
 ---
@@ -18,8 +19,10 @@ Scope: storage-mode dashboards created via the HA UI or `ha_config_set_dashboard
 
 ## Core Principles
 
-- **Mushroom Cards are the primary visual layer.** Use `custom:mushroom-*` cards for rooms, entities, climate, alarm, media, and fan. Do not use native `tile` cards in the primary room or status sections — reserve tile cards for specialized feature sets that Mushroom lacks (e.g., `vacuum-commands` in a utility subview).
-- **No brightness or color sliders on room tiles or light cards.** Adaptive Lighting manages brightness and color temperature automatically. Exposing a slider creates a confusing dual-control surface. Set `show_brightness_control: false`, `show_color_temp_control: false`, `show_color_control: false` on all `mushroom-light-card` instances.
+- **Native HA `tile` cards are the default for subview content.** Use `tile` cards for rooms, entities, climate, fan, media, and other controls in subviews. Do not reach for Mushroom cards in subviews unless a specific capability gap requires it (see Mushroom Exceptions below).
+- **Mushroom cards are used only where native tile cards lack the capability.** Three approved cases: `mushroom-chips-card` (no native chip-strip equivalent), `mushroom-template-card` (Jinja `icon_color` required — no native equivalent), and `mushroom-light-card` on Home view room tiles only (`use_light_color: true` for ambient color). Document the reason at each use site.
+- **Mushroom cards on Home view room tiles are justified by `use_light_color`.** The Home view 2-col room grid uses `mushroom-light-card` to show the room's light color as the tile background — a visual affordance the native tile card does not provide. This exception does not extend to subviews.
+- **No brightness or color sliders anywhere.** Adaptive Lighting manages brightness and color temperature automatically. Exposing a slider creates a confusing dual-control surface. On `mushroom-light-card`, set `show_brightness_control: false`, `show_color_temp_control: false`, `show_color_control: false`. Native `tile` cards for lights do not expose sliders by default.
 - **Native subviews replace popups.** Use `subview: true` views for room drill-down and utility pages. Do not use Bubble Card or any other popup framework on this dashboard.
 - **Single-column sections on mobile.** All mobile dashboards use `max_columns: 1`. Desktop dashboards may use higher column counts; establish separately when built.
 - **The design target is between Apple Home and full HA.** Sufficient ambient context at a glance (chip strips, room state), with tap to drill down. Avoid information density that requires interpretation; save raw sensor data for subviews.
@@ -177,13 +180,13 @@ Standard sections, include only those that apply to the room:
 
 | Section | Content | Required |
 |---|---|---|
-| Lights | 2-col grid of `mushroom-light-card` for every light in the area | Yes |
-| Fan | `mushroom-fan-card` with `show_percentage_control: true` | If room has a ceiling fan |
-| Climate | `mushroom-climate-card` with `show_temperature_control: true` | If room has a thermostat |
-| Media | `mushroom-media-player-card` per device | If room has addressable media |
-| Sensors | `mushroom-entity-card` per binary sensor (motion, occupancy, door, etc.) | If room has sensors |
+| Lights | 2-col grid of native `tile` cards, one per light entity | Yes |
+| Fan | Native `tile` with `fan-speed` feature | If room has a ceiling fan |
+| Climate | Native `tile` with `climate-hvac-modes` + `target-temperature` features | If room has a thermostat |
+| Media | Native `tile` per device with `media-player-controls` feature (no explicit `controls` list) | If room has addressable media |
+| Sensors | Native `tile` per binary sensor (motion, occupancy, door, etc.) | If room has sensors |
 
-All light cards in subviews follow the same no-slider rule as room tiles.
+> **`media-player-controls` controls field:** Do not specify an explicit `controls` list. HA auto-detects which controls each entity supports. Enumerating unsupported control values (e.g. `volume_set` as a button) causes a configuration error badge in the UI.
 
 ---
 
@@ -217,12 +220,18 @@ The text should describe the irreversible or consequential action in plain langu
 
 | Pattern | Card type | Notes |
 |---|---|---|
-| Room tile | `mushroom-light-card` | No sliders; tap=navigate, hold=toggle |
-| Room tile (no light) | `mushroom-cover-card` or `mushroom-entity-card` | Garage, Outside |
+| Room tile (Home view) | `mushroom-light-card` | No sliders; `use_light_color: true`; tap=navigate, hold=toggle |
+| Room tile (no light) | `mushroom-cover-card` or `mushroom-entity-card` | Garage, Outside — Home view only |
+| Subview card (default) | Native `tile` | All subview content unless exception below applies |
+| Subview card (dynamic color) | `mushroom-template-card` | Only when Jinja `icon_color` required (consumables, HVAC runtime) |
+| Fan control | Native `tile` with `fan-speed` | Subview |
+| Climate control | Native `tile` with `climate-hvac-modes` + `target-temperature` | Subview |
+| Media control | Native `tile` with `media-player-controls` (no controls list) | Subview |
+| Vacuum controls | Native `tile` with `vacuum-commands` | Subview |
 | Alert chip | `type: template` inside `conditional` | Not `type: entity` — ensures static red |
 | Mode/status chip | `type: entity` inside `conditional` | State color acceptable here |
 | Reminder card | `mushroom-template-card` | Template icon_color; hold=mark complete |
 | Chip sizing | `card_mod` → `--chip-height: 30px` | Applied to every `mushroom-chips-card` |
 | Subview nav | `type: sections, subview: true` | HA renders back arrow automatically |
-| Vacuum controls | Native `tile` with `vacuum-commands` feature | Only place native tile is used |
 | Confirmation dialog | `confirmation: {text: "..."}` | Never bare `confirmation: true` |
+| Section visibility | `visibility: [{condition: state, ...}]` | Hides entire section + heading when condition false |
