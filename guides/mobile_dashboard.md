@@ -1,6 +1,6 @@
 # Mobile Dashboard 3.0
 
-*Version 0.1 — Last updated: June 2026*
+*Version 0.2 — Last updated: June 2026*
 
 ---
 
@@ -143,6 +143,8 @@ A single strip combining persistent status indicators with conditional alert chi
 
 **Trash pickup** — Conditional. Icon-only; `input_boolean.trash_pickup_pending` is the gate.
 
+> **Icon-only chip centering:** All permanently icon-only chips in this strip omit the `content` field entirely. Setting `content: ""` allocates an empty text area beside the icon, pushing it off-center. Chips that conditionally show a count (water leaks, exterior doors, overdue reminders) keep their `content` field since they render text when the count is 2 or more.
+
 ### Strip 3 — Modes
 
 Contextual indicators for active household modes. All conditional; the strip may be entirely empty.
@@ -217,7 +219,7 @@ Entity triplet per task: `input_datetime.<name>` (last done), `sensor.<name>_due
 
 Five sections:
 
-- **Map** — `picture-entity` showing `image.roborock_q8_max_apartment`, conditionally visible when vacuum is not docked OR `input_select.vacuum_ran_today` is "Yes". No section title; renders minimal gap when hidden.
+- **Map** — `picture-entity` showing `image.roborock_q8_max_apartment`, conditionally visible when vacuum is not docked OR `input_select.vacuum_ran_today` is "Yes". No section title; renders minimal gap when hidden. The Roborock integration bakes excess black padding into the map image around the apartment outline; a `card_mod` style corrects this by removing the card's default padding, scaling the image, and repositioning it to center the floor plan: `ha-card { padding: 0; overflow: hidden; }` / `hui-image { transform: scale(1.5) translateX(-3%) translateY(13%); transform-origin: center center; display: block; margin: -12% 0; }`. The translate and margin values are tuned to this specific floor plan and may need adjustment if the map layout changes significantly. See `standards/dashboards.md` → card-mod Style Overrides for the technique details.
 - **Controls** — Native `tile` card with `vacuum-commands` feature (start/pause, stop, return home); `color: green`, `state_content: [state, area_name]`, `grid_options: {columns: full}`, `features_position: inline`. No section title. Appears before Status.
 - **Status** — 2-col grid of native `tile` cards: vacuum state, battery, cleaning area, duration. A conditional `tile` for `sensor.roborock_q8_max_current_room` appears in the grid only when `binary_sensor.roborock_q8_max_cleaning` is on.
 - **Mop Settings** — Section-level `visibility` gates the entire block on `binary_sensor.roborock_q8_max_mop_attached` being on. Contains: Mop Intensity (`select.roborock_q8_max_mop_intensity` + `select-options`), Mop Mode (`select.roborock_q8_max_mop_mode` + `select-options`), Water Supply (`binary_sensor.roborock_q8_max_water_shortage`).

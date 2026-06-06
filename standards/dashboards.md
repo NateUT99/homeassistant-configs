@@ -1,9 +1,10 @@
 # Dashboard Design Standard
 
-Version 0.2
+Version 0.3
 
 | Version | Date | Changes |
 |---|---|---|
+| 0.3 | June 2026 | Icon-only chip centering rule added; card-mod scope expanded to cover non-chip element transforms; Quick Reference updated |
 | 0.2 | June 2026 | Native-first principle: tile cards are default in subviews; Mushroom exceptions documented with justification; Room Subview Structure and Quick Reference updated accordingly |
 | 0.1 | June 2026 | Initial draft — patterns established during Mobile 3.0 build |
 
@@ -36,7 +37,7 @@ Only the following frontend resources are approved for use across all dashboards
 | Resource | URL path | Purpose |
 |---|---|---|
 | Mushroom Cards | `/hacsfiles/lovelace-mushroom/mushroom.js` | Primary card visual layer |
-| card-mod | `/hacsfiles/lovelace-card-mod/card-mod.js` | CSS variable injection for chip sizing and style overrides |
+| card-mod | `/hacsfiles/lovelace-card-mod/card-mod.js` | CSS variable injection and element-level style transforms — chip sizing, card padding, image cropping and positioning |
 
 Do not introduce additional HACS frontend resources without explicit decision. When a capability gap arises, first check whether a native HA card or Mushroom card covers it before reaching for a new dependency.
 
@@ -79,6 +80,31 @@ card_mod:
 ```
 
 All strips use `alignment: center`.
+
+**Icon-only template chips: omit `content` entirely.** Setting `content: ""` on a `type: template` chip allocates a text area beside the icon even when nothing is displayed, pushing the icon visually off-center. For permanently icon-only chips, leave `content` out of the YAML. Only include `content` when the chip conditionally renders a count or label:
+
+```yaml
+# Correct — icon-only chip
+chip:
+  type: template
+  icon: mdi:trash-can
+  icon_color: red
+  tap_action: {action: more-info, entity: input_boolean.trash_pickup_pending}
+
+# Wrong — content: "" shifts the icon left
+chip:
+  type: template
+  icon: mdi:trash-can
+  icon_color: red
+  content: ""
+
+# Correct — chip with conditional count (keep content here)
+chip:
+  type: template
+  icon: mdi:water-alert
+  icon_color: red
+  content: "{{ c if c >= 2 else '' }}"
+```
 
 ### Strip 1 — Safety Alerts
 
@@ -134,6 +160,32 @@ Contextual mode indicators (sleeping states, media modes) plus persistent status
 ### Strip 4 — Presence
 
 Always-visible person chips. The primary resident uses `use_entity_picture: true`. Guest presence is a hold-to-toggle pattern (tap does nothing; hold toggles `input_boolean.guest_mode`) to prevent accidental activation.
+
+---
+
+## card-mod Style Overrides
+
+card-mod is approved for two use cases:
+
+**1. Chip strip sizing** — `--chip-height` and `--chip-padding` CSS variables on every `mushroom-chips-card`. See Chip Strip System above.
+
+**2. Card-level style transforms** — CSS applied to `ha-card` and its child elements for layout corrections that native HA cards don't expose. The reference example is the vacuum map card (`picture-entity`): the Roborock integration generates map images with excess padding (black margin) around the apartment outline. card-mod removes the card's default padding and applies CSS transforms to scale and reposition the image:
+
+```yaml
+card_mod:
+  style: |
+    ha-card { padding: 0; overflow: hidden; }
+    hui-image {
+      transform: scale(1.5) translateX(-3%) translateY(13%);
+      transform-origin: center center;
+      display: block;
+      margin: -12% 0;
+    }
+```
+
+How the transform works: `scale()` zooms the image content; `translateX/Y` shifts it to center the meaningful portion of the floor plan; `margin: -12% 0` collapses the card's vertical footprint by pulling in the top and bottom edges (which would otherwise show the card background as whitespace); `overflow: hidden` on `ha-card` clips scaled content that extends beyond the card boundary. The `translateY` value compensates for the upward shift that the negative top margin introduces. These values are floor-plan-specific and may need retuning if the map layout changes.
+
+When writing card-mod for non-chip cards, target `ha-card` for card-level changes and shadow DOM element names (e.g. `hui-image`) for inner component changes. Note that `clip-path` on the inner element creates a visual mask but does not collapse layout space — use negative margins when you need to reduce the card's occupied height.
 
 ---
 
@@ -232,6 +284,8 @@ The text should describe the irreversible or consequential action in plain langu
 | Mode/status chip | `type: entity` inside `conditional` | State color acceptable here |
 | Reminder card | `mushroom-template-card` | Template icon_color; hold=mark complete |
 | Chip sizing | `card_mod` → `--chip-height: 30px` | Applied to every `mushroom-chips-card` |
+| Icon-only chip | `type: template`, no `content` field | Omit `content` entirely — `content: ""` pushes icon off-center |
+| Map image crop/zoom | `picture-entity` with `card_mod` | `ha-card {padding:0; overflow:hidden}` + `hui-image {transform:scale/translate; margin:-12% 0}` — see card-mod section |
 | Subview nav | `type: sections, subview: true` | HA renders back arrow automatically |
 | Confirmation dialog | `confirmation: {text: "..."}` | Never bare `confirmation: true` |
 | Section visibility | `visibility: [{condition: state, ...}]` | Hides entire section + heading when condition false |
