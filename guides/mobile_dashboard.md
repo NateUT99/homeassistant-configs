@@ -29,7 +29,8 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   │   │   ├── Exterior door [orange]      any of 3 doors open AND home AND awake → count if 2+
 │   │   │   ├── Garage open [red]           not closed AND (sleeping OR away) → tap closes w/ confirm
 │   │   │   ├── Garage open [orange]        not closed AND home AND awake → tap closes w/ confirm
-│   │   │   ├── Trash pickup [red]          trash_pickup_pending on → label "Trash", "Recycling", or "Both"
+│   │   │   ├── AQI high [red]              outdoor_air_quality_index_high on → shows live AQI value → tap more-info
+│   │   │   ├── Trash pickup [red]          trash_pickup_pending on → icon-only
 │   │   │   └── Overdue reminders [red]     count > 0 → tap navigates to /reminders; count if 2+
 │   │   │
 │   │   ├── Strip 2: Device & Persistent Status  ← always visible
@@ -58,11 +59,6 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   │   ├── Bathroom        light.bathroom_hallway_ceiling
 │   │   ├── Garage          cover.garage_door (cover-card fallback)
 │   │   └── Outside         sensor.outside_temperature (entity-card fallback)
-│   │
-│   └── Weather
-│       ├── Daily forecast  weather.apartment
-│       ├── Temperature     sensor.outside_temperature
-│       └── Humidity        sensor.outside_humidity
 │
 ├── Living Room   (subview — reference implementation)
 │   ├── Lights    ceiling, movie posters, status lamp, tv lights
@@ -86,10 +82,11 @@ mobile-3 (storage-mode dashboard, url_path: mobile-3)
 │   └── Consumables filter, main brush, sensor, side brush (hours remaining)
 │
 ├── Climate       (utility subview — tap target for thermostat chip)
-│   │             Badges: Inside temp+humidity (apartment sensors, blue), Outside temp+humidity (amber)
+│   │             Badges: Inside temp+humidity (blue), Outside temp+humidity + AQI (amber)
 │   ├── Controls  thermostat tile + comfort select (home/sleep/away) + clear hold
 │   │             + HVAC Runtime subtitle + 28-day line chart (cooling + heating)
-│   └── Weather   weather.apartment daily forecast
+│   └── Weather   forecast (6col) + 7-day hourly AQI line (6col) side-by-side
+│                 + 3-col grid: dominant pollutant, PM2.5, ozone
 │
 └── [pending subviews]
     Master Bedroom, Avery's Room, Office, Kitchen, Bathroom, Garage, Outside
@@ -125,6 +122,8 @@ When the strip is empty (no active alerts), it renders as zero-height and no vis
 **Exterior doors** — Two chips, mutually exclusive, covering three sensors: garage interior door (`binary_sensor.garage_interior_door_contact`), front door (`binary_sensor.entrance_front_door_contact`), and office sliding door (`binary_sensor.office_sliding_door_contact`). Orange when any door is open AND someone is home AND awake (informational). Red when any door is open AND (sleeping OR nobody home) — the contextual alert. Count shown when 2 or more doors are open.
 
 **Garage door** — Two chips, mutually exclusive. Orange when the door is open AND someone is home AND nobody is sleeping (informational — door left open during normal hours). Red when open AND (sleeping OR away) — the contextual alert. Only one chip is ever visible at a time. Both chips use tap-to-close with confirmation; hold shows `more-info`.
+
+**AQI high** — `binary_sensor.outdoor_air_quality_index_high` is the gate. Shows the live integer value of `sensor.toledo_ohio_usa_air_quality_index` as the content label. Tap opens `more-info` on the AQI sensor.
 
 **Trash pickup** — `input_boolean.trash_pickup_pending` is the gate. Icon-only; no content label.
 
@@ -228,12 +227,12 @@ Four sections:
 
 Tap target for the thermostat chip on strip 2.
 
-**Badges** — Four entity badges in the view header. Blue pair (`mdi:home-thermometer` + `mdi:water-percent`, both labeled "Inside"): `sensor.apartment_temperature` and `sensor.apartment_humidity`. Amber pair (`mdi:sun-thermometer` + `mdi:water-percent`, both labeled "Outside"): `sensor.outside_temperature` and `sensor.outside_humidity`. Icon differentiates temperature from humidity within each pair; color differentiates inside from outside.
+**Badges** — Five entity badges in the view header. Blue pair (`mdi:home-thermometer` + `mdi:water-percent`, both labeled "Inside"): `sensor.apartment_temperature` and `sensor.apartment_humidity`. Amber trio (`mdi:sun-thermometer` + `mdi:water-percent` + `mdi:smog`, all labeled "Outside" / "AQI"): `sensor.outside_temperature`, `sensor.outside_humidity`, and `sensor.toledo_ohio_usa_air_quality_index`. Icon differentiates temperature from humidity from air quality; color differentiates inside from outside.
 
 Two sections:
 
 - **Controls** — Thermostat tile (`climate.living_room_thermostat`, `grid_options: {columns: 6}`, `features_position: bottom`, HVAC modes + target temperature + fan modes, `state_content: [current_temperature, current_humidity]`). Comfort Setting tile (`select.living_room_thermostat_current_mode` with `select-options` feature — Home/Sleep/Away). Clear Hold tile (`button.living_room_thermostat_clear_hold`). Below these, an "HVAC Runtime" subtitle heading followed by a `statistics-graph` line chart (`chart_type: line`, `period: day`, `stat_types: [max]`, `days_to_show: 28`, `grid_options: {columns: full}`) for `sensor.cooling_today` and `sensor.heating_today` — two lines showing cooling and heating daily totals over 4 weeks; daily max equals daily total since both sensors reset at midnight.
-- **Weather** — `weather-forecast` card for `weather.apartment` (`forecast_type: daily`).
+- **Weather** — Side-by-side layout using `grid_options`: `weather-forecast` card (3-slot daily, `grid_options: {columns: 6, rows: 4}`) and a `statistics-graph` line chart for `sensor.toledo_ohio_usa_air_quality_index` (`period: hour`, `stat_types: [mean]`, `days_to_show: 7`, `grid_options: {columns: 6, rows: 4}`) sit next to each other at equal width. Below, a 3-column grid shows dominant pollutant, PM2.5, and ozone. AQI is not in the grid — it's shown in the chart above and as a badge in the header.
 
 > **Note on `grid_options`:** The `tile` card in a `sections` view defaults to a 1-column layout and renders at half-width unless you set `grid_options: {columns: 12}` (or `columns: full`). This is different from `grid` cards, which fill available width automatically.
 
@@ -457,6 +456,20 @@ views:
                     target: {entity_id: cover.garage_door}
                     confirmation: true
                   hold_action: {action: more-info, entity: cover.garage_door}
+                  double_tap_action: {action: none}
+              # AQI high — shows live AQI value; gate is binary_sensor not the sensor itself
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: binary_sensor.outdoor_air_quality_index_high
+                    state: "on"
+                chip:
+                  type: template
+                  icon: mdi:smog
+                  icon_color: red
+                  content: "{{ states('sensor.toledo_ohio_usa_air_quality_index') | int }}"
+                  tap_action: {action: more-info, entity: sensor.toledo_ohio_usa_air_quality_index}
+                  hold_action: {action: none}
                   double_tap_action: {action: none}
               # Trash — icon-only
               - type: conditional
@@ -744,22 +757,6 @@ views:
                 hold_action: {action: none}
                 double_tap_action: {action: none}
 
-      # Weather
-      - title: Weather
-        cards:
-          - type: weather-forecast
-            entity: weather.apartment
-            forecast_type: daily
-          - type: grid
-            columns: 2
-            square: false
-            cards:
-              - type: custom:mushroom-entity-card
-                entity: sensor.outside_temperature
-                name: Temperature
-              - type: custom:mushroom-entity-card
-                entity: sensor.outside_humidity
-                name: Humidity
 
   # ── Living Room (subview — reference implementation) ──────────────────────
   - title: Living Room
@@ -862,6 +859,11 @@ views:
         name: Outside
         icon: mdi:water-percent
         color: amber
+      - type: entity
+        entity: sensor.toledo_ohio_usa_air_quality_index
+        name: AQI
+        icon: mdi:smog
+        color: amber
     sections:
       - cards:
           - type: heading
@@ -910,9 +912,49 @@ views:
       - cards:
           - type: heading
             heading: Weather
+          # Weather forecast and AQI chart sit side-by-side at equal width (6col each)
           - type: weather-forecast
             entity: weather.apartment
             forecast_type: daily
+            show_current: true
+            show_forecast: true
+            forecast_slots: 3
+            grid_options:
+              columns: 6
+              rows: 4
+          # 7-day hourly AQI line — hourly resolution gives a richer picture than daily mean
+          - type: statistics-graph
+            grid_options:
+              columns: 6
+              rows: 4
+            entities:
+              - entity: sensor.toledo_ohio_usa_air_quality_index
+                name: AQI
+            stat_types: [mean]
+            period: hour
+            days_to_show: 7
+            chart_type: line
+            hide_legend: false
+          # AQI omitted from grid — it's shown in chart above and as a badge
+          - type: grid
+            columns: 3
+            square: false
+            grid_options:
+              columns: full
+              rows: auto
+            cards:
+              - type: custom:mushroom-entity-card
+                entity: sensor.toledo_ohio_usa_dominant_pollutant
+                name: Dominant
+                content_info: state
+              - type: custom:mushroom-entity-card
+                entity: sensor.toledo_ohio_usa_pm2_5
+                name: PM2.5
+                content_info: state
+              - type: custom:mushroom-entity-card
+                entity: sensor.toledo_ohio_usa_ozone
+                name: Ozone
+                content_info: state
 
   # ── Water Leaks (utility subview) ─────────────────────────────────────────
   - title: Water Leaks
@@ -1237,6 +1279,11 @@ views:
 | Front door | `binary_sensor.entrance_front_door_contact` | Entity |
 | Office sliding door | `binary_sensor.office_sliding_door_contact` | Entity |
 | Garage door | `cover.garage_door` | Entity |
+| Outdoor AQI | `sensor.toledo_ohio_usa_air_quality_index` | Entity |
+| Outdoor PM2.5 | `sensor.toledo_ohio_usa_pm2_5` | Entity |
+| Outdoor ozone | `sensor.toledo_ohio_usa_ozone` | Entity |
+| Outdoor dominant pollutant | `sensor.toledo_ohio_usa_dominant_pollutant` | Entity |
+| AQI high alert | `binary_sensor.outdoor_air_quality_index_high` | Entity |
 | Trash pickup pending | `input_boolean.trash_pickup_pending` | Helper |
 | Trash pickup label | `input_text.trash_pickup_pending_label` | Helper |
 | Vacuum ran today | `input_select.vacuum_ran_today` | Helper |
