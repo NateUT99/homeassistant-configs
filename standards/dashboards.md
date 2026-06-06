@@ -1,9 +1,10 @@
 # Dashboard Design Standard
 
-Version 0.3
+Version 0.4
 
 | Version | Date | Changes |
 |---|---|---|
+| 0.4 | June 2026 | Pivot to Bubble Card as primary framework. Full rewrite. Standard now governs mobile and future desktop dashboards. Mushroom retained as documented fallback. |
 | 0.3 | June 2026 | Icon-only chip centering rule added; card-mod scope expanded to cover non-chip element transforms; Quick Reference updated |
 | 0.2 | June 2026 | Native-first principle: tile cards are default in subviews; Mushroom exceptions documented with justification; Room Subview Structure and Quick Reference updated accordingly |
 | 0.1 | June 2026 | Initial draft — patterns established during Mobile 3.0 build |
@@ -12,34 +13,51 @@ Version 0.3
 
 ## Purpose & Scope
 
-This standard governs the design and construction of all Home Assistant storage-mode dashboards in this instance. It covers visual layer choices, card conventions, chip strip design, room tile and subview patterns, and HACS dependency policy.
+This standard governs the design and construction of all Home Assistant storage-mode dashboards in this instance. It covers visual layer choices, card conventions, room tile design, pop-up patterns, chip strip conventions, and HACS dependency policy.
 
 Scope: storage-mode dashboards created via the HA UI or `ha_config_set_dashboard`. YAML-mode dashboards (`configuration.yaml`) are out of scope.
+
+The standard is viewport-agnostic. The `mobile` dashboard is the reference implementation. When a desktop dashboard is built, a separate guide documents the grid and nav differences; the card vocabulary, pop-up pattern, and theming rules in this standard apply to both.
 
 ---
 
 ## Core Principles
 
-- **Native HA `tile` cards are the default for subview content.** Use `tile` cards for rooms, entities, climate, fan, media, and other controls in subviews. Do not reach for Mushroom cards in subviews unless a specific capability gap requires it (see Mushroom Exceptions below).
-- **Mushroom cards are used only where native tile cards lack the capability.** Three approved cases: `mushroom-chips-card` (no native chip-strip equivalent), `mushroom-template-card` (Jinja `icon_color` required — no native equivalent), and `mushroom-light-card` on Home view room tiles only (`use_light_color: true` for ambient color). Document the reason at each use site.
-- **Mushroom cards on Home view room tiles are justified by `use_light_color`.** The Home view 2-col room grid uses `mushroom-light-card` to show the room's light color as the tile background — a visual affordance the native tile card does not provide. This exception does not extend to subviews.
-- **No brightness or color sliders anywhere.** Adaptive Lighting manages brightness and color temperature automatically. Exposing a slider creates a confusing dual-control surface. On `mushroom-light-card`, set `show_brightness_control: false`, `show_color_temp_control: false`, `show_color_control: false`. Native `tile` cards for lights do not expose sliders by default.
-- **Native subviews replace popups.** Use `subview: true` views for room drill-down and utility pages. Do not use Bubble Card or any other popup framework on this dashboard.
-- **Single-column sections on mobile.** All mobile dashboards use `max_columns: 1`. Desktop dashboards may use higher column counts; establish separately when built.
-- **The design target is between Apple Home and full HA.** Sufficient ambient context at a glance (chip strips, room state), with tap to drill down. Avoid information density that requires interpretation; save raw sensor data for subviews.
+- **Bubble Card is the primary card framework.** Use it for room tiles, pop-up overlays, chip strips, media, climate, separator headings, and utility controls. Reach for Mushroom or native `tile` only when Bubble Card has no equivalent or its equivalent is materially worse. Known fallback domains are documented in the HACS Dependency Policy below — reaches for fallback are always deliberate and noted at the use site.
+- **Modal pop-ups replace page navigation.** Use Bubble Card pop-ups (triggered by URL hash) for all room drill-down and utility detail views. Do not use `subview: true` views. Browser back navigation, ESC, tap-outside, and swipe-down all close pop-ups.
+- **Room tiles: tap = popup, hold = toggle, sub-buttons = key devices.** Every room tile is a single Bubble Card `button` card. Tapping opens the area's modal pop-up. Holding toggles the primary light. Sub-buttons on the tile surface provide 2–4 quick-action controls for the most-used devices in that room (fan, primary media, key lights) without requiring the pop-up.
+- **No brightness or color sliders anywhere.** Adaptive Lighting manages brightness and color temperature automatically. Do not expose a slider on any room tile, pop-up, or inline card — it creates a confusing dual-control surface. The `button_type: switch` layout shows entity state color without a slider.
+- **Sub-buttons are the chip equivalent.** The Home view chip strips are implemented as Bubble Card `sub-buttons-only` cards — visually equivalent to the Mushroom chip row but driven by Bubble Card sub-button visibility conditions and Bubble Badges 2 indicators.
+- **Theming via Bubble Card CSS variables.** Centralize all visual tokens (border radius, accent color, blur, sub-button spacing) in global Bubble Card CSS variable overrides. Bubble Neon provides the base visual language. card-mod is retained for narrow CSS cases that global variables don't reach (currently: vacuum map image transforms).
+- **Confirmation dialogs always include descriptive text.** See the Confirmation Dialogs section below.
+- **The design target is between Apple Home and full HA.** Sufficient ambient context at a glance (chip strips, room state on tiles), with tap to drill into any room or utility. Avoid information density that requires interpretation on the Home view; reserve raw sensor data and detailed controls for pop-ups.
 
 ---
 
 ## HACS Dependency Policy
 
-Only the following frontend resources are approved for use across all dashboards:
+Approved frontend resources:
 
-| Resource | URL path | Purpose |
+| Resource | Purpose | Status |
 |---|---|---|
-| Mushroom Cards | `/hacsfiles/lovelace-mushroom/mushroom.js` | Primary card visual layer |
-| card-mod | `/hacsfiles/lovelace-card-mod/card-mod.js` | CSS variable injection and element-level style transforms — chip sizing, card padding, image cropping and positioning |
+| Bubble Card | Primary card framework | Required |
+| Bubble Card Tools | Module store backend (required for custom modules) | Required |
+| Bubble Badges 2 | Overlay badge indicators on card surfaces | Required |
+| Bubble Weather | Weather icon templating module | Required |
+| Bubble Neon | Visual theme / CSS variable baseline | Required |
+| card-mod | CSS overrides where Bubble Card global variables don't reach | Narrow use |
+| Mushroom Cards | Fallback for specific capability gaps | Fallback only |
 
-Do not introduce additional HACS frontend resources without explicit decision. When a capability gap arises, first check whether a native HA card or Mushroom card covers it before reaching for a new dependency.
+**Mushroom Cards fallback — documented gaps today:**
+
+| Gap | Mushroom card | When to use |
+|---|---|---|
+| Jinja `icon_color` template where Bubble Card JS template is brittle | `mushroom-template-card` | Reminder cards, vacuum consumables |
+| Light color-picker UX not yet matched by Bubble Card | `mushroom-light-card` | Explicit color-picking UI, if needed |
+
+Document every Mushroom fallback use at the card use site (inline comment or guide note). Do not introduce new fallback gaps without updating this table.
+
+Do not introduce additional HACS frontend resources without an explicit decision.
 
 ---
 
@@ -47,129 +65,139 @@ Do not introduce additional HACS frontend resources without explicit decision. W
 
 | Property | Convention |
 |---|---|
-| `url_path` | Short hyphenated slug: `mobile-3`, `desktop-1` |
-| `title` | Human-readable with version: `Mobile 3.0`, `Desktop 1.0` |
+| `url_path` | Short hyphenated slug: `mobile`, `desktop` |
+| `title` | Human-readable without version numbers: `Mobile`, `Desktop` |
 | `icon` | Reflects the target device: `mdi:cellphone` for mobile, `mdi:monitor` for desktop |
 | `show_in_sidebar` | `true` |
+
+Version numbers are dropped from dashboard slugs — they belong in git history and the guide's Last Updated date, not the URL.
 
 ---
 
 ## Home View Structure
 
-Every dashboard's primary view is titled **Home**, uses `type: sections` and `max_columns: 1` (mobile). It contains three sections and optionally view-level header badges.
+Every dashboard's primary view is titled **Home**, uses `type: sections` and `max_columns: 1` (mobile).
 
-**Header badges** — optional ambient environmental context visible without scrolling. Use only for read-only, non-navigational context; badges have limited tap affordance and no conditional-hide behavior. If color differentiation is needed, use three conditional copies of the same entity with distinct static `color` values and `visibility` conditions (entity badges don't support template colors). An alternative approach: place always-visible ambient context in a dedicated first chip strip instead of badges — this eliminates the badge-to-section spacing gap and allows `type: template` color logic directly.
+**Sections, in this order:**
 
-**Sections**, in this order:
+1. **Chip strips** — no section title; one `sub-buttons-only` card per strip stacked vertically
+2. **Room tiles** — one section per room (no section title); each section contains one Bubble Card `button` card
+3. **Utility tiles** — one section per utility area (Reminders, Vacuum, Climate, Water Leaks); same button card pattern as rooms
+4. **Pop-up definitions** — one section per area at the bottom of the view; these render invisibly until triggered by their hash
 
-1. **Chip strips** — no section title (omitting the title lets the section collapse visually when all chips are inactive)
-2. **Rooms** — room tile grid
-3. **House** — cross-room utility controls (climate, alarm, vacuum)
+Do not reorder these groups or add sections between them without updating this standard.
 
-Do not reorder these sections or add sections between them without updating this standard.
-
----
-
-## Chip Strip System
-
-The chip strip section contains `custom:mushroom-chips-card` rows stacked vertically (Mobile 3.0 uses four). Apply card-mod sizing to every strip:
-
-```yaml
-card_mod:
-  style: "ha-card { --chip-height: 30px; --chip-padding: 0 6px; }"
-```
-
-All strips use `alignment: center`.
-
-**Icon-only template chips: omit `content` entirely.** Setting `content: ""` on a `type: template` chip allocates a text area beside the icon even when nothing is displayed, pushing the icon visually off-center. For permanently icon-only chips, leave `content` out of the YAML. Only include `content` when the chip conditionally renders a count or label:
-
-```yaml
-# Correct — icon-only chip
-chip:
-  type: template
-  icon: mdi:trash-can
-  icon_color: red
-  tap_action: {action: more-info, entity: input_boolean.trash_pickup_pending}
-
-# Wrong — content: "" shifts the icon left
-chip:
-  type: template
-  icon: mdi:trash-can
-  icon_color: red
-  content: ""
-
-# Correct — chip with conditional count (keep content here)
-chip:
-  type: template
-  icon: mdi:water-alert
-  icon_color: red
-  content: "{{ c if c >= 2 else '' }}"
-```
-
-### Strip 1 — Safety Alerts
-
-Fully conditional: only chips whose entity is in an alert state are rendered. When all entities are normal the strip is empty.
-
-**Critical rule: use `type: template` for inner chips, not `type: entity`.** The `type: entity` chip applies Mushroom's device-class state color at render time, which overrides a static `icon_color`. When a binary sensor is in `unknown` or `unavailable` state (both satisfy `state_not: "off"`), the chip renders with the entity's native color rather than red. `type: template` renders purely from the YAML values and always produces the intended red.
-
-```yaml
-# Correct
-chip:
-  type: template
-  icon: mdi:water-alert
-  icon_color: red
-  content: Kitchen
-  tap_action: {action: more-info, entity: binary_sensor.kitchen_leak_water_leak}
-
-# Wrong — icon_color: red may be overridden by entity state color
-chip:
-  type: entity
-  entity: binary_sensor.kitchen_leak_water_leak
-  icon_color: red
-```
-
-**Contextual gate for door and garage alerts.** These entities open routinely during the day; surfacing them as alerts at all times creates noise. Apply a compound condition: only alert when the entity is open AND the household is sleeping OR nobody is home:
-
-```yaml
-conditions:
-  - condition: and
-    conditions:
-      - condition: state
-        entity: cover.garage_door
-        state_not: closed
-      - condition: or
-        conditions:
-          - condition: state
-            entity: input_boolean.everyone_sleeping
-            state: "on"
-          - condition: numeric_state
-            entity: zone.home
-            below: 1
-```
-
-Water leaks and freezer door do not use a contextual gate — they are always alert-worthy.
-
-### Strip 2 — Device Active Status
-
-Conditional chips for devices that are actively doing something useful to surface (e.g., vacuum cleaning). Use `type: entity` chips here since state-based coloring is appropriate for active-device status. Each chip navigates to the device's utility subview on tap.
-
-### Strip 3 — Modes and Persistent Status
-
-Contextual mode indicators (sleeping states, media modes) plus persistent status indicators (reminders). Modes are conditional and use `type: entity`. The reminders indicator is always present: a green `mdi:calendar-check` chip when the overdue count is zero, replaced by a red `mdi:calendar-alert` chip showing the count when nonzero. Both navigate to the `/reminders` subview.
-
-### Strip 4 — Presence
-
-Always-visible person chips. The primary resident uses `use_entity_picture: true`. Guest presence is a hold-to-toggle pattern (tap does nothing; hold toggles `input_boolean.guest_mode`) to prevent accidental activation.
+Pop-up sections have no visible title. HA renders an empty section heading as zero-height when no title is set, so the block collapses cleanly — the pop-up overlay is the intended UI surface, not the section.
 
 ---
 
-## card-mod Style Overrides
+## Room Tile Pattern
+
+Each area (room or utility) on the Home view is a single Bubble Card `button` card. It serves as the visual entry point for that area.
+
+**Standard room tile (rooms with a primary light):**
+
+```yaml
+type: custom:bubble-card
+card_type: button
+name: <Room Name>
+icon: <mdi room icon>
+entity: light.<area>_<primary>        # primary light entity
+button_type: switch                    # shows entity state color in background
+tap_action:
+  action: navigate
+  navigation_path: "#<area-slug>"     # opens the room pop-up
+hold_action:
+  action: toggle                      # quick light on/off without popup
+double_tap_action:
+  action: none
+sub_button:
+  - entity: <key device 1>
+    name: <label>
+    tap_action: {action: toggle}
+  # 2–4 sub-buttons total; curate per room based on what's most-used
+```
+
+**Sub-button selection rule:** Include the 2–4 devices you'd interact with most from the home view without needing the full pop-up. Default set: ceiling fan (if present), primary media player (if addressable from this view), any frequently-toggled secondary light. Don't include sensors (read-only entities belong in the pop-up).
+
+**Fallback room tiles (rooms without a primary light):**
+
+| Room type | `button_type` | Entity |
+|---|---|---|
+| Garage (cover only) | `name` | `cover.garage_door` — sub-buttons for garage door open/close |
+| Outside (sensors only) | `state` | `sensor.outside_temperature` |
+
+**Utility tiles** follow the same structure with `button_type: name` or `state`, `tap_action: navigate #popup`, and sub-buttons for the 1–2 most relevant status readouts (e.g., overdue reminders count for the Reminders tile, vacuum state for the Vacuum tile).
+
+---
+
+## Pop-up Pattern
+
+Each area's pop-up is a Bubble Card `pop-up` card placed in its own section at the bottom of the Home view.
+
+**Hash slug naming:** `#<area-slug>` where `<area-slug>` is the hyphenated area name: `#living-room`, `#kitchen`, `#master-bedroom`, `#averys-room`, `#office`, `#bathroom`, `#garage`, `#outside`, `#reminders`, `#vacuum`, `#climate`, `#water-leaks`.
+
+**Structure:**
+
+```yaml
+type: custom:bubble-card
+card_type: pop-up
+hash: "#living-room"
+name: Living Room
+icon: mdi:sofa
+cards:
+  # Pop-up content — any Bubble Card or HA card
+  - type: custom:bubble-card
+    card_type: separator
+    name: Lights
+  - type: custom:bubble-card
+    card_type: button
+    entity: light.living_room_fan
+    ...
+```
+
+**Close behavior:** swipe down from header, ESC on desktop, tap outside, browser back. Do not add a manual back-navigation card — Bubble Card renders a close button.
+
+**Room pop-up content structure** (include only sections that apply):
+
+| Section | Content | Required |
+|---|---|---|
+| Lights | Bubble Card buttons, one per light entity; no sliders | If room has lights |
+| Fan | Bubble Card button with fan speed sub-buttons | If room has a ceiling fan |
+| Climate | Bubble Card climate card | If room has a thermostat |
+| Media | Bubble Card media-player card | If room has addressable media |
+| Sensors | Read-only state buttons or sub-buttons-only | If room has sensors worth surfacing |
+
+---
+
+## Status Chip System
+
+The chip strip section at the top of the Home view uses stacked `sub-buttons-only` cards — one card per strip, each with a sub-button array. Sub-buttons handle conditional visibility, icon color, and tap actions.
+
+**Four strips (carry over from mobile-3, same logic):**
+
+| Strip | Name | Visibility |
+|---|---|---|
+| 1 | Environment | Always visible: Weather, AQI, Thermostat |
+| 2 | Status & Alerts | 4 anchored chips + conditional alert chips |
+| 3 | Modes | All conditional (sleeping, movie mode, quiet mode, light sync) |
+| 4 | Presence | Always visible: Nate, Guest |
+
+**Sub-button visibility conditions:** use the Bubble Card `visibility` property on each sub-button with the same condition logic used for Mushroom chips. `state_not: "off"` for binary sensors (conservative default — surfaces `unknown` as alert).
+
+**Alert chip coloring:** use the Bubble Card JS template system or `icon_color` field for red/orange/green color logic. Do not rely on entity-class default colors for alert chips — explicit color control is required for correct behavior when the entity is in `unknown` or `unavailable` state.
+
+**Icon-only sub-buttons:** omit the `name` field when no label is needed. Do not set `name: ""` — it allocates an empty text area and shifts the icon off-center.
+
+**Contextual gates for door and garage alerts** (same rule as mobile-3): only alert when the entity is open AND the household is sleeping OR nobody is home. Water leaks and the freezer door are never gated — always alert-worthy.
+
+---
+
+## card-mod Use Cases
 
 card-mod is approved for two use cases:
 
-**1. Chip strip sizing** — `--chip-height` and `--chip-padding` CSS variables on every `mushroom-chips-card`. See Chip Strip System above.
-
-**2. Card-level style transforms** — CSS applied to `ha-card` and its child elements for layout corrections that native HA cards don't expose. The reference example is the vacuum map card (`picture-entity`): the Roborock integration generates map images with excess padding (black margin) around the apartment outline. card-mod removes the card's default padding and applies CSS transforms to scale and reposition the image:
+**1. Vacuum map image crop/zoom** — the Roborock integration bakes excess black padding into map images. card-mod removes the card's default padding and applies CSS transforms to crop and reposition the floor plan:
 
 ```yaml
 card_mod:
@@ -183,75 +211,15 @@ card_mod:
     }
 ```
 
-How the transform works: `scale()` zooms the image content; `translateX/Y` shifts it to center the meaningful portion of the floor plan; `margin: -12% 0` collapses the card's vertical footprint by pulling in the top and bottom edges (which would otherwise show the card background as whitespace); `overflow: hidden` on `ha-card` clips scaled content that extends beyond the card boundary. The `translateY` value compensates for the upward shift that the negative top margin introduces. These values are floor-plan-specific and may need retuning if the map layout changes.
+These values are floor-plan-specific. See `guides/mobile_dashboard.md` → Vacuum Pop-up for technique details.
 
-When writing card-mod for non-chip cards, target `ha-card` for card-level changes and shadow DOM element names (e.g. `hui-image`) for inner component changes. Note that `clip-path` on the inner element creates a visual mask but does not collapse layout space — use negative margins when you need to reduce the card's occupied height.
+**2. Any Bubble Card CSS gap** — when a Bubble Card global CSS variable doesn't cover a needed style adjustment, use card-mod as a targeted override. Document the reason at the use site.
 
----
-
-## Room Tiles
-
-Room tiles live in the Rooms section in a 2-column grid (`type: grid, columns: 2, square: false`).
-
-**Standard room tile** (room has a primary ceiling light):
-
-```yaml
-type: custom:mushroom-light-card
-entity: light.<area>_ceiling         # primary light entity — see note below
-name: <Room Name>
-icon: <mdi icon representing the room>
-use_light_color: true
-show_brightness_control: false       # Adaptive Lighting owns brightness
-show_color_temp_control: false
-show_color_control: false
-tap_action:
-  action: navigate
-  navigation_path: /mobile-3/<room-path>
-hold_action:
-  action: toggle                     # quick on/off without navigating
-double_tap_action:
-  action: none
-```
-
-**Fallback patterns** (rooms without a primary light):
-
-| Room type | Card type | Entity |
-|---|---|---|
-| Garage (cover only) | `custom:mushroom-cover-card` | `cover.garage_door` |
-| Outside (sensor only) | `custom:mushroom-entity-card` | `sensor.outside_temperature` |
-
-> **Note on primary light entity:** The entity bound to a room tile should be the room's primary ceiling light (the one that best represents "is this room lit?"). In some rooms this is currently a fan entity (`light.living_room_fan`, `light.master_bedroom_fan`) because those lights are part of a ceiling fan unit. This conflicts with `standards/naming.md`'s location-first naming rule — a cleanup pass is tracked separately.
+Do not use card-mod to replicate styling that Bubble Card's global CSS variables already expose.
 
 ---
 
-## Room Subview Structure
-
-Each room gets a view with `subview: true`. HA renders a back arrow automatically; no manual back-navigation card is needed.
-
-Standard sections, include only those that apply to the room:
-
-| Section | Content | Required |
-|---|---|---|
-| Lights | 2-col grid of native `tile` cards, one per light entity | Yes |
-| Fan | Native `tile` with `fan-speed` feature | If room has a ceiling fan |
-| Climate | Native `tile` with `climate-hvac-modes` + `target-temperature` features | If room has a thermostat |
-| Media | Native `tile` per device with `media-player-controls` feature (no explicit `controls` list) | If room has addressable media |
-| Sensors | Native `tile` per binary sensor (motion, occupancy, door, etc.) | If room has sensors |
-
-> **`media-player-controls` controls field:** Do not specify an explicit `controls` list. HA auto-detects which controls each entity supports. Enumerating unsupported control values (e.g. `volume_set` as a button) causes a configuration error badge in the UI.
-
----
-
-## Utility Subviews
-
-Utility subviews (Reminders, Vacuum, and future equivalents) are not room subviews — they are navigated from chip tap actions, not room tiles. They follow the same `subview: true` pattern but are not required to follow the room section structure.
-
-For reminder cards, use `custom:mushroom-template-card` with:
-- `icon_color` as a Jinja template (`red` when overdue, `green` otherwise)
-- `secondary` showing the formatted due date: `strptime(...).strftime('%B %-d, %Y')`
-- `hold_action` calling `input_datetime.set_datetime` with today's date (mark complete), with `confirmation: {text: "Mark <name> as done today?"}`
-
----
+## Confirmation Dialogs
 
 **Confirmation dialogs must always include descriptive text.** Never use `confirmation: true` (bare boolean). Always use the object form with a `text` field that tells the user exactly what will happen:
 
@@ -270,22 +238,23 @@ The text should describe the irreversible or consequential action in plain langu
 
 ## Quick Reference
 
-| Pattern | Card type | Notes |
+| Pattern | Bubble Card type | Notes |
 |---|---|---|
-| Room tile (Home view) | `mushroom-light-card` | No sliders; `use_light_color: true`; tap=navigate, hold=toggle |
-| Room tile (no light) | `mushroom-cover-card` or `mushroom-entity-card` | Garage, Outside — Home view only |
-| Subview card (default) | Native `tile` | All subview content unless exception below applies |
-| Subview card (dynamic color) | `mushroom-template-card` | Only when Jinja `icon_color` required (consumables, HVAC runtime) |
-| Fan control | Native `tile` with `fan-speed` | Subview |
-| Climate control | Native `tile` with `climate-hvac-modes` + `target-temperature` | Subview |
-| Media control | Native `tile` with `media-player-controls` (no controls list) | Subview |
-| Vacuum controls | Native `tile` with `vacuum-commands` | Subview |
-| Alert chip | `type: template` inside `conditional` | Not `type: entity` — ensures static red |
-| Mode/status chip | `type: entity` inside `conditional` | State color acceptable here |
-| Reminder card | `mushroom-template-card` | Template icon_color; hold=mark complete |
-| Chip sizing | `card_mod` → `--chip-height: 30px` | Applied to every `mushroom-chips-card` |
-| Icon-only chip | `type: template`, no `content` field | Omit `content` entirely — `content: ""` pushes icon off-center |
-| Map image crop/zoom | `picture-entity` with `card_mod` | `ha-card {padding:0; overflow:hidden}` + `hui-image {transform:scale/translate; margin:-12% 0}` — see card-mod section |
-| Subview nav | `type: sections, subview: true` | HA renders back arrow automatically |
+| Room tile | `button` (`button_type: switch`) | tap=popup, hold=toggle; sub-buttons for key devices |
+| Utility tile | `button` (`button_type: name` or `state`) | tap=popup; sub-buttons for status readouts |
+| Chip strip | `sub-buttons-only` | One card per strip; sub-button `visibility` for conditional chips |
+| Alert chip | sub-button with explicit `icon_color` | Not entity-class color — explicit red/green/orange required |
+| Room pop-up | `pop-up` with `cards` array | Hash slug: `#area-name`; placed in dedicated section at view bottom |
+| Pop-up trigger | button `tap_action: navigate #hash` | Room tile is the trigger; no secondary trigger needed |
+| Light control (popup) | `button` (`button_type: switch`) | No sliders; hold=toggle or sub-button for power |
+| Fan control | `button` with speed sub-buttons | |
+| Climate control | Bubble Card `climate` card | Fallback to native `tile` with hvac-modes feature if climate card lacks needed UX |
+| Media control | Bubble Card `media-player` card | |
+| Vacuum controls | `button` with command sub-buttons | |
+| Reminder card | `button` or Mushroom `mushroom-template-card` fallback | Template `icon_color` for overdue state |
+| Vacuum consumables | `button` or Mushroom `mushroom-template-card` fallback | Template `icon_color` for maintenance-due state |
+| Map image crop/zoom | `picture-entity` with `card_mod` | `ha-card {padding:0; overflow:hidden}` + `hui-image {transform:scale/translate; margin:-12% 0}` |
+| Separator heading | `separator` | Within pop-up or between inline sections |
 | Confirmation dialog | `confirmation: {text: "..."}` | Never bare `confirmation: true` |
-| Section visibility | `visibility: [{condition: state, ...}]` | Hides entire section + heading when condition false |
+| Weather | `button` + Bubble Weather module | |
+| Status badges | Bubble Badges 2 | Overlay indicators on card surfaces |

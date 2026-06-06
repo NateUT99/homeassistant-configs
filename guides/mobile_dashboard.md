@@ -1,254 +1,291 @@
-# Mobile Dashboard 3.0
+# Mobile Dashboard
 
-*Version 0.2 — Last updated: June 2026*
+*Last updated: June 2026*
 
 ---
 
 ## Overview
 
-Mobile 3.0 (`mobile-3`) is the primary mobile dashboard for the HA instance, built to replace Mobile 2.0 (which relied on Bubble Card). It targets the iOS Companion App and aims for an Apple Home-style clarity — enough ambient context at a glance, with a tap to drill into any room or device. The visual layer is Mushroom Cards throughout; no Bubble Card, no kiosk-mode. Adaptive Lighting manages all brightness and color temperature, so no brightness sliders appear anywhere.
+`mobile` is the primary mobile dashboard for the HA instance, built on Bubble Card throughout. It targets the iOS Companion App and aims for an Apple Home-style clarity: chip strips for ambient status at a glance, room tiles with sub-buttons for quick control of key devices, and modal pop-ups for the full per-room control surface.
 
-Mobile 2.0 remains available as a fallback. Retirement is tracked separately, pending desktop dashboard completion.
+This dashboard replaces Mobile 3.0 (`mobile-3`, which used Mushroom + native tile cards) and revives the pop-up interaction model from Mobile 2.0 (the first Bubble Card dashboard). Adaptive Lighting manages all brightness and color temperature — no brightness sliders appear anywhere.
+
+Mobile 3.0 remains in HA storage until `mobile` is feature-complete and a formal cutover is done.
 
 ---
 
 ## Architecture
 
 ```
-mobile-3 (storage-mode dashboard, url_path: mobile-3)
+mobile (storage-mode dashboard, url_path: mobile)
 │
 ├── Home (sections, max_columns=1)
 │   │
 │   ├── [chip strip section — no title]
-│   │   │
-│   │   ├── Strip 1: Environment    ← always 3 chips
-│   │   │   ├── Weather [icon+temp]          dynamic MDI icon (mdi:weather-<state>); °F → more-info
-│   │   │   ├── AQI [green/accent/red]       mdi:smog; green ≤100 / accent 101–125 / red ≥126 → more-info
-│   │   │   └── Thermostat [grey/orange/blue] grey=idle, orange=heating, blue=cooling; current temp → /climate
-│   │   │
-│   │   ├── Strip 2: Status & Alerts  ← 4 chips always visible; alert chips append when active
-│   │   │   ├── Alarm status [green]        normal state → Away/Night/Home/Off; hides during alert
-│   │   │   │   Alarm alert [red/orange]    alert state → triggered/pending=red, arming=orange; mutually exclusive with status
-│   │   │   ├── Vacuum [grey/orange/green/red]  grey=not run, orange=running, green=ran+clear, red=ran+maintenance due → /vacuum
-│   │   │   ├── Garage [green]              closed → more-info; hides when open (alert chips take over)
-│   │   │   │   Garage [red/orange]         open + sleeping/away=red, open + home/awake=orange → close w/ confirm
-│   │   │   ├── Reminders OK [green]        hidden when any overdue; mutually exclusive with overdue count
-│   │   │   │   Overdue reminders [red]     count > 0 → /reminders; count if 2+
-│   │   │   ├── Water leak [red]            any of 4 sensors not off → /water-leaks; count if 2+
-│   │   │   ├── Freezer open [red]          kitchen_freezer_door_contact not off → more-info
-│   │   │   ├── Exterior door [red]         any of 3 doors open AND (sleeping OR away) → count if 2+
-│   │   │   ├── Exterior door [orange]      any of 3 doors open AND home AND awake → count if 2+
-│   │   │   ├── Garage open [red]           not closed AND (sleeping OR away) → tap closes w/ confirm
-│   │   │   ├── Garage open [orange]        not closed AND home AND awake → tap closes w/ confirm
-│   │   │   └── Trash pickup [red]          trash_pickup_pending on → icon-only
-│   │   │
-│   │   ├── Strip 3: Modes          ← conditional, all hidden when inactive
-│   │   │   ├── Avery sleeping      (input_boolean.avery_sleeping, if not everyone sleeping)
-│   │   │   ├── Everyone sleeping   (input_boolean.everyone_sleeping)
-│   │   │   ├── Light sync          (sync box + TV both on)
-│   │   │   ├── Movie mode          (TV on)
-│   │   │   └── Quiet mode          (TV on)
-│   │   │
-│   │   └── Strip 4: Presence       ← always visible
-│   │       ├── Nate                (person.nate, entity picture, shows location state)
-│   │       └── Guest               (person.guest, hold-to-toggle input_boolean.guest_mode)
+│   │   ├── Strip 1: Environment        always visible: Weather, AQI, Thermostat
+│   │   ├── Strip 2: Status & Alerts    4 anchored + conditional alert chips
+│   │   ├── Strip 3: Modes              all conditional (sleeping, movie, quiet, sync)
+│   │   └── Strip 4: Presence           always visible: Nate, Guest
 │   │
-│   ├── Rooms     ← 2-col mushroom-light-card grid, tap=subview, hold=toggle
-│   │   ├── Living Room     light.living_room_fan
-│   │   ├── Master Bedroom  light.master_bedroom_fan
-│   │   ├── Avery's Room    light.avery_room_ceiling
-│   │   ├── Office          light.office_ceiling
-│   │   ├── Kitchen         light.kitchen_ceiling
-│   │   ├── Bathroom        light.bathroom_hallway_ceiling
-│   │   ├── Garage          cover.garage_door (cover-card fallback)
-│   │   └── Outside         sensor.outside_temperature (entity-card fallback)
-│
-├── Living Room   (subview — reference implementation)
-│   ├── Lights    ceiling, movie posters, status lamp, tv lights
-│   ├── Fan       fan.living_room_ceiling
-│   ├── Climate   climate.living_room_thermostat
-│   ├── Media     Apple TV + Sonos
-│   └── Sensors   motion/occupancy
-│
-├── Water Leaks   (utility subview — tap target for water alert chip)
-│   └── Sensors   2×2 grid: kitchen, bathroom, master bath, utility
-│
-├── Reminders     (utility subview)
-│   └── Household        car, coffee grinder, dishwasher, disposal,
-│                        razor, toothbrushes, washer, water filter
-│
-├── Vacuum        (utility subview)
-│   ├── Map          conditional picture-entity (no section title)
-│   ├── Controls     native tile with vacuum-commands feature (no section title; before Status)
-│   ├── Status       state, battery, area, duration; Current Room when cleaning
-│   ├── Mop Settings mop intensity, mode, water supply — section hidden when mop not attached
-│   └── Consumables  filter, main brush, side brush, sensor (hours remaining; tap to reset w/ confirmation)
-│
-├── Climate       (utility subview — tap target for thermostat chip)
-│   │             Badges: Inside temp+humidity (blue); tap shows per-room breakdown
-│   ├── Controls  thermostat tile + comfort select (home/sleep/away) + clear hold
-│   │             + HVAC Runtime subtitle + today's cooling/heating summary card
-│   └── HVAC History  (collapsed by default) 28-day line chart (cooling + heating)
-│
-└── [pending subviews]
-    Master Bedroom, Avery's Room, Office, Kitchen, Bathroom, Garage, Outside
+│   ├── [room tile sections — no section titles]
+│   │   ├── Living Room     bubble-card button → #living-room popup
+│   │   ├── Kitchen         bubble-card button → #kitchen popup
+│   │   ├── Master Bedroom  bubble-card button → #master-bedroom popup
+│   │   ├── Avery's Room    bubble-card button → #averys-room popup
+│   │   ├── Office          bubble-card button → #office popup
+│   │   ├── Bathroom        bubble-card button → #bathroom popup
+│   │   ├── Garage          bubble-card button → #garage popup
+│   │   └── Outside         bubble-card button → #outside popup
+│   │
+│   ├── [utility tile sections — no section titles]
+│   │   ├── Reminders       bubble-card button → #reminders popup
+│   │   ├── Vacuum          bubble-card button → #vacuum popup
+│   │   ├── Climate         bubble-card button → #climate popup
+│   │   └── Water Leaks     bubble-card button → #water-leaks popup
+│   │
+│   └── [pop-up sections — hidden by default, triggered via URL hash]
+│       ├── #living-room     Lights / Fan / Climate / Media / Sensors
+│       ├── #kitchen         Lights / Sensors
+│       ├── #master-bedroom  Lights / Fan / Media / Sensors
+│       ├── #averys-room     Lights / Fan / Media / Sensors
+│       ├── #office          Lights / Sensors
+│       ├── #bathroom        Lights / Sensors
+│       ├── #garage          Cover / Lights / Sensors
+│       ├── #outside         Lights / Sensors
+│       ├── #reminders       Household task grid
+│       ├── #vacuum          Map / Controls / Status / Mop Settings / Consumables
+│       ├── #climate         Controls / HVAC History
+│       └── #water-leaks     Sensor grid
 ```
 
-The chip strip section has no title. This is intentional: HA renders an empty section heading as zero-height when no title is set, so the block collapses cleanly when the house is quiet.
+**Design decisions:**
+- Room tiles are single-card sections: one Bubble Card `button` per area. No separate section headings — the button card shows the room name and icon. Tap navigates to the area's pop-up; hold toggles the primary light; sub-buttons on the tile surface handle the most-used quick controls.
+- Pop-up cards live in dedicated sections at the bottom of the Home view. HA renders no-title sections as zero-height, so pop-up sections are visually absent until triggered. Each pop-up card carries its content in a `cards` array.
+- Chip strips use `sub-buttons-only` cards (one per strip) with sub-button `visibility` conditions — the same conditional logic as mobile-3's Mushroom chips, but in Bubble Card's sub-button system.
 
 ---
 
 ## Prerequisites
 
-- Home Assistant 2025.9 or later (sections view, tile features)
-- Mushroom Cards installed via HACS (`lovelace-mushroom`)
-- card-mod installed via HACS (`lovelace-card-mod`)
+- Home Assistant 2025.9 or later
+- HACS frontend resources installed and active:
+  - Bubble Card (`lovelace-bubble-card`)
+  - Bubble Card Tools (required for module backend)
+  - Bubble Badges 2
+  - Bubble Weather
+  - Bubble Neon
+  - card-mod (`lovelace-card-mod`) — retained for vacuum map transform
+  - Mushroom Cards (`lovelace-mushroom`) — retained as fallback; do not remove until all fallback uses are migrated or confirmed unnecessary
 - Adaptive Lighting integration active (justifies no-slider rule)
+
+---
+
+## Build Steps
+
+### Step 1 — Install HACS resources
+
+In the HA UI: **Settings → HACS → Frontend**. Install each resource listed in Prerequisites. Restart HA after all five Bubble Card resources are installed to ensure they register correctly.
+
+Mushroom Cards and card-mod are already installed from mobile-3; no action needed.
+
+### Step 2 — Create the `mobile` dashboard
+
+In the HA UI: **Settings → Dashboards → Add Dashboard**. Set:
+
+| Field | Value |
+|---|---|
+| Title | `Mobile` |
+| Icon | `mdi:cellphone` |
+| URL | `mobile` |
+| Show in sidebar | On |
+| Admin only | Off |
+
+Select **Storage mode**. The dashboard URL becomes `/mobile`. Leave mobile-3 active — do not change the default dashboard yet.
+
+Add a single view titled **Home**, type **Sections**, `max_columns: 1`.
+
+### Step 3 — Build the chip strip section
+
+Add one section with no title. Within it, add four `sub-buttons-only` Bubble Card cards stacked vertically (one per strip). Sub-button visibility, tap actions, and icon color logic follow the same entity logic as mobile-3; see [Chip Strip Design](#chip-strip-design) below.
+
+### Step 4 — Add room tile sections
+
+Add one section per area with no title. Each section contains a single Bubble Card `button` card. See [Room Tiles](#room-tiles) below for per-room entity assignments and sub-button reference.
+
+### Step 5 — Build the Living Room pop-up (reference)
+
+Add a section with no title at the bottom of the Home view. Place a Bubble Card `pop-up` card with `hash: "#living-room"`. Build its `cards` array with the Lights / Fan / Climate / Media / Sensors sections. This pop-up is the reference pattern for all other rooms.
+
+### Step 6 — Build remaining room pop-ups
+
+Replicate the Living Room pop-up structure for: Kitchen, Master Bedroom, Avery's Room, Office, Bathroom, Garage, Outside. Include only the sections applicable to each room.
+
+### Step 7 — Build utility pop-ups
+
+Build pop-ups for: Reminders (`#reminders`), Vacuum (`#vacuum`), Climate (`#climate`), Water Leaks (`#water-leaks`). See [Utility Pop-ups](#utility-pop-ups) below.
+
+### Step 8 — Apply Bubble Neon theming
+
+Apply the Bubble Neon module and configure global Bubble Card CSS variable tokens (border radius, accent color, blur level, sub-button spacing). Document the chosen token values in `standards/dashboards.md` → Theming Tokens once finalized.
+
+### Step 9 — Add utility tile sections
+
+Add the four utility tile sections (Reminders, Vacuum, Climate, Water Leaks) between the room tiles and the pop-up sections. Each is a Bubble Card `button` with `tap_action: navigate #utility-hash` and status sub-buttons.
+
+### Step 10 — Cutover
+
+Once `mobile` is feature-complete:
+1. In **Settings → Dashboards**, set `mobile` as the default dashboard if desired.
+2. Confirm `mobile-3` is no longer referenced anywhere.
+3. Delete `mobile-3` via `ha_config_delete_dashboard(url_path="mobile-3")` (requires explicit confirmation).
+4. Update this guide's Overview and the Related HA Config table.
+5. Update the memory index to reflect the cutover.
 
 ---
 
 ## Chip Strip Design
 
+Each strip is a Bubble Card `sub-buttons-only` card. Sub-button `visibility` replaces the `type: conditional` wrapping used in mobile-3. The entity logic and ordering rules are identical to mobile-3.
+
 ### Strip 1 — Environment
 
-Always-visible ambient context strip. Three chips, always present; no conditional logic.
+Always visible. Three sub-buttons, no visibility conditions.
 
-**Weather** — Dynamic icon using `mdi:weather-{{ states('weather.apartment') }}` (with a special-case for `partlycloudy` → `mdi:weather-partly-cloudy`). Content shows current temperature in °F from `state_attr('weather.apartment', 'temperature')`. Taps to `more-info` on `weather.apartment`.
+**Weather** — Dynamic icon: `mdi:weather-{{ states('weather.apartment') }}` (special-case `partlycloudy` → `mdi:weather-partly-cloudy`). Content shows current temperature from `state_attr('weather.apartment', 'temperature')`. Tap: `more-info` on `weather.apartment`.
 
-**AQI** — `mdi:smog` with conditional `icon_color` driven by `sensor.toledo_ohio_usa_air_quality_index`: green ≤ 100, accent 101–125, red ≥ 126. Content shows the raw number only — the smog icon provides sufficient context. Taps to `more-info` on the sensor. Using a template chip (not an entity badge) lets `icon_color` be set via Jinja, which also fixes the gap in the old badge approach where AQI = 125 was uncovered.
+**AQI** — `mdi:smog`. Icon color driven by `sensor.toledo_ohio_usa_air_quality_index`: green ≤ 100, accent 101–125, red ≥ 126. Content shows the raw value. Tap: `more-info` on the sensor. Use the JS template system for `icon_color` since Bubble Card sub-buttons support it.
 
-**Thermostat** — `mdi:home-thermometer` with `icon_color` from `hvac_action`: blue = cooling, orange = heating, grey = idle. Content shows current indoor temperature. Taps to the Climate subview.
+**Thermostat** — `mdi:home-thermometer`. Icon color from `hvac_action`: blue = cooling, orange = heating, grey = idle. Content: current indoor temperature. Tap: navigate to `#climate` pop-up.
 
 ### Strip 2 — Status & Alerts
 
-A single strip combining persistent status indicators with conditional alert chips. Four chips are always visible (the status anchors); alert chips append to the right when active. In a quiet house the strip shows four chips; in an alert state the count grows without disturbing the anchored positions.
+A mix of always-visible anchored sub-buttons (positions 1–4) and conditional alert sub-buttons (positions 5+). Conditional sub-buttons use Bubble Card's `visibility` field with entity state conditions.
 
-**Ordering rationale:** status chips are fixed at positions 1–4 so the strip never looks empty. Alert chips occupy positions 5+ and only appear when needed.
+**Alert sub-button coloring:** use explicit `icon_color` values (red, orange, green) — do not rely on entity-class default colors. `state_not: "off"` catches both active alerts and `unknown`/`unavailable` states (intentional: conservative default for safety sensors).
 
-**Alarm status / Alarm alert** — Position 1; mutually exclusive pair. Alarm status (green `mdi:shield-home`, "Away" / "Night" / "Home" / "Off") is always visible during normal operation. It hides when the alarm transitions to `triggered`, `pending`, or `arming`, at which point the alarm alert chip (`mdi:shield-alert`, red or orange) takes its place at position 1.
+**Alarm status / Alarm alert** — Position 1; mutually exclusive. Alarm status (`mdi:shield-home`, green, always visible) hides when alarm transitions to `triggered`, `pending`, or `arming`. Alarm alert chip (`mdi:shield-alert`, red or orange) takes position 1 during those states.
 
-**Vacuum** — Position 2; always visible. Four states driven by two template fields (`icon` and `icon_color`): cleaning/returning/paused → orange `mdi:robot-vacuum`; ran today AND `binary_sensor.roborock_maintenance_required` on → red `mdi:robot-vacuum-alert`; not run today → grey `mdi:robot-vacuum-off`; ran today and all clear → green `mdi:robot-vacuum`. Taps to the Vacuum subview.
+**Vacuum** — Position 2; always visible. Four states via JS template: cleaning/returning/paused → orange `mdi:robot-vacuum`; ran today AND `binary_sensor.roborock_maintenance_required` on → red `mdi:robot-vacuum-alert`; not run today → grey `mdi:robot-vacuum-off`; ran today, all clear → green `mdi:robot-vacuum`. Tap: navigate `#vacuum`.
 
-**Garage** — Position 3; three mutually exclusive states. Green `mdi:garage` when closed (taps to `more-info`). Replaced by `mdi:garage-open-variant` when open: red when sleeping or away (tap closes with confirmation), orange when home and awake (tap closes with confirmation). Hold always shows `more-info`.
+**Garage** — Position 3; three mutually exclusive states. Green `mdi:garage` when closed (tap: more-info). Replaced by `mdi:garage-open-variant` when open: red when sleeping or away (tap closes with confirmation), orange when home and awake (tap closes with confirmation). Hold: always more-info.
 
-**Reminders OK / Overdue reminders** — Position 4; mutually exclusive pair. Green `mdi:calendar-check` when `number.overdue_reminders_count` is below 1. Replaced by a red `mdi:calendar-alert` count chip (taps to `/mobile-3/reminders`) when any reminder is overdue. Count label shown only when 2 or more are overdue.
+**Reminders OK / Overdue reminders** — Position 4; mutually exclusive. Green `mdi:calendar-check` when `number.overdue_reminders_count` < 1. Replaced by red `mdi:calendar-alert` showing count when any reminder is overdue (count label only when 2+). Tap: navigate `#reminders`.
 
-**Water leaks** — Conditional. A single chip replaces four individual sensors via OR condition (`state_not: "off"`). `state_not: "off"` is intentional: `unknown` (sensor offline) also triggers as a conservative default for water detection. Taps to the Water Leaks subview.
+**Water leaks** — Conditional (position 5+). Single sub-button covering all four sensors via OR condition. `state_not: "off"` is intentional. Tap: navigate `#water-leaks`.
 
-**Freezer door** — Conditional. No contextual gate — always alert-worthy regardless of time or presence.
+**Freezer door** — Conditional. No contextual gate — always alert-worthy.
 
-**Exterior doors** — Two conditional chips, mutually exclusive. Red when any of three sensors is open AND (sleeping OR nobody home). Orange when any is open AND home AND awake (informational). Count shown when 2 or more are open. Sensors: `binary_sensor.garage_interior_door_contact`, `binary_sensor.entrance_front_door_contact`, `binary_sensor.office_sliding_door_contact`.
+**Exterior doors** — Two mutually exclusive conditional sub-buttons. Red when any of three sensors is open AND (sleeping OR nobody home). Orange when open AND home AND awake. Count shown when 2+. Sensors: `binary_sensor.garage_interior_door_contact`, `binary_sensor.entrance_front_door_contact`, `binary_sensor.office_sliding_door_contact`.
 
-**Garage door** — Two conditional chips, mutually exclusive. Red when open AND (sleeping OR away). Orange when open AND home AND awake. Both use tap-to-close with confirmation; hold shows `more-info`.
+**Garage door** — Two mutually exclusive conditional sub-buttons. Red when open AND (sleeping OR away). Orange when open AND home AND awake. Both: tap-to-close with confirmation; hold: more-info.
 
 **Trash pickup** — Conditional. Icon-only; `input_boolean.trash_pickup_pending` is the gate.
 
-> **Icon-only chip centering:** All permanently icon-only chips in this strip omit the `content` field entirely. Setting `content: ""` allocates an empty text area beside the icon, pushing it off-center. Chips that conditionally show a count (water leaks, exterior doors, overdue reminders) keep their `content` field since they render text when the count is 2 or more.
+> **Icon-only sub-buttons:** omit the `name` field entirely. Setting `name: ""` allocates an empty text area and shifts the icon off-center. Sub-buttons that conditionally show a count keep their `name` field since they render text when count ≥ 2.
+
+> **Contextual gate for door and garage alerts:** only alert when the entity is open AND (sleeping OR nobody home). Template condition: `input_boolean.everyone_sleeping` is `on` OR `zone.home` count is below 1.
 
 ### Strip 3 — Modes
 
-Contextual indicators for active household modes. All conditional; the strip may be entirely empty.
+All conditional; the strip may be entirely empty. No `name` field on sub-buttons that are icon-only.
 
-- **Avery sleeping** — visible when `input_boolean.avery_sleeping` is on AND `input_boolean.everyone_sleeping` is off (prevents duplicate when both fire)
+- **Avery sleeping** — `input_boolean.avery_sleeping` on AND `input_boolean.everyone_sleeping` off
 - **Everyone sleeping** — `input_boolean.everyone_sleeping`
-- **Light sync** — visible when both `switch.living_room_sync_box_power` and `media_player.living_room_tv` are on
+- **Light sync** — both `switch.living_room_sync_box_power` and `media_player.living_room_tv` on
 - **Movie mode** — `input_boolean.movie_mode`, gated on TV being on
-- **Quiet mode** — `input_boolean.sonos_night_mode`, gated on TV being on; uses yellow rather than green
+- **Quiet mode** — `input_boolean.sonos_night_mode`, gated on TV; yellow icon
 
 ### Strip 4 — Presence
 
-Always visible. Nate's chip uses `use_entity_picture: true`. Guest chip disables tap (preventing accidental activation) and uses hold-to-toggle `input_boolean.guest_mode`.
+Always visible. Nate's sub-button uses entity picture. Guest sub-button: tap disabled (prevents accidental activation); hold toggles `input_boolean.guest_mode`.
 
 ---
 
 ## Room Tiles
 
-Eight rooms in a 2-column grid. Primary entity is the main ceiling light for the room. No sliders — Adaptive Lighting owns brightness. Tap navigates to the room's subview; hold toggles the primary light.
+Each room is a Bubble Card `button` card in its own no-title section. Primary entity is the main light for the room (or cover/sensor for Garage/Outside). Tap opens the room's pop-up; hold toggles the primary light.
 
-| Room | Primary entity | Subview path |
-|---|---|---|
-| Living Room | `light.living_room_fan` | `living-room` |
-| Master Bedroom | `light.master_bedroom_fan` | `master-bedroom` |
-| Avery's Room | `light.avery_room_ceiling` | `averys-room` |
-| Office | `light.office_ceiling` | `office` |
-| Kitchen | `light.kitchen_ceiling` | `kitchen` |
-| Bathroom | `light.bathroom_hallway_ceiling` | `bathroom` |
-| Garage | `cover.garage_door` (cover-card fallback) | `garage` |
-| Outside | `sensor.outside_temperature` (entity-card fallback) | `outside` |
+| Room | Primary entity | Hash | Sub-buttons (reference) |
+|---|---|---|---|
+| Living Room | `light.living_room_fan` | `#living-room` | Fan, Apple TV, Sonos |
+| Kitchen | `light.kitchen_ceiling` | `#kitchen` | Sink light |
+| Master Bedroom | `light.master_bedroom_fan` | `#master-bedroom` | Fan, Sonos, Apple TV |
+| Avery's Room | `light.avery_room_ceiling` | `#averys-room` | Standing fan, HomePod Mini |
+| Office | `light.office_ceiling` | `#office` | TBD during build |
+| Bathroom | `light.bathroom_hallway_ceiling` | `#bathroom` | TBD during build |
+| Garage | `cover.garage_door` | `#garage` | Garage door open/close |
+| Outside | `sensor.outside_temperature` | `#outside` | Porch light, patio lights |
+
+> **Sub-button selection:** the reference set above is a starting point. Finalize per room during build based on what's actually used most from the home view without opening the pop-up.
 
 > **Naming gap:** `light.living_room_fan` and `light.master_bedroom_fan` embed the device type (`fan`) rather than being location-first per `standards/naming.md`. These IDs are used as-is; a rename pass is tracked separately.
 
 ---
 
-## Living Room Subview (Reference Implementation)
+## Living Room Pop-up (Reference)
 
-The Living Room subview is the reference pattern for all room subviews. It uses native `tile` cards throughout — Mushroom cards appear only in the Consumables and Climate runtime cards where Jinja `icon_color` is required (see Vacuum and Climate subviews). Five sections:
+`hash: "#living-room"` — the reference pattern for all room pop-ups. Five sections inside the pop-up's `cards` array:
 
-- **Lights** — 2-col grid of `tile` cards, one per light entity; no sliders
-- **Fan** — `tile` with `fan-speed` feature
-- **Climate** — `tile` with `climate-hvac-modes` and `target-temperature` features
-- **Media** — Apple TV and Sonos, each a `tile` with `media-player-controls` feature (no explicit `controls` list — HA auto-detects supported controls per entity; specifying unsupported controls causes a configuration error badge)
-- **Sensors** — `tile` per binary sensor (motion, occupancy, door, etc.)
+- **Lights** — Bubble Card buttons for: main fan lamp (`light.living_room_fan`), ceiling lights (if separate), movie poster lights, status lamp, TV lights. No sliders.
+- **Fan** — Bubble Card button for `fan.living_room_ceiling` with fan-speed sub-buttons.
+- **Climate** — Bubble Card climate card for `climate.living_room_thermostat`. No hold-slider (Adaptive Lighting context; if Bubble Card climate card shows a slider, disable it).
+- **Media** — Bubble Card media-player for Apple TV (`media_player.living_room_appletv`) and Sonos (`media_player.living_room_sonos`) with volume sub-buttons.
+- **Sensors** — Read-only sub-buttons or state buttons for motion/occupancy sensors.
 
-Pending room subviews follow this same section structure, including only sections that apply.
+Pop-up header sub-buttons (visible in the pop-up title bar): current temperature and humidity from `sensor.living_room_thermostat_current_temperature` and `sensor.living_room_thermostat_current_humidity`.
 
----
-
-## Water Leaks Subview
-
-Tap target for the grouped water alert chip on Strip 2. Displays all four water leak sensors in a 2×2 grid using native `tile` cards. The tile card handles the `moisture` device class natively, providing appropriate icons and state coloring.
+Pending room pop-ups (Kitchen through Outside) follow this same section structure, including only sections that apply.
 
 ---
 
-## Reminders Subview
+## Utility Pop-ups
 
-Two sections:
+### Water Leaks (`#water-leaks`)
 
-**Household** — 2-col grid of `mushroom-template-card` for each tracked household task. Each card:
-- Shows the task name and formatted due date as secondary text (`strptime().strftime('%B %-d, %Y')`)
-- Icon is red when overdue, green when not (Jinja template on `icon_color`)
-- Tap opens `more-info` on the `input_datetime` (shows history, allows manual date edit)
-- Hold sets `input_datetime` to today (marks complete), with confirmation
+Four water leak sensors in a 2×2 grid of Bubble Card buttons (state display). Tap: more-info on each sensor. Colors: red when `on`/`unknown`, green when `off`. Sensors: `binary_sensor.kitchen_leak_water_leak`, `binary_sensor.bathroom_leak_water_leak`, `binary_sensor.master_bathroom_leak_water_leak`, `binary_sensor.utility_room_leak_water_leak`.
+
+### Reminders (`#reminders`)
+
+**Household** — grid of Bubble Card buttons (or Mushroom `mushroom-template-card` fallback if JS template `icon_color` proves insufficient) for each tracked task. Each card:
+- Icon red when overdue, green when not (JS template or Jinja `icon_color`)
+- Secondary text: formatted due date via `strptime().strftime('%B %-d, %Y')`
+- Tap: `more-info` on `input_datetime.<name>` (shows history, allows manual date edit)
+- Hold: sets `input_datetime` to today (marks complete), with confirmation
 
 Entity triplet per task: `input_datetime.<name>` (last done), `sensor.<name>_due` (computed due date), `binary_sensor.<name>_overdue` (boolean overdue flag).
 
+Tasks: car, coffee grinder, dishwasher, disposal, razor, toothbrushes, washer, water filter.
 
----
-
-## Vacuum Subview
+### Vacuum (`#vacuum`)
 
 Five sections:
 
-- **Map** — `picture-entity` showing `image.roborock_q8_max_apartment`, conditionally visible when vacuum is not docked OR `input_select.vacuum_ran_today` is "Yes". No section title; renders minimal gap when hidden. The Roborock integration bakes excess black padding into the map image around the apartment outline; a `card_mod` style corrects this by removing the card's default padding, scaling the image, and repositioning it to center the floor plan: `ha-card { padding: 0; overflow: hidden; }` / `hui-image { transform: scale(1.5) translateX(-3%) translateY(13%); transform-origin: center center; display: block; margin: -12% 0; }`. The translate and margin values are tuned to this specific floor plan and may need adjustment if the map layout changes significantly. See `standards/dashboards.md` → card-mod Style Overrides for the technique details.
-- **Controls** — Native `tile` card with `vacuum-commands` feature (start/pause, stop, return home); `color: green`, `state_content: [state, area_name]`, `grid_options: {columns: full}`, `features_position: inline`. No section title. Appears before Status.
-- **Status** — 2-col grid of native `tile` cards: vacuum state, battery, cleaning area, duration. A conditional `tile` for `sensor.roborock_q8_max_current_room` appears in the grid only when `binary_sensor.roborock_q8_max_cleaning` is on.
-- **Mop Settings** — Section-level `visibility` gates the entire block on `binary_sensor.roborock_q8_max_mop_attached` being on. Contains: Mop Intensity (`select.roborock_q8_max_mop_intensity` + `select-options`), Mop Mode (`select.roborock_q8_max_mop_mode` + `select-options`), Water Supply (`binary_sensor.roborock_q8_max_water_shortage`).
-- **Consumables** — 2-col grid of `mushroom-template-card` for filter, main brush, side brush, and sensor. Each card shows hours remaining as secondary text; icon color is red when the overdue binary sensor is on, green otherwise (`mushroom-template-card` used because native `tile` has no Jinja `icon_color` equivalent). Tap resets the consumable via `button.press` with confirmation. `number.overdue_reminders_count` does not include vacuum consumables — they are tracked independently here.
+- **Map** — `picture-entity` showing `image.roborock_q8_max_apartment`, conditionally visible when vacuum is not docked OR `input_select.vacuum_ran_today` is "Yes". No section title. card-mod corrects the excess black padding baked into the Roborock map image: `ha-card { padding: 0; overflow: hidden; }` / `hui-image { transform: scale(1.5) translateX(-3%) translateY(13%); transform-origin: center center; display: block; margin: -12% 0; }`. See `standards/dashboards.md` → card-mod Use Cases for technique details.
+- **Controls** — Bubble Card button with vacuum command sub-buttons (start/pause, stop, return home). `color: green`. No section title. Appears before Status.
+- **Status** — Bubble Card state buttons: vacuum state, battery, cleaning area, duration. Conditional: `sensor.roborock_q8_max_current_room` shown only when `binary_sensor.roborock_q8_max_cleaning` is on.
+- **Mop Settings** — Section-level visibility gated on `binary_sensor.roborock_q8_max_mop_attached`. Contains: Mop Intensity, Mop Mode, Water Supply.
+- **Consumables** — Bubble Card buttons (or Mushroom `mushroom-template-card` fallback) for filter, main brush, side brush, sensor. Icon: red when maintenance binary sensor is on, green otherwise. Secondary text: hours remaining. Tap: reset consumable via `button.press` with confirmation.
 
----
+### Climate (`#climate`)
 
-## Climate Subview
-
-Tap target for the thermostat chip on strip 1 (Environment).
-
-**Badges** — Two entity badges in the view header, both blue: `sensor.apartment_temperature` (`mdi:home-thermometer`, labeled "Inside") and `sensor.apartment_humidity` (`mdi:water-percent`, labeled "Inside"). Both are group sensors — tapping either opens more-info showing readings from all member room sensors. Outdoor AQI is accessible via the AQI chip on strip 1 (Home view).
+**Badges** (pop-up header sub-buttons) — `sensor.apartment_temperature` and `sensor.apartment_humidity`, both blue.
 
 Two sections:
 
-- **Controls** — Thermostat tile (`climate.living_room_thermostat`, `grid_options: {columns: 6}`, `features_position: bottom`, HVAC modes + target temperature + fan modes, `state_content: [current_temperature, current_humidity]`). Comfort Setting tile (`select.living_room_thermostat_current_mode` with `select-options` feature — Home/Sleep/Away). Clear Hold tile (`button.living_room_thermostat_clear_hold`). Below these, an "HVAC Runtime" subtitle heading followed by a `mushroom-template-card` showing today's totals ("Cooling: X.X h · Heating: X.X h") from `sensor.cooling_today` and `sensor.heating_today`. Icon color reflects which mode ran today: blue = cooling, orange = heating, grey = neither.
-- **HVAC History** (`collapsed: true`) — 28-day `statistics-graph` line chart (`chart_type: line`, `period: day`, `stat_types: [max]`, `days_to_show: 28`) for `sensor.cooling_today` and `sensor.heating_today`. Hidden by default; tap the section header to expand. Daily max equals daily total since both sensors reset at midnight.
+- **Controls** — Bubble Card climate card for `climate.living_room_thermostat`. Comfort Setting: `select.living_room_thermostat_current_mode` with select-options sub-buttons. Clear Hold: button for `button.living_room_thermostat_clear_hold`. HVAC Runtime: Bubble Card button (or Mushroom `mushroom-template-card` fallback) showing today's cooling/heating totals from `sensor.cooling_today` and `sensor.heating_today`. Icon color: blue = cooling, orange = heating, grey = neither.
+- **HVAC History** (`collapsed: true`) — 28-day `statistics-graph` line chart (`chart_type: line`, `period: day`, `stat_types: [max]`, `days_to_show: 28`) for `sensor.cooling_today` and `sensor.heating_today`. Native HA card — no Bubble Card equivalent.
 
-> **Note on `grid_options`:** The `tile` card in a `sections` view defaults to a 1-column layout and renders at half-width unless you set `grid_options: {columns: 12}` (or `columns: full`). This is different from `grid` cards, which fill available width automatically.
+> **Note on grid options:** native `tile` and `statistics-graph` cards in a `sections` view default to half-width. Set `grid_options: {columns: 12}` or `columns: full` to make them span the full width inside a pop-up.
 
 ---
 
 ## Live Configuration
 
-The dashboard configuration for `mobile-3` is stored in HA storage and is the authoritative source of truth for all layout, card order, and feature configuration. Do not maintain a YAML copy in this guide.
+The dashboard configuration for `mobile` is stored in HA storage and is the authoritative source of truth for all layout, card order, and feature configuration. Do not maintain a YAML copy in this guide.
 
 To read the current config:
-- **MCP:** `ha_config_get_dashboard(url_path="mobile-3")`
-- **UI:** Settings → Dashboards → Mobile 3.0 → Edit dashboard
+- **MCP:** `ha_config_get_dashboard(url_path="mobile")`
+- **UI:** Settings → Dashboards → Mobile → Edit dashboard
 
 ---
 
@@ -256,7 +293,7 @@ To read the current config:
 
 | Artifact | Entity / ID | Type |
 |---|---|---|
-| Mobile 3.0 dashboard | `mobile-3` | Lovelace dashboard |
+| Mobile dashboard | `mobile` | Lovelace dashboard |
 | Home alarm | `alarm_control_panel.home_alarm` | Entity |
 | Living room thermostat | `climate.living_room_thermostat` | Entity |
 | Apartment temperature | `sensor.apartment_temperature` | Entity |
@@ -311,5 +348,5 @@ To read the current config:
 
 ## Related Documents
 
-- `standards/dashboards.md` — Governs all dashboard builds; explains the design decisions this guide implements
+- `standards/dashboards.md` — Governs all dashboard builds; defines card vocabulary, pop-up pattern, chip strip rules, and HACS policy
 - `standards/naming.md` — Entity naming standard; flags naming gaps in current light entity IDs
