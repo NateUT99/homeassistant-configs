@@ -128,6 +128,15 @@ In `automation.household_reminder_notifications`, add `binary_sensor.<key>_overd
 
 > **Coordinated change:** The `for_each` list in `automation.household_reminder_notifications` and the trigger `entity_id` lists are the canonical registration point for all reminders. Adding a new reminder requires updating all three lists in sync — they are duplicates of the same set.
 
+**6. Add the task card to the mobile dashboard**
+
+New tasks must be added to two places in the `mobile-app` dashboard:
+
+- **`#reminders` pop-up** — add a `mushroom-template-card` inside the pop-up's 2-column grid. Match the format of existing cards: `icon_color` Jinja template (red if overdue, green if not), `secondary` using `strptime().strftime('%b %-d, %Y')`, tap = `more-info` on `input_datetime.<key>`, hold = `input_datetime.set_datetime` to today with confirmation.
+- **Inline overdue section** — add a `type: conditional` card (gated on `binary_sensor.<key>_overdue` state `on`) wrapping a `mushroom-template-card` with `layout_options: {grid_columns: 2}`. The icon is always red here (the card only appears when overdue). Hold action is the same mark-complete as the pop-up card.
+
+> **Coordinated change:** Adding a new reminder requires four artifacts (helpers + template sensors) plus two dashboard locations — the pop-up grid and the inline overdue section. Both must be kept in sync with each other and with the automation registrations in step 5.
+
 ### Shared Automations
 
 #### `automation.household_reminder_notifications`
