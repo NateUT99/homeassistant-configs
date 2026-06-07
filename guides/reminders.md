@@ -54,6 +54,7 @@ input_datetime.<key>       input_number.<key>_offset
 **Key design decisions:**
 
 - *Two shared automations, not one per reminder.* All reminders share `automation.household_reminder_notifications` and `automation.household_reminder_mark_complete`. New reminders register in two lists; no new automations needed.
+- *One shared script for dashboard mark-complete.* `script.reminder_mark_complete` handles the hold-to-complete action for all reminder cards on the dashboard. Jinja2 templates in Lovelace card action `data` fields are not evaluated by the frontend — a server-side script is required for any action that needs the current date.
 - *All notifications send at 09:00.* The daily time trigger is the only send path. No edge-on trigger means no midnight pings when the date rolls over. The `edge_off` trigger remains so the lock-screen notification clears immediately when a reminder is marked complete.
 - *Tag-based notification lifecycle.* Each reminder's notification carries a stable `reminder_<key>` tag. The daily re-send replaces (not stacks) the on-screen notification; the clear path uses the same tag. iOS lock screen never accumulates duplicates.
 - *Action ID encodes the input_datetime key.* The `REMINDER_MARK_COMPLETE_<key>` action ID doubles as the `input_datetime` entity name suffix. The handler parses it at runtime, requiring no lookup table and routing any reminder with one automation.
@@ -132,12 +133,24 @@ In `automation.household_reminder_notifications`, add `binary_sensor.<key>_overd
 
 New tasks must be added to two places in the `mobile-app` dashboard:
 
-- **`#reminders` pop-up** — add a `mushroom-template-card` inside the pop-up's 2-column grid. Match the format of existing cards: `icon_color` Jinja template (red if overdue, green if not), `secondary` using `strptime().strftime('%b %-d, %Y')`, tap = `more-info` on `input_datetime.<key>`, hold = `input_datetime.set_datetime` to today with confirmation.
-- **Inline overdue section** — add a `type: conditional` card (gated on `binary_sensor.<key>_overdue` state `on`) wrapping a `mushroom-template-card` with `layout_options: {grid_columns: 2}`. The icon is always red here (the card only appears when overdue). Hold action is the same mark-complete as the pop-up card.
+- **`#reminders` pop-up** — add a `mushroom-template-card` inside the pop-up's 2-column grid. Match the format of existing cards: `icon_color` Jinja template (red if overdue, green if not), `secondary` using `strptime().strftime('%b %-d, %Y')`, tap = `more-info` on `input_datetime.<key>`, hold = `script.reminder_mark_complete` with `data.reminder_entity` and a confirmation dialog.
+- **Inline overdue section** — add a `type: conditional` card (gated on `binary_sensor.<key>_overdue` state `on`) wrapping a `mushroom-template-card` with `layout_options: {grid_columns: 2}`. The icon is always red here (the card only appears when overdue). Hold action is the same `script.reminder_mark_complete` call.
 
-> **Coordinated change:** Adding a new reminder requires four artifacts (helpers + template sensors) plus two dashboard locations — the pop-up grid and the inline overdue section. Both must be kept in sync with each other and with the automation registrations in step 5.
+The hold action pattern is identical in both locations:
 
-### Shared Automations
+```yaml
+hold_action:
+  action: perform-action
+  perform_action: script.reminder_mark_complete
+  data:
+    reminder_entity: input_datetime.<key>
+  confirmation:
+    text: "Mark <Task> as done today?"
+```
+
+> **Coordinated change:** Adding a new reminder requires four artifacts (helpers + template sensors) plus two dashboard locations — the pop-up grid and the inline overdue section. Both must be kept in sync with each other and with the automation registrations in step 5. `script.reminder_mark_complete` is shared — no script changes needed when adding a new reminder.
+
+### Shared Scripts & Automations
 
 #### `automation.household_reminder_notifications`
 
@@ -264,6 +277,40 @@ action:
 
 Assign to the **Routines** category with labels **Reminders** and **Whole Home**. Leave area unset.
 
+#### `script.reminder_mark_complete`
+
+*Friendly name: Reminder: Mark Complete*
+
+Sets the given `input_datetime` entity to today's date. All reminder cards on the dashboard call this script for their hold action. The script exists because Jinja2 templates in Lovelace card action `data` fields are not evaluated by the frontend — the date string `{{ now().strftime('%Y-%m-%d') }}` is passed literally to the service and fails validation. Running the same logic inside a script works because scripts execute server-side where Jinja2 templates are always evaluated.
+
+```yaml
+alias: "Reminder: Mark Complete"
+description: >-
+  Sets the given input_datetime entity to today's date, marking a reminder as
+  done. Called from dashboard reminder cards — Jinja2 templates in Lovelace
+  card action data are not evaluated by the frontend. Any action that needs
+  the current date must be routed through a server-side script where templates
+  are evaluated normally.
+icon: mdi:calendar-check
+fields:
+  reminder_entity:
+    description: The input_datetime entity to set to today
+    required: true
+    selector:
+      entity:
+        domain: input_datetime
+sequence:
+  - action: input_datetime.set_datetime
+    target:
+      entity_id: "{{ reminder_entity }}"
+    data:
+      date: "{{ now().strftime('%Y-%m-%d') }}"
+mode: parallel
+max: 8
+```
+
+Assign to the **Routines** category with label **Reminders**. Leave area unset.
+
 ### Example: Household Maintenance Tasks
 
 The eight household maintenance reminders currently configured follow the interval-based pattern. All share the two automations above; only their per-item helpers differ.
@@ -294,12 +341,13 @@ The eight household maintenance reminders currently configured follow the interv
 
 ### Related HA Config
 
-#### Shared automations
+#### Shared scripts & automations
 
 | Friendly Name | Entity ID | Type |
 |---|---|---|
 | Household: Reminder Notifications | `automation.household_reminder_notifications` | automation |
 | Household: Reminder Mark Complete | `automation.household_reminder_mark_complete` | automation |
+| Reminder: Mark Complete | `script.reminder_mark_complete` | script |
 
 #### Per-reminder helpers
 
@@ -575,7 +623,8 @@ iCloud "Family" calendar  (subscribed read-only via Remote Calendar integration)
 | Friendly Name | Entity ID | Type | Role |
 |---|---|---|---|
 | Trash Pickup Pending | `input_boolean.trash_pickup_pending` | `input_boolean` | On between 19:00 send and Mark Complete / 07:00 escalation |
-| Trash Pickup Pending Label | `input_text.trash_pickup_pending_label` | `input_text` | Carries "Trash", "Recycling", or "Trash & Recycling" from 18:00 to 07:00 |
+| Trash Pickup Pending Label | `input_text.trash_pickup_pending_label` | `input_text` | Carries "Trash", "Recycling", or "Trash & Recycling" from 19:00 to 07:00 |
+| Trash Next Pickup Date | `input_text.trash_next_pickup_date` | `input_text` | Carries the formatted pickup date (e.g. "Wed, Jun 11") for dashboard display; set at 19:00 alongside the label |
 
 #### `automation.household_pickup_reminder`
 
@@ -624,6 +673,12 @@ action:
       entity_id: input_text.trash_pickup_pending_label
     data:
       value: "{{ label }}"
+  - alias: "Store the pickup date for dashboard display"
+    action: input_text.set_value
+    target:
+      entity_id: input_text.trash_next_pickup_date
+    data:
+      value: "{{ (now() + timedelta(days=1)).strftime('%a, %b %-d') }}"
   - alias: "Arm or clear pending based on tomorrow's events"
     choose:
       - alias: "Pickup tomorrow — arm pending and send notification"
@@ -710,18 +765,28 @@ Assign to the **Routines** category with labels **Notification** and **Reminders
 ```yaml
 alias: "Household: Trash Pickup Mark Complete"
 description: >-
-  When the user taps Mark Complete on either pickup notification (evening or
-  morning critical), disarms input_boolean.trash_pickup_pending and clears the iOS
-  lock-screen notification by tag. Same tag is used for both sends so the
-  clear hits whichever is showing.
+  Disarms input_boolean.trash_pickup_pending and clears the iOS lock-screen
+  notification by tag whenever the boolean turns off from any source: a
+  notification Mark Complete tap, a dashboard hold action, or the morning
+  critical automation. The edge_off trigger covers the dashboard-dismiss path;
+  the notification_action trigger covers the iOS lock-screen path. Both action
+  sequences are idempotent, so running both (the notification action turns off
+  the boolean, which re-fires edge_off) is harmless.
 mode: parallel
 max: 2
 trigger:
-  - alias: "iOS notification action fired"
+  - id: notification_action
+    alias: "iOS notification Mark Complete tapped"
     platform: event
     event_type: mobile_app_notification_action
     event_data:
       action: "PICKUP_MARK_COMPLETE"
+  - id: edge_off
+    alias: "Pending boolean turned off from dashboard or other source"
+    platform: state
+    entity_id: input_boolean.trash_pickup_pending
+    from: "on"
+    to: "off"
 action:
   - alias: "Disarm pending state"
     action: input_boolean.turn_off
@@ -737,6 +802,16 @@ action:
 
 Assign to the **Routines** category with labels **Notification** and **Reminders**. Leave area unset.
 
+#### Dashboard Integration
+
+The trash pickup pending state is surfaced directly on the `mobile-app` dashboard alongside the interval-based overdue reminders:
+
+- **Inline condition-triggered section** — the overdue reminders section (between chip strips and room tiles) uses an `or` visibility condition: it appears when `number.overdue_reminders_count > 0` **or** `input_boolean.trash_pickup_pending` is `on`. When visible due to trash, a half-width trash card shows at the top of the section. Secondary text shows the pickup date from `input_text.trash_next_pickup_date` (e.g. "Wed, Jun 11"). Hold = turn off the boolean with confirmation dialog.
+- **`#reminders` pop-up** — a dedicated "Trash Pickup" separator and full-width trash card appear at the top of the pop-up regardless of pending state. The card shows "No pickup soon" in green when pending is off, and the upcoming pickup date (from `input_text.trash_next_pickup_date`) in red when on. Hold = same turn-off action with confirmation.
+- **`number.overdue_reminders_count` template** — the overdue count helper adds `1` when `input_boolean.trash_pickup_pending` is on, so the chip strip reminder chip correctly counts and colors trash alongside interval-based overdue tasks.
+
+The `edge_off` trigger on `automation.household_pickup_mark_complete` handles the dashboard-dismiss path: holding the trash card from either location turns off the boolean, which fires the trigger, which clears the iOS notification — identical outcome to tapping Mark Complete on the lock screen.
+
 #### Related HA Config
 
 | Friendly Name | Entity ID | Type |
@@ -746,6 +821,7 @@ Assign to the **Routines** category with labels **Notification** and **Reminders
 | Household: Trash Pickup Mark Complete | `automation.household_pickup_mark_complete` | automation |
 | Trash Pickup Pending | `input_boolean.trash_pickup_pending` | `input_boolean` |
 | Trash Pickup Pending Label | `input_text.trash_pickup_pending_label` | `input_text` |
+| Trash Next Pickup Date | `input_text.trash_next_pickup_date` | `input_text` |
 
 #### Troubleshooting
 

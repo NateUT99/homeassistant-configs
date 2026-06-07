@@ -180,8 +180,6 @@ A mix of always-visible anchored chips (AQI, Alarm) and conditional chips for al
 
 **Garage door** — Three mutually exclusive chips. Green `mdi:garage` when closed (tap: more-info). Red `mdi:garage-open-variant` when open AND (sleeping OR away) — tap closes with confirmation. Orange when open AND home AND awake — tap closes with confirmation. Hold on open variants: more-info.
 
-**Trash pickup** — Conditional. Icon-only. `input_boolean.trash_pickup_pending` gates it.
-
 **Mode chips** — All conditional; appear alongside alert chips when active:
 
 - **Avery sleeping** — `input_boolean.avery_sleeping` on AND `input_boolean.everyone_sleeping` off; tap toggles (with confirmation)
@@ -243,10 +241,12 @@ Two sections on the Home view appear and disappear automatically based on house 
 
 | Section | Visibility condition | Content |
 |---|---|---|
-| Overdue reminders | `number.overdue_reminders_count` > 0 | Half-width grid of overdue task cards (conditional wrappers per task) |
+| Overdue reminders / trash | `number.overdue_reminders_count` > 0 OR `input_boolean.trash_pickup_pending` = on | Trash card (first) + overdue task cards (conditional wrappers per task) |
 | Vacuum controls | vacuum not docked OR `input_select.vacuum_ran_today` = Yes | Native `tile` card with vacuum state, battery, and vacuum-commands feature |
 
-**Reminders section** — contains one `type: conditional` card per task, each gated on `binary_sensor.<name>_overdue`. Cards use `layout_options: {grid_columns: 2}` for two-per-row layout. This means the section is visible as soon as any task is overdue, but only overdue task cards render within it — no empty placeholders.
+**Reminders section** — contains a trash card (first, gated on `input_boolean.trash_pickup_pending`) followed by one `type: conditional` card per interval-based task (gated on `binary_sensor.<name>_overdue`). Cards use `layout_options: {grid_columns: 2}` for two-per-row layout. The section becomes visible when either trash is pending or any task is overdue; only the relevant cards render within it — no empty placeholders.
+
+The `number.overdue_reminders_count` template includes `input_boolean.trash_pickup_pending` in its count (+1 when pending), so the Strip 1 reminders chip correctly turns red whenever trash is pending.
 
 **Vacuum section** — the `or` condition matches any state where the vacuum is actively relevant: currently running/returning, or already ran today and the user might want to check status. The condition-triggered section gives a quick status tile without requiring the full `#vacuum` pop-up to open.
 
@@ -298,13 +298,13 @@ Four water leak sensors in a 2×2 grid of tile cards. Tap: more-info on each sen
 
 Reminders are accessible two ways: inline on the Home view (overdue tasks only, automatic) and via the full `#reminders` pop-up (all tasks).
 
-**Inline overdue view** — a condition-triggered section whose section-level `visibility` is `numeric_state: number.overdue_reminders_count above: 0`. It appears automatically when any task is overdue; no chip or `input_boolean` toggle is involved. Each card is a `type: conditional` wrapper (gated on `binary_sensor.<name>_overdue` being `on`) around a Mushroom `mushroom-template-card`. Cards use `layout_options: {grid_columns: 2}` for half-width two-per-row layout. Icon is always red (these cards only appear when overdue). Tap the reminder chip to navigate to the full pop-up.
+**Inline overdue view** — a condition-triggered section whose section-level `visibility` is `overdue_reminders_count > 0 OR trash_pickup_pending = on`. It appears automatically; no chip toggle involved. First card is the trash card (gated on `input_boolean.trash_pickup_pending`), followed by one `type: conditional` per task (gated on `binary_sensor.<name>_overdue`). All cards use `layout_options: {grid_columns: 2}` for two-per-row layout. Hold to dismiss trash pickup (confirmation required); tap for more-info. Tap the reminder chip to navigate to the full pop-up.
 
-**Full pop-up** — triggered by the green reminder chip (all caught up) or by holding the red chip. Shows all tasks regardless of state, in a 2-column grid. Each card:
+**Full pop-up** — triggered by either chip navigating to `#reminders`. Two sections inside: a "Trash Pickup" section (full-width card, always present, green/red based on `input_boolean.trash_pickup_pending`), then a "Reminders" section with all 8 interval tasks in a 2-column grid, sorted: overdue tasks first by due date, then upcoming tasks by due date. Each task card:
 - Icon red when overdue, green when not (Jinja `icon_color` template)
 - Secondary text: formatted due date via `strptime().strftime('%b %-d, %Y')` (abbreviated month, e.g. "Mar 6, 2026")
 - Tap: `more-info` on `input_datetime.<name>` (shows history, allows manual date edit)
-- Hold: sets `input_datetime` to today (marks complete), with confirmation dialog
+- Hold: calls `script.reminder_mark_complete` with `data.reminder_entity` set to the task's `input_datetime` entity — see `guides/reminders.md` for the script definition and why a direct service call doesn't work; confirmation dialog required
 
 Entity triplet per task: `input_datetime.<name>` (last done), `sensor.<name>_due` (computed due date), `binary_sensor.<name>_overdue` (boolean overdue flag).
 

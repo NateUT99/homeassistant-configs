@@ -300,7 +300,7 @@ visibility:
 
 | Section | Visibility condition | Content |
 |---|---|---|
-| Overdue reminders | `number.overdue_reminders_count` > 0 | Half-width grid of overdue task cards |
+| Overdue reminders / trash pickup | `number.overdue_reminders_count` > 0 OR `input_boolean.trash_pickup_pending` = on | Trash card (when pending) + half-width grid of overdue task cards |
 | Vacuum controls | vacuum not docked OR `input_select.vacuum_ran_today` = Yes | Vacuum tile with state and commands |
 
 ---
