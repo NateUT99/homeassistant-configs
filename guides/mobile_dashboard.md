@@ -114,7 +114,7 @@ Add a single view titled **Home**, type **Sections**, `max_columns: 1`.
 
 ### Step 3 — Build the chip strip section
 
-Add one section with no title. Within it, add two Mushroom `mushroom-chips-card` cards stacked vertically (one per strip). Each uses `alignment: center` and a `card_mod` with a nested shadow DOM style (`$ mushroom-chip$ .container`) to set `--chip-height: 36px`, `--chip-padding: 0 6px`, and `gap: 2px` inside each chip's container (ensures icon centering on icon-only chips). See [Chip Strip Design](#chip-strip-design) below.
+Add one section with no title. Within it, add two Mushroom `mushroom-chips-card` cards stacked vertically (one per strip). Each uses `alignment: center` and a `card_mod` with a nested shadow DOM style (`$ mushroom-chip$ .container`) to set `--chip-height: 36px`, `--chip-padding: 0 6px`, `gap: 0`, and `justify-content: center` inside each chip's container (ensures icon centering on icon-only chips). See [Chip Strip Design](#chip-strip-design) below.
 
 ### Step 4 — Add room tile sections
 
@@ -153,7 +153,7 @@ Once `mobile` is feature-complete:
 
 ## Chip Strip Design
 
-Each strip is a Mushroom `mushroom-chips-card` with `alignment: center` and a `card_mod` that sets `--chip-height: 36px` and `--chip-padding: 0 6px` at the `ha-card` level, plus a nested shadow DOM style piercing into each `mushroom-chip`'s shadow root to set `gap: 2px` on `.container` (prevents icon-only chips from rendering with the icon off-center). Chips use `type: conditional` wrappers for visibility. Bubble Card `sub-buttons-only` was evaluated and rejected for visual reasons.
+Each strip is a Mushroom `mushroom-chips-card` with `alignment: center` and a `card_mod` that sets `--chip-height: 36px` and `--chip-padding: 0 6px` at the `ha-card` level, plus a nested shadow DOM style piercing into each `mushroom-chip`'s shadow root to set `gap: 0; justify-content: center` on `.container` (ensures icon-only chips render centered). Chips use `type: conditional` wrappers for visibility. Bubble Card `sub-buttons-only` was evaluated and rejected for visual reasons.
 
 ### Strip 1 — Controls
 
@@ -189,7 +189,7 @@ Two always-visible anchored chips (AQI, Guest) followed by conditional alert chi
 
 TV-related mode chips (Light Sync, Movie Mode, Quiet Mode) were removed from this strip — they are now surfaced in the [TV Controls Bar](#living-room-tv-controls-bar) below the Living Room tile, which auto-shows when the TV is on.
 
-> **Icon-only chips:** for template chips, omit the `content` field entirely — do not set `content: ""`. An empty string still allocates a text slot in the chip's internal flex layout and shifts the icon off-center. For entity chips, use `content_info: none`. Chips that conditionally show a count keep their content field since they render text when count ≥ 2. The chip strip `card_mod` uses a nested shadow DOM style to reduce the internal gap, which mitigates the centering issue at larger chip heights.
+> **Icon-only chips:** for template chips, omit the `content` field entirely — do not set `content: ""`. An empty string still allocates a text slot in the chip's internal flex layout and shifts the icon off-center. For entity chips, use `content_info: none`. Chips that conditionally show a count keep their content field since they render text when count ≥ 2. The chip strip `card_mod` sets `gap: 0; justify-content: center` on `.container` via nested shadow DOM to reliably center icon-only chips. `justify-content: center` is the load-bearing rule — without it, icon-only chips render slightly left of center on desktop browsers (macOS Safari, macOS Companion App) even with `gap: 0`.
 
 > **Contextual gate for door and garage alerts:** only alert when the entity is open AND (sleeping OR nobody home). Condition: `input_boolean.everyone_sleeping` is `on` OR `zone.home` count is below 1.
 
@@ -267,6 +267,8 @@ Two sections on the Home view are shown and hidden by the user via Strip 1 chip 
 | Primary Lights | `input_boolean.mobile_show_primary_lights` | Primary Lights separator tap | 2-column grid of 5 room light Bubble Card buttons. Defaults to `on` — lights visible on page load. |
 
 The `#vacuum` pop-up (Map / Controls / Status / Mop Settings / Consumables) is preserved and remains accessible by tapping the tile card inside the inline section. The inline section provides quick start/stop access; the pop-up provides full operational detail.
+
+> **Panel auto-close:** Thermostat and Vacuum panels close automatically after 5 minutes via `automation.mobile_panel_auto_close`. The `for: "00:05:00"` on the trigger means the timer resets if a panel is closed before 5 minutes elapse — the automation simply never fires. Primary Lights does not auto-close; it is a display preference, not a transient panel.
 
 **Vacuum routine pause** — The Vacuum chip hold action toggles `input_boolean.vacuum_routine_pause`. When on, the chip shows orange `mdi:robot-vacuum-off` and both the Last Leaves Home and Vacuum Midday Prompt automations skip the auto-start. The First Arrives Home automation clears it when the first person walks in. This is a one-trip skip — it does not permanently disable auto-cleaning.
 
@@ -403,6 +405,7 @@ To read the current config:
 | Mobile show thermostat controls | `input_boolean.mobile_show_thermostat_controls` | Helper |
 | Mobile show vacuum controls | `input_boolean.mobile_show_vacuum_controls` | Helper |
 | Mobile show primary lights | `input_boolean.mobile_show_primary_lights` | Helper |
+| Mobile panel auto-close | `automation.mobile_panel_auto_close` | Automation |
 | AL Brightness Display | `sensor.al_brightness_display` | Helper (template) |
 | AL Color Temp Display | `sensor.al_color_temp_display` | Helper (template) |
 | Overdue reminders count | `number.overdue_reminders_count` | Helper |
