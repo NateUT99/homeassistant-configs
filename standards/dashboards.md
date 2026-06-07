@@ -1,15 +1,5 @@
 # Dashboard Design Standard
 
-Version 0.4
-
-| Version | Date | Changes |
-|---|---|---|
-| 0.5 | June 2026 | Chip strips reorganized from 4 to 2: Strip 1 (Controls) groups all interactive chips — inline-toggle and direct-toggle; Strip 2 (Status & Modes) holds AQI, all alert chips, and mode chips. Presence row removed; Guest chip moved to Strip 1 as a direct toggle. |
-| 0.4 | June 2026 | Pivot to Bubble Card as primary framework. Full rewrite. Standard now governs mobile and future desktop dashboards. Mushroom retained as documented fallback. |
-| 0.3 | June 2026 | Icon-only chip centering rule added; card-mod scope expanded to cover non-chip element transforms; Quick Reference updated |
-| 0.2 | June 2026 | Native-first principle: tile cards are default in subviews; Mushroom exceptions documented with justification; Room Subview Structure and Quick Reference updated accordingly |
-| 0.1 | June 2026 | Initial draft — patterns established during Mobile 3.0 build |
-
 ---
 
 ## Purpose & Scope
@@ -29,7 +19,8 @@ The standard is viewport-agnostic. The `mobile` dashboard is the reference imple
 - **Room tiles: tap = popup, hold = toggle, sub-buttons = key devices.** Every room tile is a single Bubble Card `button` card. Tapping opens the area's modal pop-up. Holding toggles the primary light. Sub-buttons on the tile surface provide 2–4 quick-action controls for the most-used devices in that room (fan, primary media, key lights) without requiring the pop-up.
 - **No brightness or color sliders anywhere.** Adaptive Lighting manages brightness and color temperature automatically. Do not expose a slider on any room tile, pop-up, or inline card — it creates a confusing dual-control surface. The `button_type: switch` layout shows entity state color without a slider.
 - **Mushroom chips-card for chip strips.** The Home view chip strips are implemented as Mushroom `mushroom-chips-card` cards — one card per strip, stacked vertically. Bubble Card `sub-buttons-only` was evaluated and rejected: the visual output does not match the compact pill-chip style Mushroom delivers. This is a deliberate, documented fallback per the HACS Dependency Policy below.
-- **Inline toggle as an alternative to pop-ups.** A chip's `tap_action` can toggle an `input_boolean` helper (`input_boolean.show_<feature>`, initial: `false`) to show or hide a section inline on the Home view rather than opening a pop-up modal. Use when the content is compact and contextual. Pop-ups are better for extensive content or when isolating focus from the Home view matters. Tapping the chip again dismisses the inline content. A `hold_action` on the same chip can navigate to the full pop-up if one exists.
+- **Condition-triggered sections for ambient context.** Sections can appear and disappear automatically by setting section-level `visibility` directly on an entity's state — no chip, no `input_boolean` toggle needed. Use this for content that is relevant whenever a particular state exists (e.g., overdue reminders, vacuum not docked). The chip for the same feature navigates directly to the full pop-up; the inline section just surfaces the most actionable summary automatically.
+- **Inline toggle as a manual override pattern.** A chip's `tap_action` can toggle an `input_boolean` helper (`input_boolean.show_<feature>`, initial: `false`) to show or hide a section inline on the Home view rather than opening a pop-up modal. Use when the content is compact, the user should explicitly request it, and there is no clear automatic trigger condition. Pop-ups are better for extensive content or when isolating focus from the Home view matters. Tapping the chip again dismisses the inline content. A `hold_action` on the same chip can navigate to the full pop-up if one exists.
 - **Theming via Bubble Card CSS variables.** Centralize all visual tokens (border radius, accent color, blur, sub-button spacing) in global Bubble Card CSS variable overrides. Bubble Neon provides the base visual language. card-mod is retained for narrow CSS cases that global variables don't reach (currently: vacuum map image transforms).
 - **Confirmation dialogs always include descriptive text.** See the Confirmation Dialogs section below.
 - **The design target is between Apple Home and full HA.** Sufficient ambient context at a glance (chip strips, room state on tiles), with tap to drill into any room or utility. Avoid information density that requires interpretation on the Home view; reserve raw sensor data and detailed controls for pop-ups.
@@ -83,10 +74,11 @@ Every dashboard's primary view is titled **Home**, uses `type: sections` and `ma
 
 **Sections, in this order:**
 
-1. **Chip strips** — no section title; one `sub-buttons-only` card per strip stacked vertically
-2. **Room tiles** — one section per room (no section title); each section contains one Bubble Card `button` card
-3. **Utility tiles** — one section per utility area (Reminders, Vacuum, Climate, Water Leaks); same button card pattern as rooms
+1. **Chip strips** — no section title; one `mushroom-chips-card` per strip stacked vertically
+2. **Condition-triggered sections** — no section titles; section-level `visibility` gated on entity state (e.g., overdue count, vacuum state); appear automatically when relevant, otherwise zero-height
+3. **Room tiles** — all rooms in a single section with no title; a Bubble Card `separator` card at the top acts as the visible heading. Do not use per-room sections — the `sections` view type renders a large top margin above each section heading, making per-room sections visually noisy.
 4. **Pop-up definitions** — one section per area at the bottom of the view; these render invisibly until triggered by their hash
+5. **Footer navigation** — a `card_type: sub-buttons` card with `footer_mode: true`; persistent room/area navigation bar at the bottom of the view
 
 Do not reorder these groups or add sections between them without updating this standard.
 
@@ -106,7 +98,7 @@ card_type: button
 name: <Room Name>
 icon: <mdi room icon>
 entity: light.<area>_<primary>        # primary light entity
-button_type: switch                    # shows entity state color in background
+button_type: switch                    # shows entity on/off state in background; or use slider + read_only_slider: true for ambient brightness display
 tap_action:
   action: navigate
   navigation_path: "#<area-slug>"     # opens the room pop-up
@@ -122,6 +114,8 @@ sub_button:
 ```
 
 **Sub-button selection rule:** Include the 2–4 devices you'd interact with most from the home view without needing the full pop-up. Default set: ceiling fan (if present), primary media player (if addressable from this view), any frequently-toggled secondary light. Don't include sensors (read-only entities belong in the pop-up).
+
+**`button_type` options:** `switch` shows entity on/off color in the card background — default for most rooms. `slider` with `read_only_slider: true` shows a brightness bar as ambient state info without an interactive control. Do not use `slider` without `read_only_slider: true` — that exposes an adjustable brightness slider, which is prohibited.
 
 **Fallback room tiles (rooms without a primary light):**
 
@@ -190,6 +184,8 @@ The chip strip section at the top of the Home view uses stacked Mushroom `mushro
 
 **Icon-only sub-buttons:** omit the `name` field when no label is needed. Do not set `name: ""` — it allocates an empty text area and shifts the icon off-center.
 
+**Hold-to-toggle for sensitive direct-toggle chips:** chips that directly toggle a high-impact feature (guest mode, presence booleans) should use `hold_action: toggle` and `tap_action: none`. This prevents accidental state changes from an unintended tap on a crowded strip.
+
 **Contextual gates for door and garage alerts** (same rule as mobile-3): only alert when the entity is open AND the household is sleeping OR nobody is home. Water leaks and the freezer door are never gated — always alert-worthy.
 
 ---
@@ -222,16 +218,112 @@ An alternative to the pop-up pattern for brief content that fits inline on the H
    ```
 4. Optionally set `hold_action: navigate` on the same chip to open the full pop-up if one exists.
 
-**Current uses:**
+**Current uses:** none — the mobile dashboard uses condition-triggered sections (auto-appear based on state) rather than chip-toggled inline sections. The inline toggle pattern is documented for cases where user intent, not device state, should drive visibility.
 
-| Chip | Strip | Helper | Tap | Hold |
-|---|---|---|---|---|
-| Weather | 1 | `input_boolean.show_weather_forecast` | Shows inline Bubble Weather forecast card | — |
-| Thermostat | 1 | `input_boolean.show_thermostat_controls` | Shows inline Bubble Card climate card | — |
-| Vacuum | 1 | `input_boolean.show_vacuum_controls` | Shows inline vacuum tile with commands | Navigate `#vacuum` pop-up |
-| Overdue reminders (red alert state) | 1 | `input_boolean.show_reminders` | Shows inline overdue task cards (2-col half-width) | Navigate `#reminders` pop-up |
+**Former uses (migrated to condition-triggered):**
+
+| Chip | Was | Now |
+|---|---|---|
+| Weather | Toggle `input_boolean.show_weather_forecast` | Tap → `more-info` on `weather.apartment` |
+| Thermostat | Toggle `input_boolean.show_thermostat_controls` | Tap → navigate `#climate` |
+| Vacuum | Toggle `input_boolean.show_vacuum_controls` | Inline section auto-appears on state; chip navigates `#vacuum` |
+| Overdue reminders | Toggle `input_boolean.show_reminders` | Inline section auto-appears when count > 0; chip navigates `#reminders` |
 
 **Half-width inline cards:** add `layout_options: {grid_columns: 2}` to each card in the inline section so the sections view renders them two-per-row.
+
+---
+
+## State-Triggered Contextual Controls
+
+An alternative to the inline toggle pattern for controls that should appear automatically when a device is active — no chip or `input_boolean` involved. A Bubble Card `sub-buttons` card sits below a room tile in the same section; its `visibility` is gated on an entity's state.
+
+**When to use:** the controls are tightly coupled to a device with a clear active/inactive state (e.g., TV on/off), and auto-show/hide behavior is preferable to a manual chip toggle. The inline toggle pattern is better when user intent should drive visibility rather than device state.
+
+**Implementation:**
+
+```yaml
+type: custom:bubble-card
+card_type: sub-buttons
+visibility:
+  - condition: state
+    entity: <triggering entity>
+    state: "on"
+sub_button:
+  bottom:
+    - entity: <control 1>
+      tap_action: {action: toggle}
+      name: <label>
+    # additional controls
+```
+
+**Current uses:**
+
+| Trigger entity | Location | Controls shown |
+|---|---|---|
+| `media_player.living_room_tv` | Below Living Room tile | TV Light Sync, Movie Mode, Night Mode, Sonos Volume |
+
+---
+
+## Condition-Triggered Sections
+
+An alternative to the inline toggle pattern when content should appear automatically based on house state, with no user action required. Section-level `visibility` is set directly on an entity state — no chip toggle, no `input_boolean` helper.
+
+**When to use:** there is a clear, unambiguous state that makes the content relevant (vacuum running or ran today; overdue tasks exist). The user should not have to ask for it. Use the inline toggle pattern when user intent — not device state — should drive visibility.
+
+**Implementation:**
+
+```yaml
+# Section-level visibility — set on the section object, not on cards within it
+visibility:
+  - condition: numeric_state
+    entity: number.overdue_reminders_count
+    above: 0
+cards:
+  - ...
+```
+
+Or with an `or` condition:
+
+```yaml
+visibility:
+  - condition: or
+    conditions:
+      - condition: state
+        entity: vacuum.roborock_q8_max
+        state_not: docked
+      - condition: state
+        entity: input_select.vacuum_ran_today
+        state: "Yes"
+```
+
+**Current uses:**
+
+| Section | Visibility condition | Content |
+|---|---|---|
+| Overdue reminders | `number.overdue_reminders_count` > 0 | Half-width grid of overdue task cards |
+| Vacuum controls | vacuum not docked OR `input_select.vacuum_ran_today` = Yes | Vacuum tile with state and commands |
+
+---
+
+## Footer Navigation
+
+A persistent room/area navigation bar at the bottom of the Home view. Implemented as a Bubble Card `card_type: sub-buttons` card with `footer_mode: true` — renders as a fixed-position strip of icon-only sub-buttons.
+
+Each sub-button uses `tap_action: navigate` with a hash to the relevant pop-up. The footer replaces page-level navigation: rather than switching views, the user opens any room's pop-up directly from anywhere on the Home view.
+
+```yaml
+type: custom:bubble-card
+card_type: sub-buttons
+footer_mode: true
+sub_button:
+  bottom:
+    - name: Living Room
+      icon: mdi:sofa
+      tap_action:
+        action: navigate
+        navigation_path: "#living-room"
+    # additional rooms
+```
 
 ---
 
@@ -286,7 +378,10 @@ The text should describe the irreversible or consequential action in plain langu
 | Utility tile | `button` (`button_type: name` or `state`) | tap=popup; sub-buttons for status readouts |
 | Chip strip | Mushroom `mushroom-chips-card` | One card per strip; `type: conditional` wrappers for visibility; Bubble Card `sub-buttons-only` rejected visually |
 | Alert chip | Mushroom chip with explicit `icon_color` | Not entity-class color — explicit red/green/orange required |
-| Inline toggle | chip + `input_boolean` + section `visibility` | Tap chip → show/hide inline content; hold → navigate to full pop-up if applicable |
+| Condition-triggered section | Section with `visibility` on entity state | Auto-appears based on house state; no chip or helper; preferred over inline toggle |
+| Inline toggle | chip + `input_boolean` + section `visibility` | Tap chip → show/hide when user intent (not state) should drive visibility |
+| State-triggered controls | `sub-buttons` card with `visibility` on entity state | Auto-shows when device is active; no chip or helper needed |
+| Footer navigation | `sub-buttons` with `footer_mode: true` | Persistent bottom nav strip; tap → room pop-up via hash |
 | Room pop-up | `pop-up` with `cards` array | Hash slug: `#area-name`; placed in dedicated section at view bottom |
 | Pop-up trigger | button `tap_action: navigate #hash` | Room tile is the trigger; no secondary trigger needed |
 | Light control (popup) | `button` (`button_type: switch`) | No sliders; hold=toggle or sub-button for power |

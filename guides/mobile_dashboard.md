@@ -25,14 +25,13 @@ mobile-app (storage-mode dashboard, url_path: mobile-app)
 │   │   ├── Strip 1: Controls      always visible: Weather, Thermostat, Vacuum, Reminders, Guest
 │   │   └── Strip 2: Status & Modes  2 anchored (AQI, Alarm) + conditional alert and mode chips
 │   │
-│   ├── [inline toggle sections — conditional visibility, no title]
-│   │   ├── Overdue reminders      shown when input_boolean.show_reminders = on
-│   │   ├── Weather forecast        shown when input_boolean.show_weather_forecast = on
-│   │   ├── Thermostat controls    shown when input_boolean.show_thermostat_controls = on
-│   │   └── Vacuum controls         shown when input_boolean.show_vacuum_controls = on
+│   ├── [condition-triggered sections — auto-show based on state, no title]
+│   │   ├── Overdue reminders      shown when number.overdue_reminders_count > 0
+│   │   └── Vacuum controls         shown when vacuum not docked OR input_select.vacuum_ran_today = Yes
 │   │
-│   ├── [room tile sections — no section titles]
-│   │   ├── Living Room     bubble-card button → #living-room popup
+│   ├── [room tile section — separator heading "Primary Rooms"]
+│   │   ├── Living Room     bubble-card button → #living-room popup (slider, read-only)
+│   │   ├── [TV controls bar]  sub-buttons, visible when living_room_tv = on
 │   │   ├── Kitchen         bubble-card button → #kitchen popup
 │   │   ├── Master Bedroom  bubble-card button → #master-bedroom popup
 │   │   ├── Avery's Room    bubble-card button → #averys-room popup
@@ -40,12 +39,6 @@ mobile-app (storage-mode dashboard, url_path: mobile-app)
 │   │   ├── Bathroom        bubble-card button → #bathroom popup
 │   │   ├── Garage          bubble-card button → #garage popup
 │   │   └── Outside         bubble-card button → #outside popup
-│   │
-│   ├── [utility tile sections — no section titles]
-│   │   ├── Reminders       bubble-card button → #reminders popup
-│   │   ├── Vacuum          bubble-card button → #vacuum popup
-│   │   ├── Climate         bubble-card button → #climate popup
-│   │   └── Water Leaks     bubble-card button → #water-leaks popup
 │   │
 │   └── [pop-up sections — hidden by default, triggered via URL hash]
 │       ├── #living-room     Lights / Fan / Climate / Media / Sensors
@@ -60,12 +53,16 @@ mobile-app (storage-mode dashboard, url_path: mobile-app)
 │       ├── #vacuum          Map / Controls / Status / Mop Settings / Consumables
 │       ├── #climate         Controls / HVAC History
 │       └── #water-leaks     Sensor grid
+│
+└── Footer nav sub-buttons (footer_mode: true)
+    Living Room, Office, Avery's Room, Master Bedroom, Other
 ```
 
 **Design decisions:**
-- Room tiles are single-card sections: one Bubble Card `button` per area. No separate section headings — the button card shows the room name and icon. Tap navigates to the area's pop-up; hold toggles the primary light; sub-buttons on the tile surface handle the most-used quick controls.
+- Room tiles are grouped in a single section under a Bubble Card `separator` heading ("Primary Rooms"). Per-room sections were tried and rejected — the `sections` view type renders a large top margin on every section heading, making individual room sections visually noisy. Tap navigates to the area's pop-up; hold toggles the primary light; sub-buttons on the tile surface handle the most-used quick controls.
 - Pop-up cards live in dedicated sections at the bottom of the Home view. HA renders no-title sections as zero-height, so pop-up sections are visually absent until triggered. Each pop-up card carries its content in a `cards` array.
-- Chip strips use Mushroom `mushroom-chips-card` cards (one per strip, stacked vertically). Bubble Card `sub-buttons-only` was evaluated and rejected for visual reasons — the pill-chip style Mushroom produces was preferred. Two strips, organized by function: Strip 1 (Controls) holds all interactive chips — four expand inline content on tap (Weather, Thermostat, Vacuum, Reminders) and one (Guest) directly toggles guest mode. Strip 2 (Status & Modes) holds AQI, all conditional alert chips, and all mode chips.
+- Chip strips use Mushroom `mushroom-chips-card` cards (one per strip, stacked vertically). Bubble Card `sub-buttons-only` was evaluated and rejected for visual reasons — the pill-chip style Mushroom produces was preferred. Two strips, organized by function: Strip 1 (Controls) holds always-interactive chips — Weather and Thermostat navigate to their popups; Vacuum and Reminders also navigate to popups (their inline sections auto-appear based on device state, not chip tap); Guest uses hold-to-toggle. Strip 2 (Status & Modes) holds AQI, all conditional alert chips, and all mode chips.
+- The Home view is context-aware: condition-triggered sections appear automatically when relevant state exists (overdue reminders, vacuum not docked or ran today). There is no chip-driven inline toggle mechanism — sections appear and disappear based on actual house state, no user action needed.
 
 ---
 
@@ -155,15 +152,15 @@ Each strip is a Mushroom `mushroom-chips-card` with `alignment: center` and `car
 
 Always visible (Weather, Thermostat, Vacuum, Guest always shown; Reminders shows one chip at a time — green or red — based on overdue count). Every chip here is interactive: four expand inline content on tap, one directly toggles a feature.
 
-**Weather** — Dynamic icon: `mdi:weather-{{ states('weather.apartment') }}`, with explicit overrides for `partlycloudy` → `mdi:weather-partly-cloudy` and `clear-night` → `mdi:weather-night` (`mdi:weather-clear-night` does not exist in MDI). Content: current temperature. Tap: toggle `input_boolean.show_weather_forecast` — shows the inline Bubble Weather forecast card below the chip strips.
+**Weather** — Dynamic icon: `mdi:weather-{{ states('weather.apartment') }}`, with explicit overrides for `partlycloudy` → `mdi:weather-partly-cloudy` and `clear-night` → `mdi:weather-night` (`mdi:weather-clear-night` does not exist in MDI). Content: current temperature. Tap: `more-info` on `weather.apartment`.
 
-**Thermostat** — `mdi:home-thermometer`. Icon color from `hvac_action`: blue = cooling, orange = heating, grey = idle. Content: current indoor temperature. Tap: toggle `input_boolean.show_thermostat_controls` — shows the inline Bubble Card climate card. There is no thermostat pop-up; all climate control is inline.
+**Thermostat** — `mdi:home-thermometer`. Icon color from `hvac_action`: blue = cooling, orange = heating, grey = idle. Content: current indoor temperature. Tap: navigate `#climate`.
 
-**Vacuum** — Four states via Jinja template: cleaning/returning/paused → orange `mdi:robot-vacuum`; ran today AND `binary_sensor.roborock_maintenance_required` on → red `mdi:robot-vacuum-alert`; not run today → grey `mdi:robot-vacuum-off`; ran today, all clear → green `mdi:robot-vacuum`. Tap: toggle `input_boolean.show_vacuum_controls` — shows the inline vacuum tile with commands. Hold: navigate `#vacuum` full pop-up.
+**Vacuum** — Four states via Jinja template: cleaning/returning/paused → orange `mdi:robot-vacuum`; ran today AND `binary_sensor.roborock_maintenance_required` on → red `mdi:robot-vacuum-alert`; not run today → grey `mdi:robot-vacuum-off`; ran today, all clear → green `mdi:robot-vacuum`. Tap and Hold: navigate `#vacuum` pop-up. The inline vacuum section appears automatically below the chip strips when the vacuum is not docked or ran today — no chip tap needed.
 
-**Reminders OK / Overdue reminders** — Mutually exclusive. Green `mdi:calendar-check` when `number.overdue_reminders_count` < 1 — tap navigates `#reminders` full pop-up. Replaced by red `mdi:calendar-alert` (count shown when 2+) when any task is overdue — tap toggles `input_boolean.show_reminders` (shows inline overdue task cards); hold navigates `#reminders` full pop-up.
+**Reminders OK / Overdue reminders** — Mutually exclusive. Green `mdi:calendar-check` when `number.overdue_reminders_count` < 1 — tap navigates `#reminders` pop-up. Replaced by red `mdi:calendar-alert` (count shown when 2+) when any task is overdue — tap and hold both navigate `#reminders` pop-up. The overdue task section appears automatically on the Home view when the count is above zero — no chip tap needed.
 
-**Guest** — `mdi:account-child-circle`. Icon color: green when `input_boolean.guest_mode` is on, grey when off. Tap: toggle `input_boolean.guest_mode`. No content label.
+**Guest** — `mdi:account-child-circle`. Icon color: green when `input_boolean.guest_mode` is on, grey when off. Hold: toggle `input_boolean.guest_mode`. Tap: none. (Hold-to-toggle prevents accidental activation on a crowded chip strip.) No content label.
 
 ### Strip 2 — Status & Modes
 
@@ -189,9 +186,8 @@ A mix of always-visible anchored chips (AQI, Alarm) and conditional chips for al
 
 - **Avery sleeping** — `input_boolean.avery_sleeping` on AND `input_boolean.everyone_sleeping` off; tap toggles (with confirmation)
 - **Everyone sleeping** — `input_boolean.everyone_sleeping` on; tap toggles (with confirmation)
-- **Light sync** — both `switch.living_room_sync_box_power` and `media_player.living_room_tv` on; tap toggles sync
-- **Movie mode** — `input_boolean.movie_mode`, gated on TV on; tap toggles
-- **Quiet mode** — `input_boolean.sonos_night_mode`, gated on TV; yellow icon; tap toggles
+
+TV-related mode chips (Light Sync, Movie Mode, Quiet Mode) were removed from this strip — they are now surfaced in the [TV Controls Bar](#living-room-tv-controls-bar) below the Living Room tile, which auto-shows when the TV is on.
 
 > **Icon-only chips:** omit the `name` field entirely. Setting `name: ""` allocates an empty text area and shifts the icon off-center. Chips that conditionally show a count keep their `name` field since they render text when count ≥ 2.
 
@@ -201,7 +197,7 @@ A mix of always-visible anchored chips (AQI, Alarm) and conditional chips for al
 
 ## Room Tiles
 
-Each room is a Bubble Card `button` card in its own no-title section. Primary entity is the main light for the room (or cover/sensor for Garage/Outside). Tap opens the room's pop-up; hold toggles the primary light.
+All rooms live in a single section with no title. A Bubble Card `separator` card ("Primary Rooms") sits at the top of the section as the visible heading — per-room sections were tried and rejected because the `sections` view type adds a large top margin to every section heading. Primary entity is the main light for the room (or cover/sensor for Garage/Outside). Tap opens the room's pop-up; hold toggles the primary light.
 
 | Room | Primary entity | Hash | Sub-buttons (reference) |
 |---|---|---|---|
@@ -216,7 +212,61 @@ Each room is a Bubble Card `button` card in its own no-title section. Primary en
 
 > **Sub-button selection:** the reference set above is a starting point. Finalize per room during build based on what's actually used most from the home view without opening the pop-up.
 
+> **Living Room `button_type`:** Uses `button_type: slider` with `read_only_slider: true` rather than the standard `switch`. This shows a brightness bar as ambient state info. The slider is non-interactive — Adaptive Lighting owns brightness. All other room tiles use `switch`.
+
 > **Naming gap:** `light.living_room_fan` and `light.master_bedroom_fan` embed the device type (`fan`) rather than being location-first per `standards/naming.md`. These IDs are used as-is; a rename pass is tracked separately.
+
+---
+
+## Living Room TV Controls Bar
+
+A Bubble Card `card_type: sub-buttons` card sits immediately below the Living Room tile in the same section. Its `visibility` is gated on `media_player.living_room_tv` being `on` — it appears automatically when the TV is active and hides when the TV is off, with no chip or `input_boolean` toggle involved.
+
+This is the state-triggered contextual controls pattern — see `standards/dashboards.md` → State-Triggered Contextual Controls.
+
+**Controls (bottom sub-buttons):**
+
+| Entity | Label | Icon | Action |
+|---|---|---|---|
+| `switch.living_room_sync_box_light_sync` | TV Light Sync | `mdi:television-ambient-light` | toggle |
+| `input_boolean.movie_mode` | Movie Mode | `mdi:theater` | toggle |
+| `input_boolean.sonos_night_mode` | Night Mode | `mdi:moon-waning-crescent` | toggle |
+| `media_player.living_room_sonos` | Volume | `mdi:knob` | slider (`sub_button_type: slider`, `state_background: false`) |
+
+These three controls were previously duplicated as conditional mode chips in Strip 2. They were moved here because all three are gated on the TV being on — the contextual bar provides cleaner colocation with the room tile they affect.
+
+---
+
+## Condition-Triggered Sections
+
+Two sections on the Home view appear and disappear automatically based on house state — no chip, no `input_boolean`, no user action needed. Section-level `visibility` is set directly on the relevant entity state.
+
+| Section | Visibility condition | Content |
+|---|---|---|
+| Overdue reminders | `number.overdue_reminders_count` > 0 | Half-width grid of overdue task cards (conditional wrappers per task) |
+| Vacuum controls | vacuum not docked OR `input_select.vacuum_ran_today` = Yes | Native `tile` card with vacuum state, battery, and vacuum-commands feature |
+
+**Reminders section** — contains one `type: conditional` card per task, each gated on `binary_sensor.<name>_overdue`. Cards use `layout_options: {grid_columns: 2}` for two-per-row layout. This means the section is visible as soon as any task is overdue, but only overdue task cards render within it — no empty placeholders.
+
+**Vacuum section** — the `or` condition matches any state where the vacuum is actively relevant: currently running/returning, or already ran today and the user might want to check status. The condition-triggered section gives a quick status tile without requiring the full `#vacuum` pop-up to open.
+
+Both sections sit immediately below the chip strips and above the room tiles — contextual content floats to the top of the view automatically when relevant.
+
+---
+
+## Footer Navigation
+
+A Bubble Card `card_type: sub-buttons` card with `footer_mode: true` sits at the bottom of the Home view as a persistent room navigation bar. It renders as a fixed-position strip of icon-only sub-buttons. Tap navigates to the area's pop-up via hash navigation.
+
+**Footer targets:**
+
+| Name | Icon | Navigation |
+|---|---|---|
+| Living Room | `mdi:sofa` | `#living-room` |
+| Office | `mdi:desktop-classic` | `#office` |
+| Avery's Room | `mdi:teddy-bear` | `#averys-room` |
+| Master Bedroom | `mdi:bed-king` | `#master-bedroom` |
+| Other | `phu:rooms-other` | (TBD — expand as rooms are built) |
 
 ---
 
@@ -246,9 +296,9 @@ Four water leak sensors in a 2×2 grid of tile cards. Tap: more-info on each sen
 
 ### Reminders (`#reminders`)
 
-Reminders are accessible two ways: inline on the Home view (overdue tasks only) and via the full `#reminders` pop-up (all tasks).
+Reminders are accessible two ways: inline on the Home view (overdue tasks only, automatic) and via the full `#reminders` pop-up (all tasks).
 
-**Inline overdue view** — triggered by the red reminder chip (tap toggles `input_boolean.show_reminders`). A section with `visibility` gated on this boolean appears between the chip strips and room tiles, containing only overdue tasks. Each card is a `type: conditional` wrapper (gated on `binary_sensor.<name>_overdue` being `on`) around a Mushroom `mushroom-template-card`. Cards use `layout_options: {grid_columns: 2}` for half-width two-per-row layout. Icon is always red (these cards only appear when overdue). Hold the chip to open the full pop-up.
+**Inline overdue view** — a condition-triggered section whose section-level `visibility` is `numeric_state: number.overdue_reminders_count above: 0`. It appears automatically when any task is overdue; no chip or `input_boolean` toggle is involved. Each card is a `type: conditional` wrapper (gated on `binary_sensor.<name>_overdue` being `on`) around a Mushroom `mushroom-template-card`. Cards use `layout_options: {grid_columns: 2}` for half-width two-per-row layout. Icon is always red (these cards only appear when overdue). Tap the reminder chip to navigate to the full pop-up.
 
 **Full pop-up** — triggered by the green reminder chip (all caught up) or by holding the red chip. Shows all tasks regardless of state, in a 2-column grid. Each card:
 - Icon red when overdue, green when not (Jinja `icon_color` template)
@@ -348,10 +398,7 @@ To read the current config:
 | Guest mode | `input_boolean.guest_mode` | Helper |
 | Movie mode | `input_boolean.movie_mode` | Helper |
 | Sonos night mode | `input_boolean.sonos_night_mode` | Helper |
-| Show weather forecast (inline) | `input_boolean.show_weather_forecast` | Helper |
-| Show thermostat controls (inline) | `input_boolean.show_thermostat_controls` | Helper |
-| Show reminders (inline) | `input_boolean.show_reminders` | Helper |
-| Show vacuum controls (inline) | `input_boolean.show_vacuum_controls` | Helper |
+| Living room TV | `media_player.living_room_tv` | Entity |
 
 ---
 
