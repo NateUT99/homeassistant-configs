@@ -22,8 +22,8 @@ mobile-app (storage-mode dashboard, url_path: mobile-app)
 ├── Home (sections, max_columns=1)
 │   │
 │   ├── [chip strip section — no title]
-│   │   ├── Strip 1: Controls      always visible: Weather, Thermostat, Vacuum, Reminders, Guest
-│   │   └── Strip 2: Status & Modes  2 anchored (AQI, Alarm) + conditional alert and mode chips
+│   │   ├── Strip 1: Controls      always visible: Weather, Alarm, Thermostat, Vacuum, Reminders
+│   │   └── Strip 2: Status & Modes  2 anchored (AQI, Guest) + conditional alert chips
 │   │
 │   ├── [condition-triggered sections — auto-show based on state, no title]
 │   │   ├── Overdue reminders      shown when number.overdue_reminders_count > 0
@@ -61,7 +61,7 @@ mobile-app (storage-mode dashboard, url_path: mobile-app)
 **Design decisions:**
 - Room tiles are grouped in a single section under a Bubble Card `separator` heading ("Primary Rooms"). Per-room sections were tried and rejected — the `sections` view type renders a large top margin on every section heading, making individual room sections visually noisy. Tap navigates to the area's pop-up; hold toggles the primary light; sub-buttons on the tile surface handle the most-used quick controls.
 - Pop-up cards live in dedicated sections at the bottom of the Home view. HA renders no-title sections as zero-height, so pop-up sections are visually absent until triggered. Each pop-up card carries its content in a `cards` array.
-- Chip strips use Mushroom `mushroom-chips-card` cards (one per strip, stacked vertically). Bubble Card `sub-buttons-only` was evaluated and rejected for visual reasons — the pill-chip style Mushroom produces was preferred. Two strips, organized by function: Strip 1 (Controls) holds always-interactive chips — Weather and Thermostat navigate to their popups; Vacuum and Reminders also navigate to popups (their inline sections auto-appear based on device state, not chip tap); Guest uses hold-to-toggle. Strip 2 (Status & Modes) holds AQI, all conditional alert chips, and all mode chips.
+- Chip strips use Mushroom `mushroom-chips-card` cards (one per strip, stacked vertically). Bubble Card `sub-buttons-only` was evaluated and rejected for visual reasons — the pill-chip style Mushroom produces was preferred. Two strips, organized by function: Strip 1 (Controls) holds always-interactive chips — Weather, Alarm, Thermostat, Vacuum, and Reminders, all navigating to their views via more-info or hash nav. Strip 2 (Status & Modes) holds AQI and Guest as anchored chips, plus all conditional alert chips.
 - The Home view is context-aware: condition-triggered sections appear automatically when relevant state exists (overdue reminders, vacuum not docked or ran today). There is no chip-driven inline toggle mechanism — sections appear and disappear based on actual house state, no user action needed.
 
 ---
@@ -150,9 +150,11 @@ Each strip is a Mushroom `mushroom-chips-card` with `alignment: center` and `car
 
 ### Strip 1 — Controls
 
-Always visible (Weather, Thermostat, Vacuum, Guest always shown; Reminders shows one chip at a time — green or red — based on overdue count). Every chip here is interactive: four expand inline content on tap, one directly toggles a feature.
+Always visible (Weather, Alarm, Thermostat, Vacuum always shown; Reminders shows one chip at a time — green or red — based on overdue count). Every chip here is interactive.
 
 **Weather** — Dynamic icon: `mdi:weather-{{ states('weather.apartment') }}`, with explicit overrides for `partlycloudy` → `mdi:weather-partly-cloudy` and `clear-night` → `mdi:weather-night` (`mdi:weather-clear-night` does not exist in MDI). Content: current temperature. Tap: `more-info` on `weather.apartment`.
+
+**Alarm status / Alarm alert** — Always visible; mutually exclusive. Alarm status chip (`mdi:shield-home`, green, content shows armed state) hides when alarm transitions to `triggered`, `pending`, or `arming`. Alarm alert chip (`mdi:shield-alert`, red or orange) takes its place during those states. Tap: `more-info` on `alarm_control_panel.home_alarm`.
 
 **Thermostat** — `mdi:home-thermometer`. Icon color from `hvac_action`: blue = cooling, orange = heating, grey = idle. Content: current indoor temperature. Tap: navigate `#climate`.
 
@@ -160,17 +162,15 @@ Always visible (Weather, Thermostat, Vacuum, Guest always shown; Reminders shows
 
 **Reminders OK / Overdue reminders** — Mutually exclusive. Green `mdi:calendar-check` when `number.overdue_reminders_count` < 1 — tap navigates `#reminders` pop-up. Replaced by red `mdi:calendar-alert` (count shown when 2+) when any task is overdue — tap and hold both navigate `#reminders` pop-up. The overdue task section appears automatically on the Home view when the count is above zero — no chip tap needed.
 
-**Guest** — `mdi:account-child-circle`. Icon color: green when `input_boolean.guest_mode` is on, grey when off. Hold: toggle `input_boolean.guest_mode`. Tap: none. (Hold-to-toggle prevents accidental activation on a crowded chip strip.) No content label.
-
 ### Strip 2 — Status & Modes
 
-A mix of always-visible anchored chips (AQI, Alarm) and conditional chips for alerts and active modes. Conditional chips use `type: conditional` wrappers; all appear in the same strip and stack when multiple are active simultaneously.
+Two always-visible anchored chips (AQI, Guest) followed by conditional alert chips. Conditional chips use `type: conditional` wrappers; all appear in the same strip and stack when multiple are active simultaneously.
 
 **Alert chip coloring:** use explicit `icon_color` values (red, orange, green) — do not rely on entity-class default colors. `state_not: "off"` catches both active alerts and `unknown`/`unavailable` states (intentional: conservative default for safety sensors).
 
 **AQI** — `mdi:smog`. Always visible. Icon color driven by `sensor.toledo_ohio_usa_air_quality_index`: green ≤ 100, accent 101–125, red ≥ 126. Content shows the raw value. Tap: `more-info`.
 
-**Alarm status / Alarm alert** — Always visible; mutually exclusive. Alarm status chip (`mdi:shield-home`, green, label shows armed state) hides when alarm transitions to `triggered`, `pending`, or `arming`. Alarm alert chip (`mdi:shield-alert`, red or orange) takes its place during those states.
+**Guest** — `mdi:account-child-circle`. Always visible. Icon color: green when `input_boolean.guest_mode` is on, grey when off. Hold: toggle `input_boolean.guest_mode`. Tap: none. (Hold-to-toggle prevents accidental activation on a crowded strip.) No content label.
 
 **Water leaks** — Conditional. Visibility gated on `binary_sensor.water_leak_detected` (group sensor — on when any of the four sensors is active). Count shown when 2+. Tap: navigate `#water-leaks`.
 
@@ -178,12 +178,7 @@ A mix of always-visible anchored chips (AQI, Alarm) and conditional chips for al
 
 **Exterior doors** — Two mutually exclusive conditional chips. Red when any of three sensors is open AND (sleeping OR nobody home). Orange when open AND home AND awake. Count shown when 2+. Sensors: `binary_sensor.garage_interior_door_contact`, `binary_sensor.entrance_front_door_contact`, `binary_sensor.office_sliding_door_contact`.
 
-**Garage door** — Three mutually exclusive chips. Green `mdi:garage` when closed (tap: more-info). Red `mdi:garage-open-variant` when open AND (sleeping OR away) — tap closes with confirmation. Orange when open AND home AND awake — tap closes with confirmation. Hold on open variants: more-info.
-
-**Mode chips** — All conditional; appear alongside alert chips when active:
-
-- **Avery sleeping** — `input_boolean.avery_sleeping` on AND `input_boolean.everyone_sleeping` off; tap toggles (with confirmation)
-- **Everyone sleeping** — `input_boolean.everyone_sleeping` on; tap toggles (with confirmation)
+**Garage door** — Two mutually exclusive conditional chips, shown only when open. Red `mdi:garage-open-variant` when open AND (sleeping OR away) — tap closes with confirmation. Orange when open AND home AND awake — tap closes with confirmation. Hold on both: more-info. The green closed chip was removed — the absence of an open alert is sufficient indication that the garage is closed.
 
 TV-related mode chips (Light Sync, Movie Mode, Quiet Mode) were removed from this strip — they are now surfaced in the [TV Controls Bar](#living-room-tv-controls-bar) below the Living Room tile, which auto-shows when the TV is on.
 

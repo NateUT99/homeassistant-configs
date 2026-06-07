@@ -175,8 +175,8 @@ The chip strip section at the top of the Home view uses stacked Mushroom `mushro
 
 | Strip | Name | Purpose | Visibility |
 |---|---|---|---|
-| 1 | Controls | Interactive chips — expand inline content or directly toggle a feature | Always visible: Weather, Thermostat, Vacuum, Reminders, Guest |
-| 2 | Status & Modes | Status indicators, conditional alerts, and mode chips | 2 anchored (AQI, Alarm) + conditional chips |
+| 1 | Controls | Interactive chips — navigate to views or popups | Always visible: Weather, Alarm, Thermostat, Vacuum, Reminders |
+| 2 | Status & Modes | Status indicators and conditional alert chips | 2 anchored (AQI, Guest) + conditional chips |
 
 **Sub-button visibility conditions:** use the Bubble Card `visibility` property on each sub-button with the same condition logic used for Mushroom chips. `state_not: "off"` for binary sensors (conservative default — surfaces `unknown` as alert).
 
