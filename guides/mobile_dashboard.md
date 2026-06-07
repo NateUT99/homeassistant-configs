@@ -246,7 +246,9 @@ Pending room pop-ups (Kitchen through Outside) follow this same section structur
 
 ### Water Leaks (`#water-leaks`)
 
-Four water leak sensors in a 2×2 grid of Bubble Card buttons (state display). Tap: more-info on each sensor. Colors: red when `on`/`unknown`, green when `off`. Sensors: `binary_sensor.kitchen_leak_water_leak`, `binary_sensor.bathroom_leak_water_leak`, `binary_sensor.master_bathroom_leak_water_leak`, `binary_sensor.utility_room_leak_water_leak`.
+Four water leak sensors in a 2×2 grid of tile cards. Tap: more-info on each sensor. Colors: red when `on`/`unknown`, green when `off`. Sensors: `binary_sensor.kitchen_leak_water_leak`, `binary_sensor.bathroom_leak_water_leak`, `binary_sensor.master_bathroom_leak_water_leak`, `binary_sensor.utility_room_leak_water_leak`.
+
+`binary_sensor.water_leak_detected` (group binary sensor, any-on) aggregates all four sensors into a single entity used by the water leak chip visibility condition and any automations that need a single leak trigger.
 
 ### Reminders (`#reminders`)
 
@@ -332,6 +334,7 @@ To read the current config:
 | Reset main brush | `button.roborock_q8_max_reset_main_brush_consumable` | Entity |
 | Reset side brush | `button.roborock_q8_max_reset_side_brush_consumable` | Entity |
 | Reset sensor | `button.roborock_q8_max_reset_sensor_consumable` | Entity |
+| Water leak detected (aggregate) | `binary_sensor.water_leak_detected` | Helper (group) |
 | Kitchen water leak | `binary_sensor.kitchen_leak_water_leak` | Entity |
 | Bathroom water leak | `binary_sensor.bathroom_leak_water_leak` | Entity |
 | Master bath water leak | `binary_sensor.master_bathroom_leak_water_leak` | Entity |
