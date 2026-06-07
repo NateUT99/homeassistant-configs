@@ -4,6 +4,7 @@ Version 0.4
 
 | Version | Date | Changes |
 |---|---|---|
+| 0.5 | June 2026 | Chip strips reorganized from 4 to 2: Strip 1 (Controls) groups all interactive chips — inline-toggle and direct-toggle; Strip 2 (Status & Modes) holds AQI, all alert chips, and mode chips. Presence row removed; Guest chip moved to Strip 1 as a direct toggle. |
 | 0.4 | June 2026 | Pivot to Bubble Card as primary framework. Full rewrite. Standard now governs mobile and future desktop dashboards. Mushroom retained as documented fallback. |
 | 0.3 | June 2026 | Icon-only chip centering rule added; card-mod scope expanded to cover non-chip element transforms; Quick Reference updated |
 | 0.2 | June 2026 | Native-first principle: tile cards are default in subviews; Mushroom exceptions documented with justification; Room Subview Structure and Quick Reference updated accordingly |
@@ -176,14 +177,12 @@ cards:
 
 The chip strip section at the top of the Home view uses stacked Mushroom `mushroom-chips-card` cards — one card per strip, stacked vertically. Each chip card uses `alignment: center` and `card_mod` to set chip height (`--chip-height: 30px`) and padding (`--chip-padding: 0 6px`). Chips use `type: conditional` wrappers for visibility and Jinja templates for `icon_color`.
 
-**Four strips (carry over from mobile-3, same logic):**
+**Two strips organized by function:**
 
-| Strip | Name | Visibility |
-|---|---|---|
-| 1 | Environment | Always visible: Weather, AQI, Thermostat |
-| 2 | Status & Alerts | 4 anchored chips + conditional alert chips |
-| 3 | Modes | All conditional (sleeping, movie mode, quiet mode, light sync) |
-| 4 | Presence | Always visible: Nate, Guest |
+| Strip | Name | Purpose | Visibility |
+|---|---|---|---|
+| 1 | Controls | Interactive chips — expand inline content or directly toggle a feature | Always visible: Weather, Thermostat, Vacuum, Reminders, Guest |
+| 2 | Status & Modes | Status indicators, conditional alerts, and mode chips | 2 anchored (AQI, Alarm) + conditional chips |
 
 **Sub-button visibility conditions:** use the Bubble Card `visibility` property on each sub-button with the same condition logic used for Mushroom chips. `state_not: "off"` for binary sensors (conservative default — surfaces `unknown` as alert).
 
@@ -225,10 +224,12 @@ An alternative to the pop-up pattern for brief content that fits inline on the H
 
 **Current uses:**
 
-| Chip | Helper | Tap | Hold |
-|---|---|---|---|
-| Thermostat (Strip 1) | `input_boolean.show_thermostat_controls` | Shows inline Bubble Card climate card | — |
-| Overdue reminders (Strip 2, red alert state) | `input_boolean.show_reminders` | Shows inline overdue task cards (2-col half-width) | Navigate `#reminders` pop-up |
+| Chip | Strip | Helper | Tap | Hold |
+|---|---|---|---|---|
+| Weather | 1 | `input_boolean.show_weather_forecast` | Shows inline Bubble Weather forecast card | — |
+| Thermostat | 1 | `input_boolean.show_thermostat_controls` | Shows inline Bubble Card climate card | — |
+| Vacuum | 1 | `input_boolean.show_vacuum_controls` | Shows inline vacuum tile with commands | Navigate `#vacuum` pop-up |
+| Overdue reminders (red alert state) | 1 | `input_boolean.show_reminders` | Shows inline overdue task cards (2-col half-width) | Navigate `#reminders` pop-up |
 
 **Half-width inline cards:** add `layout_options: {grid_columns: 2}` to each card in the inline section so the sections view renders them two-per-row.
 
