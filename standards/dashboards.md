@@ -27,7 +27,8 @@ The standard is viewport-agnostic. The `mobile` dashboard is the reference imple
 - **Modal pop-ups replace page navigation.** Use Bubble Card pop-ups (triggered by URL hash) for all room drill-down and utility detail views. Do not use `subview: true` views. Browser back navigation, ESC, tap-outside, and swipe-down all close pop-ups.
 - **Room tiles: tap = popup, hold = toggle, sub-buttons = key devices.** Every room tile is a single Bubble Card `button` card. Tapping opens the area's modal pop-up. Holding toggles the primary light. Sub-buttons on the tile surface provide 2–4 quick-action controls for the most-used devices in that room (fan, primary media, key lights) without requiring the pop-up.
 - **No brightness or color sliders anywhere.** Adaptive Lighting manages brightness and color temperature automatically. Do not expose a slider on any room tile, pop-up, or inline card — it creates a confusing dual-control surface. The `button_type: switch` layout shows entity state color without a slider.
-- **Sub-buttons are the chip equivalent.** The Home view chip strips are implemented as Bubble Card `sub-buttons-only` cards — visually equivalent to the Mushroom chip row but driven by Bubble Card sub-button visibility conditions and Bubble Badges 2 indicators.
+- **Mushroom chips-card for chip strips.** The Home view chip strips are implemented as Mushroom `mushroom-chips-card` cards — one card per strip, stacked vertically. Bubble Card `sub-buttons-only` was evaluated and rejected: the visual output does not match the compact pill-chip style Mushroom delivers. This is a deliberate, documented fallback per the HACS Dependency Policy below.
+- **Inline toggle as an alternative to pop-ups.** A chip's `tap_action` can toggle an `input_boolean` helper (`input_boolean.show_<feature>`, initial: `false`) to show or hide a section inline on the Home view rather than opening a pop-up modal. Use when the content is compact and contextual. Pop-ups are better for extensive content or when isolating focus from the Home view matters. Tapping the chip again dismisses the inline content. A `hold_action` on the same chip can navigate to the full pop-up if one exists.
 - **Theming via Bubble Card CSS variables.** Centralize all visual tokens (border radius, accent color, blur, sub-button spacing) in global Bubble Card CSS variable overrides. Bubble Neon provides the base visual language. card-mod is retained for narrow CSS cases that global variables don't reach (currently: vacuum map image transforms).
 - **Confirmation dialogs always include descriptive text.** See the Confirmation Dialogs section below.
 - **The design target is between Apple Home and full HA.** Sufficient ambient context at a glance (chip strips, room state on tiles), with tap to drill into any room or utility. Avoid information density that requires interpretation on the Home view; reserve raw sensor data and detailed controls for pop-ups.
@@ -52,6 +53,7 @@ Approved frontend resources:
 
 | Gap | Mushroom card | When to use |
 |---|---|---|
+| Chip strip visual style | `mushroom-chips-card` | Home view chip strips; Bubble Card `sub-buttons-only` evaluated and rejected visually |
 | Jinja `icon_color` template where Bubble Card JS template is brittle | `mushroom-template-card` | Reminder cards, vacuum consumables |
 | Light color-picker UX not yet matched by Bubble Card | `mushroom-light-card` | Explicit color-picking UI, if needed |
 
@@ -172,7 +174,7 @@ cards:
 
 ## Status Chip System
 
-The chip strip section at the top of the Home view uses stacked `sub-buttons-only` cards — one card per strip, each with a sub-button array. Sub-buttons handle conditional visibility, icon color, and tap actions.
+The chip strip section at the top of the Home view uses stacked Mushroom `mushroom-chips-card` cards — one card per strip, stacked vertically. Each chip card uses `alignment: center` and `card_mod` to set chip height (`--chip-height: 30px`) and padding (`--chip-padding: 0 6px`). Chips use `type: conditional` wrappers for visibility and Jinja templates for `icon_color`.
 
 **Four strips (carry over from mobile-3, same logic):**
 
@@ -190,6 +192,45 @@ The chip strip section at the top of the Home view uses stacked `sub-buttons-onl
 **Icon-only sub-buttons:** omit the `name` field when no label is needed. Do not set `name: ""` — it allocates an empty text area and shifts the icon off-center.
 
 **Contextual gates for door and garage alerts** (same rule as mobile-3): only alert when the entity is open AND the household is sleeping OR nobody is home. Water leaks and the freezer door are never gated — always alert-worthy.
+
+---
+
+## Inline Toggle Pattern
+
+An alternative to the pop-up pattern for brief content that fits inline on the Home view without a modal overlay. A chip's `tap_action` toggles an `input_boolean` helper; a section uses `visibility` to show or hide its content based on that helper's state.
+
+**When to use:** content is compact (a handful of cards), ephemeral (not requiring sustained focus), and benefits from appearing in-place below the chips. Use pop-ups when the content is extensive or when modal focus is warranted.
+
+**Implementation:**
+
+1. Create `input_boolean.show_<feature>` (initial: `false`; icon matching the feature).
+2. Chip `tap_action`:
+   ```yaml
+   tap_action:
+     action: perform-action
+     perform_action: input_boolean.toggle
+     target:
+       entity_id: input_boolean.show_<feature>
+   ```
+3. Inline section with `visibility` (placed between the chip strip section and the room tile sections):
+   ```yaml
+   visibility:
+     - condition: state
+       entity: input_boolean.show_<feature>
+       state: "on"
+   cards:
+     - ...
+   ```
+4. Optionally set `hold_action: navigate` on the same chip to open the full pop-up if one exists.
+
+**Current uses:**
+
+| Chip | Helper | Tap | Hold |
+|---|---|---|---|
+| Thermostat (Strip 1) | `input_boolean.show_thermostat_controls` | Shows inline Bubble Card climate card | — |
+| Overdue reminders (Strip 2, red alert state) | `input_boolean.show_reminders` | Shows inline overdue task cards (2-col half-width) | Navigate `#reminders` pop-up |
+
+**Half-width inline cards:** add `layout_options: {grid_columns: 2}` to each card in the inline section so the sections view renders them two-per-row.
 
 ---
 
@@ -242,8 +283,9 @@ The text should describe the irreversible or consequential action in plain langu
 |---|---|---|
 | Room tile | `button` (`button_type: switch`) | tap=popup, hold=toggle; sub-buttons for key devices |
 | Utility tile | `button` (`button_type: name` or `state`) | tap=popup; sub-buttons for status readouts |
-| Chip strip | `sub-buttons-only` | One card per strip; sub-button `visibility` for conditional chips |
-| Alert chip | sub-button with explicit `icon_color` | Not entity-class color — explicit red/green/orange required |
+| Chip strip | Mushroom `mushroom-chips-card` | One card per strip; `type: conditional` wrappers for visibility; Bubble Card `sub-buttons-only` rejected visually |
+| Alert chip | Mushroom chip with explicit `icon_color` | Not entity-class color — explicit red/green/orange required |
+| Inline toggle | chip + `input_boolean` + section `visibility` | Tap chip → show/hide inline content; hold → navigate to full pop-up if applicable |
 | Room pop-up | `pop-up` with `cards` array | Hash slug: `#area-name`; placed in dedicated section at view bottom |
 | Pop-up trigger | button `tap_action: navigate #hash` | Room tile is the trigger; no secondary trigger needed |
 | Light control (popup) | `button` (`button_type: switch`) | No sliders; hold=toggle or sub-button for power |

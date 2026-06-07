@@ -17,7 +17,7 @@ Mobile 3.0 remains in HA storage until `mobile` is feature-complete and a formal
 ## Architecture
 
 ```
-mobile (storage-mode dashboard, url_path: mobile)
+mobile-app (storage-mode dashboard, url_path: mobile-app)
 │
 ├── Home (sections, max_columns=1)
 │   │
@@ -26,6 +26,10 @@ mobile (storage-mode dashboard, url_path: mobile)
 │   │   ├── Strip 2: Status & Alerts    4 anchored + conditional alert chips
 │   │   ├── Strip 3: Modes              all conditional (sleeping, movie, quiet, sync)
 │   │   └── Strip 4: Presence           always visible: Nate, Guest
+│   │
+│   ├── [inline toggle sections — conditional visibility, no title]
+│   │   ├── Thermostat controls    shown when input_boolean.show_thermostat_controls = on
+│   │   └── Overdue reminders      shown when input_boolean.show_reminders = on
 │   │
 │   ├── [room tile sections — no section titles]
 │   │   ├── Living Room     bubble-card button → #living-room popup
@@ -61,7 +65,7 @@ mobile (storage-mode dashboard, url_path: mobile)
 **Design decisions:**
 - Room tiles are single-card sections: one Bubble Card `button` per area. No separate section headings — the button card shows the room name and icon. Tap navigates to the area's pop-up; hold toggles the primary light; sub-buttons on the tile surface handle the most-used quick controls.
 - Pop-up cards live in dedicated sections at the bottom of the Home view. HA renders no-title sections as zero-height, so pop-up sections are visually absent until triggered. Each pop-up card carries its content in a `cards` array.
-- Chip strips use `sub-buttons-only` cards (one per strip) with sub-button `visibility` conditions — the same conditional logic as mobile-3's Mushroom chips, but in Bubble Card's sub-button system.
+- Chip strips use Mushroom `mushroom-chips-card` cards (one per strip, stacked vertically). Bubble Card `sub-buttons-only` was evaluated and rejected for visual reasons — the pill-chip style Mushroom produces was preferred. Two chips (Thermostat and overdue Reminders) use the inline toggle pattern: tap toggles an `input_boolean` to show or hide a content section immediately below the chip strips, rather than opening a pop-up.
 
 ---
 
@@ -96,17 +100,17 @@ In the HA UI: **Settings → Dashboards → Add Dashboard**. Set:
 |---|---|
 | Title | `Mobile` |
 | Icon | `mdi:cellphone` |
-| URL | `mobile` |
+| URL | `mobile-app` |
 | Show in sidebar | On |
 | Admin only | Off |
 
-Select **Storage mode**. The dashboard URL becomes `/mobile`. Leave mobile-3 active — do not change the default dashboard yet.
+Select **Storage mode**. The dashboard URL becomes `/mobile-app`. Leave mobile-3 active — do not change the default dashboard yet.
 
 Add a single view titled **Home**, type **Sections**, `max_columns: 1`.
 
 ### Step 3 — Build the chip strip section
 
-Add one section with no title. Within it, add four `sub-buttons-only` Bubble Card cards stacked vertically (one per strip). Sub-button visibility, tap actions, and icon color logic follow the same entity logic as mobile-3; see [Chip Strip Design](#chip-strip-design) below.
+Add one section with no title. Within it, add four Mushroom `mushroom-chips-card` cards stacked vertically (one per strip). Each uses `alignment: center` and `card_mod` to set `--chip-height: 30px` and `--chip-padding: 0 6px`. Chip visibility, tap actions, and icon color logic follow the same entity logic as mobile-3; see [Chip Strip Design](#chip-strip-design) below.
 
 ### Step 4 — Add room tile sections
 
@@ -145,7 +149,7 @@ Once `mobile` is feature-complete:
 
 ## Chip Strip Design
 
-Each strip is a Bubble Card `sub-buttons-only` card. Sub-button `visibility` replaces the `type: conditional` wrapping used in mobile-3. The entity logic and ordering rules are identical to mobile-3.
+Each strip is a Mushroom `mushroom-chips-card` with `alignment: center` and `card_mod` to set `--chip-height: 30px` and `--chip-padding: 0 6px`. Chips use `type: conditional` wrappers for visibility — same entity logic as mobile-3. Bubble Card `sub-buttons-only` was evaluated and rejected for visual reasons.
 
 ### Strip 1 — Environment
 
@@ -155,7 +159,7 @@ Always visible. Three sub-buttons, no visibility conditions.
 
 **AQI** — `mdi:smog`. Icon color driven by `sensor.toledo_ohio_usa_air_quality_index`: green ≤ 100, accent 101–125, red ≥ 126. Content shows the raw value. Tap: `more-info` on the sensor. Use the JS template system for `icon_color` since Bubble Card sub-buttons support it.
 
-**Thermostat** — `mdi:home-thermometer`. Icon color from `hvac_action`: blue = cooling, orange = heating, grey = idle. Content: current indoor temperature. Tap: navigate to `#climate` pop-up.
+**Thermostat** — `mdi:home-thermometer`. Icon color from `hvac_action`: blue = cooling, orange = heating, grey = idle. Content: current indoor temperature. Tap: toggle `input_boolean.show_thermostat_controls` — shows the inline Bubble Card climate card immediately below the chip strips. There is no thermostat pop-up; all climate control is inline.
 
 ### Strip 2 — Status & Alerts
 
@@ -169,7 +173,7 @@ A mix of always-visible anchored sub-buttons (positions 1–4) and conditional a
 
 **Garage** — Position 3; three mutually exclusive states. Green `mdi:garage` when closed (tap: more-info). Replaced by `mdi:garage-open-variant` when open: red when sleeping or away (tap closes with confirmation), orange when home and awake (tap closes with confirmation). Hold: always more-info.
 
-**Reminders OK / Overdue reminders** — Position 4; mutually exclusive. Green `mdi:calendar-check` when `number.overdue_reminders_count` < 1. Replaced by red `mdi:calendar-alert` showing count when any reminder is overdue (count label only when 2+). Tap: navigate `#reminders`.
+**Reminders OK / Overdue reminders** — Position 4; mutually exclusive. Green `mdi:calendar-check` when `number.overdue_reminders_count` < 1 — tap navigates `#reminders` full pop-up. Replaced by red `mdi:calendar-alert` (count shown when 2+) when any task is overdue — tap toggles `input_boolean.show_reminders` (shows inline overdue task cards below the chips); hold navigates `#reminders` full pop-up.
 
 **Water leaks** — Conditional (position 5+). Single sub-button covering all four sensors via OR condition. `state_not: "off"` is intentional. Tap: navigate `#water-leaks`.
 
@@ -246,15 +250,19 @@ Four water leak sensors in a 2×2 grid of Bubble Card buttons (state display). T
 
 ### Reminders (`#reminders`)
 
-**Household** — grid of Bubble Card buttons (or Mushroom `mushroom-template-card` fallback if JS template `icon_color` proves insufficient) for each tracked task. Each card:
-- Icon red when overdue, green when not (JS template or Jinja `icon_color`)
-- Secondary text: formatted due date via `strptime().strftime('%B %-d, %Y')`
+Reminders are accessible two ways: inline on the Home view (overdue tasks only) and via the full `#reminders` pop-up (all tasks).
+
+**Inline overdue view** — triggered by the red reminder chip (tap toggles `input_boolean.show_reminders`). A section with `visibility` gated on this boolean appears between the chip strips and room tiles, containing only overdue tasks. Each card is a `type: conditional` wrapper (gated on `binary_sensor.<name>_overdue` being `on`) around a Mushroom `mushroom-template-card`. Cards use `layout_options: {grid_columns: 2}` for half-width two-per-row layout. Icon is always red (these cards only appear when overdue). Hold the chip to open the full pop-up.
+
+**Full pop-up** — triggered by the green reminder chip (all caught up) or by holding the red chip. Shows all tasks regardless of state, in a 2-column grid. Each card:
+- Icon red when overdue, green when not (Jinja `icon_color` template)
+- Secondary text: formatted due date via `strptime().strftime('%b %-d, %Y')` (abbreviated month, e.g. "Mar 6, 2026")
 - Tap: `more-info` on `input_datetime.<name>` (shows history, allows manual date edit)
-- Hold: sets `input_datetime` to today (marks complete), with confirmation
+- Hold: sets `input_datetime` to today (marks complete), with confirmation dialog
 
 Entity triplet per task: `input_datetime.<name>` (last done), `sensor.<name>_due` (computed due date), `binary_sensor.<name>_overdue` (boolean overdue flag).
 
-Tasks: car, coffee grinder, dishwasher, disposal, razor, toothbrushes, washer, water filter.
+Tasks: car washed, coffee grinder cleaned, dishwasher cleaned, disposal cleaned, razor blade changed, toothbrushes changed, washer cleaned, water filter changed.
 
 ### Vacuum (`#vacuum`)
 
@@ -284,7 +292,7 @@ Two sections:
 The dashboard configuration for `mobile` is stored in HA storage and is the authoritative source of truth for all layout, card order, and feature configuration. Do not maintain a YAML copy in this guide.
 
 To read the current config:
-- **MCP:** `ha_config_get_dashboard(url_path="mobile")`
+- **MCP:** `ha_config_get_dashboard(url_path="mobile-app")`
 - **UI:** Settings → Dashboards → Mobile → Edit dashboard
 
 ---
@@ -293,7 +301,7 @@ To read the current config:
 
 | Artifact | Entity / ID | Type |
 |---|---|---|
-| Mobile dashboard | `mobile` | Lovelace dashboard |
+| Mobile dashboard | `mobile-app` | Lovelace dashboard |
 | Home alarm | `alarm_control_panel.home_alarm` | Entity |
 | Living room thermostat | `climate.living_room_thermostat` | Entity |
 | Apartment temperature | `sensor.apartment_temperature` | Entity |
@@ -343,6 +351,8 @@ To read the current config:
 | Guest mode | `input_boolean.guest_mode` | Helper |
 | Movie mode | `input_boolean.movie_mode` | Helper |
 | Sonos night mode | `input_boolean.sonos_night_mode` | Helper |
+| Show thermostat controls | `input_boolean.show_thermostat_controls` | Helper |
+| Show reminders (inline) | `input_boolean.show_reminders` | Helper |
 
 ---
 
