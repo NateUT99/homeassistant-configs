@@ -47,9 +47,7 @@ mobile-app (storage-mode dashboard, url_path: mobile-app)
 │   │   ├── Garage          bubble-card button → #garage popup
 │   │   └── Outside         bubble-card button → #outside popup
 │   │
-│   └── [pop-up sections — hidden by default, triggered via URL hash]
-│       ├── #water-leaks     Sensor grid  (pending migration to subview)
-│       └── (room pop-ups pending build)
+│   └── [pop-up sections — (room pop-ups pending build)]
 │
 ├── Reminders (subview, path: reminders)
 │   ├── Trash Pickup         mushroom-template-card
@@ -61,6 +59,9 @@ mobile-app (storage-mode dashboard, url_path: mobile-app)
 │   ├── Status               2-col grid of tile cards
 │   ├── Mop Settings         2-col grid of tile cards (section visibility: mop attached)
 │   └── Consumables          2-col grid of mushroom-template-cards
+│
+├── Water Leaks (subview, path: water-leaks)
+│   └── 2-col grid of 4 tile cards (kitchen, bathroom, master bath, utility)
 │
 └── Footer nav (native sections view footer — sticky)
     Living Room, Office, Avery's Room, Master Bedroom, Other
@@ -126,9 +127,9 @@ Add a section with no title at the bottom of the Home view. Place a Bubble Card 
 
 Replicate the Living Room pop-up structure for: Kitchen, Master Bedroom, Avery's Room, Office, Bathroom, Garage, Outside. Include only the sections applicable to each room.
 
-### Step 7 — Build utility pop-ups
+### Step 7 — Build utility subviews
 
-Build pop-ups for: Reminders (`#reminders`), Vacuum (`#vacuum`), Climate (`#climate`), Water Leaks (`#water-leaks`). See [Utility Pop-ups](#utility-pop-ups) below.
+Build subviews for: Reminders (`/mobile-app/reminders`), Vacuum (`/mobile-app/vacuum`), Water Leaks (`/mobile-app/water-leaks`). See [Utility Pop-ups](#utility-pop-ups) below.
 
 ### Step 8 — Apply Bubble Neon theming
 
@@ -136,7 +137,7 @@ Apply the Bubble Neon module and configure global Bubble Card CSS variable token
 
 ### Step 9 — Add utility tile sections
 
-Add the four utility tile sections (Reminders, Vacuum, Climate, Water Leaks) between the room tiles and the pop-up sections. Each is a Bubble Card `button` with `tap_action: navigate #utility-hash` and status sub-buttons.
+Add utility tile sections (Reminders, Vacuum, Climate) between the room tiles and the pop-up sections. Each is a Bubble Card `button` with `tap_action: navigate /mobile-app/<path>` and status sub-buttons. Water Leaks is a chip-only entry point (no tile section needed — triggered by the alert chip).
 
 ### Step 10 — Cutover
 
@@ -177,7 +178,7 @@ Two always-visible anchored chips (AQI, Guest) followed by conditional alert chi
 
 **Guest** — `mdi:account-child-circle`. Always visible. Icon color: green when `input_boolean.guest_mode` is on, grey when off. Hold: toggle `input_boolean.guest_mode`. Tap: none. (Hold-to-toggle prevents accidental activation on a crowded strip.) No content label.
 
-**Water leaks** — Conditional. Visibility gated on `binary_sensor.water_leak_detected` (group sensor — on when any of the four sensors is active). Count shown when 2+. Tap: navigate `#water-leaks`.
+**Water leaks** — Conditional. Visibility gated on `binary_sensor.water_leak_detected` (group sensor — on when any of the four sensors is active). Count shown when 2+. Tap: navigate `/mobile-app/water-leaks`.
 
 **Freezer door** — Conditional. No contextual gate — always alert-worthy.
 
@@ -336,9 +337,9 @@ Pending room pop-ups (Kitchen through Outside) follow this same section structur
 
 ## Utility Pop-ups
 
-### Water Leaks (`#water-leaks`)
+### Water Leaks (subview, path: `water-leaks`)
 
-Four water leak sensors in a 2×2 grid of tile cards. Tap: more-info on each sensor. Colors: red when `on`/`unknown`, green when `off`. Sensors: `binary_sensor.kitchen_leak_water_leak`, `binary_sensor.bathroom_leak_water_leak`, `binary_sensor.master_bathroom_leak_water_leak`, `binary_sensor.utility_room_leak_water_leak`.
+Four water leak sensors in a 2-col grid of tile cards. One section; no heading card. Sensors: `binary_sensor.kitchen_leak_water_leak`, `binary_sensor.bathroom_leak_water_leak`, `binary_sensor.master_bathroom_leak_water_leak`, `binary_sensor.utility_room_leak_water_leak`. Navigated from the water leak chip (`tap_action: navigate /mobile-app/water-leaks`).
 
 `binary_sensor.water_leak_detected` (group binary sensor, any-on) aggregates all four sensors into a single entity used by the water leak chip visibility condition and any automations that need a single leak trigger.
 
