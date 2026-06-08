@@ -28,7 +28,8 @@ mobile-app (storage-mode dashboard, url_path: mobile-app)
 │   ├── [chip-driven inline sections — toggled by Strip 1 chip tap, no title]
 │   │   ├── Thermostat controls    shown when input_boolean.mobile_show_thermostat_controls = on
 │   │   ├── Vacuum basic controls  shown when input_boolean.mobile_show_vacuum_controls = on
-│   │   └── Due reminders          shown when input_boolean.mobile_show_reminders = on
+│   │   ├── Due reminders          shown when input_boolean.mobile_show_reminders = on
+│   │   └── Weather forecast       shown when input_boolean.mobile_show_weather = on
 │   │
 │   ├── [condition-triggered section — auto-show based on state, no title]
 │   │   └── Vacuum status          shown when vacuum not docked OR input_select.vacuum_ran_today = Yes
@@ -159,7 +160,7 @@ Each strip is a Mushroom `mushroom-chips-card` with `alignment: center` and a `c
 
 Always visible (Weather, Alarm, Thermostat, Vacuum always shown; Reminders shows one chip at a time — green or red — based on overdue count). Every chip here is interactive.
 
-**Weather** — Dynamic icon: `mdi:weather-{{ states('weather.apartment') }}`, with explicit overrides for `partlycloudy` → `mdi:weather-partly-cloudy` and `clear-night` → `mdi:weather-night` (`mdi:weather-clear-night` does not exist in MDI). Content: current temperature. Tap: `more-info` on `weather.apartment`.
+**Weather** — Dynamic icon: `mdi:weather-{{ states('weather.apartment') }}`, with explicit overrides for `partlycloudy` → `mdi:weather-partly-cloudy` and `clear-night` → `mdi:weather-night` (`mdi:weather-clear-night` does not exist in MDI). Content: current temperature. Tap: toggle `input_boolean.mobile_show_weather` (inline weather forecast section). Hold: `more-info` on `weather.apartment`.
 
 **Alarm** — Single template chip, always visible. Icon and color driven by state: `mdi:shield-home` green when disarmed, `mdi:shield-lock` orange when any armed state (`armed_away`, `armed_home`, `armed_night`, `arming`), `mdi:shield-alert` red when `triggered` or `pending`. No content label — color alone communicates state. Tap: `more-info` on `alarm_control_panel.home_alarm`.
 
@@ -260,11 +261,12 @@ Two sections on the Home view are shown and hidden by the user via Strip 1 chip 
 | Thermostat controls | `input_boolean.mobile_show_thermostat_controls` | Thermostat chip tap | Mushroom climate card + 4-button preset row (Home, Sleep, Away, Clear Hold) |
 | Vacuum basic controls | `input_boolean.mobile_show_vacuum_controls` | Vacuum chip tap | Mushroom vacuum card; tap navigates to `/mobile-app/vacuum` subview for full detail |
 | Due reminders | `input_boolean.mobile_show_reminders` | Reminders chip tap | 2-col grid of conditional cards — trash (when pending) + 8 tasks (when overdue). Hold on chip navigates to `/mobile-app/reminders` for all tasks. |
+| Weather forecast | `input_boolean.mobile_show_weather` | Weather chip tap | Native `weather-forecast` card for `weather.apartment` (hourly, round temperature). Hold on chip: `more-info` on `weather.apartment`. |
 | Primary Lights | `input_boolean.mobile_show_primary_lights` | Primary Lights separator tap | 2-column grid of 5 room light Bubble Card buttons. Defaults to `on` — lights visible on page load. |
 
 The `#vacuum` pop-up (Map / Controls / Status / Mop Settings / Consumables) is preserved and remains accessible by tapping the tile card inside the inline section. The inline section provides quick start/stop access; the pop-up provides full operational detail.
 
-> **Panel auto-close:** Thermostat, Vacuum, and Reminders panels close automatically after 5 minutes via `automation.household_mobile_panel_auto_close`. The `for: "00:05:00"` on the trigger means the timer resets if a panel is closed before 5 minutes elapse — the automation simply never fires. Primary Lights does not auto-close; it is a display preference, not a transient panel.
+> **Panel auto-close:** Thermostat, Vacuum, Reminders, and Weather panels close automatically after 5 minutes via `automation.household_mobile_panel_auto_close`. The `for: "00:05:00"` on the trigger means the timer resets if a panel is closed before 5 minutes elapse — the automation simply never fires. Primary Lights does not auto-close; it is a display preference, not a transient panel.
 
 **Vacuum routine pause** — The Vacuum chip hold action toggles `input_boolean.vacuum_routine_pause`. When on, the chip shows orange `mdi:robot-vacuum-off` and both the Last Leaves Home and Vacuum Midday Prompt automations skip the auto-start. The First Arrives Home automation clears it when the first person walks in. This is a one-trip skip — it does not permanently disable auto-cleaning.
 
@@ -434,6 +436,7 @@ To read the current config:
 | Mobile show thermostat controls | `input_boolean.mobile_show_thermostat_controls` | Helper |
 | Mobile show vacuum controls | `input_boolean.mobile_show_vacuum_controls` | Helper |
 | Mobile show reminders | `input_boolean.mobile_show_reminders` | Helper |
+| Mobile show weather | `input_boolean.mobile_show_weather` | Helper |
 | Mobile show primary lights | `input_boolean.mobile_show_primary_lights` | Helper |
 | Mobile panel auto-close | `automation.household_mobile_panel_auto_close` | Automation |
 | AL Brightness Display | `sensor.al_brightness_display` | Helper (template) |
