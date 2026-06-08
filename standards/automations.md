@@ -87,9 +87,11 @@ Applied to every automation that sends a push notification or TTS announcement, 
 
 Applied to every automation that delivers a spoken TTS announcement, regardless of its primary category. Carries alongside `notification` — TTS automations should have both labels. Use `text_to_speech` to filter specifically for automations that speak, as distinct from those that only push silent notifications.
 
+TTS announcements in this instance go through the **Chime TTS** HACS integration, which prepends a chime sound before the spoken message to make announcements less jarring and easier to identify. The service targets are `notify.reminder_kitchen` and `notify.reminder_master_bedroom` (or equivalent room-specific Chime TTS services), not `tts.speak` or bare `media_player.play_media`.
+
 | Label ID | Friendly Name | When to apply |
 |---|---|---|
-| `text_to_speech` | Text to Speech | Any automation with a `notify.reminder_*` action or a `media_player.play_media` announce action |
+| `text_to_speech` | Text to Speech | Any automation with a `notify.reminder_*` (Chime TTS) action |
 
 #### Device Tracker label — icon `mdi:map-marker-account`
 

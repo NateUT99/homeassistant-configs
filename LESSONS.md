@@ -131,6 +131,20 @@ data:
 
 Templates work inside `media_content_id`.
 
+### Use Chime TTS `notify.reminder_*` services for all HomePod announcements
+
+Even though `media_player.play_media` with `announce: true` works on HomePods (see above), the preferred pattern for all TTS announcements in this instance is the **Chime TTS** HACS integration. Chime TTS prepends a configurable chime sound before the spoken message, making announcements less jarring and easier to recognize as home automation alerts rather than random audio playback.
+
+The integration creates room-specific `notify.*` services (e.g., `notify.reminder_kitchen`, `notify.reminder_master_bedroom`). Call them with a `message` key only — Chime TTS handles volume and the chime prefix internally:
+
+```yaml
+action: notify.reminder_kitchen
+data:
+  message: "Your message here."
+```
+
+Templates work inside `message`. Do not use `media_player.play_media` directly for new TTS announcements — the chime prefix is the reason both the `notification` and `text_to_speech` labels exist on automations that speak.
+
 ---
 
 ## Sensors & Calibration
