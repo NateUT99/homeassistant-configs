@@ -83,25 +83,28 @@ Always include a `condition: state` (or template equivalent) confirming the targ
 
 ## Dashboards & Lovelace
 
-### Sections view footer: mushroom-chips-card chips must be in a nested `card` property
+### Sections view footer: ALL content must be in a nested `card` property inside an outer mushroom-chips-card
 
-When `custom:mushroom-chips-card` is used as the native sections view footer card, chips placed directly in the `chips` array do not render — regardless of chip type (`entity`, `action`, `template`). The outer card must contain a nested `card` property that is a second mushroom-chips-card; that inner card's chips render normally.
+The native sections view footer only renders content placed in the `card` property of an outer `custom:mushroom-chips-card`. **Any card placed directly as the footer renders as invisible** — this includes grid cards, mushroom-template-cards, and mushroom-chips-card chips placed in the outer `chips` array. Always use this wrapper structure:
 
 ```yaml
 footer:
-  type: custom:mushroom-chips-card
+  type: custom:mushroom-chips-card   # outer wrapper — required, do not skip
   card:
-    type: custom:mushroom-chips-card
-    alignment: center
-    chips:
-      - type: action
+    # ANY card type goes here — this is what actually renders
+    type: grid
+    columns: 5
+    square: false
+    cards:
+      - type: custom:mushroom-template-card
         icon: mdi:sofa
+        layout: vertical
         tap_action:
           action: navigate
           navigation_path: "#living-room"
 ```
 
-The outer card acts as a mount point for the footer context; the inner card is what actually renders. Entity chips with `content_info: none` are also invisible in this context even in the inner card — use `type: action` or `type: template` chips for nav buttons.
+The inner `card` can be a grid, a mushroom-chips-card with action chips, or any other card type. The outer mushroom-chips-card's own `chips` array does not render. Never place a card directly as the footer value, even if it seems like it should work — it won't.
 
 ---
 
