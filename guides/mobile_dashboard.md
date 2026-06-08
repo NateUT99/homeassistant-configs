@@ -25,13 +25,12 @@ mobile-app (storage-mode dashboard, url_path: mobile-app)
 │   │   └── Alarm (always) + conditional alerts (water leak, freezer, exterior doors ×2,
 │   │       garage door ×2) + status chips: Weather, AQI, Guest (always)
 │   │
-│   ├── [toggle chip strip section — no title]
-│   │   └── Toggle strip: Thermostat, Vacuum, Reminders (OK + overdue variants)
-│   │
-│   ├── [chip-driven inline sections — toggled by strip chip tap, no title]
-│   │   ├── Thermostat controls    shown when input_boolean.mobile_show_thermostat_controls = on
-│   │   ├── Vacuum basic controls  shown when input_boolean.mobile_show_vacuum_controls = on
-│   │   └── Due reminders          shown when input_boolean.mobile_show_reminders = on
+│   ├── [toggle chip strip + inline panels — single section, no title]
+│   │   ├── Toggle strip chip card   always visible
+│   │   ├── Reminders grid           card-level visibility: mobile_show_reminders = on
+│   │   ├── Thermostat climate card  card-level visibility: mobile_show_thermostat_controls = on
+│   │   ├── Thermostat preset grid   card-level visibility: mobile_show_thermostat_controls = on
+│   │   └── Vacuum card              card-level visibility: mobile_show_vacuum_controls = on
 │   │
 │   ├── [condition-triggered section — auto-show based on state, no title]
 │   │   └── Vacuum status          shown when vacuum not docked OR input_select.vacuum_ran_today = Yes
@@ -76,7 +75,7 @@ mobile-app (storage-mode dashboard, url_path: mobile-app)
 - **Detail views are subviews, not pop-ups.** Reminders and Vacuum are full-page subviews (`subview: true`, navigated via `/mobile-app/<path>`). Room detail views will follow the same pattern. This eliminates Bubble Card `pop-up` dependency and produces a more native full-page interaction on mobile.
 - Room tiles are grouped in a single section. Per-room sections were tried and rejected — the `sections` view type renders a large top margin on every section heading, making individual room sections visually noisy.
 - **Status and alert chips live in the view badges** (Weather, Alarm, AQI, Guest, and all conditional alert chips). Badges are persistent and always-visible regardless of scroll position, with no spatial relationship to section content — the right home for chips that are pure status or navigate-only.
-- **Toggle chips live in a single chip strip section** (Thermostat, Vacuum, Reminders) immediately above the inline panels they control. Adjacency matters here: tapping a chip and seeing the panel appear right below it is tighter UX than badges, which float above the content regardless of scroll position.
+- **Toggle chips and their inline panels share a single section** (Thermostat, Vacuum, Reminders). The chip strip card sits at the top; the three panel cards follow in the same section with card-level `visibility` conditions. This eliminates section gap overhead between the chip strip and the panels it controls, and keeps the entire control surface in one logical container.
 - The Home view uses two inline section patterns: **chip-driven** (user-initiated, Thermostat, Vacuum, Reminders) and **condition-triggered** (auto-shown based on house state — vacuum not docked or ran today). Both sit between the toggle chip strip and room tiles.
 
 ---
@@ -116,9 +115,9 @@ Select **Storage mode**. The dashboard URL becomes `/mobile-app`. Leave mobile-3
 
 Add a single view titled **Home**, type **Sections**, `max_columns: 1`.
 
-### Step 3 — Build the chip strip section
+### Step 3 — Build the chip strip + inline panels section
 
-Add one section with no title. Within it, add two Mushroom `mushroom-chips-card` cards stacked vertically (one per strip). Each uses `alignment: center` and a `card_mod` with a nested shadow DOM style (`$ mushroom-chip$ .container`) to set `--chip-height: 36px`, `--chip-padding: 0 6px`, `gap: 0`, and `justify-content: center` inside each chip's container (ensures icon centering on icon-only chips). See [Chip Strip Design](#chip-strip-design) below.
+Add one section with no title. The first card is the `mushroom-chips-card` toggle strip (see [Chip Design](#chip-design)). Add the three panel cards after it — each with a card-level `visibility` condition gating on its respective `input_boolean`. The section always renders (the chip strip is always visible); the panel cards appear and disappear below the strip based on which chip was tapped.
 
 ### Step 4 — Add room tile sections
 
@@ -259,7 +258,7 @@ The section sits immediately below the chip strips and above the room tiles. Ove
 
 ## Chip-Driven Inline Sections
 
-Two sections on the Home view are shown and hidden by the user via Strip 1 chip taps. Each is gated on an `input_boolean` toggle; the chip's tap action calls `input_boolean.toggle` on that helper.
+Three cards in the toggle strip section are shown and hidden by the user via chip taps. Each card has a card-level `visibility` condition gating on an `input_boolean`; the corresponding chip's tap action calls `input_boolean.toggle` on that helper.
 
 | Section | Toggle helper | Chip / trigger | Content |
 |---|---|---|---|
