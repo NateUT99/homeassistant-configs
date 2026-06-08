@@ -81,6 +81,30 @@ Always include a `condition: state` (or template equivalent) confirming the targ
 
 ---
 
+## Dashboards & Lovelace
+
+### Sections view footer: mushroom-chips-card chips must be in a nested `card` property
+
+When `custom:mushroom-chips-card` is used as the native sections view footer card, chips placed directly in the `chips` array do not render — regardless of chip type (`entity`, `action`, `template`). The outer card must contain a nested `card` property that is a second mushroom-chips-card; that inner card's chips render normally.
+
+```yaml
+footer:
+  type: custom:mushroom-chips-card
+  card:
+    type: custom:mushroom-chips-card
+    alignment: center
+    chips:
+      - type: action
+        icon: mdi:sofa
+        tap_action:
+          action: navigate
+          navigation_path: "#living-room"
+```
+
+The outer card acts as a mount point for the footer context; the inner card is what actually renders. Entity chips with `content_info: none` are also invisible in this context even in the inner card — use `type: action` or `type: template` chips for nav buttons.
+
+---
+
 ## TTS & Media
 
 ### `tts.speak` fails on HomePods via the Apple TV integration

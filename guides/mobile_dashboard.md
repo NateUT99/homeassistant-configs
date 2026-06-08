@@ -48,27 +48,30 @@ mobile-app (storage-mode dashboard, url_path: mobile-app)
 │   │   └── Outside         bubble-card button → #outside popup
 │   │
 │   └── [pop-up sections — hidden by default, triggered via URL hash]
-│       ├── #living-room     Lights / Fan / Climate / Media / Sensors
-│       ├── #kitchen         Lights / Sensors
-│       ├── #master-bedroom  Lights / Fan / Media / Sensors
-│       ├── #averys-room     Lights / Fan / Media / Sensors
-│       ├── #office          Lights / Sensors
-│       ├── #bathroom        Lights / Sensors
-│       ├── #garage          Cover / Lights / Sensors
-│       ├── #outside         Lights / Sensors
-│       ├── #reminders       Household task grid
-│       ├── #vacuum          Map / Controls / Status / Mop Settings / Consumables
-│       └── #water-leaks     Sensor grid
+│       ├── #water-leaks     Sensor grid  (pending migration to subview)
+│       └── (room pop-ups pending build)
 │
-└── Footer nav sub-buttons (footer_mode: true)
+├── Reminders (subview, path: reminders)
+│   ├── Trash Pickup         mushroom-template-card
+│   └── Household Tasks      2-col grid of mushroom-template-cards
+│
+├── Vacuum (subview, path: vacuum)
+│   ├── [map — conditional]  picture-entity when not docked or ran today
+│   ├── Controls             tile card with vacuum-commands feature
+│   ├── Status               2-col grid of tile cards
+│   ├── Mop Settings         2-col grid of tile cards (section visibility: mop attached)
+│   └── Consumables          2-col grid of mushroom-template-cards
+│
+└── Footer nav (native sections view footer — sticky)
     Living Room, Office, Avery's Room, Master Bedroom, Other
 ```
 
 **Design decisions:**
-- Room tiles are grouped in a single section under a Bubble Card `separator` heading ("Primary Rooms"). Per-room sections were tried and rejected — the `sections` view type renders a large top margin on every section heading, making individual room sections visually noisy. Tap navigates to the area's pop-up; hold toggles the primary light; sub-buttons on the tile surface handle the most-used quick controls.
-- Pop-up cards live in dedicated sections at the bottom of the Home view. HA renders no-title sections as zero-height, so pop-up sections are visually absent until triggered. Each pop-up card carries its content in a `cards` array.
-- Chip strips use Mushroom `mushroom-chips-card` cards (one per strip, stacked vertically). Bubble Card `sub-buttons-only` was evaluated and rejected for visual reasons — the pill-chip style Mushroom produces was preferred. Two strips, organized by function: Strip 1 (Controls) holds always-interactive chips — Weather, Alarm, Thermostat, Vacuum, and Reminders. Thermostat and Vacuum chips toggle inline sections (tap) and use hold for secondary actions; Weather, Alarm, and Reminders navigate via more-info or hash nav. Strip 2 (Status & Modes) holds AQI and Guest as anchored chips, plus all conditional alert chips.
-- The Home view uses two context patterns: **chip-driven inline sections** (Thermostat and Vacuum chips toggle these on tap — user-initiated) and **condition-triggered sections** (appear automatically based on house state — overdue reminders, vacuum not docked or ran today). Both sit between the chip strips and the room tiles.
+- **Card stack: stock HA + Mushroom only.** Bubble Card is being migrated out. Mushroom Cards (`mushroom-chips-card`, `mushroom-template-card`) are retained for chip strips and reminder/consumable cards where template-driven content is needed. Everything else uses native HA tile, heading, grid, and conditional cards.
+- **Detail views are subviews, not pop-ups.** Reminders and Vacuum are full-page subviews (`subview: true`, navigated via `/mobile-app/<path>`). Room detail views will follow the same pattern. This eliminates Bubble Card `pop-up` dependency and produces a more native full-page interaction on mobile.
+- Room tiles are grouped in a single section. Per-room sections were tried and rejected — the `sections` view type renders a large top margin on every section heading, making individual room sections visually noisy.
+- Chip strips use Mushroom `mushroom-chips-card` (one per strip, stacked vertically). Two strips, organized by function: Strip 1 (Controls) — Weather, Alarm, Thermostat, Vacuum, Reminders. Strip 2 (Status & Modes) — AQI, Guest, plus conditional alert chips. Thermostat and Vacuum chips toggle inline sections on tap.
+- The Home view uses two inline section patterns: **chip-driven** (user-initiated, Thermostat and Vacuum) and **condition-triggered** (auto-shown based on house state — vacuum not docked or ran today). Both sit between chip strips and room tiles.
 
 ---
 
@@ -76,13 +79,9 @@ mobile-app (storage-mode dashboard, url_path: mobile-app)
 
 - Home Assistant 2025.9 or later
 - HACS frontend resources installed and active:
-  - Bubble Card (`lovelace-bubble-card`)
-  - Bubble Card Tools (required for module backend)
-  - Bubble Badges 2
-  - Bubble Weather
-  - Bubble Neon
-  - card-mod (`lovelace-card-mod`) — retained for vacuum map transform
-  - Mushroom Cards (`lovelace-mushroom`) — retained as fallback; do not remove until all fallback uses are migrated or confirmed unnecessary
+  - Mushroom Cards (`lovelace-mushroom`) — chip strips, template cards
+  - card-mod (`lovelace-card-mod`) — chip strip centering styles; vacuum map transform
+  - PHU icons (`lovelace-hue-icons`) — `phu:rooms-other` footer chip
 - Adaptive Lighting integration active (justifies no-slider rule)
 
 ---
@@ -270,7 +269,9 @@ The `#vacuum` pop-up (Map / Controls / Status / Mop Settings / Consumables) is p
 
 ## Footer Navigation
 
-A Bubble Card `card_type: sub-buttons` card with `footer_mode: true` sits at the bottom of the Home view as a persistent room navigation bar. It renders as a fixed-position strip of icon-only sub-buttons. Tap navigates to the area's pop-up via hash navigation.
+The sections view `footer` property at the view level renders a sticky navigation bar at the bottom of the Home view. It uses `custom:mushroom-chips-card` with `type: action` chips.
+
+> **Rendering quirk:** Chips in the outer mushroom-chips-card's `chips` array do not render in the footer context. The outer card must wrap a second mushroom-chips-card in a `card` property — the inner card's chips render normally. See `LESSONS.md` for details.
 
 **Footer targets:**
 
@@ -281,6 +282,39 @@ A Bubble Card `card_type: sub-buttons` card with `footer_mode: true` sits at the
 | Avery's Room | `mdi:teddy-bear` | `#averys-room` |
 | Master Bedroom | `mdi:bed-king` | `#master-bedroom` |
 | Other | `phu:rooms-other` | (TBD — expand as rooms are built) |
+
+```yaml
+footer:
+  type: custom:mushroom-chips-card
+  card:
+    type: custom:mushroom-chips-card
+    alignment: center
+    chips:
+      - type: action
+        icon: mdi:sofa
+        tap_action:
+          action: navigate
+          navigation_path: "#living-room"
+      - type: action
+        icon: mdi:desktop-classic
+        tap_action:
+          action: navigate
+          navigation_path: "#office"
+      - type: action
+        icon: mdi:teddy-bear
+        tap_action:
+          action: navigate
+          navigation_path: "#averys-room"
+      - type: action
+        icon: mdi:bed-king
+        tap_action:
+          action: navigate
+          navigation_path: "#master-bedroom"
+      - type: action
+        icon: phu:rooms-other
+        tap_action:
+          action: none
+```
 
 ---
 
