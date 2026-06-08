@@ -83,6 +83,28 @@ Always include a `condition: state` (or template equivalent) confirming the targ
 
 ## Dashboards & Lovelace
 
+### Mushroom chip `more-info` action does not accept an `entity` field
+
+The Mushroom chip action schema types the `entity` key inside an action object as `never` — placing it there causes the visual editor to reject the chip with "Expected a value of type `never`" and breaks visual editing for the entire chip strip.
+
+The correct pattern: set `entity` at the **chip level** (not inside the action), then use a bare `{action: more-info}` with no entity key. The chip's root `entity` field is what the `more-info` action resolves against.
+
+```yaml
+# Wrong — fails visual editor
+- type: template
+  tap_action:
+    action: more-info
+    entity: weather.apartment   # ← invalid here
+
+# Right — entity belongs at chip root
+- type: template
+  entity: weather.apartment     # ← here
+  tap_action:
+    action: more-info           # entity resolved from chip root
+```
+
+This applies to every chip type (template, entity, action) and every action field (tap_action, hold_action, double_tap_action). If the chip needs to target an entity for more-info but has no natural `entity` association, add the `entity` key at the chip root — it does not affect non-more-info actions on the same chip.
+
 ### Sections view footer: ALL content must be in a nested `card` property inside an outer mushroom-chips-card
 
 The native sections view footer only renders content placed in the `card` property of an outer `custom:mushroom-chips-card`. **Any card placed directly as the footer renders as invisible** — this includes grid cards, mushroom-template-cards, and mushroom-chips-card chips placed in the outer `chips` array. Always use this wrapper structure:
