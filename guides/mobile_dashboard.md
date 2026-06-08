@@ -22,8 +22,8 @@ mobile-app (storage-mode dashboard, url_path: mobile-app)
 ├── Home (sections, max_columns=1)
 │   │
 │   ├── [badges — view header, always visible]
-│   │   └── Status & alert chips: Weather, Alarm, AQI, Guest + conditional (water leak,
-│   │       freezer, exterior doors ×2, garage door ×2)
+│   │   └── Alarm (always) + conditional alerts (water leak, freezer, exterior doors ×2,
+│   │       garage door ×2) + status chips: Weather, AQI, Guest (always)
 │   │
 │   ├── [toggle chip strip section — no title]
 │   │   └── Toggle strip: Thermostat, Vacuum, Reminders (OK + overdue variants)
@@ -163,15 +163,9 @@ All chips — badges and toggle strip alike — use Mushroom `mushroom-chips-car
 
 Placed in the view-level `badges` array as a single `custom:mushroom-chips-card`. Always visible in the view header. All badges are pure status or navigate-only — none toggle inline sections.
 
-**Weather** — Dynamic icon: `mdi:weather-{{ states('weather.apartment') }}`, with explicit overrides for `partlycloudy` → `mdi:weather-partly-cloudy` and `clear-night` → `mdi:weather-night` (`mdi:weather-clear-night` does not exist in MDI). Content: current temperature. Tap: `more-info` on `weather.apartment`.
+Badge scroll order is designed for left-to-right priority: Alarm is always-visible and pinned left; conditional alert chips follow (invisible when not triggered, so they consume no space during normal operation but surface near-left when active); always-visible status chips (Weather, AQI, Guest) trail at the right end where occasional glances land.
 
-**Alarm** — Icon and color driven by state: `mdi:shield-home` green when disarmed, `mdi:shield-lock` orange when any armed state (`armed_away`, `armed_home`, `armed_night`, `arming`), `mdi:shield-alert` red when `triggered` or `pending`. No content label. Tap: `more-info`.
-
-**AQI** — `mdi:smog`. Icon color driven by `sensor.toledo_ohio_usa_air_quality_index`: green ≤ 100, accent 101–125, red ≥ 126. Content shows the raw value. Tap: `more-info`.
-
-**Guest** — `mdi:account-child-circle`. Icon color: green when `input_boolean.guest_mode` is on, grey when off. Hold: toggle `input_boolean.guest_mode`. Tap: none. (Hold-to-toggle prevents accidental activation on a crowded row.) No content label.
-
-**Alert chip coloring:** use explicit `icon_color` values (red, orange, green) — do not rely on entity-class default colors. `state_not: "off"` catches both active alerts and `unknown`/`unavailable` states (intentional: conservative default for safety sensors).
+**Alarm** — Always visible. Icon and color driven by state: `mdi:shield-home` green when disarmed, `mdi:shield-lock` orange when any armed state (`armed_away`, `armed_home`, `armed_night`, `arming`), `mdi:shield-alert` red when `triggered` or `pending`. No content label. Tap: `more-info`.
 
 **Water leaks** — Conditional on `binary_sensor.water_leak_detected` (group sensor). Count shown when 2+. Tap: navigate `/mobile-app/water-leaks`.
 
@@ -180,6 +174,14 @@ Placed in the view-level `badges` array as a single `custom:mushroom-chips-card`
 **Exterior doors** — Two mutually exclusive conditional chips. Red when any of three sensors is open AND (sleeping OR nobody home). Orange when open AND home AND awake. Count shown when 2+. Sensors: `binary_sensor.garage_interior_door_contact`, `binary_sensor.entrance_front_door_contact`, `binary_sensor.office_sliding_door_contact`.
 
 **Garage door** — Two mutually exclusive conditional chips, shown only when open. Red `mdi:garage-open-variant` when open AND (sleeping OR away) — tap closes with confirmation, hold: `more-info`. Orange when open AND home AND awake — same actions. The green closed chip was removed — absence of the alert is sufficient.
+
+**Alert chip coloring:** use explicit `color` values (red, orange, green) — do not rely on entity-class default colors. `state_not: "off"` catches both active alerts and `unknown`/`unavailable` states (intentional: conservative default for safety sensors).
+
+**Weather** — Always visible. Dynamic icon: `mdi:weather-{{ states('weather.apartment') }}`, with explicit overrides for `partlycloudy` → `mdi:weather-partly-cloudy` and `clear-night` → `mdi:weather-night` (`mdi:weather-clear-night` does not exist in MDI). Content: current temperature. Tap: `more-info` on `weather.apartment`.
+
+**AQI** — Always visible. `mdi:smog`. Color driven by `sensor.toledo_ohio_usa_air_quality_index`: green ≤ 100, accent 101–125, red ≥ 126. Content shows the raw value. Tap: `more-info`.
+
+**Guest** — Always visible. `mdi:account-child-circle`. Color: green when `input_boolean.guest_mode` is on, grey when off. Hold: toggle `input_boolean.guest_mode`. Tap: none. (Hold-to-toggle prevents accidental activation on a crowded row.) No content label.
 
 TV-related mode chips (Light Sync, Movie Mode, Quiet Mode) live in the [TV Controls Bar](#living-room-tv-controls-bar), not in badges.
 
@@ -268,7 +270,7 @@ Two sections on the Home view are shown and hidden by the user via Strip 1 chip 
 
 The `#vacuum` pop-up (Map / Controls / Status / Mop Settings / Consumables) is preserved and remains accessible by tapping the tile card inside the inline section. The inline section provides quick start/stop access; the pop-up provides full operational detail.
 
-> **Panel auto-close:** Thermostat, Vacuum, Reminders, and Weather panels close automatically after 5 minutes via `automation.household_mobile_panel_auto_close`. The `for: "00:05:00"` on the trigger means the timer resets if a panel is closed before 5 minutes elapse — the automation simply never fires. Primary Lights does not auto-close; it is a display preference, not a transient panel.
+> **Panel auto-close:** Thermostat, Vacuum, and Reminders panels close automatically after 5 minutes via `automation.household_mobile_panel_auto_close`. The `for: "00:05:00"` on the trigger means the timer resets if a panel is closed before 5 minutes elapse — the automation simply never fires. Primary Lights does not auto-close; it is a display preference, not a transient panel.
 
 **Vacuum routine pause** — The Vacuum chip hold action toggles `input_boolean.vacuum_routine_pause`. When on, the chip shows orange `mdi:robot-vacuum-off` and both the Last Leaves Home and Vacuum Midday Prompt automations skip the auto-start. The First Arrives Home automation clears it when the first person walks in. This is a one-trip skip — it does not permanently disable auto-cleaning.
 
