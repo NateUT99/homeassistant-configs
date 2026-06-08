@@ -22,13 +22,14 @@ The author has a security engineering background; security controls in any propo
 
 **HA is the live runtime.** The entity registry, area registry, device assignments, and operational state all live in HA and are read live via the Home Assistant MCP server.
 
-**The repo is the disaster recovery artifact.** For any configuration created or modified in our workflow, the repo maintains enough to fully rebuild the HA instance from scratch. This means:
+**The repo is the design and recovery reference.** HA is the authoritative source for automation and script YAML — do not duplicate it in guides. The repo documents enough to understand, audit, and recreate each integration. This means:
 
-- Implementation guides contain complete, copy-pasteable YAML for automations, scripts, `configuration.yaml` entries, and template definitions — not design excerpts
-- Shell scripts invoked by HA `shell_command` integrations live in `scripts/` as the authoritative source
-- Changes to HA and the repo happen in the same session and are kept in sync
+- **Implementation guides** explain architecture, design decisions, and the rationale behind non-obvious choices. They reference automations and scripts by entity ID; the live YAML is always retrievable via MCP.
+- **`configuration.yaml` entries** (not stored in HA, not retrievable via MCP) are documented in full in the relevant guide — these are the only YAML blocks that belong in a guide.
+- **Shell scripts** invoked by HA `shell_command` integrations live in `scripts/` as the authoritative source.
+- Changes to HA and the repo happen in the same session and are kept in sync.
 
-**Sync discipline:** When we make changes together, the repo is updated in the same commit. When you make changes in the HA UI between sessions, bring those changes back to the relevant guide before the end of the next session.
+**Sync discipline:** When we make changes together, the repo is updated in the same session. When you make changes in the HA UI between sessions, bring the relevant guide up to date before the end of the next session — architecture notes, org settings, and entity IDs, not YAML.
 
 When a guide references a HA-resident artifact by name, use the format:
 
@@ -274,7 +275,7 @@ Dates use `Month YYYY` granularity.
 
 ### Type 2 — Implementation Guides (`guides/`)
 
-Technical reconstruction documents for custom integrations and configurations. Examples: a Litra Glow integration, a water leak alerting setup, a Matter/HomeKit bridge configuration. Written so the author or someone reading along in an HA community forum could fully recreate the build from scratch.
+Technical reconstruction documents for custom integrations and configurations. Examples: a Litra Glow integration, a water leak alerting setup, a Matter/HomeKit bridge configuration. Written so the author or someone reading along in an HA community forum could fully understand the design and recreate it — without needing to paste raw YAML.
 
 **Structure:**
 
@@ -290,7 +291,7 @@ Technical reconstruction documents for custom integrations and configurations. E
 10. **Related Documents** (if applicable) — list of other repo docs this guide depends on, references, or coordinates with
 11. **Troubleshooting** (if applicable) — advanced, non-obvious issues only; assume basic troubleshooting (restart, reload, check logs, verify entity exists) has already been done
 
-**Referencing HA-resident artifacts:** Use the *Friendly Name (`entity_id`)* format throughout. Guides include complete, copy-pasteable YAML for every automation, script, and `configuration.yaml` entry they create — this is the disaster recovery record for those artifacts.
+**Referencing HA-resident artifacts:** Use the *Friendly Name (`entity_id`)* format throughout. HA is the authoritative source for automation and script YAML — do not reproduce it in guides. Reference automations and scripts by entity ID; the live config is always retrievable via MCP. **`configuration.yaml` entries are the exception:** since they live outside HA storage and are not retrievable via MCP, include them in full in the relevant guide.
 
 **No changelog table.** Implementation Guides describe a build at a point in time. Git history captures what changed and when; the `Last updated` line tells the reader how stale the document might be. Update the date when the build itself changes (not for typo fixes).
 

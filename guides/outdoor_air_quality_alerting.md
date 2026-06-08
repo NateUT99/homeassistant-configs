@@ -104,213 +104,36 @@ After creation, rename the entity ID to `binary_sensor.outdoor_air_quality_index
 
 ### 3. Create the Alert Automation
 
-```yaml
-alias: Outdoor Air Quality Index Alert
-description: >-
-  Notifies when outdoor AQI exceeds 125 with someone home. When awake with a
-  door or window open, announces on the kitchen HomePod; for person_arrives,
-  waits for the interior garage door to close first. When everyone wakes up
-  while AQI is high, announces on the master bedroom HomePod. When sleeping,
-  sends a push notification.
-triggers:
-  - trigger: state
-    entity_id: binary_sensor.outdoor_air_quality_index_high
-    to: "on"
-    alias: AQI rises above threshold
-    id: aqi_spike
-  - trigger: numeric_state
-    entity_id: zone.home
-    above: 0
-    alias: First person arrives home
-    id: person_arrives
-  - trigger: state
-    entity_id: input_boolean.everyone_sleeping
-    from: "on"
-    to: "off"
-    alias: Everyone wakes up
-    id: sleeping_ends
-conditions:
-  - condition: numeric_state
-    entity_id: zone.home
-    above: 0
-    alias: Someone is home
-actions:
-  - alias: Branch on sleeping state and trigger
-    choose:
-      - alias: Everyone sleeping — push notification
-        conditions:
-          - condition: state
-            entity_id: binary_sensor.outdoor_air_quality_index_high
-            state: "on"
-            alias: AQI above threshold
-          - condition: state
-            entity_id: input_boolean.everyone_sleeping
-            state: "on"
-            alias: Everyone sleeping
-        sequence:
-          - alias: Send push notification
-            action: notify.mobile_app_nates_iphone
-            data:
-              title: "Close Doors & Windows — Poor Air Quality"
-              message: >-
-                Outdoor AQI is {{ states('sensor.toledo_ohio_usa_air_quality_index') }}.
-                Close exterior doors and windows to keep indoor air clean.
-              data:
-                tag: air_quality_index_alert
-      - alias: Everyone wakes up — master bedroom TTS
-        conditions:
-          - condition: state
-            entity_id: binary_sensor.outdoor_air_quality_index_high
-            state: "on"
-            alias: AQI above threshold
-          - condition: trigger
-            id: sleeping_ends
-            alias: Everyone wakes up trigger
-        sequence:
-          - alias: Announce on master bedroom HomePod
-            action: media_player.play_media
-            target:
-              entity_id: media_player.master_bedroom_homepod
-            data:
-              announce: true
-              extra:
-                volume: 65
-              media:
-                media_content_id: >-
-                  media-source://tts/cloud?message=Heads up — outdoor air quality index is
-                  {{ states('sensor.toledo_ohio_usa_air_quality_index') }}.
-                  Consider keeping doors and windows closed.
-                media_content_type: music
-      - alias: Person arrives with door open — kitchen TTS after garage entry
-        conditions:
-          - condition: state
-            entity_id: binary_sensor.outdoor_air_quality_index_high
-            state: "on"
-            alias: AQI above threshold
-          - condition: trigger
-            id: person_arrives
-            alias: Person arrives trigger
-          - condition: state
-            entity_id: binary_sensor.exterior_door_window_open
-            state: "on"
-            alias: Exterior door or window is open
-        sequence:
-          - alias: Wait for interior garage door to close
-            wait_for_trigger:
-              - trigger: state
-                entity_id: binary_sensor.garage_interior_door_contact
-                from: "on"
-                to: "off"
-            timeout:
-              minutes: 5
-            continue_on_timeout: true
-          - alias: Buffer after entry
-            delay:
-              seconds: 15
-          - alias: Announce on kitchen HomePod
-            action: media_player.play_media
-            target:
-              entity_id: media_player.kitchen_homepod
-            data:
-              announce: true
-              extra:
-                volume: 65
-              media:
-                media_content_id: >-
-                  media-source://tts/cloud?message=Heads up — outdoor air quality index is
-                  {{ states('sensor.toledo_ohio_usa_air_quality_index') }}.
-                  Consider closing exterior doors and windows.
-                media_content_type: music
-      - alias: AQI spikes with door open — kitchen TTS
-        conditions:
-          - condition: state
-            entity_id: binary_sensor.outdoor_air_quality_index_high
-            state: "on"
-            alias: AQI above threshold
-          - condition: trigger
-            id: aqi_spike
-            alias: AQI rises above threshold trigger
-          - condition: state
-            entity_id: binary_sensor.exterior_door_window_open
-            state: "on"
-            alias: Exterior door or window is open
-        sequence:
-          - alias: Announce on kitchen HomePod
-            action: media_player.play_media
-            target:
-              entity_id: media_player.kitchen_homepod
-            data:
-              announce: true
-              extra:
-                volume: 65
-              media:
-                media_content_id: >-
-                  media-source://tts/cloud?message=Heads up — outdoor air quality index is
-                  {{ states('sensor.toledo_ohio_usa_air_quality_index') }}.
-                  Consider closing exterior doors and windows.
-                media_content_type: music
-mode: single
-```
+Create Outdoor Air Quality Index Alert (`automation.outdoor_air_quality_index_alert`), `mode: single`.
 
-Assign to the **Climate** category with labels **Notification**, **Whole Home**, and **WAQI**, area **Outside**.
+**Triggers** — use these trigger IDs exactly; the action block branches on them:
+
+| ID | Platform | Entity | Config |
+|---|---|---|---|
+| `aqi_spike` | state | `binary_sensor.outdoor_air_quality_index_high` | to: on |
+| `person_arrives` | numeric_state | `zone.home` | above: 0 |
+| `sleeping_ends` | state | `input_boolean.everyone_sleeping` | from: on → to: off |
+
+**Root condition:** `zone.home` numeric_state above 0 (someone is home). AQI state is checked per-branch rather than at the root so the `sleeping_ends` path can announce even if the threshold sensor changes while the automation is evaluating.
+
+**Action:** `choose` block with four branches as described in the Architecture section above.
+
+Assign to the **Climate** category with labels **Notification**, **Text to Speech**, **Whole Home**, and **WAQI**, area **Outside**.
 
 ### 4. Create the Clear Automation
 
-```yaml
-alias: Outdoor Air Quality Index Alert Clear
-description: >-
-  Clears the air quality alert notification when AQI drops back below threshold
-  or all exterior doors and windows are closed. Also announces on the kitchen
-  HomePod when AQI clears and outdoor feels-like temperature is lower than
-  indoor temperature. Companion to Outdoor Air Quality Index Alert.
-triggers:
-  - trigger: state
-    entity_id: binary_sensor.outdoor_air_quality_index_high
-    to: "off"
-    alias: AQI drops below threshold
-    id: aqi_clears
-  - trigger: state
-    entity_id: binary_sensor.exterior_door_window_open
-    to: "off"
-    alias: All exterior doors / windows closed
-actions:
-  - alias: TTS if AQI clears and outdoor is cooler than indoor
-    choose:
-      - conditions:
-          - condition: trigger
-            id: aqi_clears
-            alias: AQI drops below threshold trigger
-          - condition: numeric_state
-            entity_id: zone.home
-            above: 0
-            alias: Someone is home
-          - condition: state
-            entity_id: input_boolean.everyone_sleeping
-            state: "off"
-            alias: Everyone awake
-          - condition: template
-            value_template: >-
-              {{ states('sensor.outside_feels_like_temperature') | float <
-              states('sensor.apartment_temperature') | float }}
-            alias: Outdoor feels cooler than indoor
-        sequence:
-          - alias: Announce on kitchen HomePod
-            action: notify.reminder_kitchen
-            data:
-              message: >-
-                Good news — air quality has improved to
-                {{ states('sensor.toledo_ohio_usa_air_quality_index') }}.
-                It's cooler outside, so feel free to open the windows up.
-  - alias: Clear air quality alert notification
-    action: notify.mobile_app_nates_iphone
-    data:
-      message: clear_notification
-      data:
-        tag: air_quality_index_alert
-mode: single
-```
+Create Outdoor Air Quality Index Alert Clear (`automation.outdoor_air_quality_index_alert_clear`), `mode: single`.
 
-Assign to the **Climate** category with labels **Notification**, **Whole Home**, and **WAQI**, area **Outside**.
+**Triggers:**
+
+| ID | Platform | Entity | Config |
+|---|---|---|---|
+| `aqi_clears` | state | `binary_sensor.outdoor_air_quality_index_high` | to: off |
+| *(no id)* | state | `binary_sensor.exterior_door_window_open` | to: off |
+
+**Action:** `choose` block with one branch for the `aqi_clears` trigger (gated on someone home, everyone awake, and outdoor feels-like below indoor temperature) → `notify.reminder_kitchen` TTS. Unconditional second action clears the push notification tag regardless of trigger (a clear on a non-existent notification is a no-op).
+
+Assign to the **Climate** category with labels **Notification**, **Text to Speech**, **Whole Home**, and **WAQI**, area **Outside**.
 
 ---
 
@@ -327,9 +150,19 @@ Assign to the **Climate** category with labels **Notification**, **Whole Home**,
 
 ## Troubleshooting
 
-### TTS action fails with an unknown error
+### TTS announcements use Chime TTS, not tts.speak or media_player.play_media
 
-`tts.speak` targeting HomePods via the Apple TV integration fails with `miniaudio.DecodeError: ('failed to init decoder', -1)`. The Apple TV integration's RAOP streaming layer passes the Nabu Casa audio URL through miniaudio, which cannot decode the format Nabu Casa generates. Use `media_player.play_media` with `announce: true` and the `media-source://tts/cloud?message=...` URI instead — this routes through HA's announce pipeline and bypasses pyatv entirely. See `LESSONS.md` for the full pattern.
+`tts.speak` targeting HomePods fails with `miniaudio.DecodeError` (pyatv decode issue). `media_player.play_media` with `announce: true` works but delivers a bare spoken message. The correct pattern for this instance is `notify.reminder_kitchen` / `notify.reminder_master_bedroom` via the Chime TTS integration — these prepend a soft chime before speaking, making announcements easier to identify. See `guides/chime_tts.md` for setup and `LESSONS.md` for background on the pyatv failure.
+
+---
+
+## Related Documents
+
+- `guides/chime_tts.md` — setup and configuration for the `notify.reminder_*` TTS services used by both automations
+
+---
+
+## Troubleshooting (continued)
 
 ### Threshold helper entity ID contains the station name
 
