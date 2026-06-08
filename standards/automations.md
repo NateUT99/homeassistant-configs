@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.5 — June 2026*
+*Version 1.6 — June 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.6 | June 2026 | Added `text_to_speech` label for TTS-specific filtering alongside `notification` |
 | 1.5 | June 2026 | Added `int_home_alarm` (Home Alarm) and `waqi` (WAQI) to integration labels table |
 | 1.4 | June 2026 | Extended integration labels to non-automation entities directly enrolled in a guide-documented integration; defined the enrollment boundary (direct classification only, not transitive membership) |
 | 1.3 | May 2026 | Added `device_tracker` label — applied to any automation that updates device tracker state via `mqtt.publish` to a `presence/*` topic or `device_tracker.see`; enables auditing the presence tracking pipeline across categories |
@@ -81,6 +82,14 @@ Applied to every automation that sends a push notification or TTS announcement, 
 | Label ID | Friendly Name | When to apply |
 |---|---|---|
 | `notification` | Notification | Any automation with a `notify.*` action or a `media_player.play_media` announce action |
+
+#### Text to Speech label
+
+Applied to every automation that delivers a spoken TTS announcement, regardless of its primary category. Carries alongside `notification` — TTS automations should have both labels. Use `text_to_speech` to filter specifically for automations that speak, as distinct from those that only push silent notifications.
+
+| Label ID | Friendly Name | When to apply |
+|---|---|---|
+| `text_to_speech` | Text to Speech | Any automation with a `notify.reminder_*` action or a `media_player.play_media` announce action |
 
 #### Device Tracker label — icon `mdi:map-marker-account`
 
