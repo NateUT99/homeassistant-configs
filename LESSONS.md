@@ -83,6 +83,36 @@ Always include a `condition: state` (or template equivalent) confirming the targ
 
 ## Dashboards & Lovelace
 
+### Sections view badges require individual `custom:mushroom-template-badge` entries
+
+Placing a `custom:mushroom-chips-card` as a single item in the sections view `badges` array does not work — the card is silently dropped from the visual editor and may not render at all. The badge row expects individual badge-type objects.
+
+The correct pattern for Mushroom-styled badges is one `custom:mushroom-template-badge` per badge, placed directly in the `badges` array. Use `visibility` conditions on each badge for conditional display — the `type: conditional` chip wrapper used inside chip strips does not work here:
+
+```yaml
+badges:
+  - type: custom:mushroom-template-badge
+    entity: alarm_control_panel.home_alarm
+    icon: "mdi:shield-home"
+    color: "green"
+    tap_action:
+      action: more-info
+
+  - type: custom:mushroom-template-badge     # conditional badge
+    entity: binary_sensor.water_leak_detected
+    icon: mdi:water-alert
+    color: red
+    tap_action:
+      action: navigate
+      navigation_path: /mobile-app/water-leaks
+    visibility:
+      - condition: state
+        entity: binary_sensor.water_leak_detected
+        state_not: "off"
+```
+
+Note: badge field is `color`, not `icon_color` (which is the chip/card field name).
+
 ### Mushroom chip `more-info` action does not accept an `entity` field
 
 The Mushroom chip action schema types the `entity` key inside an action object as `never` — placing it there causes the visual editor to reject the chip with "Expected a value of type `never`" and breaks visual editing for the entire chip strip.
