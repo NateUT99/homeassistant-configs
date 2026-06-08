@@ -28,25 +28,26 @@ WAQI API ──► sensor.toledo_ohio_usa_air_quality_index
               ┌───────────┴────────────┐
            on │                        │ off
               ▼                        ▼
- automation.outdoor_air_       automation.outdoor_air_
- quality_index_alert          quality_index_alert_clear
-   ├─ sleeping + AQI high → iOS push       └─ clear iOS notification (tag)
-   ├─ sleeping_ends + AQI high → TTS (master bedroom HomePod)
-   ├─ aqi_spike + door/window open → TTS (kitchen HomePod)
-   ├─ person_arrives + door/window open → wait for garage door → TTS (kitchen HomePod)
-   └─ aqi_clears + awake + outdoor feels < indoor → TTS (kitchen HomePod)
+ automation.outdoor_air_           automation.outdoor_air_
+ quality_index_alert               quality_index_alert_clear
+   ├─ sleeping + AQI high → push     ├─ aqi_clears + awake + cooler outside
+   ├─ sleeping_ends + AQI high       │    → TTS (kitchen HomePod)
+   │    → TTS (master bedroom)       └─ always → clear iOS notification (tag)
+   ├─ aqi_spike + door open
+   │    → TTS (kitchen HomePod)
+   └─ person_arrives + door open
+        → garage wait → TTS (kitchen)
 ```
 
 The threshold helper (`binary_sensor.outdoor_air_quality_index_high`) is the single source of truth for whether air quality is currently actionable. It goes `on` when AQI exceeds 125 and does not go `off` until AQI drops to 120 (5-point hysteresis), preventing notification churn if the sensor hovers near the boundary.
 
-The alert automation has four entry-path triggers:
+The alert automation has three entry-path triggers:
 
 - **AQI crosses above threshold** (`aqi_spike`) — primary trigger; requires a door or window to be open to announce
 - **First person arrives home** (`person_arrives`) — covers the case where AQI was already bad while no one was home; requires a door or window open; waits for the interior garage door to close before announcing so the person is actually inside
 - **Everyone wakes up** (`sleeping_ends`) — `input_boolean.everyone_sleeping` transitions off; announces on the master bedroom HomePod regardless of door/window state so occupants are warned before opening anything
-- **AQI drops below threshold** (`aqi_clears`) — announces on the kitchen HomePod when everyone is awake and outdoor feels-like temperature is lower than indoor temperature, suggesting it is a good time to open windows
 
-The sole root condition is someone home — AQI is checked per-branch so the `aqi_clears` path can fire on the `off` transition of the threshold sensor without being blocked by a root AQI check. The door/window open requirement is enforced per-branch so the `sleeping_ends` and `aqi_clears` paths can bypass it.
+The sole root condition is someone home — AQI is checked per-branch rather than at the root so the `sleeping_ends` path can announce even if AQI changes while the automation is evaluating. The door/window open requirement is enforced per-branch so the `sleeping_ends` path can bypass it.
 
 When a door or window is opened while AQI is already bad, `automation.household_thermostat_exterior_open_pause` owns that notification moment — it fires at the 3-minute mark and includes a conditional AQI mention in its TTS and push notification. This avoids duplicate alerts from two automations firing simultaneously.
 
@@ -56,9 +57,8 @@ The action block uses a `choose` with native `condition: trigger` branches:
 2. AQI high + `sleeping_ends` → immediate TTS on master bedroom HomePod
 3. AQI high + `person_arrives` + door/window open → wait for garage interior door `open → closed` (5-min timeout) → 15-second buffer → TTS on kitchen HomePod
 4. AQI high + `aqi_spike` + door/window open → immediate TTS on kitchen HomePod
-5. `aqi_clears` + everyone awake + outdoor feels-like < indoor → immediate TTS on kitchen HomePod
 
-The clear automation fires unconditionally on its triggers — clearing a non-existent notification is a harmless no-op.
+The clear automation fires on two triggers. The push dismiss is unconditional — clearing a non-existent notification is a harmless no-op. The TTS fires only when the `aqi_clears` trigger (not the door-close trigger) fires, someone is home, everyone is awake, and outdoor feels-like temperature is lower than indoor.
 
 > **Coordinated change:** The threshold value (125) and hysteresis (5) are set on `binary_sensor.outdoor_air_quality_index_high`. If you want to change the alert threshold, update the threshold helper configuration — do not add numeric conditions to the automations.
 
@@ -111,9 +111,7 @@ description: >-
   door or window open, announces on the kitchen HomePod; for person_arrives,
   waits for the interior garage door to close first. When everyone wakes up
   while AQI is high, announces on the master bedroom HomePod. When sleeping,
-  sends a push notification. Also announces on the kitchen HomePod when AQI
-  clears and outdoor feels-like temperature is lower than indoor temperature,
-  suggesting it is a good time to open windows.
+  sends a push notification.
 triggers:
   - trigger: state
     entity_id: binary_sensor.outdoor_air_quality_index_high
@@ -131,12 +129,6 @@ triggers:
     to: "off"
     alias: Everyone wakes up
     id: sleeping_ends
-  - trigger: state
-    entity_id: binary_sensor.outdoor_air_quality_index_high
-    from: "on"
-    to: "off"
-    alias: AQI drops below threshold
-    id: aqi_clears
 conditions:
   - condition: numeric_state
     entity_id: zone.home
@@ -257,35 +249,6 @@ actions:
                   {{ states('sensor.toledo_ohio_usa_air_quality_index') }}.
                   Consider closing exterior doors and windows.
                 media_content_type: music
-      - alias: AQI clears, outdoor cooler than indoor — kitchen TTS
-        conditions:
-          - condition: trigger
-            id: aqi_clears
-            alias: AQI drops below threshold trigger
-          - condition: state
-            entity_id: input_boolean.everyone_sleeping
-            state: "off"
-            alias: Everyone awake
-          - condition: template
-            value_template: >-
-              {{ states('sensor.outside_feels_like_temperature') | float <
-              states('sensor.apartment_temperature') | float }}
-            alias: Outdoor feels cooler than indoor
-        sequence:
-          - alias: Announce on kitchen HomePod
-            action: media_player.play_media
-            target:
-              entity_id: media_player.kitchen_homepod
-            data:
-              announce: true
-              extra:
-                volume: 65
-              media:
-                media_content_id: >-
-                  media-source://tts/cloud?message=Good news — air quality has improved to
-                  {{ states('sensor.toledo_ohio_usa_air_quality_index') }}.
-                  It's cooler outside, so feel free to open the windows up.
-                media_content_type: music
 mode: single
 ```
 
@@ -297,17 +260,47 @@ Assign to the **Climate** category with labels **Notification**, **Whole Home**,
 alias: Outdoor Air Quality Index Alert Clear
 description: >-
   Clears the air quality alert notification when AQI drops back below threshold
-  or all exterior doors and windows are closed. Companion to Outdoor Air Quality Index Alert.
+  or all exterior doors and windows are closed. Also announces on the kitchen
+  HomePod when AQI clears and outdoor feels-like temperature is lower than
+  indoor temperature. Companion to Outdoor Air Quality Index Alert.
 triggers:
   - trigger: state
     entity_id: binary_sensor.outdoor_air_quality_index_high
     to: "off"
     alias: AQI drops below threshold
+    id: aqi_clears
   - trigger: state
     entity_id: binary_sensor.exterior_door_window_open
     to: "off"
     alias: All exterior doors / windows closed
 actions:
+  - alias: TTS if AQI clears and outdoor is cooler than indoor
+    choose:
+      - conditions:
+          - condition: trigger
+            id: aqi_clears
+            alias: AQI drops below threshold trigger
+          - condition: numeric_state
+            entity_id: zone.home
+            above: 0
+            alias: Someone is home
+          - condition: state
+            entity_id: input_boolean.everyone_sleeping
+            state: "off"
+            alias: Everyone awake
+          - condition: template
+            value_template: >-
+              {{ states('sensor.outside_feels_like_temperature') | float <
+              states('sensor.apartment_temperature') | float }}
+            alias: Outdoor feels cooler than indoor
+        sequence:
+          - alias: Announce on kitchen HomePod
+            action: notify.reminder_kitchen
+            data:
+              message: >-
+                Good news — air quality has improved to
+                {{ states('sensor.toledo_ohio_usa_air_quality_index') }}.
+                It's cooler outside, so feel free to open the windows up.
   - alias: Clear air quality alert notification
     action: notify.mobile_app_nates_iphone
     data:
