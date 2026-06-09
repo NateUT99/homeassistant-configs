@@ -204,7 +204,8 @@ Two automations — one per appliance — handle the repeating TTS loop. Both ar
 2. Stop if `everyone_sleeping == on`
 3. Stop if `zone.home < 1`
 4. Choose: `avery_sleeping == on` → `notify.reminder_master_bedroom`; otherwise → `notify.reminder_kitchen`. Message: `"The washer is done."`
-5. Delay 30 minutes
+5. If `utility_room_door_contact == on` → set `washer_status → idle` and stop. Handles door left open before cycle ends: announces once then clears immediately rather than repeating indefinitely.
+6. Delay 30 minutes
 
 Mode: `restart` — ensures re-triggers (wake up / arrive home) cancel the mid-loop delay and fire TTS immediately.
 
