@@ -32,6 +32,14 @@ mobile-home (storage-mode dashboard, url_path: mobile-home)
     │   └── mushroom-chips-card: Thermostat, Vacuum, Reminders check/alert
     │       └── each chip tap_action → navigate to matching pop-up hash
     │
+    ├── [Laundry section — condition-triggered; hidden when both appliances idle]
+    │   ├── Washer running card (conditional: status=idle AND current_status active)
+    │   │   └── Bubble Card button · orange · gradient progress fill · no tap
+    │   ├── Washer done card (conditional: status≠idle)
+    │   │   └── Bubble Card button · green (bright=alerting, muted=acknowledged) · tap → acknowledged
+    │   ├── Dryer running card (same pattern as washer)
+    │   └── Dryer done card (same pattern as washer)
+    │
     └── [pop-up definitions — single section, no title; invisible until triggered]
         ├── #thermostat  Climate card + 4 mode buttons (Home/Sleep/Away/Clear Hold)
         ├── #vacuum      Commands + map + status + mop settings + consumables
@@ -259,6 +267,12 @@ Once the new dashboard is verified:
 | Avery sleeping | `input_boolean.avery_sleeping` | Helper |
 | Guest mode | `input_boolean.guest_mode` | Helper |
 | Remind mark complete | `script.reminder_mark_complete` | Script |
+| Washer status | `input_select.utility_room_washer_status` | Helper (input_select) |
+| Dryer status | `input_select.utility_room_dryer_status` | Helper (input_select) |
+| Washer progress | `sensor.utility_room_washer_progress` | Helper (template sensor) |
+| Washer minutes remaining | `sensor.utility_room_washer_minutes_remaining` | Helper (template sensor) |
+| Dryer progress | `sensor.utility_room_dryer_progress` | Helper (template sensor) |
+| Dryer minutes remaining | `sensor.utility_room_dryer_minutes_remaining` | Helper (template sensor) |
 
 ---
 
@@ -267,3 +281,4 @@ Once the new dashboard is verified:
 - `standards/dashboards.md` — Governs all dashboard builds; defines card vocabulary, pop-up pattern, chip strip rules, and HACS policy
 - `standards/naming.md` — Entity naming standard
 - `guides/reminders.md` — Reminder system architecture; defines `script.reminder_mark_complete` and why a direct service call is insufficient
+- `guides/laundry_automation.md` — Laundry automation guide; defines the status helpers, template sensors, and automations that drive the Laundry section
