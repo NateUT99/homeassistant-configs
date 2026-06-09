@@ -274,6 +274,17 @@ A condition-triggered section is added between the chip strip and the pop-up def
 
 ---
 
+## Future Improvements
+
+**Per-appliance door sensors.** The current design uses `binary_sensor.utility_room_door_contact` as a proxy for "someone retrieved the laundry." If door sensors are added directly to the washer and dryer lids, replace the utility room door entity in two places per appliance:
+
+1. The status manager's `door_opened` trigger — currently clears both appliances when anyone enters the utility room; per-appliance sensors would clear each independently
+2. The announcement loop's post-announcement door check — same scoping improvement
+
+No structural changes needed; it's a two-entity swap per automation.
+
+---
+
 ## Troubleshooting
 
 **TTS fired while machine was still running.** The cycle completed while the section was showing the running card. Check whether the washer briefly entered `end` before transitioning — this is normal, the status manager should have set `input_select → alerting` within milliseconds of the `end` state appearing.
