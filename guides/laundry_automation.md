@@ -39,16 +39,20 @@ LG ThinQ (lg_thinq integration)
          │   ├── kitchen HomePod (default)
          │   └── master bedroom HomePod (avery_sleeping = on)
          │
-         └─► Dashboard Card (mobile-home, Laundry section)
-             Running: orange + gradient progress fill
-             Alerting: bright green  →  tap → acknowledged
-             Acknowledged: muted green
+         ├─► Dashboard Chips (mobile-home, chip strip row 2)
+         │   Running: orange + progress % · tap → #laundry pop-up
+         │   Alerting: bright green · tap → #laundry · hold → acknowledged
+         │   Acknowledged: muted (disabled) color · hidden only when door opens
+         │
+         └─► #laundry Pop-up (modal overlay, both appliances)
+             Status row · cycle info (started / ETA or actual end / elapsed)
+             Acknowledge button (alerting only) · stats (cycles, energy, power)
 
 State machine inputs:
   sensor.washer_current_status → end         ──► idle → alerting
   sensor.washer_current_status → running     ──► any → idle (new cycle)
   binary_sensor.utility_room_door_contact    ──► any → idle (retrieved)
-  dashboard tap                              ──► alerting → acknowledged
+  chip hold (green) / pop-up ack button      ──► alerting → acknowledged
 
 TTS inputs:
   input_select → alerting                   ──► start repeat loop
@@ -67,7 +71,11 @@ TTS inputs:
 
 - **TTS re-triggers on re-engagement.** The announcement automation uses `mode: restart` and fires on three triggers: `input_select → alerting`, `everyone_sleeping → off`, and `zone.home` crossing above 0. Sleep and away stop TTS but leave the visual (`input_select`) at `alerting`. When the household re-engages, the automation restarts and fires immediately rather than waiting up to 30 minutes for the next loop iteration.
 
-- **Door-only visual clear.** The dashboard card disappears only when the utility room door opens — not on sleep or away. This preserves a visual reminder visible the moment you return or wake up. Sleep/away are pause conditions for TTS only.
+- **Chip over conditional section.** The original design used a condition-triggered dashboard section that auto-appeared above the chip strip. This was replaced with two conditional chips in the chip strip itself. Visual weight is lower — chips are compact and sit alongside vacuum/reminders rather than expanding the home view. A tap on either chip navigates to the shared `#laundry` pop-up rather than surfacing cards inline.
+
+- **Door-only chip clear.** The chip disappears only when the utility room door opens — not on sleep, away, or acknowledge. Acknowledge silences TTS but leaves the chip visible (muted color) as a persistent visual reminder that laundry is still there. Sleep/away are TTS pause conditions only.
+
+- **Cycle timestamps via `input_datetime` helpers.** The `#laundry` pop-up surfaces "started at," "estimated/actual end," and "finished X ago" data. ThinQ does not persist these wall-clock times — they are captured by the status manager automations at the moment the `running` and `end` state transitions happen. Four `input_datetime` helpers (one per appliance per event) store these values. Because they survive restarts and are not derived from live sensor state, the pop-up shows accurate history even when the machine is idle.
 
 - **Template helpers, not `configuration.yaml`.** Progress and remaining-time sensors are created as HA template helpers (Settings → Helpers → Add Helper → Template) stored in HA storage, not `configuration.yaml`. They are retrievable via MCP. The formula: `progress = (total_time − minutes_remaining) / total_time × 100`, clamped 0–100; `minutes_remaining = max(0, (remaining_time_timestamp − now()) / 60)`. Both guard against `unknown`/`unavailable` source states.
 
@@ -211,32 +219,56 @@ Mode: `restart` — ensures re-triggers (wake up / arrive home) cancel the mid-l
 
 **Dryer done announcement** (`automation.utility_room_dryer_done_announcement`): mirror, referencing dryer entities. Message: `"The dryer is done."`
 
-### 7. Add Laundry section to mobile-home dashboard
+### 7. Add laundry chips and pop-up to mobile-home dashboard
 
-A condition-triggered section is added between the chip strip and the pop-up definitions. The section is invisible when both appliances are idle; it appears automatically when either is running or done.
+The laundry integration surfaces two conditional chips in the existing chip strip and a `#laundry` Bubble Card pop-up. There is no inline Laundry section on the home view — the chips provide ambient status at a glance and navigate directly to the pop-up on tap.
 
-**Section visibility:** `or` of:
-- `washer_status != idle` (covers alerting + acknowledged)
-- `dryer_status != idle`
-- `washer_current_status` not in [`power_off`, `initial`] (covers active cycle)
-- `dryer_current_status` not in [`power_off`, `initial`]
+#### 7a. Chip strip chips (two per appliance, added to chip strip row 2)
 
-**Four conditional cards (two per appliance):**
+Each appliance gets one sub-button in the chip strip's feature row (alongside thermostat, vacuum, reminders). The chip is hidden when the appliance is idle and no cycle is active. Visibility is driven by the chip strip card's global CSS-in-JS `styles` expression.
 
-*Running card* — visible when `status == idle` AND `current_status` not in [`power_off`, `initial`]:
-- Bubble Card button, `button_type: state`, entity: `sensor.washer_current_status` (drives re-render on phase change)
-- Icon: orange · `state_display`: single-expression template formatting the raw state ("Running", "Spinning", "Cooling", etc.)
-- Sub_button: `sensor.utility_room_washer_minutes_remaining` — shows time remaining (e.g. "43 min")
-- `card_mod` style: `linear-gradient` fill on `.bubble-button-background`, width driven by `sensor.utility_room_washer_progress` (0–100%); card_mod subscribes to the progress sensor independently of the card entity
-- `tap_action: none`
+| State | Icon color | Content |
+|---|---|---|
+| Running (status `idle` + active cycle) | Orange | Progress % |
+| Done (`status == alerting`) | Bright green | (icon only) |
+| Acknowledged | Muted / disabled | (icon only) |
+| Idle | Hidden | — |
 
-> **Bubble Card constraint:** `button_type: name` has no secondary text slot — secondary text only renders with `button_type: state`. `state_display` evaluates only the first `{{ }}` expression; multi-expression templates (using `~` or multiple blocks) are silently truncated to the first result. Keep `state_display` to a single `{{ }}` expression.
+**Tap:** navigate to `#laundry` pop-up.  
+**Hold:** calls `script.utility_room_acknowledge_laundry` with the appropriate appliance. No-op while running (script conditions on `status == alerting`).
 
-*Done card* — visible when `status != idle`:
-- Bubble Card button, `button_type: state`, entity: appliance current_status sensor (shows "End", "Power Off", etc.)
-- `state_display`: single-expression template formatting the raw state
-- Icon: green · `card_mod` style: `background-color: rgba(40, 200, 100, 0.45)` (alerting) or `rgba(40, 200, 100, 0.15)` (acknowledged), referencing the input_select
-- `tap_action`: `input_select.select_option → acknowledged`
+#### 7b. `#laundry` pop-up
+
+Bubble Card `pop-up`, `hash: "#laundry"`, `popup_mode: adaptive-dialog`. Per-appliance layout repeated twice (Washer then Dryer):
+
+1. **Bubble Card separator** — appliance name heading
+2. **Mushroom template card — status row** (always visible):
+   - `primary`: "Off" / "Standby" / "Done" / current phase + progress %
+   - `icon_color`: orange (running), green (alerting), grey (acknowledged or off)
+3. **Markdown card — cycle info** (state-adaptive, supports italic ETA):
+   - *Running*: Started / **End:** *Est: HH:MM AM/PM* (italic) / elapsed min · remaining min
+   - *Done*: Started / **End:** HH:MM AM/PM (plain) / "Finished X ago"
+   - *Idle + history*: "Last cycle: HH:MM → HH:MM (N min, X ago)"
+   - *Idle, no history*: card emits blank
+4. **Acknowledge button** — Bubble Card button, conditional (`status == alerting`). Calls `script.utility_room_acknowledge_laundry`. Disappears on tap.
+5. **Bubble Card separator** — "Washer Stats" / "Dryer Stats"
+6. **Stats grid** (2-column, `tile` and `mushroom-template-card`):
+
+   *Washer only:*
+   | Stat | Source |
+   |---|---|
+   | Cycles since cleaned | `sensor.washer_cycles` − `input_number.utility_room_washer_cycles_at_last_cleaning`; shows "(since onboarding)" if snapshot = 0 |
+   | Lifetime Cycles | `sensor.washer_cycles` |
+   | Energy This Month | `sensor.washer_energy_this_month` |
+   | Power | `switch.washer_power` (read-only, tap disabled) |
+
+   *Both appliances:*
+   | Stat | Source |
+   |---|---|
+   | Power | `switch.<appliance>_power` (read-only) |
+   | Last Error | `event.<appliance>_error` (conditional, hidden when state = `unknown`) |
+
+> **Mushroom over Bubble Card for status row.** The status row uses a Mushroom template card rather than a Bubble Card button so that `icon_color` can be a Jinja template. Bubble Card icon color templating is noted as brittle for this pattern (see `guides/mobile_dashboard.md` → HACS Dependency Policy). Mushroom is the documented fallback for template-driven icon color.
 
 ---
 
@@ -256,10 +288,17 @@ A condition-triggered section is added between the chip strip and the pop-up def
 | Washer minutes remaining | `sensor.utility_room_washer_minutes_remaining` | Helper (template sensor) |
 | Dryer progress | `sensor.utility_room_dryer_progress` | Helper (template sensor) |
 | Dryer minutes remaining | `sensor.utility_room_dryer_minutes_remaining` | Helper (template sensor) |
+| Washer cycle started | `input_datetime.utility_room_washer_cycle_started` | Helper (input_datetime) |
+| Washer cycle ended | `input_datetime.utility_room_washer_cycle_ended` | Helper (input_datetime) |
+| Dryer cycle started | `input_datetime.utility_room_dryer_cycle_started` | Helper (input_datetime) |
+| Dryer cycle ended | `input_datetime.utility_room_dryer_cycle_ended` | Helper (input_datetime) |
+| Washer cycles at last cleaning | `input_number.utility_room_washer_cycles_at_last_cleaning` | Helper (input_number) |
 | Washer status manager | `automation.utility_room_washer_status_manager` | Automation |
 | Dryer status manager | `automation.utility_room_dryer_status_manager` | Automation |
 | Washer done announcement | `automation.utility_room_washer_done_announcement` | Automation |
 | Dryer done announcement | `automation.utility_room_dryer_done_announcement` | Automation |
+| Washer cycles snapshot | `automation.utility_room_washer_cycles_snapshot_on_clean` | Automation |
+| Acknowledge laundry | `script.utility_room_acknowledge_laundry` | Script |
 | Laundry integration label | `int_laundry` | Label |
 | Utility room door | `binary_sensor.utility_room_door_contact` | Entity |
 
@@ -268,9 +307,9 @@ A condition-triggered section is added between the chip strip and the pop-up def
 ## Related Documents
 
 - `guides/chime_tts.md` — `notify.reminder_kitchen` and `notify.reminder_master_bedroom` configuration and call conventions
-- `guides/mobile_dashboard.md` — `mobile-home` build guide; Laundry section is documented in its Related HA Config table
-- `standards/automations.md` — Category, label, and alias requirements applied to all four automations
-- `standards/dashboards.md` — Condition-triggered section pattern; Bubble Card button conventions
+- `guides/mobile_dashboard.md` — `mobile-home` build guide; laundry chips and `#laundry` pop-up are documented there
+- `standards/automations.md` — Category, label, and alias requirements applied to all automations
+- `standards/dashboards.md` — Chip strip pattern; Bubble Card pop-up conventions
 
 ---
 
@@ -287,7 +326,7 @@ No structural changes needed; it's a two-entity swap per automation.
 
 ## Troubleshooting
 
-**TTS fired while machine was still running.** The cycle completed while the section was showing the running card. Check whether the washer briefly entered `end` before transitioning — this is normal, the status manager should have set `input_select → alerting` within milliseconds of the `end` state appearing.
+**TTS fired while machine was still running.** The cycle completed while the chip was still showing the running (orange) state. Check whether the washer briefly entered `end` before transitioning — this is normal, the status manager should have set `input_select → alerting` within milliseconds of the `end` state appearing.
 
 **Progress bar not updating.** The template sensors update on a 30-second polling interval by default. If the bar appears frozen mid-cycle, navigate away and back to force a re-render, or check the template sensor's state in **Developer Tools → States**.
 

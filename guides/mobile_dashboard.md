@@ -32,19 +32,12 @@ mobile-home (storage-mode dashboard, url_path: mobile-home)
     │   └── mushroom-chips-card: Thermostat, Vacuum, Reminders check/alert
     │       └── each chip tap_action → navigate to matching pop-up hash
     │
-    ├── [Laundry section — condition-triggered; hidden when both appliances idle]
-    │   ├── Washer running card (conditional: status=idle AND current_status active)
-    │   │   └── Bubble Card button · orange · gradient progress fill · no tap
-    │   ├── Washer done card (conditional: status≠idle)
-    │   │   └── Bubble Card button · green (bright=alerting, muted=acknowledged) · tap → acknowledged
-    │   ├── Dryer running card (same pattern as washer)
-    │   └── Dryer done card (same pattern as washer)
-    │
     └── [pop-up definitions — single section, no title; invisible until triggered]
         ├── #thermostat  Climate card + 4 mode buttons (Home/Sleep/Away/Clear Hold)
         ├── #vacuum      Commands + map + status + mop settings + consumables
         ├── #reminders   Trash + all 8 tasks with green/red state
-        └── #water-leaks 4 leak sensor tiles
+        ├── #water-leaks 4 leak sensor tiles
+        └── #laundry     Washer + dryer status, cycle info, ack button, stats grid
 ```
 
 **Design decisions:**
@@ -120,7 +113,7 @@ Set the view header config: `layout: center`, `badges_position: bottom`, `badges
 
 Add one section with no title. Place a single `mushroom-chips-card` with `alignment: center`. Apply `card_mod` for chip sizing: `--chip-height: 36px`, `--chip-padding: 0 6px` on `ha-card`; `gap: 0; justify-content: center` on `.container` via nested shadow DOM style (required to center icon-only chips on all platforms).
 
-Four chips, each navigating to a pop-up hash:
+Six chips across two rows. Row 1 (status/alert strip): Alarm, Water Leak, Freezer Door, Doors, Garage, Weather, AQI, Guest Mode, Avery Sleeping. Row 2 (feature chips):
 
 | Chip | Icon | Icon color | Tap | Hold |
 |---|---|---|---|---|
@@ -128,8 +121,10 @@ Four chips, each navigating to a pop-up hash:
 | Vacuum | Template (5 states, see below) | Template (5 states) | Navigate `#vacuum` | Toggle `input_boolean.vacuum_routine_pause` |
 | Reminders OK | `mdi:calendar-check` | green | Navigate `#reminders` | Navigate `#reminders` |
 | Reminders overdue | `mdi:calendar-alert` | red | Navigate `#reminders` | Navigate `#reminders` |
+| Washer | `mdi:washing-machine` | Orange (running) / green (alerting) / muted (acknowledged) / hidden (idle) | Navigate `#laundry` | Call `script.utility_room_acknowledge_laundry` (no-op when running) |
+| Dryer | `mdi:tumble-dryer` | Same pattern as washer | Navigate `#laundry` | Same pattern as washer |
 
-Reminders chips are mutually exclusive `type: conditional` wrappers: the OK chip shows when `number.overdue_reminders_count` < 1; the alert chip shows when > 0 with the count as content.
+Reminders chips are mutually exclusive `type: conditional` wrappers. Washer and dryer chips are conditionally hidden (CSS `display: none`) when both `input_select` is `idle` and `current_status` is in `[power_off, initial]`. When running, the chip shows the current progress % as content alongside the icon.
 
 **Vacuum chip states** (evaluated in priority order): `vacuum_routine_pause` on → orange `mdi:robot-vacuum-off`; cleaning/returning/paused → orange `mdi:robot-vacuum`; ran today AND maintenance required → red `mdi:robot-vacuum-alert`; not run today → grey `mdi:robot-vacuum`; ran today, all clear → green `mdi:robot-vacuum`.
 
@@ -187,6 +182,12 @@ cards:
 | Main brush | `sensor.roborock_q8_max_main_brush_time_left` | `button.roborock_q8_max_reset_main_brush_consumable` | `binary_sensor.roborock_replace_main_brush` |
 | Side brush | `sensor.roborock_q8_max_side_brush_time_left` | `button.roborock_q8_max_reset_side_brush_consumable` | `binary_sensor.roborock_replace_side_brush` |
 | Sensor | `sensor.roborock_q8_max_sensor_time_left` | `button.roborock_q8_max_reset_sensor_consumable` | `binary_sensor.roborock_clean_sensor` |
+
+### Step 8 — Build the laundry pop-up
+
+Add a Bubble Card `pop-up` with `hash: "#laundry"`, `popup_mode: adaptive-dialog`, `with_bottom_offset: true`. See `guides/laundry_automation.md` → Step 7b for the full per-appliance layout. The pop-up contains Washer and Dryer sections, each with: a Mushroom template card (status row with template `icon_color`), a markdown card (cycle info with italic ETA while running), a conditional Bubble Card button (Acknowledge, visible only when `status == alerting`), and a stats grid. Stats are native `tile` cards plus Mushroom template cards where Jinja templates are needed (cycles-since-cleaned, etc.).
+
+The `#laundry` pop-up is triggered by tapping either the washer or dryer chip in the chip strip. It is not triggered from a room tile; there is no room tile for the utility room.
 
 ### Step 9 — Build the reminders and water leaks pop-ups
 
@@ -273,6 +274,18 @@ Once the new dashboard is verified:
 | Washer minutes remaining | `sensor.utility_room_washer_minutes_remaining` | Helper (template sensor) |
 | Dryer progress | `sensor.utility_room_dryer_progress` | Helper (template sensor) |
 | Dryer minutes remaining | `sensor.utility_room_dryer_minutes_remaining` | Helper (template sensor) |
+| Washer cycle started | `input_datetime.utility_room_washer_cycle_started` | Helper (input_datetime) |
+| Washer cycle ended | `input_datetime.utility_room_washer_cycle_ended` | Helper (input_datetime) |
+| Dryer cycle started | `input_datetime.utility_room_dryer_cycle_started` | Helper (input_datetime) |
+| Dryer cycle ended | `input_datetime.utility_room_dryer_cycle_ended` | Helper (input_datetime) |
+| Washer cycles at last cleaning | `input_number.utility_room_washer_cycles_at_last_cleaning` | Helper (input_number) |
+| Washer energy this month | `sensor.washer_energy_this_month` | Entity (lg_thinq) |
+| Washer cycles | `sensor.washer_cycles` | Entity (lg_thinq) |
+| Washer power | `switch.washer_power` | Entity (lg_thinq) |
+| Washer last error | `event.washer_error` | Entity (lg_thinq) |
+| Dryer power | `switch.dryer_power` | Entity (lg_thinq) |
+| Dryer last error | `event.dryer_error` | Entity (lg_thinq) |
+| Acknowledge laundry | `script.utility_room_acknowledge_laundry` | Script |
 
 ---
 
