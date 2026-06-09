@@ -135,6 +135,20 @@ The correct pattern: set `entity` at the **chip level** (not inside the action),
 
 This applies to every chip type (template, entity, action) and every action field (tap_action, hold_action, double_tap_action). If the chip needs to target an entity for more-info but has no natural `entity` association, add the `entity` key at the chip root — it does not affect non-more-info actions on the same chip.
 
+### HA rejects single-word custom dashboard URL paths
+
+New storage-mode dashboards require a hyphen in the `url_path`. A slug like `mobile` or `home` is rejected with `VALIDATION_INVALID_PARAMETER: url_path must contain a hyphen (-)`. Use `mobile-home`, `home-main`, etc.
+
+This applies only to new custom dashboards created via the storage API. Built-in paths (`lovelace`, `map`) are unaffected.
+
+### Bubble Card pop-up `cards` array accepts any HA card type
+
+The `cards` array inside a Bubble Card `pop-up` card renders like a normal Lovelace card list — native `tile`, `grid`, `conditional`, `picture-entity`, and other custom cards all work. Pop-up content is not restricted to Bubble Card card types.
+
+### Bubble Card `card_type: climate` renders correctly
+
+The Bubble Card climate card (`card_type: climate`, `entity: climate.<entity>`) renders a working thermostat control surface. It does not require any additional configuration beyond the `entity` field for basic HVAC mode and temperature control.
+
 ### Sections view footer: ALL content must be in a nested `card` property inside an outer mushroom-chips-card
 
 The native sections view footer only renders content placed in the `card` property of an outer `custom:mushroom-chips-card`. **Any card placed directly as the footer renders as invisible** — this includes grid cards, mushroom-template-cards, and mushroom-chips-card chips placed in the outer `chips` array. Always use this wrapper structure:

@@ -1,5 +1,11 @@
 # Dashboard Design Standard
 
+**Version 0.1** — June 2026
+
+| Version | Date | Changes |
+|---|---|---|
+| 0.1 | June 2026 | Initial release; Bubble Card primary commitment; inline toggle pattern confirmed as active for thermostat/vacuum/reminders |
+
 ---
 
 ## Purpose & Scope
@@ -35,9 +41,9 @@ Approved frontend resources:
 |---|---|---|
 | Bubble Card | Primary card framework | Required |
 | Bubble Card Tools | Module store backend (required for custom modules) | Required |
-| Bubble Badges 2 | Overlay badge indicators on card surfaces | Required |
-| Bubble Weather | Weather icon templating module | Required |
-| Bubble Neon | Visual theme / CSS variable baseline | Required |
+| Bubble Badges 2 | Overlay badge indicators on card surfaces | Deferred |
+| Bubble Weather | Weather icon templating module | Deferred |
+| Bubble Neon | Visual theme / CSS variable baseline | Deferred |
 | card-mod | CSS overrides where Bubble Card global variables don't reach | Narrow use |
 | Mushroom Cards | Fallback for specific capability gaps | Fallback only |
 
@@ -59,12 +65,14 @@ Do not introduce additional HACS frontend resources without an explicit decision
 
 | Property | Convention |
 |---|---|
-| `url_path` | Short hyphenated slug: `mobile`, `desktop` |
+| `url_path` | Short hyphenated slug: `mobile-home`, `desktop` |
 | `title` | Human-readable without version numbers: `Mobile`, `Desktop` |
 | `icon` | Reflects the target device: `mdi:cellphone` for mobile, `mdi:monitor` for desktop |
 | `show_in_sidebar` | `true` |
 
 Version numbers are dropped from dashboard slugs — they belong in git history and the guide's Last Updated date, not the URL.
+
+> **HA constraint:** Custom dashboard `url_path` values must contain a hyphen. Single-word slugs (e.g., `mobile`) are rejected by the storage API with a validation error. The canonical mobile dashboard slug is `mobile-home`.
 
 ---
 
@@ -218,16 +226,13 @@ An alternative to the pop-up pattern for brief content that fits inline on the H
    ```
 4. Optionally set `hold_action: navigate` on the same chip to open the full pop-up if one exists.
 
-**Current uses:** none — the mobile dashboard uses condition-triggered sections (auto-appear based on state) rather than chip-toggled inline sections. The inline toggle pattern is documented for cases where user intent, not device state, should drive visibility.
+**Current uses:**
 
-**Former uses (migrated to condition-triggered):**
-
-| Chip | Was | Now |
-|---|---|---|
-| Weather | Toggle `input_boolean.show_weather_forecast` | Tap → `more-info` on `weather.apartment` |
-| Thermostat | Toggle `input_boolean.show_thermostat_controls` | Tap → navigate `#climate` |
-| Vacuum | Toggle `input_boolean.show_vacuum_controls` | Inline section auto-appears on state; chip navigates `#vacuum` |
-| Overdue reminders | Toggle `input_boolean.show_reminders` | Inline section auto-appears when count > 0; chip navigates `#reminders` |
+| Chip | Helper | Chip tap | Hold |
+|---|---|---|---|
+| Thermostat | `input_boolean.mobile_show_thermostat_controls` | Toggle (show/hide) | None |
+| Vacuum | `input_boolean.mobile_show_vacuum_controls` | Toggle (show/hide) | Toggle `input_boolean.vacuum_routine_pause` |
+| Overdue reminders | `input_boolean.mobile_show_reminders` | Toggle (show/hide) | Navigate `#reminders` (full pop-up) |
 
 **Half-width inline cards:** add `layout_options: {grid_columns: 2}` to each card in the inline section so the sections view renders them two-per-row.
 
