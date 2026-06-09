@@ -223,10 +223,13 @@ A condition-triggered section is added between the chip strip and the pop-up def
 **Four conditional cards (two per appliance):**
 
 *Running card* — visible when `status == idle` AND `current_status` not in [`power_off`, `initial`]:
-- Bubble Card button, `button_type: name`, entity: progress sensor (drives re-render)
-- Icon: orange · Label template: current status text + minutes remaining
-- `card_mod` style: `linear-gradient` fill from left, width driven by progress sensor (0–100%)
+- Bubble Card button, `button_type: state`, entity: `sensor.washer_current_status` (drives re-render on phase change)
+- Icon: orange · `state_display`: single-expression template formatting the raw state ("Running", "Spinning", "Cooling", etc.)
+- Sub_button: `sensor.utility_room_washer_minutes_remaining` — shows time remaining (e.g. "43 min")
+- `card_mod` style: `linear-gradient` fill on `.bubble-button-background`, width driven by `sensor.utility_room_washer_progress` (0–100%); card_mod subscribes to the progress sensor independently of the card entity
 - `tap_action: none`
+
+> **Bubble Card constraint:** `button_type: name` has no secondary text slot — secondary text only renders with `button_type: state`. `state_display` evaluates only the first `{{ }}` expression; multi-expression templates (using `~` or multiple blocks) are silently truncated to the first result. Keep `state_display` to a single `{{ }}` expression.
 
 *Done card* — visible when `status != idle`:
 - Bubble Card button, `button_type: name`, entity: input_select (drives re-render)
