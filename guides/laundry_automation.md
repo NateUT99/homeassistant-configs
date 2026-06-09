@@ -63,7 +63,7 @@ TTS inputs:
 
 - **Status sensor trigger, not notification event.** `sensor.washer_current_status → end` is a persisted state change that survives HA restarts and doesn't depend on the LG cloud push delivery that drives `event.washer_notification`. The event entity (`washing_is_complete`) was confirmed working during setup but is not used as a trigger — state change is more reliable.
 
-- **Dryer triggers on `cooling` or `end`, not just `end`.** Cooling begins when active drying heat stops; clothes can be removed at that point. Triggering at `cooling` matches when the LG app typically notifies and avoids delay from wrinkle-care phases that can run for hours.
+- **Dryer triggers on `end` only, not `cooling`.** Although clothes can technically be removed once cooling starts, triggering at `cooling` shows a "Done" card while time remaining is still counting down — which is confusing. The running card stays visible through cooling and wrinkle-care phases; the done card appears only when the cycle fully completes.
 
 - **TTS re-triggers on re-engagement.** The announcement automation uses `mode: restart` and fires on three triggers: `input_select → alerting`, `everyone_sleeping → off`, and `zone.home` crossing above 0. Sleep and away stop TTS but leave the visual (`input_select`) at `alerting`. When the household re-engages, the automation restarts and fires immediately rather than waiting up to 30 minutes for the next loop iteration.
 
@@ -181,7 +181,7 @@ Two automations — one per appliance — drive the `input_select` state machine
 
 Mode: `single`. The condition on the `end` trigger prevents re-alerting if the helper was manually set to `acknowledged` or `alerting` by a prior cycle that wasn't cleared before a new one started.
 
-**Dryer status manager** (`automation.utility_room_dryer_status_manager`): mirror of the above, with two triggers for the done transition (`cooling` and `end`) sharing the same `id: cycle_done` so both match the same `condition: trigger` branch.
+**Dryer status manager** (`automation.utility_room_dryer_status_manager`): mirror of the above, triggering only on `end` for the alerting transition (not `cooling` — see design decision above).
 
 ### 6. Create TTS announcement automations
 
@@ -232,9 +232,9 @@ A condition-triggered section is added between the chip strip and the pop-up def
 > **Bubble Card constraint:** `button_type: name` has no secondary text slot — secondary text only renders with `button_type: state`. `state_display` evaluates only the first `{{ }}` expression; multi-expression templates (using `~` or multiple blocks) are silently truncated to the first result. Keep `state_display` to a single `{{ }}` expression.
 
 *Done card* — visible when `status != idle`:
-- Bubble Card button, `button_type: name`, entity: input_select (drives re-render)
-- Icon: green · Label: "Done — tap to acknowledge" (alerting) or "Done" (acknowledged)
-- `card_mod` style: `background-color: rgba(40, 200, 100, 0.45)` (alerting) or `rgba(40, 200, 100, 0.15)` (acknowledged)
+- Bubble Card button, `button_type: state`, entity: appliance current_status sensor (shows "End", "Power Off", etc.)
+- `state_display`: single-expression template formatting the raw state
+- Icon: green · `card_mod` style: `background-color: rgba(40, 200, 100, 0.45)` (alerting) or `rgba(40, 200, 100, 0.15)` (acknowledged), referencing the input_select
 - `tap_action`: `input_select.select_option → acknowledged`
 
 ---
