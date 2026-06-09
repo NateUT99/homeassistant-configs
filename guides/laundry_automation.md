@@ -308,6 +308,7 @@ Bubble Card `pop-up`, `hash: "#laundry"`, `popup_mode: adaptive-dialog`. Per-app
 
 - `guides/chime_tts.md` — `notify.reminder_kitchen` and `notify.reminder_master_bedroom` configuration and call conventions
 - `guides/mobile_dashboard.md` — `mobile-home` build guide; laundry chips and `#laundry` pop-up are documented there
+- `guides/reminders.md` — Reminder system architecture; `input_datetime.washer_cleaned` is watched by `automation.utility_room_washer_cycles_snapshot_on_clean` to update the cycles-since-cleaned snapshot
 - `standards/automations.md` — Category, label, and alias requirements applied to all automations
 - `standards/dashboards.md` — Chip strip pattern; Bubble Card pop-up conventions
 
@@ -332,4 +333,4 @@ No structural changes needed; it's a two-entity swap per automation.
 
 **TTS not re-firing after returning home.** Confirm `zone.home` count actually dropped to 0 before your return — if you only stepped out briefly and the count stayed at 1 (someone else home), the re-trigger condition doesn't apply. Also verify `automation.utility_room_washer_done_announcement` is enabled in **Settings → Automations**.
 
-**Dryer done card appeared during cooling but machine was still hot.** This is by design — `cooling` is the trigger. Clothes can be removed once active heating stops. If you prefer to wait for `end` only, change the dryer status manager's `cycle_done` trigger to remove the `cooling` → `id: cycle_done` entry.
+**Dryer chip appeared during cooling but machine was still hot.** The dryer status manager only triggers on `end`, not `cooling`. If the chip appeared before the cycle actually finished, check the dryer status manager automation trace — `sensor.dryer_current_status` may have briefly hit `end` before transitioning to `cooling` or `wrinkle_care`. This is normal ThinQ state machine behavior; the chip should clear correctly when the door opens.
