@@ -161,6 +161,8 @@ cards:
     ...
 ```
 
+**Pop-up mode:** always set `popup_mode: adaptive-dialog` on every pop-up card. This selects "Fit content" sizing on mobile, which is the correct behavior for feature pop-ups. It is not the default — omitting it results in a fixed-size overlay.
+
 **Close behavior:** swipe down from header, ESC on desktop, tap outside, browser back. Do not add a manual back-navigation card — Bubble Card renders a close button.
 
 **Room pop-up content structure** (include only sections that apply):
@@ -226,13 +228,7 @@ An alternative to the pop-up pattern for brief content that fits inline on the H
    ```
 4. Optionally set `hold_action: navigate` on the same chip to open the full pop-up if one exists.
 
-**Current uses:**
-
-| Chip | Helper | Chip tap | Hold |
-|---|---|---|---|
-| Thermostat | `input_boolean.mobile_show_thermostat_controls` | Toggle (show/hide) | None |
-| Vacuum | `input_boolean.mobile_show_vacuum_controls` | Toggle (show/hide) | Toggle `input_boolean.vacuum_routine_pause` |
-| Overdue reminders | `input_boolean.mobile_show_reminders` | Toggle (show/hide) | Navigate `#reminders` (full pop-up) |
+**Current uses:** none — `mobile-home` uses pop-ups for all feature detail surfaces. Chip taps navigate directly to pop-up hashes. The inline toggle pattern is documented for future use when content is compact enough that a modal overlay would feel heavy.
 
 **Half-width inline cards:** add `layout_options: {grid_columns: 2}` to each card in the inline section so the sections view renders them two-per-row.
 
@@ -387,7 +383,7 @@ The text should describe the irreversible or consequential action in plain langu
 | Inline toggle | chip + `input_boolean` + section `visibility` | Tap chip → show/hide when user intent (not state) should drive visibility |
 | State-triggered controls | `sub-buttons` card with `visibility` on entity state | Auto-shows when device is active; no chip or helper needed |
 | Footer navigation | `sub-buttons` with `footer_mode: true` | Persistent bottom nav strip; tap → room pop-up via hash |
-| Room pop-up | `pop-up` with `cards` array | Hash slug: `#area-name`; placed in dedicated section at view bottom |
+| Room pop-up | `pop-up` with `cards` array | Hash slug: `#area-name`; `popup_mode: adaptive-dialog` required; placed in dedicated section at view bottom |
 | Pop-up trigger | button `tap_action: navigate #hash` | Room tile is the trigger; no secondary trigger needed |
 | Light control (popup) | `button` (`button_type: switch`) | No sliders; hold=toggle or sub-button for power |
 | Fan control | `button` with speed sub-buttons | |

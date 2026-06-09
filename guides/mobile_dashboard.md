@@ -6,7 +6,7 @@
 
 ## Overview
 
-`mobile-home` is the primary mobile dashboard for the HA instance, built on Bubble Card as the primary card framework with Mushroom Cards retained where Bubble Card has documented gaps. It targets the iOS Companion App and aims for Apple Home-style clarity: header badges for ambient alerts at a glance, a feature-toggle chip strip, chip-driven inline panels for thermostat/vacuum/reminders, and Bubble Card pop-ups for full detail views.
+`mobile-home` is the primary mobile dashboard for the HA instance, built on Bubble Card as the primary card framework with Mushroom Cards retained where Bubble Card has documented gaps. It targets the iOS Companion App and aims for Apple Home-style clarity: header badges for ambient alerts at a glance, a feature-toggle chip strip where each chip navigates to a Bubble Card pop-up, and pop-up overlays for all feature detail views.
 
 The dashboard replaced `mobile-app` (which used Mushroom + native tile cards throughout) in June 2026. `mobile-app` is retired; `mobile-3` (Mobile 3.0) is a separate dashboard and was not affected by this migration.
 
@@ -30,22 +30,13 @@ mobile-home (storage-mode dashboard, url_path: mobile-home)
     │
     ├── [toggle chip strip — single section, no title]
     │   └── mushroom-chips-card: Thermostat, Vacuum, Reminders check/alert
-    │
-    ├── [inline panels — section-level visibility, gated on input_boolean state]
-    │   ├── Thermostat panel   visible when mobile_show_thermostat_controls = on
-    │   │   ├── Bubble Card climate card (climate.living_room_thermostat)
-    │   │   └── 4-button mode row (Home/Sleep/Away/Clear Hold)
-    │   ├── Vacuum panel       visible when mobile_show_vacuum_controls = on
-    │   │   ├── Bubble Card button with commands sub-buttons
-    │   │   └── "Vacuum Details" button → navigates to #vacuum pop-up
-    │   └── Reminders panel    visible when mobile_show_reminders = on
-    │       ├── Trash pickup card (conditional — only when pending)
-    │       └── 2-col grid of 8 overdue task cards (each conditional on overdue flag)
+    │       └── each chip tap_action → navigate to matching pop-up hash
     │
     └── [pop-up definitions — single section, no title; invisible until triggered]
-        ├── #vacuum      Vacuum detail (map, status, mop settings, consumables)
-        ├── #reminders   Full reminders (trash + all 8 tasks with green/red state)
-        └── #water-leaks Water leak sensors (4 tiles)
+        ├── #thermostat  Climate card + 4 mode buttons (Home/Sleep/Away/Clear Hold)
+        ├── #vacuum      Commands + map + status + mop settings + consumables
+        ├── #reminders   Trash + all 8 tasks with green/red state
+        └── #water-leaks 4 leak sensor tiles
 ```
 
 **Design decisions:**
@@ -54,11 +45,9 @@ mobile-home (storage-mode dashboard, url_path: mobile-home)
 
 - **Header badges for status and alerts; chip strip for feature toggles.** Status and alert chips (Alarm, Water Leak, Doors, Garage, Weather, AQI, Guest, Avery) live in the view-level `badges` array as individual `mushroom-template-badge` entries — always visible regardless of scroll position. The chip strip below handles only the three feature toggles (Thermostat, Vacuum, Reminders). This matches the design of `mobile-app` and avoids multiple chip rows.
 
-- **Inline panels over subviews for thermostat/vacuum/reminders.** A chip tap toggles an `input_boolean` helper; a section with matching visibility condition shows or hides the panel. This keeps everything on the Home view without navigation. The inline panels surface the most common actions; full detail lives in pop-ups.
+- **All feature detail surfaces are pop-ups.** Chip taps navigate directly to their pop-up hash (`#thermostat`, `#vacuum`, `#reminders`). There are no inline panels — the Home view contains only the chip strip and the pop-up definitions. Browser back, ESC, tap-outside, and swipe-down all dismiss pop-ups.
 
-- **Pop-ups over subviews for detail views.** Vacuum detail, full reminders list, and water leaks are Bubble Card `pop-up` cards (hash-triggered modal overlays) rather than `subview: true` views. Browser back, ESC, tap-outside, and swipe-down all dismiss.
-
-- **Reminders split:** the inline reminders panel shows only due/overdue items (conditional cards). Holding the reminders chip opens the `#reminders` pop-up, which shows all 8 tasks with green/red state. This provides a quick at-a-glance view of what needs attention while preserving a complete view on demand.
+- **Pop-ups over subviews for all detail views.** Thermostat, vacuum, reminders, and water leaks are all Bubble Card `pop-up` cards (hash-triggered modal overlays) rather than `subview: true` views. This simplifies the Home view to two sections: the chip strip and the pop-up block.
 
 ---
 
@@ -123,14 +112,14 @@ Set the view header config: `layout: center`, `badges_position: bottom`, `badges
 
 Add one section with no title. Place a single `mushroom-chips-card` with `alignment: center`. Apply `card_mod` for chip sizing: `--chip-height: 36px`, `--chip-padding: 0 6px` on `ha-card`; `gap: 0; justify-content: center` on `.container` via nested shadow DOM style (required to center icon-only chips on all platforms).
 
-Four chips:
+Four chips, each navigating to a pop-up hash:
 
 | Chip | Icon | Icon color | Tap | Hold |
 |---|---|---|---|---|
-| Thermostat | `mdi:home-thermometer` | Template: blue/orange/grey by hvac_action | Toggle `input_boolean.mobile_show_thermostat_controls` | None |
-| Vacuum | Template (5 states, see below) | Template (5 states) | Toggle `input_boolean.mobile_show_vacuum_controls` | Toggle `input_boolean.vacuum_routine_pause` |
-| Reminders OK | `mdi:calendar-check` | green | Toggle `input_boolean.mobile_show_reminders` | Navigate `#reminders` |
-| Reminders overdue | `mdi:calendar-alert` | red | Toggle `input_boolean.mobile_show_reminders` | Navigate `#reminders` |
+| Thermostat | `mdi:home-thermometer` | Template: blue/orange/grey by hvac_action | Navigate `#thermostat` | None |
+| Vacuum | Template (5 states, see below) | Template (5 states) | Navigate `#vacuum` | Toggle `input_boolean.vacuum_routine_pause` |
+| Reminders OK | `mdi:calendar-check` | green | Navigate `#reminders` | Navigate `#reminders` |
+| Reminders overdue | `mdi:calendar-alert` | red | Navigate `#reminders` | Navigate `#reminders` |
 
 Reminders chips are mutually exclusive `type: conditional` wrappers: the OK chip shows when `number.overdue_reminders_count` < 1; the alert chip shows when > 0 with the count as content.
 
@@ -140,9 +129,9 @@ Reminders chips are mutually exclusive `type: conditional` wrappers: the OK chip
 
 > **Icon-only chips:** omit `content` entirely. Do not set `content: ""` — an empty string allocates a text slot in the chip's flex layout and shifts the icon off-center. For entity chips, use `content_info: none`.
 
-### Step 5 — Build the thermostat inline panel
+### Step 5 — Build the thermostat pop-up
 
-Add a section with `visibility: [{condition: state, entity: input_boolean.mobile_show_thermostat_controls, state: "on"}]`.
+Bubble Card `pop-up` with `hash: "#thermostat"`. Add a section with no title at the bottom of the Home view for all pop-up definitions.
 
 - **Bubble Card climate card:** `card_type: climate`, `entity: climate.living_room_thermostat`. This is the primary thermostat control surface.
 - **Mode button row:** A `grid` card with `columns: 4`. Each cell is a `mushroom-template-card` with `layout: vertical`, icon-only, and a `tap_action` calling `select.select_option` on `select.living_room_thermostat_current_mode`. Mushroom is used here because `icon_color` must change dynamically based on which mode is active — Bubble Card button icon color templating is brittle for this pattern.
@@ -154,27 +143,9 @@ Add a section with `visibility: [{condition: state, entity: input_boolean.mobile
 | Away | `mdi:home-export-outline` | orange | = away |
 | Clear Hold | `mdi:calendar-remove` | red (always) | `button.living_room_thermostat_clear_hold` |
 
-### Step 6 — Build the vacuum inline panel
+### Step 6 — Build the vacuum detail pop-up
 
-Add a section with `visibility: [{condition: state, entity: input_boolean.mobile_show_vacuum_controls, state: "on"}]`.
-
-- **Bubble Card command button:** `card_type: button`, `entity: vacuum.roborock_q8_max`, `button_type: state`, `tap_action: none`, `hold_action: more-info`. Sub-buttons: Dock (`vacuum.return_to_base`), Locate (`vacuum.locate`), Stop (`vacuum.stop`), Start (`vacuum.start`).
-- **Details navigation button:** `card_type: button`, `entity: vacuum.roborock_q8_max`, `name: Vacuum Details`, `icon: mdi:information-outline`, `button_type: name`, `tap_action: navigate #vacuum`. Opens the full vacuum pop-up.
-
-### Step 7 — Build the reminders inline panel
-
-Add a section with `visibility: [{condition: state, entity: input_boolean.mobile_show_reminders, state: "on"}]`.
-
-The panel shows only currently actionable items (due or overdue). Each card is wrapped in a `conditional` card gated on its respective overdue flag:
-
-- **Trash card:** `conditional` on `input_boolean.trash_pickup_pending` = on. Full-width `mushroom-template-card` with green/red `icon_color` template, tap → `more-info`, hold → `input_boolean.turn_off` with confirmation.
-- **Task grid:** `grid` with `columns: 2`. Each of 8 tasks is a `conditional` wrapping a `mushroom-template-card`, visible only when `binary_sensor.<task>_overdue` = on. Mushroom is used because task cards require Jinja `icon_color` (`red` if overdue, `green` if not). Hold calls `script.reminder_mark_complete` with `data.reminder_entity` set to the task's `input_datetime` entity.
-
-> **All tasks always present in the pop-up:** the `#reminders` pop-up (built in Step 9) shows all 8 tasks without conditional wrapping — the inline panel is the "what needs attention now" view; the pop-up is the complete view.
-
-### Step 8 — Build the vacuum detail pop-up
-
-Add a section with no title at the bottom of the Home view. Place a Bubble Card `pop-up` card:
+Add all pop-up cards to the same no-title section at the bottom of the Home view. Bubble Card `pop-up` with `hash: "#vacuum"` and `popup_mode: adaptive-dialog`.
 
 ```yaml
 type: custom:bubble-card
@@ -182,13 +153,17 @@ card_type: pop-up
 hash: "#vacuum"
 name: Vacuum
 icon: mdi:robot-vacuum
+popup_mode: adaptive-dialog
 cards:
-  # Vacuum map image (conditional)
+  # Vacuum commands button (Bubble Card button, sub-buttons)
+  # Vacuum map image (conditional picture-entity)
   # Bubble Card separators as section headings
   # Status grid (native tile cards, 2 columns)
   # Mop settings (conditional on mop attached)
   # Consumables (mushroom-template-card, 4 items)
 ```
+
+> **Pop-up mode:** all Bubble Card pop-ups on this dashboard use `popup_mode: adaptive-dialog` ("Fit content" on mobile). Set this on every pop-up card — it is not the default.
 
 **Map card** — `picture-entity` on `image.roborock_q8_max_apartment`, shown when vacuum is not docked OR `input_select.vacuum_ran_today` = Yes. Apply `card_mod` to crop black padding from the Roborock map image — see `standards/dashboards.md` → card-mod Use Cases for the exact CSS.
 
@@ -222,18 +197,13 @@ Add two more Bubble Card `pop-up` cards to the same pop-up section at the bottom
 
 Triggered by tapping the water leak header badge (`tap_action: navigate #water-leaks`).
 
-### Step 10 — Panel auto-close
-
-The automation *Mobile Panel Auto-Close* (`automation.household_mobile_panel_auto_close`) turns off `input_boolean.mobile_show_thermostat_controls`, `mobile_show_vacuum_controls`, and `mobile_show_reminders` after 5 minutes of inactivity. This prevents stale open panels on the Home view. Verify the automation still references the new dashboard's input_booleans after cutover.
-
-### Step 11 — Cutover
+### Step 10 — Cutover
 
 Once the new dashboard is verified:
 
 1. Pin the iPhone Companion App to `mobile-home` via **Settings → Companion App → Dashboard**.
 2. Delete the old `mobile-app` dashboard via `ha_config_delete_dashboard(url_path="mobile-app")` (requires explicit confirmation).
 3. Delete the now-unused helper `input_boolean.mobile_show_primary_lights` (Primary Lights section not built in this migration).
-4. Verify `automation.household_mobile_panel_auto_close` still functions correctly against the new dashboard.
 
 ---
 
@@ -284,11 +254,7 @@ Once the new dashboard is verified:
 | Trash next pickup date | `input_text.trash_next_pickup_date` | Helper |
 | Vacuum ran today | `input_select.vacuum_ran_today` | Helper |
 | Vacuum routine pause | `input_boolean.vacuum_routine_pause` | Helper |
-| Show thermostat controls | `input_boolean.mobile_show_thermostat_controls` | Helper |
-| Show vacuum controls | `input_boolean.mobile_show_vacuum_controls` | Helper |
-| Show reminders | `input_boolean.mobile_show_reminders` | Helper |
 | Overdue reminders count | `number.overdue_reminders_count` | Helper |
-| Mobile panel auto-close | `automation.household_mobile_panel_auto_close` | Automation |
 | Everyone sleeping | `input_boolean.everyone_sleeping` | Helper |
 | Avery sleeping | `input_boolean.avery_sleeping` | Helper |
 | Guest mode | `input_boolean.guest_mode` | Helper |
