@@ -613,7 +613,7 @@ iCloud "Family" calendar  (subscribed read-only via Remote Calendar integration)
 
 - *`calendar.get_events` instead of template attributes.* The Family calendar contains many unrelated events. HA's calendar entity state attributes only expose the single next event, which could be any event — not necessarily a pickup event. Calling `calendar.get_events` with a tomorrow window and filtering by summary is the only reliable way to detect pickup events regardless of what else is on the calendar.
 - *Two helpers carry state across the 19:00 → 07:00 gap.* `input_boolean.trash_pickup_pending` arms when the evening notification fires and disarms when the user acks or when the critical fires. `input_text.trash_pickup_pending_label` stores the notification text from the calendar query so the 07:00 critical doesn't have to re-query. State survives HA restarts because HA restores helper state from storage.
-- *Same notification tag for both sends.* The 07:00 critical replaces (not stacks) the 18:00 notification on the lock screen. Mark Complete clears whichever is currently showing.
+- *Same notification tag for both sends.* The 07:00 critical replaces (not stacks) the 19:00 notification on the lock screen. Mark Complete clears whichever is currently showing.
 - *Pending stays armed after the critical fires.* The 07:00 critical sends the alarm but leaves the boolean on, so the dashboard chip stays visible (and red) until the user marks complete or the 09:00 cleanup fires. The cleanup turns off the boolean — the `edge_off` branch of `automation.household_pickup_mark_complete` then clears the iOS notification automatically.
 - *19:00 always writes pending state.* If no pickup is tomorrow, pending is forced off — a housekeeping gate that prevents stale pending state from a missed 07:00 run from carrying forward.
 - *TTS fires at 19:00 and repeats at 20:00 if still pending.* Both announcements check `zone.home` count before firing. No TTS escalation at 07:00 — the critical path is push-only to avoid waking the household. The 20:00 repeat shares the stored label set at 19:00, so no calendar re-query is needed.
@@ -751,7 +751,7 @@ action:
               message: "Reminder — the {{ label }} bin{{ 's' if '&' in label else '' }} still need{{ '' if '&' in label else 's' }} to go out tonight!"
 ```
 
-Assign to the **Routines** category with labels **Notification** and **Reminders**. Leave area unset.
+Assign to the **Routines** category with labels **Notification**, **text_to_speech**, and **Reminders**. Leave area unset.
 
 #### `automation.household_pickup_morning_critical`
 
@@ -867,7 +867,7 @@ Assign to the **Routines** category with labels **Notification** and **Reminders
 
 The trash pickup pending state is surfaced directly on the `mobile-app` dashboard alongside the interval-based overdue reminders:
 
-- **Chip strip trash button** — a conditional sub-button in the second row (position 7, after washer/dryer). Visible only when `input_boolean.trash_pickup_pending` is on. Icon is `mdi:trash-can` on trash-only weeks or `mdi:recycle` on combined weeks, derived from `input_text.trash_pickup_pending_label`. Color is orange (19:00–06:59, evening before pickup) or red (07:00–18:59, morning of pickup day). Secondary text shows the date from `input_text.trash_next_pickup_date`. Hold = turn off the boolean with confirmation. Tap = no action.
+- **Chip strip trash button** — a conditional sub-button in the second row (position 7, after washer/dryer). Visible only when `input_boolean.trash_pickup_pending` is on. Icon only — no text. Icon is `mdi:trash-can` on trash-only weeks or `mdi:recycle` on combined weeks, derived from `input_text.trash_pickup_pending_label`. Color is orange (19:00–06:59, evening before pickup) or red (07:00–18:59, morning of pickup day). Hold = turn off the boolean with confirmation. Tap = no action.
 - **`#reminders` pop-up** — trash is no longer shown here. The pop-up contains only the interval-based maintenance reminder cards.
 - **`number.overdue_reminders_count` template** — counts only interval-based `binary_sensor.*_overdue` sensors in `on` state. Trash pickup pending is no longer included in this count.
 
