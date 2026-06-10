@@ -135,6 +135,25 @@ The correct pattern: set `entity` at the **chip level** (not inside the action),
 
 This applies to every chip type (template, entity, action) and every action field (tap_action, hold_action, double_tap_action). If the chip needs to target an entity for more-info but has no natural `entity` association, add the `entity` key at the chip root — it does not affect non-more-info actions on the same chip.
 
+### Orphaned CSS selectors in Bubble Card `styles` strings poison the next CSS rule
+
+In Bubble Card's `styles` property (evaluated as a JavaScript template literal), a CSS selector line with no `{}` block is not ignored — the parser treats everything from the end of the previous `}` to the next `{` as a single selector. If the next actual CSS rule is `display: none !important`, that declaration is silently applied to every element matched by the orphaned selectors as well.
+
+The symptoms are specific buttons becoming invisible with no console errors and no obvious connection to the cause. The problem is easy to introduce when editing the styles string because JS expressions in the template (`${setAttribute(...)}`) also land in the selector gap, further obscuring what's happening.
+
+Example of what went wrong: the styles string had these two orphaned lines placed before `.bubble-sub-button-12 { display: none !important; }`:
+
+```
+.bubble-sub-button-6,.bubble-sub-button-7,.bubble-sub-button-10,...
+.bubble-sub-button-6 .bubble-sub-button-name-container,...
+${...JS expressions evaluated to "" ...}
+.bubble-sub-button-12 { display: none !important; }
+```
+
+The CSS parser saw `.bubble-sub-button-6,.bubble-sub-button-7,.bubble-sub-button-10,...` as part of `.bubble-sub-button-12`'s selector, applying `display: none !important` to all of them.
+
+**Fix:** ensure every CSS selector block in a `styles` string has its `{}` declarations inline. Remove any selector lines that lack one; if styling was intended for those selectors, add the `{}` block explicitly.
+
 ### HA rejects single-word custom dashboard URL paths
 
 New storage-mode dashboards require a hyphen in the `url_path`. A slug like `mobile` or `home` is rejected with `VALIDATION_INVALID_PARAMETER: url_path must contain a hyphen (-)`. Use `mobile-home`, `home-main`, etc.
