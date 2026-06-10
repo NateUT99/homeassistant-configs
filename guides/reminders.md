@@ -614,7 +614,7 @@ iCloud "Family" calendar  (subscribed read-only via Remote Calendar integration)
 - *`calendar.get_events` instead of template attributes.* The Family calendar contains many unrelated events. HA's calendar entity state attributes only expose the single next event, which could be any event — not necessarily a pickup event. Calling `calendar.get_events` with a tomorrow window and filtering by summary is the only reliable way to detect pickup events regardless of what else is on the calendar.
 - *Two helpers carry state across the 19:00 → 07:00 gap.* `input_boolean.trash_pickup_pending` arms when the evening notification fires and disarms when the user acks or when the critical fires. `input_text.trash_pickup_pending_label` stores the notification text from the calendar query so the 07:00 critical doesn't have to re-query. State survives HA restarts because HA restores helper state from storage.
 - *Same notification tag for both sends.* The 07:00 critical replaces (not stacks) the 18:00 notification on the lock screen. Mark Complete clears whichever is currently showing.
-- *Pending disarmed after the critical fires.* `automation.household_pickup_morning_critical` turns off the boolean immediately after sending, guaranteeing the critical fires at most once per cycle even if the automation runs again or HA restarts mid-morning.
+- *Pending stays armed after the critical fires.* The 07:00 critical sends the alarm but leaves the boolean on, so the dashboard chip stays visible (and red) until the user marks complete or the 09:00 cleanup fires. The cleanup turns off the boolean — the `edge_off` branch of `automation.household_pickup_mark_complete` then clears the iOS notification automatically.
 - *19:00 always writes pending state.* If no pickup is tomorrow, pending is forced off — a housekeeping gate that prevents stale pending state from a missed 07:00 run from carrying forward.
 - *TTS fires at 19:00 and repeats at 20:00 if still pending.* Both announcements check `zone.home` count before firing. No TTS escalation at 07:00 — the critical path is push-only to avoid waking the household. The 20:00 repeat shares the stored label set at 19:00, so no calendar re-query is needed.
 - *Critical alert requires iOS entitlement.* iOS will not play the critical alarm sound unless **Settings → Notifications → Home Assistant → Critical Alerts** is enabled on the device. Without this, the 07:00 notification is delivered silently if Do Not Disturb is active.
@@ -760,44 +760,61 @@ Assign to the **Routines** category with labels **Notification** and **Reminders
 ```yaml
 alias: "Household: Trash Pickup Morning Critical"
 description: >-
-  At 07:00 daily, if input_boolean.trash_pickup_pending is still on (the evening
-  reminder was not acknowledged), sends a critical iOS alarm with the stored
-  label. Disarms pending afterwards so the escalation runs at most once per
-  pickup cycle. Requires Critical Alerts entitlement on the iPhone Companion
-  app.
+  At 07:00, if trash pickup is still pending, sends a critical iOS alarm but
+  leaves the pending boolean armed so the dashboard chip stays visible (red).
+  At 09:00, if still pending, silently disarms — the mark_complete edge_off
+  then clears the iOS notification. Requires Critical Alerts entitlement on
+  the iPhone Companion app.
 mode: single
 trigger:
-  - alias: "7am daily check"
+  - id: critical
+    alias: "7am critical alarm"
     platform: time
     at: "07:00:00"
+  - id: cleanup
+    alias: "9am cleanup"
+    platform: time
+    at: "09:00:00"
 condition:
-  - alias: "Pending pickup not acknowledged"
+  - alias: "Pickup still pending"
     condition: state
     entity_id: input_boolean.trash_pickup_pending
     state: "on"
 action:
-  - alias: "Capture the stored label"
-    variables:
-      label: "{{ states('input_text.trash_pickup_pending_label') }}"
-  - alias: "Send critical iOS alarm"
-    action: notify.mobile_app_nates_iphone
-    data:
-      title: "Pickup TODAY"
-      message: "{{ label }} bin{{ 's' if 'Recycling' in label else '' }} out NOW"
-      data:
-        push:
-          sound:
-            name: default
-            critical: 1
-            volume: 1.0
-        tag: "pickup"
-        actions:
-          - action: "PICKUP_MARK_COMPLETE"
-            title: "Mark Complete"
-  - alias: "Disarm pending so this does not repeat"
-    action: input_boolean.turn_off
-    target:
-      entity_id: input_boolean.trash_pickup_pending
+  - alias: "Route by trigger"
+    choose:
+      - alias: "7am — send critical alarm, leave pending armed"
+        conditions:
+          - condition: trigger
+            id: critical
+        sequence:
+          - alias: "Capture the stored label"
+            variables:
+              label: "{{ states('input_text.trash_pickup_pending_label') }}"
+          - alias: "Send critical iOS alarm"
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: "Pickup TODAY"
+              message: "{{ label }} bin{{ 's' if '&' in label else '' }} out NOW"
+              data:
+                push:
+                  sound:
+                    name: default
+                    critical: 1
+                    volume: 1.0
+                tag: "pickup"
+                actions:
+                  - action: "PICKUP_MARK_COMPLETE"
+                    title: "Mark Complete"
+      - alias: "9am — silently disarm if still pending"
+        conditions:
+          - condition: trigger
+            id: cleanup
+        sequence:
+          - alias: "Disarm pending boolean"
+            action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.trash_pickup_pending
 ```
 
 Assign to the **Routines** category with labels **Notification** and **Reminders**. Leave area unset.
@@ -850,11 +867,11 @@ Assign to the **Routines** category with labels **Notification** and **Reminders
 
 The trash pickup pending state is surfaced directly on the `mobile-app` dashboard alongside the interval-based overdue reminders:
 
-- **Inline condition-triggered section** — the overdue reminders section (between chip strips and room tiles) uses an `or` visibility condition: it appears when `number.overdue_reminders_count > 0` **or** `input_boolean.trash_pickup_pending` is `on`. When visible due to trash, a half-width trash card shows at the top of the section. Secondary text shows the pickup date from `input_text.trash_next_pickup_date` (e.g. "Wed, Jun 11"). Hold = turn off the boolean with confirmation dialog.
-- **`#reminders` pop-up** — a dedicated "Trash Pickup" separator and full-width trash card appear at the top of the pop-up regardless of pending state. The card shows "No pickup soon" in green when pending is off, and the upcoming pickup date (from `input_text.trash_next_pickup_date`) in red when on. Hold = same turn-off action with confirmation.
-- **`number.overdue_reminders_count` template** — the overdue count helper adds `1` when `input_boolean.trash_pickup_pending` is on, so the chip strip reminder chip correctly counts and colors trash alongside interval-based overdue tasks.
+- **Chip strip trash button** — a conditional sub-button in the second row (position 7, after washer/dryer). Visible only when `input_boolean.trash_pickup_pending` is on. Icon is `mdi:trash-can` on trash-only weeks or `mdi:recycle` on combined weeks, derived from `input_text.trash_pickup_pending_label`. Color is orange (19:00–06:59, evening before pickup) or red (07:00–18:59, morning of pickup day). Secondary text shows the date from `input_text.trash_next_pickup_date`. Hold = turn off the boolean with confirmation. Tap = no action.
+- **`#reminders` pop-up** — trash is no longer shown here. The pop-up contains only the interval-based maintenance reminder cards.
+- **`number.overdue_reminders_count` template** — counts only interval-based `binary_sensor.*_overdue` sensors in `on` state. Trash pickup pending is no longer included in this count.
 
-The `edge_off` trigger on `automation.household_pickup_mark_complete` handles the dashboard-dismiss path: holding the trash card from either location turns off the boolean, which fires the trigger, which clears the iOS notification — identical outcome to tapping Mark Complete on the lock screen.
+The `edge_off` trigger on `automation.household_pickup_mark_complete` handles the dashboard-dismiss path: holding the trash chip turns off the boolean, which fires the trigger, which clears the iOS notification — identical outcome to tapping Mark Complete on the lock screen.
 
 #### Related HA Config
 
