@@ -73,8 +73,8 @@ The clear automation fires on two triggers. The push dismiss is unconditional �
 - `binary_sensor.garage_interior_door_contact` — contact sensor on the door between garage and home interior
 - `input_boolean.everyone_sleeping` — sleep state helper used to branch between TTS and push notification
 - HA Companion App installed on `notify.mobile_app_nates_iphone`
-- Nabu Casa subscription active (cloud TTS via `tts.home_assistant_cloud`)
-- `media_player.master_bedroom_homepod` — HomePod in master bedroom for wakeup announcements
+- Chime TTS active with `notify.reminder_kitchen` and `notify.reminder_master_bedroom` configured (see `guides/chime_tts.md`)
+- `script.household_tts_announce` available (created as part of Chime TTS setup)
 - `sensor.outside_feels_like_temperature` — outdoor feels-like temperature used to gate the AQI-cleared announcement
 - `sensor.apartment_temperature` — indoor temperature reference for the same comparison
 
@@ -131,7 +131,7 @@ Create Outdoor Air Quality Index Alert Clear (`automation.outdoor_air_quality_in
 | `aqi_clears` | state | `binary_sensor.outdoor_air_quality_index_high` | to: off |
 | *(no id)* | state | `binary_sensor.exterior_door_window_open` | to: off |
 
-**Action:** `choose` block with one branch for the `aqi_clears` trigger (gated on someone home, everyone awake, and outdoor feels-like below indoor temperature) → `notify.reminder_kitchen` TTS. Unconditional second action clears the push notification tag regardless of trigger (a clear on a non-existent notification is a no-op).
+**Action:** `choose` block with one branch for the `aqi_clears` trigger (gated on someone home, everyone awake, and outdoor feels-like below indoor temperature) → `script.household_tts_announce` (target: kitchen). Unconditional second action clears the push notification tag regardless of trigger (a clear on a non-existent notification is a no-op).
 
 Assign to the **Climate** category with labels **Notification**, **Text to Speech**, **Whole Home**, and **WAQI**, area **Outside**.
 
@@ -152,7 +152,7 @@ Assign to the **Climate** category with labels **Notification**, **Text to Speec
 
 ### TTS announcements use Chime TTS, not tts.speak or media_player.play_media
 
-`tts.speak` targeting HomePods fails with `miniaudio.DecodeError` (pyatv decode issue). `media_player.play_media` with `announce: true` works but delivers a bare spoken message. The correct pattern for this instance is `notify.reminder_kitchen` / `notify.reminder_master_bedroom` via the Chime TTS integration — these prepend a soft chime before speaking, making announcements easier to identify. See `guides/chime_tts.md` for setup and `LESSONS.md` for background on the pyatv failure.
+`tts.speak` targeting HomePods fails with `miniaudio.DecodeError` (pyatv decode issue). `media_player.play_media` with `announce: true` works but delivers a bare spoken message without a chime. The correct pattern for this instance is `script.household_tts_announce` — this routes to the appropriate Chime TTS service, prepends a soft chime before speaking, and handles the video call suppression check. See `guides/chime_tts.md` for the script's fields and `LESSONS.md` for background on the pyatv failure.
 
 ---
 

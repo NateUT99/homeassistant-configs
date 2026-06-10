@@ -35,7 +35,7 @@ The home alarm uses HA's built-in Manual Alarm Control Panel as the state machin
         │
         ├─ triggered branch:
         │    ├─ siren.turn_on (60s, armed_away only)
-        │    ├─ tts.speak if everyone_sleeping
+        │    ├─ script.household_tts_announce if everyone_sleeping
         │    └─ repeat every 90s (max 10):
         │         critical push naming trigger + optional snapshot image
         │         (stops early if alarm leaves triggered state)
@@ -355,13 +355,12 @@ action:
                 entity_id: input_boolean.everyone_sleeping
                 state: "on"
             then:
-              - alias: "Speak alarm alert to master bedroom HomePod"
-                action: tts.speak
-                target:
-                  entity_id: tts.home_assistant_cloud
+              - alias: "Announce alarm to master bedroom HomePod"
+                action: script.household_tts_announce
                 data:
-                  media_player_entity_id: media_player.master_bedroom_homepod
-                  message: "Alert! The home alarm has been triggered. {{ states('input_text.alarm_trigger_description') | trim }}."
+                  message: "Alert — the home alarm has been triggered. {{ states('input_text.alarm_trigger_description') | trim }}."
+                  target: master_bedroom
+                  notification_title: "Alarm Triggered"
 
           - alias: "Send critical notifications every 90s while triggered (max 10)"
             repeat:

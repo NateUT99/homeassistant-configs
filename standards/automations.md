@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.6 — June 2026*
+*Version 1.7 — June 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.7 | June 2026 | Updated TTS delivery pattern: automations call `script.household_tts_announce` instead of `notify.reminder_*` directly; updated `text_to_speech` label criterion accordingly; removed deprecated `media_player.play_media` from `notification` label criterion |
 | 1.6 | June 2026 | Added `text_to_speech` label for TTS-specific filtering alongside `notification` |
 | 1.5 | June 2026 | Added `int_home_alarm` (Home Alarm) and `waqi` (WAQI) to integration labels table |
 | 1.4 | June 2026 | Extended integration labels to non-automation entities directly enrolled in a guide-documented integration; defined the enrollment boundary (direct classification only, not transitive membership) |
@@ -81,17 +82,17 @@ Applied to every automation that sends a push notification or TTS announcement, 
 
 | Label ID | Friendly Name | When to apply |
 |---|---|---|
-| `notification` | Notification | Any automation with a `notify.*` action or a `media_player.play_media` announce action |
+| `notification` | Notification | Any automation with a `notify.*` action |
 
 #### Text to Speech label
 
 Applied to every automation that delivers a spoken TTS announcement, regardless of its primary category. Carries alongside `notification` — TTS automations should have both labels. Use `text_to_speech` to filter specifically for automations that speak, as distinct from those that only push silent notifications.
 
-TTS announcements in this instance go through the **Chime TTS** HACS integration, which prepends a chime sound before the spoken message to make announcements less jarring and easier to identify. The service targets are `notify.reminder_kitchen` and `notify.reminder_master_bedroom` (or equivalent room-specific Chime TTS services), not `tts.speak` or bare `media_player.play_media`.
+TTS announcements in this instance are delivered via `script.household_tts_announce`, which performs a video call check before routing to the appropriate Chime TTS service (`notify.reminder_kitchen` or `notify.reminder_master_bedroom`). Automations should call the script rather than the notify services directly. See `guides/chime_tts.md` for the script's fields and behavior.
 
 | Label ID | Friendly Name | When to apply |
 |---|---|---|
-| `text_to_speech` | Text to Speech | Any automation with a `notify.reminder_*` (Chime TTS) action |
+| `text_to_speech` | Text to Speech | Any automation with a `script.household_tts_announce` action |
 
 #### Device Tracker label — icon `mdi:map-marker-account`
 
