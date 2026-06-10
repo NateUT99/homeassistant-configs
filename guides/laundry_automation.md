@@ -246,27 +246,15 @@ Bubble Card `pop-up`, `hash: "#laundry"`, `popup_mode: adaptive-dialog`. Per-app
    - `primary`: "Off" / "Standby" / "Done" / current phase + progress %
    - `icon_color`: orange (running), green (alerting), grey (acknowledged or off)
 3. **Markdown card — cycle info** (state-adaptive, supports italic ETA):
-   - *Running*: Started / **End:** *Est: HH:MM AM/PM* (italic) / elapsed min · remaining min
-   - *Done*: Started / **End:** HH:MM AM/PM (plain) / "Finished X ago"
-   - *Idle + history*: "Last cycle: HH:MM → HH:MM (N min, X ago)"
+   - *Running*: **Started:** HH:MM AM (N min ago) / **End:** *HH:MM AM (N min remaining)* (time value italic — estimated)
+   - *Idle + history*: **Last cycle:** HH:MM AM → HH:MM AM (X ago) — requires cycle duration > 0 to filter uninitialized helpers
    - *Idle, no history*: card emits blank
 4. **Acknowledge button** — Bubble Card button, conditional (`status == alerting`). Calls `script.utility_room_acknowledge_laundry`. Disappears on tap.
-5. **Bubble Card separator** — "Washer Stats" / "Dryer Stats"
-6. **Stats grid** (2-column, `tile` and `mushroom-template-card`):
-
-   *Washer only:*
-   | Stat | Source |
-   |---|---|
-   | Cycles since cleaned | `sensor.washer_cycles` − `input_number.utility_room_washer_cycles_at_last_cleaning`; shows "(since onboarding)" if snapshot = 0 |
-   | Lifetime Cycles | `sensor.washer_cycles` |
-   | Energy This Month | `sensor.washer_energy_this_month` |
-   | Power | `switch.washer_power` (read-only, tap disabled) |
-
-   *Both appliances:*
-   | Stat | Source |
-   |---|---|
-   | Power | `switch.<appliance>_power` (read-only) |
-   | Last Error | `event.<appliance>_error` (conditional, hidden when state = `unknown`) |
+5. **Washer stats** (no separator; flows directly below acknowledge button):
+   - Full-width mushroom template: count (`sensor.washer_cycles` − snapshot helper), secondary "Since cleaned · Mon DD"
+   - 2-column energy grid: This Month (`sensor.washer_energy_this_month`) | Last Month (`sensor.washer_energy_last_month`)
+   - Conditional last error tile (`event.washer_error`, hidden when `unknown`)
+6. **Dryer** has no stats tiles; conditional last error tile only (`event.dryer_error`)
 
 > **Mushroom over Bubble Card for status row.** The status row uses a Mushroom template card rather than a Bubble Card button so that `icon_color` can be a Jinja template. Bubble Card icon color templating is noted as brittle for this pattern (see `guides/mobile_dashboard.md` → HACS Dependency Policy). Mushroom is the documented fallback for template-driven icon color.
 
