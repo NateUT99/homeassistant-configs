@@ -26,7 +26,7 @@ mobile-home (storage-mode dashboard, url_path: mobile-home)
     │   ├── Conditional alerts: water leak, freezer door,
     │   │   exterior doors ×2 (red/orange), garage ×3 (red/orange/green)
     │   ├── Status: Weather, AQI, Guest (always)
-    │   └── Avery sleeping (time-gated: 06:30–09:00, 20:30–22:30)
+    │   └── Avery sleeping (time-gated: 06:30–09:00 when sleeping; 20:30–22:30 when home today)
     │
     ├── [toggle chip strip — single section, no title]
     │   └── mushroom-chips-card: Thermostat, Vacuum, Reminders check/alert
@@ -105,7 +105,7 @@ Badge order and behavior:
 | Weather | Always visible | — | Dynamic icon + temp; tap → `more-info` |
 | AQI | Always visible | Template: red/accent/green by value | Value content; tap → `more-info` |
 | Guest mode | Always visible | green/grey by state | Hold → toggle; tap → none |
-| Avery sleeping | Time-gated (06:30–09:00, 20:30–22:30) | green | Hold → toggle; tap → none |
+| Avery sleeping | Morning 06:30–09:00 when `avery_sleeping` on; evening 20:30–22:30 when `avery_home_today` on AND `everyone_sleeping` off | green | Hold → toggle; tap → none |
 
 Set the view header config: `layout: center`, `badges_position: bottom`, `badges_wrap: scroll`.
 
