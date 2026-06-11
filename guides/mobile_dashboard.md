@@ -6,7 +6,7 @@
 
 ## Overview
 
-`mobile-home` is the primary mobile dashboard for the HA instance, built on Bubble Card as the primary card framework with Mushroom Cards retained where Bubble Card has documented gaps. It targets the iOS Companion App and aims for Apple Home-style clarity: header badges for ambient alerts at a glance, a feature-toggle chip strip where each chip navigates to a Bubble Card pop-up, and pop-up overlays for all feature detail views.
+`mobile-home` is the primary mobile dashboard for the HA instance, built on Bubble Card and native HA cards throughout. It targets the iOS Companion App and aims for Apple Home-style clarity: header badges for ambient alerts at a glance, a feature-toggle chip strip where each chip navigates to a Bubble Card pop-up, and pop-up overlays for all feature detail views.
 
 The dashboard replaced `mobile-app` (which used Mushroom + native tile cards throughout) in June 2026. `mobile-app` is retired; `mobile-3` (Mobile 3.0) is a separate dashboard and was not affected by this migration.
 
@@ -29,7 +29,7 @@ mobile-home (storage-mode dashboard, url_path: mobile-home)
     │   └── Avery sleeping (time-gated: 06:30–09:00 when sleeping; 20:30–22:30 when home today)
     │
     ├── [toggle chip strip — single section, no title]
-    │   └── mushroom-chips-card: Thermostat, Vacuum, Reminders check/alert
+    │   └── Bubble Card sub-buttons: Thermostat, Vacuum, Reminders (ok/alert), Washer, Dryer, Trash
     │       └── each chip tap_action → navigate to matching pop-up hash
     │
     └── [pop-up definitions — single section, no title; invisible until triggered]
@@ -42,7 +42,7 @@ mobile-home (storage-mode dashboard, url_path: mobile-home)
 
 **Design decisions:**
 
-- **Bubble Card primary; Mushroom fallback where documented.** Bubble Card provides the climate card, vacuum button, pop-up overlays, and separators. Mushroom `mushroom-chips-card` is retained for the chip strip (Bubble `sub-buttons-only` was evaluated and rejected visually). Mushroom `mushroom-template-card` is retained for reminder/consumable cards and thermostat mode buttons where Jinja `icon_color` templates are required (Bubble Card icon color templating is brittle for this use).
+- **Bubble Card primary; native HA cards for display and layout.** Bubble Card provides the climate card, vacuum button, pop-up overlays, separators, and the chip strip (`sub-buttons` card). All dynamic icon color is handled via the Bubble Card `styles` CSS-in-JS block. Native HA cards (`tile`, `grid`, `markdown`, `conditional`) are used for read-only data display. Mushroom Cards are not used anywhere in this dashboard except `mushroom-template-badge` for view-level header badges, which is an HA constraint — the `badges` array only accepts badge-type objects.
 
 - **Header badges for status and alerts; chip strip for feature toggles.** Status and alert chips (Alarm, Water Leak, Doors, Garage, Weather, AQI, Guest, Avery) live in the view-level `badges` array as individual `mushroom-template-badge` entries — always visible regardless of scroll position. The chip strip below handles only the three feature toggles (Thermostat, Vacuum, Reminders). This matches the design of `mobile-app` and avoids multiple chip rows.
 
@@ -58,8 +58,8 @@ mobile-home (storage-mode dashboard, url_path: mobile-home)
 - HACS frontend resources installed and active:
   - `bubble-card` (Bubble Card) — primary card framework
   - `bubble-card-tools` (Bubble Card Tools) — required backend for Bubble Card
-  - Mushroom Cards (`lovelace-mushroom`) — chip strips, template cards
-  - `lovelace-card-mod` (card-mod) — chip strip centering styles; vacuum map transform
+  - `lovelace-mushroom` (Mushroom Cards) — required for `mushroom-template-badge` (view-level badges only)
+  - `lovelace-card-mod` (card-mod) — vacuum map crop transform
 - Adaptive Lighting integration active (justifies no-slider rule)
 
 ---
@@ -68,7 +68,7 @@ mobile-home (storage-mode dashboard, url_path: mobile-home)
 
 ### Step 1 — Install HACS resources
 
-In the HA UI: **Settings → HACS → Frontend**. Verify `bubble-card`, `bubble-card-tools`, `lovelace-mushroom`, and `lovelace-card-mod` are installed.
+In the HA UI: **Settings → HACS → Frontend**. Verify `bubble-card`, `bubble-card-tools`, `lovelace-mushroom` (badges only), and `lovelace-card-mod` are installed.
 
 ### Step 2 — Create the dashboard
 
@@ -111,7 +111,7 @@ Set the view header config: `layout: center`, `badges_position: bottom`, `badges
 
 ### Step 4 — Build the toggle chip strip
 
-Add one section with no title. Place a single `mushroom-chips-card` with `alignment: center`. Apply `card_mod` for chip sizing: `--chip-height: 36px`, `--chip-padding: 0 6px` on `ha-card`; `gap: 0; justify-content: center` on `.container` via nested shadow DOM style (required to center icon-only chips on all platforms).
+Add one section with no title. Place a single Bubble Card `sub-buttons` card (`card_type: sub-buttons`). Chips are organized into two rows via the `bottom` sub-button group array. All visibility, icon color, and content injection is handled in the card's `styles` CSS-in-JS block — display gating uses `display: ${expr ? '' : 'none'}`, icon colors use `ha-icon { color: ... }` scoped to `.bubble-sub-button-N`, and dynamic text (temperature, count, %) is injected via `card.querySelector(...).innerText`.
 
 Six chips across two rows. Row 1 (status/alert strip): Alarm, Water Leak, Freezer Door, Doors, Garage, Weather, AQI, Guest Mode, Avery Sleeping. Row 2 (feature chips):
 
@@ -137,7 +137,7 @@ Reminders chips are mutually exclusive `type: conditional` wrappers. Washer and 
 Bubble Card `pop-up` with `hash: "#thermostat"`. Add a section with no title at the bottom of the Home view for all pop-up definitions.
 
 - **Bubble Card climate card:** `card_type: climate`, `entity: climate.living_room_thermostat`. This is the primary thermostat control surface.
-- **Mode button row:** A `grid` card with `columns: 4`. Each cell is a `mushroom-template-card` with `layout: vertical`, icon-only, and a `tap_action` calling `select.select_option` on `select.living_room_thermostat_current_mode`. Mushroom is used here because `icon_color` must change dynamically based on which mode is active — Bubble Card button icon color templating is brittle for this pattern.
+- **Mode button row:** A `grid` card with `columns: 4`. Each cell is a Bubble Card button (icon-only, `button_type: name`) with a `tap_action` calling `select.select_option` on `select.living_room_thermostat_current_mode`. Icon color is set via the `styles` block on each card.
 
 | Mode | Icon | Active color | Entity |
 |---|---|---|---|
@@ -163,7 +163,7 @@ cards:
   # Bubble Card separators as section headings
   # Status grid (native tile cards, 2 columns)
   # Mop settings (conditional on mop attached)
-  # Consumables (mushroom-template-card, 4 items)
+  # Consumables (Bubble Card buttons, 4 items)
 ```
 
 > **Pop-up mode:** all Bubble Card pop-ups on this dashboard use `popup_mode: adaptive-dialog` ("Fit content" on mobile). Set this on every pop-up card — it is not the default.
@@ -174,7 +174,7 @@ cards:
 
 **Mop Settings** — A `conditional` card wrapping both a Bubble Card separator and a 2-column grid of tiles (`select.roborock_q8_max_mop_intensity`, `select.roborock_q8_max_mop_mode`, `binary_sensor.roborock_q8_max_water_shortage`), gated on `binary_sensor.roborock_q8_max_mop_attached` = on.
 
-**Consumables** — 4 `mushroom-template-card` entries in a 2-column grid. Each shows hours remaining and uses Jinja `icon_color` (red when the maintenance binary sensor is on, green otherwise). Tap resets the consumable via `button.press` with a confirmation dialog.
+**Consumables** — 4 Bubble Card buttons in a 2-column grid. Each shows hours remaining; icon color is set via the `styles` block (red when the maintenance binary sensor is on, green otherwise). Tap resets the consumable via `button.press` with a confirmation dialog.
 
 | Consumable | Sensor | Reset button | Maintenance flag |
 |---|---|---|---|
@@ -185,7 +185,7 @@ cards:
 
 ### Step 8 — Build the laundry pop-up
 
-Add a Bubble Card `pop-up` with `hash: "#laundry"`, `popup_mode: adaptive-dialog`, `with_bottom_offset: true`. See `guides/laundry_automation.md` → Step 7b for the full per-appliance layout. The pop-up contains Washer and Dryer sections, each with: a Mushroom template card (status row with template `icon_color`), a markdown card (cycle info with italic ETA while running), a conditional Bubble Card button (Acknowledge, visible only when `status == alerting`), and a stats grid. Stats are native `tile` cards plus Mushroom template cards where Jinja templates are needed (cycles-since-cleaned, etc.).
+Add a Bubble Card `pop-up` with `hash: "#laundry"`, `popup_mode: adaptive-dialog`, `with_bottom_offset: true`. See `guides/laundry_automation.md` → Step 7b for the full per-appliance layout. The pop-up contains Washer and Dryer sections built entirely from Bubble Card and native HA cards — no Mushroom cards.
 
 The `#laundry` pop-up is triggered by tapping either the washer or dryer chip in the chip strip. It is not triggered from a room tile; there is no room tile for the utility room.
 
@@ -193,7 +193,7 @@ The `#laundry` pop-up is triggered by tapping either the washer or dryer chip in
 
 Add two more Bubble Card `pop-up` cards to the same pop-up section at the bottom of the Home view.
 
-**`#reminders` pop-up** — Full-width trash card (always visible, not conditional) + 2-column grid of all 8 task `mushroom-template-card` entries with green/red `icon_color` based on overdue status. Unlike the inline panel, no conditional wrappers — all tasks always visible with appropriate color.
+**`#reminders` pop-up** — Full-width trash card (always visible) + 2-column grid of all 8 task Bubble Card buttons with green/red icon color (via `styles` block) based on overdue status. All tasks always visible; no conditional wrappers.
 
 **`#water-leaks` pop-up** — Heading + 2-column grid of 4 native `tile` cards:
 
@@ -280,10 +280,9 @@ Once the new dashboard is verified:
 | Dryer cycle ended | `input_datetime.utility_room_dryer_cycle_ended` | Helper (input_datetime) |
 | Washer cycles at last cleaning | `input_number.utility_room_washer_cycles_at_last_cleaning` | Helper (input_number) |
 | Washer energy this month | `sensor.washer_energy_this_month` | Entity (lg_thinq) |
+| Washer energy last month | `sensor.washer_energy_last_month` | Entity (lg_thinq) |
 | Washer cycles | `sensor.washer_cycles` | Entity (lg_thinq) |
-| Washer power | `switch.washer_power` | Entity (lg_thinq) |
 | Washer last error | `event.washer_error` | Entity (lg_thinq) |
-| Dryer power | `switch.dryer_power` | Entity (lg_thinq) |
 | Dryer last error | `event.dryer_error` | Entity (lg_thinq) |
 | Acknowledge laundry | `script.utility_room_acknowledge_laundry` | Script |
 

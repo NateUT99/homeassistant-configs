@@ -20,11 +20,11 @@ The standard is viewport-agnostic. The `mobile` dashboard is the reference imple
 
 ## Core Principles
 
-- **Bubble Card is the primary card framework.** Use it for room tiles, pop-up overlays, chip strips, media, climate, separator headings, and utility controls. Reach for Mushroom or native `tile` only when Bubble Card has no equivalent or its equivalent is materially worse. Known fallback domains are documented in the HACS Dependency Policy below — reaches for fallback are always deliberate and noted at the use site.
+- **Bubble Card is the primary card framework.** Use it for room tiles, pop-up overlays, chip strips, media, climate, separator headings, and utility controls. Use native HA cards (`tile`, `grid`, `markdown`, `conditional`) for read-only data display. Do not use Mushroom Cards except for `mushroom-template-badge` in the view-level `badges` array — that is an HA constraint with no Bubble Card equivalent.
 - **Modal pop-ups replace page navigation.** Use Bubble Card pop-ups (triggered by URL hash) for all room drill-down and utility detail views. Do not use `subview: true` views. Browser back navigation, ESC, tap-outside, and swipe-down all close pop-ups.
 - **Room tiles: tap = popup, hold = toggle, sub-buttons = key devices.** Every room tile is a single Bubble Card `button` card. Tapping opens the area's modal pop-up. Holding toggles the primary light. Sub-buttons on the tile surface provide 2–4 quick-action controls for the most-used devices in that room (fan, primary media, key lights) without requiring the pop-up.
 - **No brightness or color sliders anywhere.** Adaptive Lighting manages brightness and color temperature automatically. Do not expose a slider on any room tile, pop-up, or inline card — it creates a confusing dual-control surface. The `button_type: switch` layout shows entity state color without a slider.
-- **Mushroom chips-card for chip strips.** The Home view chip strips are implemented as Mushroom `mushroom-chips-card` cards — one card per strip, stacked vertically. Bubble Card `sub-buttons-only` was evaluated and rejected: the visual output does not match the compact pill-chip style Mushroom delivers. This is a deliberate, documented fallback per the HACS Dependency Policy below.
+- **Bubble Card `sub-buttons` for chip strips.** The Home view chip strip is a single Bubble Card `sub-buttons` card. All chip visibility, icon color, and content injection is driven by the card's `styles` CSS-in-JS block.
 - **Condition-triggered sections for ambient context.** Sections can appear and disappear automatically by setting section-level `visibility` directly on an entity's state — no chip, no `input_boolean` toggle needed. Use this for content that is relevant whenever a particular state exists (e.g., overdue reminders, vacuum not docked). The chip for the same feature navigates directly to the full pop-up; the inline section just surfaces the most actionable summary automatically.
 - **Inline toggle as a manual override pattern.** A chip's `tap_action` can toggle an `input_boolean` helper (`input_boolean.show_<feature>`, initial: `false`) to show or hide a section inline on the Home view rather than opening a pop-up modal. Use when the content is compact, the user should explicitly request it, and there is no clear automatic trigger condition. Pop-ups are better for extensive content or when isolating focus from the Home view matters. Tapping the chip again dismisses the inline content. A `hold_action` on the same chip can navigate to the full pop-up if one exists.
 - **Theming via Bubble Card CSS variables.** Centralize all visual tokens (border radius, accent color, blur, sub-button spacing) in global Bubble Card CSS variable overrides. Bubble Neon provides the base visual language. card-mod is retained for narrow CSS cases that global variables don't reach (currently: vacuum map image transforms).
@@ -45,17 +45,13 @@ Approved frontend resources:
 | Bubble Weather | Weather icon templating module | Deferred |
 | Bubble Neon | Visual theme / CSS variable baseline | Deferred |
 | card-mod | CSS overrides where Bubble Card global variables don't reach | Narrow use |
-| Mushroom Cards | Fallback for specific capability gaps | Fallback only |
+| Mushroom Cards | `mushroom-template-badge` for view-level badges only | Narrow use — HA constraint |
 
-**Mushroom Cards fallback — documented gaps today:**
+**Mushroom Cards — sole approved use:**
 
-| Gap | Mushroom card | When to use |
-|---|---|---|
-| Chip strip visual style | `mushroom-chips-card` | Home view chip strips; Bubble Card `sub-buttons-only` evaluated and rejected visually |
-| Jinja `icon_color` template where Bubble Card JS template is brittle | `mushroom-template-card` | Reminder cards, vacuum consumables |
-| Light color-picker UX not yet matched by Bubble Card | `mushroom-light-card` | Explicit color-picking UI, if needed |
+`mushroom-template-badge` in the view-level `badges` array. HA's badge row only accepts badge-type objects; Bubble Card cards placed there are silently dropped. This is a platform constraint, not a capability gap. All other Mushroom card types (`mushroom-chips-card`, `mushroom-template-card`, `mushroom-light-card`) are not used on this dashboard.
 
-Document every Mushroom fallback use at the card use site (inline comment or guide note). Do not introduce new fallback gaps without updating this table.
+Dynamic icon color previously cited as a reason to use `mushroom-template-card` is handled via the Bubble Card `styles` CSS-in-JS block instead.
 
 Do not introduce additional HACS frontend resources without an explicit decision.
 
@@ -82,7 +78,7 @@ Every dashboard's primary view is titled **Home**, uses `type: sections` and `ma
 
 **Sections, in this order:**
 
-1. **Chip strips** — no section title; one `mushroom-chips-card` per strip stacked vertically
+1. **Chip strip** — no section title; one Bubble Card `sub-buttons` card
 2. **Condition-triggered sections** — no section titles; section-level `visibility` gated on entity state (e.g., overdue count, vacuum state); appear automatically when relevant, otherwise zero-height
 3. **Room tiles** — all rooms in a single section with no title; a Bubble Card `separator` card at the top acts as the visible heading. Do not use per-room sections — the `sections` view type renders a large top margin above each section heading, making per-room sections visually noisy.
 4. **Pop-up definitions** — one section per area at the bottom of the view; these render invisibly until triggered by their hash
@@ -179,7 +175,7 @@ cards:
 
 ## Status Chip System
 
-The chip strip section at the top of the Home view uses stacked Mushroom `mushroom-chips-card` cards — one card per strip, stacked vertically. Each chip card uses `alignment: center` and `card_mod` to set chip height (`--chip-height: 30px`) and padding (`--chip-padding: 0 6px`). Chips use `type: conditional` wrappers for visibility and Jinja templates for `icon_color`.
+The chip strip at the top of the Home view is a single Bubble Card `sub-buttons` card. Chip visibility, icon color, and content injection are all driven by the card's `styles` CSS-in-JS block: visibility via `display: ${expr ? '' : 'none'}`, icon color via `.bubble-sub-button-N > ha-icon { color: ... }`, and dynamic text via `card.querySelector(...).innerText`.
 
 **Two strips organized by function:**
 
@@ -188,7 +184,7 @@ The chip strip section at the top of the Home view uses stacked Mushroom `mushro
 | 1 | Controls | Interactive chips — navigate to views or popups | Always visible: Weather, Alarm, Thermostat, Vacuum, Reminders |
 | 2 | Status & Modes | Status indicators and conditional alert chips | 2 anchored (AQI, Guest) + conditional chips |
 
-**Sub-button visibility conditions:** use the Bubble Card `visibility` property on each sub-button with the same condition logic used for Mushroom chips. `state_not: "off"` for binary sensors (conservative default — surfaces `unknown` as alert).
+**Sub-button visibility conditions:** controlled via the `styles` CSS-in-JS block using `display: none`. `state_not: "off"` logic for binary sensors (conservative default — surfaces `unknown` as alert).
 
 **Alert chip coloring:** use the Bubble Card JS template system or `icon_color` field for red/orange/green color logic. Do not rely on entity-class default colors for alert chips — explicit color control is required for correct behavior when the entity is in `unknown` or `unavailable` state.
 
@@ -377,8 +373,8 @@ The text should describe the irreversible or consequential action in plain langu
 |---|---|---|
 | Room tile | `button` (`button_type: switch`) | tap=popup, hold=toggle; sub-buttons for key devices |
 | Utility tile | `button` (`button_type: name` or `state`) | tap=popup; sub-buttons for status readouts |
-| Chip strip | Mushroom `mushroom-chips-card` | One card per strip; `type: conditional` wrappers for visibility; Bubble Card `sub-buttons-only` rejected visually |
-| Alert chip | Mushroom chip with explicit `icon_color` | Not entity-class color — explicit red/green/orange required |
+| Chip strip | Bubble Card `sub-buttons` | Single card; visibility/color/content via `styles` CSS-in-JS block |
+| Alert chip | `sub-buttons` chip with explicit icon color in `styles` | Not entity-class color — explicit red/green/orange required |
 | Condition-triggered section | Section with `visibility` on entity state | Auto-appears based on house state; no chip or helper; preferred over inline toggle |
 | Inline toggle | chip + `input_boolean` + section `visibility` | Tap chip → show/hide when user intent (not state) should drive visibility |
 | State-triggered controls | `sub-buttons` card with `visibility` on entity state | Auto-shows when device is active; no chip or helper needed |
@@ -390,8 +386,8 @@ The text should describe the irreversible or consequential action in plain langu
 | Climate control | Bubble Card `climate` card | Fallback to native `tile` with hvac-modes feature if climate card lacks needed UX |
 | Media control | Bubble Card `media-player` card | |
 | Vacuum controls | `button` with command sub-buttons | |
-| Reminder card | `button` or Mushroom `mushroom-template-card` fallback | Template `icon_color` for overdue state |
-| Vacuum consumables | `button` or Mushroom `mushroom-template-card` fallback | Template `icon_color` for maintenance-due state |
+| Reminder card | Bubble Card `button` with `styles` block | Icon color for overdue state via CSS-in-JS |
+| Vacuum consumables | Bubble Card `button` with `styles` block | Icon color for maintenance-due state via CSS-in-JS |
 | Map image crop/zoom | `picture-entity` with `card_mod` | `ha-card {padding:0; overflow:hidden}` + `hui-image {transform:scale/translate; margin:-12% 0}` |
 | Separator heading | `separator` | Within pop-up or between inline sections |
 | Confirmation dialog | `confirmation: {text: "..."}` | Never bare `confirmation: true` |

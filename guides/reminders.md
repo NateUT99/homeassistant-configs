@@ -131,10 +131,10 @@ In `automation.household_reminder_notifications`, add `binary_sensor.<key>_overd
 
 **6. Add the task card to the mobile dashboard**
 
-New tasks must be added to two places in the `mobile-app` dashboard:
+New tasks must be added to two places in the `mobile-home` dashboard:
 
-- **`#reminders` pop-up** — add a `mushroom-template-card` inside the pop-up's 2-column grid. Match the format of existing cards: `icon_color` Jinja template (red if overdue, green if not), `secondary` using `strptime().strftime('%b %-d, %Y')`, tap = `more-info` on `input_datetime.<key>`, hold = `script.reminder_mark_complete` with `data.reminder_entity` and a confirmation dialog.
-- **Inline overdue section** — add a `type: conditional` card (gated on `binary_sensor.<key>_overdue` state `on`) wrapping a `mushroom-template-card` with `layout_options: {grid_columns: 2}`. The icon is always red here (the card only appears when overdue). Hold action is the same `script.reminder_mark_complete` call.
+- **`#reminders` pop-up** — add a Bubble Card `button` inside the pop-up's 2-column grid. Match the format of existing cards: icon color via the `styles` block (red if overdue, green if not), due date in `name`, tap = `more-info` on `input_datetime.<key>`, hold = `script.reminder_mark_complete` with `data.reminder_entity` and a confirmation dialog.
+- **Inline overdue section** — add a `type: conditional` card (gated on `binary_sensor.<key>_overdue` state `on`) wrapping a Bubble Card `button`. The icon is always red here (the card only appears when overdue). Hold action is the same `script.reminder_mark_complete` call.
 
 The hold action pattern is identical in both locations:
 
