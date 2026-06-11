@@ -285,6 +285,8 @@ Once the new dashboard is verified:
 | Washer last error | `event.washer_error` | Entity (lg_thinq) |
 | Dryer last error | `event.dryer_error` | Entity (lg_thinq) |
 | Acknowledge laundry | `script.utility_room_acknowledge_laundry` | Script |
+| Office bourbon lamp fireplace toggle | `script.office_bourbon_lamp_fireplace_toggle` | Script |
+| Office desk height toggle | `script.office_toggle_desk_height` | Script |
 
 ---
 
