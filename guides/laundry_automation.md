@@ -242,21 +242,21 @@ Each appliance gets one sub-button in the chip strip's feature row (alongside th
 Bubble Card `pop-up`, `hash: "#laundry"`, `popup_mode: adaptive-dialog`. Per-appliance layout repeated twice (Washer then Dryer):
 
 1. **Bubble Card separator** — appliance name heading
-2. **Mushroom template card — status row** (always visible):
-   - `primary`: "Off" / "Standby" / "Done" / current phase + progress %
-   - `icon_color`: orange (running), green (alerting), grey (acknowledged or off)
-3. **Markdown card — cycle info** (state-adaptive, supports italic ETA):
-   - *Running*: **Started:** HH:MM AM (N min ago) / **End:** *HH:MM AM (N min remaining)* (time value italic — estimated)
+2. **Bubble Card button — status row** (`button_type: slider`, entity: `sensor.utility_room_<appliance>_progress`):
+   - Slider fill tracks cycle completion (0–100 %); `state_display` Jinja shows phase name ("Off" / "Standby" / "Running" / "Done")
+   - Icon color via `styles` block: orange (running), green (alerting), grey (acknowledged or off)
+   - **Acknowledge sub-button** (`mdi:check-bold`, `perform-action: script.turn_on` with `appliance` field): hidden via `styles` unless `status == alerting`
+   - **Progress % sub-button** (entity: `sensor.utility_room_<appliance>_progress`, `show_state: true`): hidden unless running
+3. **Markdown card — cycle info** (state-adaptive):
+   - *Running*: **Started:** HH:MM AM (N min ago) / *__End:__ HH:MM AM (N min remaining)* (whole line italic — estimated)
+   - *Done*: **Started:** HH:MM AM / **End:** HH:MM AM (finished X ago)
    - *Idle + history*: **Last cycle:** HH:MM AM → HH:MM AM (X ago) — requires cycle duration > 0 to filter uninitialized helpers
    - *Idle, no history*: card emits blank
-4. **Acknowledge button** — Bubble Card button, conditional (`status == alerting`). Calls `script.utility_room_acknowledge_laundry`. Disappears on tap.
-5. **Washer stats** (no separator; flows directly below acknowledge button):
-   - Full-width mushroom template: count (`sensor.washer_cycles` − snapshot helper), secondary "Since cleaned · Mon DD"
+4. **Washer stats** (no separator; flows directly below the status card):
+   - Full-width Bubble Card button: `state_display` = cycles since cleaned (`sensor.washer_cycles` − snapshot) + last cleaning date; `name` = "Since cleaned"
    - 2-column energy grid: This Month (`sensor.washer_energy_this_month`) | Last Month (`sensor.washer_energy_last_month`)
    - Conditional last error tile (`event.washer_error`, hidden when `unknown`)
-6. **Dryer** has no stats tiles; conditional last error tile only (`event.dryer_error`)
-
-> **Mushroom over Bubble Card for status row.** The status row uses a Mushroom template card rather than a Bubble Card button so that `icon_color` can be a Jinja template. Bubble Card icon color templating is noted as brittle for this pattern (see `guides/mobile_dashboard.md` → HACS Dependency Policy). Mushroom is the documented fallback for template-driven icon color.
+5. **Dryer** has no stats tiles; conditional last error tile only (`event.dryer_error`)
 
 ---
 
@@ -280,6 +280,8 @@ Bubble Card `pop-up`, `hash: "#laundry"`, `popup_mode: adaptive-dialog`. Per-app
 | Washer cycle ended | `input_datetime.utility_room_washer_cycle_ended` | Helper (input_datetime) |
 | Dryer cycle started | `input_datetime.utility_room_dryer_cycle_started` | Helper (input_datetime) |
 | Dryer cycle ended | `input_datetime.utility_room_dryer_cycle_ended` | Helper (input_datetime) |
+| Washer energy this month | `sensor.washer_energy_this_month` | Entity (lg_thinq) |
+| Washer energy last month | `sensor.washer_energy_last_month` | Entity (lg_thinq) |
 | Washer cycles at last cleaning | `input_number.utility_room_washer_cycles_at_last_cleaning` | Helper (input_number) |
 | Washer status manager | `automation.utility_room_washer_status_manager` | Automation |
 | Dryer status manager | `automation.utility_room_dryer_status_manager` | Automation |
