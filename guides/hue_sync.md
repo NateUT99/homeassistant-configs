@@ -1,5 +1,5 @@
 # Hue Sync & TV Bias Lighting
-*Last updated: May 2026 (rev 2)*
+*Last updated: June 2026 (rev 3)*
 
 The canonical document for the Living Room TV bias lighting and Hue Sync Box automation system.
 
@@ -101,6 +101,8 @@ Brightness is a separate matter: currently 40% (tuned May 2026). Brightness adap
 2. Else if HDMI input is **Apple TV** → video profile
 3. Else if HDMI input is **Playstation 5** → game profile
 
+Movie mode also suppresses the Mode Configurator's fan brightness override. When `movie_mode` is on, the fan's brightness is left to AL sleep mode — the 40% video profile level is not applied. Other automations (e.g. the AppleTV playback light) expect AL sleep mode to own the fan when movie mode is active; imposing a fixed brightness on top of sleep mode creates conflicts.
+
 Movie mode is also referenced by other automations in the home, so it's a general-purpose intent flag rather than a TV-specific helper. It is cleared automatically when the TV turns off.
 
 #### 6. Mode Configurator re-evaluates on four event types
@@ -121,6 +123,8 @@ The `fan_turned_on` trigger also closes a gap in the fan guard (see design decis
 The Mode Configurator does not unconditionally turn on `light.living_room_fan` when applying a profile. Each profile's `light.turn_on` is wrapped in an `if: fan is on` guard — if the fan is off when sync starts (or when a profile is re-applied due to input or movie mode change), the fan stays off.
 
 This guard alone creates a gap: if the user turns the fan on mid-sync, it would come on at AL brightness rather than the profile's dim level. The `fan_turned_on` trigger fills this gap — any time the fan turns on while sync is active, the Mode Configurator re-runs profile selection and applies the correct brightness.
+
+**Movie mode exception:** when `movie_mode` is on, the fan brightness override is skipped entirely — both on profile application and on the `fan_turned_on` path. AL sleep mode owns the fan's brightness in movie mode. See design decision #5 for the rationale.
 
 A 1-second `transition` on all fan `light.turn_on` calls softens the brightness adjustment to avoid a harsh snap correction when the fan turns on at the wrong level before the configurator can react.
 
@@ -181,7 +185,7 @@ Used for Apple TV input, any input when `movie_mode` is on, and unknown inputs (
 | Sync box `brightness` | `50` | Conservative — bright enough to be visible, low enough not to distract during dark scenes. |
 | Sync box `intensity` | `high` | Smooth transitions appropriate to film. |
 | Sync box `mode` | `video` | Sync box's video processing mode. |
-| Living Room Fan `brightness_pct` | `40` | Midpoint of prior 25–50% AL clamp. Fan dims without going too dark for viewing. |
+| Living Room Fan `brightness_pct` | `40` | Midpoint of prior 25–50% AL clamp. Fan dims without going too dark for viewing. Skipped when `movie_mode` is on — AL sleep mode owns fan brightness in that case. |
 | Fan `transition` | `1s` | Softens the dim to avoid a harsh snap correction when the fan turns on mid-sync. |
 
 #### Game Profile
