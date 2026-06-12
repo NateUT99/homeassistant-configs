@@ -286,7 +286,6 @@ Once the new dashboard is verified:
 | Dryer last error | `event.dryer_error` | Entity (lg_thinq) |
 | Acknowledge laundry | `script.utility_room_acknowledge_laundry` | Script |
 | Office bourbon lamp fireplace toggle | `script.office_bourbon_lamp_fireplace_toggle` | Script |
-| Office desk height toggle | `script.office_toggle_desk_height` | Script |
 | Office accent scene selector | `input_select.office_accent_scene` | Helper (input_select) |
 
 ---
