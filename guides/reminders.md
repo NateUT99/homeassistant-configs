@@ -26,11 +26,10 @@ Two shared automations handle every reminder centrally. Per-item configuration i
 ```
 input_datetime.<key>       input_number.<key>_offset
         └──────┬───────────────────┘
-               ▼ (template sensor, reactive)
-   sensor.<key>_due
-               ▼
-  binary_sensor.<key>_overdue   (template helper: today() >= due)
-               │
+               ├──────────────────────────────────────────┐
+               ▼ (template sensor, reactive)               ▼ (template helper, computes independently)
+   sensor.<key>_due                          binary_sensor.<key>_overdue   (today() >= due)
+   (formatted display string)                              │
   off edge ────┘    09:00 daily time trigger
                      │
                      ▼
@@ -58,7 +57,8 @@ input_datetime.<key>       input_number.<key>_offset
 - *All notifications send at 09:00.* The daily time trigger is the only send path. No edge-on trigger means no midnight pings when the date rolls over. The `edge_off` trigger remains so the lock-screen notification clears immediately when a reminder is marked complete.
 - *Tag-based notification lifecycle.* Each reminder's notification carries a stable `reminder_<key>` tag. The daily re-send replaces (not stacks) the on-screen notification; the clear path uses the same tag. iOS lock screen never accumulates duplicates.
 - *Action ID encodes the input_datetime key.* The `REMINDER_MARK_COMPLETE_<key>` action ID doubles as the `input_datetime` entity name suffix. The handler parses it at runtime, requiring no lookup table and routing any reminder with one automation.
-- *Due date is a reactive template sensor.* `sensor.<key>_due` computes `last-done + offset` as a template. It updates the moment either `input_datetime.<key>` or `input_number.<key>_offset` changes — no automation needed to keep it in sync.
+- *Due date sensor returns a formatted display string.* `sensor.<key>_due` computes `last-done + offset` and outputs the result as a human-readable string (e.g., `June 15, 2026`) rather than an ISO date. This is the value shown directly on dashboard cards — no card-level template evaluation needed. The sensor has no `device_class` set; HA cards show the raw state string as-is.
+- *Binary sensor computes the due date independently.* `binary_sensor.<key>_overdue` does not read `sensor.<key>_due` — it recomputes the due date directly from `input_datetime.<key>` and `input_number.<key>_offset`. This decouples the overdue logic from the display format: if the sensor's output format ever changes, the binary sensor comparison is unaffected.
 
 ### Prerequisites
 
@@ -106,10 +106,10 @@ Entity ID: `input_number.<key>_offset`.
 | Field | Value |
 |---|---|
 | Name | `<Object> <Action> Due` |
-| Template | `{{ (strptime(states('input_datetime.<key>'), '%Y-%m-%d') + timedelta(days=states('input_number.<key>_offset') \| int)).strftime('%Y-%m-%d') }}` |
-| Device class | Date |
+| Template | `{{ (strptime(states('input_datetime.<key>'), '%Y-%m-%d') + timedelta(days=states('input_number.<key>_offset') \| int)).strftime('%B %-d, %Y') }}` |
+| Device class | (leave blank) |
 
-Entity ID: `sensor.<key>_due`. The sensor updates reactively whenever either input changes — no automation needed.
+Entity ID: `sensor.<key>_due`. Returns a formatted string like `June 15, 2026`. No `device_class` — the state is a display string, not a machine-readable date. The sensor updates reactively whenever either input changes — no automation needed.
 
 **4. Create the overdue binary sensor**
 
@@ -118,7 +118,7 @@ Entity ID: `sensor.<key>_due`. The sensor updates reactively whenever either inp
 | Field | Value |
 |---|---|
 | Name | `<Object> <Action> Overdue` |
-| Template | `{{ now().date() >= strptime(states('sensor.<key>_due'), '%Y-%m-%d').date() }}` |
+| Template | `{{ now().date() >= (strptime(states('input_datetime.<key>'), '%Y-%m-%d') + timedelta(days=states('input_number.<key>_offset') \| int)).date() }}` |
 | Device class | Problem |
 
 Entity ID: `binary_sensor.<key>_overdue`. HA sets it `on` when the template evaluates to `True`.
@@ -133,7 +133,7 @@ In `automation.household_reminder_notifications`, add `binary_sensor.<key>_overd
 
 New tasks must be added to two places in the `mobile-home` dashboard:
 
-- **`#reminders` pop-up** — add a Bubble Card `button` inside the pop-up's 2-column grid. Match the format of existing cards: icon color via the `styles` block (red if overdue, green if not), due date in `name`, tap = `more-info` on `input_datetime.<key>`, hold = `script.reminder_mark_complete` with `data.reminder_entity` and a confirmation dialog.
+- **`#reminders` pop-up** — add a Bubble Card `button` inside the pop-up's 2-column grid. Use `entity: sensor.<key>_due` — the sensor state is the formatted due date shown directly on the card. Icon color via the `styles` block (red if overdue, green if not), tap = `more-info`, hold = `script.reminder_mark_complete` with `data.reminder_entity: input_datetime.<key>` and a confirmation dialog.
 - **Inline overdue section** — add a `type: conditional` card (gated on `binary_sensor.<key>_overdue` state `on`) wrapping a Bubble Card `button`. The icon is always red here (the card only appears when overdue). Hold action is the same `script.reminder_mark_complete` call.
 
 The hold action pattern is identical in both locations:
@@ -336,7 +336,7 @@ The eight household maintenance reminders currently configured follow the interv
 |---|---|---|---|
 | Accord Washed | `input_datetime.accord_washed` | `input_datetime` | Last-done date (user-sets to mark complete) |
 | Accord Washed Offset | `input_number.accord_washed_offset` | `input_number` | 30 days |
-| Accord Washed Due | `sensor.accord_washed_due` | `sensor` (template, date) | `(last-done + 30 days)` computed reactively |
+| Accord Washed Due | `sensor.accord_washed_due` | `sensor` (template) | `(last-done + 30 days)` as formatted string, e.g. `March 19, 2026` |
 | Accord Washed Overdue | `binary_sensor.accord_washed_overdue` | `binary_sensor` (template) | `on` when today >= due |
 
 ### Related HA Config
