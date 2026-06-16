@@ -6,7 +6,7 @@
 
 ## Overview
 
-The home alarm uses HA's built-in Manual Alarm Control Panel as the state machine and two automations to handle perimeter detection and notifications. When the alarm is armed and a monitored sensor opens — an exterior door, window, garage door, or person detected by the kitchen camera — the perimeter trigger automation records what fired, optionally saves a camera snapshot, and trips the panel. The notification automation reacts to the panel's state changes: sending critical iOS pushes naming the specific trigger, engaging the Reolink camera siren when no one is home, and sending an immediate follow-up with a camera image if a person is subsequently detected while the alarm is active.
+The home alarm uses HA's built-in Manual Alarm Control Panel as the state machine and two automations to handle perimeter detection and notifications. When the alarm is armed and a monitored sensor opens — an exterior door, window, garage door, or person detected by the kitchen camera — the perimeter trigger automation records what fired, optionally saves a camera snapshot, and trips the panel. The notification automation reacts to the panel's state changes: when the alarm enters the 60-second pending (entry delay) countdown, it sends a critical iOS push with a Disarm action button — tapping it disarms from the phone without entering the alarm code. If the delay expires without a response, the alarm triggers and the notification automation sends critical pushes naming the specific trigger, engages the Reolink camera siren when no one is home, and sends an immediate follow-up with a camera image if a person is subsequently detected while the alarm is active.
 
 ---
 
@@ -27,9 +27,23 @@ The home alarm uses HA's built-in Manual Alarm Control Panel as the state machin
                        │
                        ▼
          alarm_control_panel.home_alarm
-           state: triggered
+           state: pending (60s entry delay — armed_away only)
                        │
                        ▼
+   automation.household_alarm_state_notifications (pending branch)
+        │   critical push: "⚠️ Alarm Pending — <trigger>. Tap to disarm."
+        │   action button: Disarm (authenticationRequired: true)
+        │   wait_for_trigger up to 60s:
+        │     ├─ mobile_app_notification_action (DISARM_ALARM) →
+        │     │    alarm_control_panel.alarm_disarm → state: disarmed
+        │     └─ alarm leaves pending (timeout or keypad entry) → no-op
+        │
+        └─ (on timeout) ──────────────────────────────────────────────┐
+                                                                       ▼
+                                             alarm_control_panel.home_alarm
+                                               state: triggered
+                                                       │
+                                                       ▼
    automation.household_alarm_state_notifications
         │   (mode: parallel, max: 3)
         │
@@ -59,6 +73,8 @@ The home alarm uses HA's built-in Manual Alarm Control Panel as the state machin
 
 - *Two-automation split.* The perimeter trigger writes context before tripping the panel; the notification automation reads it after the state change. This is more reliable than merging — if both lived in one automation, the notification branch would read state that the trigger branch had already mutated. (See LESSONS.md.)
 - *`input_text` as the context bridge.* `input_text.alarm_trigger_description` carries the human-readable trigger name between automations. Synchronous HA service calls ensure the helper is written before the panel state transitions.
+- *`wait_for_trigger` bounds the pending disarm action.* The pending branch uses `wait_for_trigger` (not a separate automation) to listen for the `DISARM_ALARM` notification action. A standalone automation listening for that event would respond to any stale notification indefinitely — an old pending alert could disarm a freshly armed system hours later. The `wait_for_trigger` expires when the alarm leaves pending, so the action is only live during the actual entry delay window.
+- *Pending is armed_away only.* `armed_night` has `delay_time: 0` in `configuration.yaml`, so the panel never enters `pending` from that mode — it goes directly to `triggered`. The pending branch is a dead code path for armed night.
 - *Snapshot at trigger time, not notification delivery time.* `camera.snapshot` runs immediately when person detection fires or when a follow-up detection occurs while triggered. The static file `/config/www/snapshots/alarm_latest.jpg` is what iOS fetches when the notification arrives — not a live proxy.
 - *Siren gated on prior arm state.* The notification automation checks `trigger.from_state.state == 'armed_away'` to decide whether to activate the siren. Armed away = no one home = siren appropriate. Armed night = someone sleeping = no siren.
 - *Person follow-up deduplication.* If person detection was the original trigger, `input_text.alarm_trigger_description` already contains "Person Detected". The `person_while_triggered` branch skips itself in that case to avoid a duplicate notification.
@@ -101,6 +117,10 @@ The `/config/www/` path is served by HA at `/local/`. A file at `/config/www/sna
 | Friendly name | Home Alarm |
 | `code_format` | `number` |
 | `code_arm_required` | `false` (arm without code; disarm requires code) |
+| `disarm_after_trigger` | `false` (alarm stays armed after triggering) |
+| `arming_time` | `30` seconds |
+| `delay_time` | `60` seconds (pending window for armed_away; `armed_night` overrides to 0) |
+| `trigger_time` | `300` seconds |
 | Supported features | 14 (arm_away, arm_home/night, trigger) |
 | Disarm code | `!secret alarm_code` |
 
@@ -110,19 +130,24 @@ Typical `configuration.yaml` stanza for reference:
 alarm_control_panel:
   - platform: manual
     name: Home Alarm
+    unique_id: home_alarm_system
     code: !secret alarm_code
     code_arm_required: false
+    disarm_after_trigger: false
     arming_time: 30
-    delay_time: 30
+    delay_time: 60
     trigger_time: 300
+    arming_states:
+      - armed_away
+      - armed_night
     disarmed:
       trigger_time: 0
-    armed_home:
+    armed_night:
       arming_time: 0
       delay_time: 0
 ```
 
-> **Coordinated change:** If arming/delay/trigger times change in `configuration.yaml`, update this stanza to match.
+> **Coordinated change:** `delay_time: 60` is the pending window for armed_away. The `wait_for_trigger` timeout in `automation.household_alarm_state_notifications` (pending branch) is set to 60 seconds to match. If `delay_time` changes in `configuration.yaml`, update both this stanza and the `timeout: seconds:` value in the pending branch.
 
 ---
 
@@ -264,6 +289,8 @@ Assign to the **Security** category with labels **Home Alarm** and **Whole Home*
 *Friendly name: Household: Alarm State Notifications*
 
 Reacts to alarm panel state changes. All alarm notifications share the `home_alarm` tag so each new state replaces the previous notification — no stacking except for the `home_alarm_person` follow-up tag.
+
+The `pending` branch (armed_away only) fires immediately when the entry delay countdown begins, sending a critical actionable push with a Disarm button. It waits up to 60 seconds (`delay_time`) for the user to tap Disarm from their iPhone (Face ID required); if tapped, it calls `alarm_control_panel.alarm_disarm`. If the delay expires or the user enters the code at a keypad, the wait exits and the alarm transitions naturally.
 
 The `triggered` branch starts the siren (armed_away only) and runs a critical-push loop every 90 seconds. The `person_while_triggered` branch fires independently on person detection while the alarm is active, sending a fresh snapshot immediately. The `disarmed` branch stops the siren and clears the notification.
 
