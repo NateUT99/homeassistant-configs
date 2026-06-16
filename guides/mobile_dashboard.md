@@ -111,7 +111,7 @@ Set the view header config: `layout: center`, `badges_position: bottom`, `badges
 
 ### Step 4 — Build the toggle chip strip
 
-Add one section with no title. Place a single Bubble Card `sub-buttons` card (`card_type: sub-buttons`). Chips are organized into two rows via the `bottom` sub-button group array. All visibility, icon color, and content injection is handled in the card's `styles` CSS-in-JS block — display gating uses `display: ${expr ? '' : 'none'}`, icon colors use `ha-icon { color: ... }` scoped to `.bubble-sub-button-N`, and dynamic text (temperature, count, %) is injected via `card.querySelector(...).innerText`.
+Add one section with no title. Place a single Bubble Card `sub-buttons` card (`card_type: sub-buttons`). Chips are organized into two rows via the `bottom` sub-button group array. Conditional chip visibility is handled via native Lovelace `visibility` conditions on each sub-button — not CSS `display` toggling. Icon color and dynamic text (temperature, count, %) are handled in the card's `styles` CSS-in-JS block: icon colors use `ha-icon { color: ... }` scoped to `.bubble-sub-button-N`, and text is injected via `card.querySelector(...).innerText`. The Avery sleeping chip uses `binary_sensor.avery_sleep_reminder` (a template binary sensor) as its visibility entity, which encapsulates the morning and evening time-window logic server-side.
 
 Six chips across two rows. Row 1 (status/alert strip): Alarm, Water Leak, Freezer Door, Doors, Garage, Weather, AQI, Guest Mode, Avery Sleeping. Row 2 (feature chips):
 
@@ -193,7 +193,7 @@ The `#laundry` pop-up is triggered by tapping either the washer or dryer chip in
 
 Add two more Bubble Card `pop-up` cards to the same pop-up section at the bottom of the Home view.
 
-**`#reminders` pop-up** — Full-width trash card (always visible) + 2-column grid of all 8 task Bubble Card buttons with green/red icon color (via `styles` block) based on overdue status. All tasks always visible; no conditional wrappers.
+**`#reminders` pop-up** — Full-width trash card (always visible) + 2-column grid of all 8 task Bubble Card buttons with green/red icon color (via `styles` block) based on overdue status. All tasks always visible; no conditional wrappers. Tap = none; hold on the card body = `script.reminder_mark_complete` — set via `button_action.hold_action`, not the top-level `hold_action` (which binds to the icon area, not the card body).
 
 **`#water-leaks` pop-up** — Heading + 2-column grid of 4 native `tile` cards:
 
@@ -266,6 +266,7 @@ Once the new dashboard is verified:
 | Overdue reminders count | `number.overdue_reminders_count` | Helper |
 | Everyone sleeping | `input_boolean.everyone_sleeping` | Helper |
 | Avery sleeping | `input_boolean.avery_sleeping` | Helper |
+| Avery sleep reminder (chip visibility) | `binary_sensor.avery_sleep_reminder` | Helper (template binary sensor) |
 | Guest mode | `input_boolean.guest_mode` | Helper |
 | Remind mark complete | `script.reminder_mark_complete` | Script |
 | Washer status | `input_select.utility_room_washer_status` | Helper (input_select) |

@@ -174,6 +174,30 @@ New storage-mode dashboards require a hyphen in the `url_path`. A slug like `mob
 
 This applies only to new custom dashboards created via the storage API. Built-in paths (`lovelace`, `map`) are unaffected.
 
+### Bubble Card icon vs. button action areas
+
+In Bubble Card button cards, `tap_action` and `hold_action` at the top level bind to the **icon** area, not the card body. `button_action.hold_action` binds to the **button body** (the name/state text area). Using `hold_action` for a primary action the user expects to trigger by holding the card will result in the action only firing when holding the small icon, which is unintuitive.
+
+For hold-to-complete patterns on reminder-style cards:
+
+```yaml
+tap_action:
+  action: none
+hold_action:
+  action: none
+button_action:
+  tap_action:
+    action: none
+  hold_action:
+    action: perform-action
+    perform_action: script.turn_on
+    target:
+      entity_id: script.reminder_mark_complete
+    data:
+      variables:
+        reminder_entity: input_datetime.<key>
+```
+
 ### Bubble Card pop-up `cards` array accepts any HA card type
 
 The `cards` array inside a Bubble Card `pop-up` card renders like a normal Lovelace card list — native `tile`, `grid`, `conditional`, `picture-entity`, and other custom cards all work. Pop-up content is not restricted to Bubble Card card types.

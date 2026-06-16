@@ -136,16 +136,24 @@ New tasks must be added to two places in the `mobile-home` dashboard:
 - **`#reminders` pop-up** — add a Bubble Card `button` inside the pop-up's 2-column grid. Use `entity: sensor.<key>_due` — the sensor state is the formatted due date shown directly on the card. Icon color via the `styles` block (red if overdue, green if not), tap = `more-info`, hold = `script.reminder_mark_complete` with `data.reminder_entity: input_datetime.<key>` and a confirmation dialog.
 - **Inline overdue section** — add a `type: conditional` card (gated on `binary_sensor.<key>_overdue` state `on`) wrapping a Bubble Card `button`. The icon is always red here (the card only appears when overdue). Hold action is the same `script.reminder_mark_complete` call.
 
-The hold action pattern is identical in both locations:
+The action pattern is identical in both locations. In Bubble Card, `hold_action` at the top level binds to the icon area — use `button_action.hold_action` to bind to the card body where the user expects to hold:
 
 ```yaml
+tap_action:
+  action: none
 hold_action:
-  action: perform-action
-  perform_action: script.reminder_mark_complete
-  data:
-    reminder_entity: input_datetime.<key>
-  confirmation:
-    text: "Mark <Task> as done today?"
+  action: none
+button_action:
+  tap_action:
+    action: none
+  hold_action:
+    action: perform-action
+    perform_action: script.turn_on
+    target:
+      entity_id: script.reminder_mark_complete
+    data:
+      variables:
+        reminder_entity: input_datetime.<key>
 ```
 
 > **Coordinated change:** Adding a new reminder requires four artifacts (helpers + template sensors) plus two dashboard locations — the pop-up grid and the inline overdue section. Both must be kept in sync with each other and with the automation registrations in step 5. `script.reminder_mark_complete` is shared — no script changes needed when adding a new reminder.
