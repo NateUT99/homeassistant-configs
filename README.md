@@ -20,10 +20,13 @@ Version-controlled documentation, standards, and supporting scripts for a person
 | Document | Description |
 |---|---|
 | [Adaptive Lighting](guides/adaptive_lighting.md) | AL configuration, curve design, and MQTT-based pre-staging procedure for Zigbee bulbs |
+| [Chime TTS](guides/chime_tts.md) | HACS-based chime-prefixed TTS via HomePod notify services; standard delivery mechanism for all TTS announcements |
 | [Home Alarm](guides/home_alarm.md) | Alarm perimeter detection, camera siren, contextual push notifications, and camera snapshot on person detection |
 | [Hue Sync & TV Bias Lighting](guides/hue_sync.md) | Living Room bias light and Hue Sync Box automation system |
+| [Laundry Automation](guides/laundry_automation.md) | LG ThinQ washer/dryer monitoring with per-appliance status state machine, repeating TTS alerts, acknowledge flow, and mobile dashboard chips |
 | [Logitech Litra Glow](guides/litra_glow.md) | Key light exposed as a native HA light entity via SSH and the `litra-rs` CLI |
 | [Mac Mini Bluetooth Peripheral Battery Monitor](guides/mac_mini_bluetooth_battery.md) | Shell script polling ioreg for Bluetooth peripheral battery levels, posted to HA via webhook (decommissioned) |
+| [Mobile Dashboard](guides/mobile_dashboard.md) | `mobile-home` Bubble Card dashboard — chip strip, feature pop-ups, and room tile layout |
 | [MQTT Presence Tracking](guides/mqtt_presence.md) | MQTT-backed device trackers driven by HomeKit geofence automations via input_boolean helpers |
 | [Outdoor Air Quality Alerting](guides/outdoor_air_quality_alerting.md) | WAQI-based AQI monitoring with TTS and push notification alerts for poor air quality and clearance announcements |
 | [Reminder System](guides/reminders.md) | Recurring maintenance reminders with actionable iOS notifications and automatic completion loop |

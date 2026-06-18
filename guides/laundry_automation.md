@@ -73,7 +73,7 @@ TTS inputs:
 
 - **Chip over conditional section.** The original design used a condition-triggered dashboard section that auto-appeared above the chip strip. This was replaced with two conditional chips in the chip strip itself. Visual weight is lower — chips are compact and sit alongside vacuum/reminders rather than expanding the home view. A tap on either chip navigates to the shared `#laundry` pop-up rather than surfacing cards inline.
 
-- **Door-only chip clear.** The chip disappears only when the utility room door opens — not on sleep, away, or acknowledge. Acknowledge silences TTS but leaves the chip visible (muted color) as a persistent visual reminder that laundry is still there. Sleep/away are TTS pause conditions only.
+- **Door-only chip clear; acknowledged icon variant.** The chip disappears only when the utility room door opens — not on sleep, away, or acknowledge. Acknowledging silences TTS but leaves the chip visible (still green) and swaps the icon to the alert variant (`mdi:washing-machine-alert` / `mdi:tumble-dryer-alert`), signalling that the cycle is done but the load still needs to be dealt with. Sleep and away are TTS pause conditions only.
 
 - **Cycle timestamps via `input_datetime` helpers.** The `#laundry` pop-up surfaces "started at," "estimated/actual end," and "finished X ago" data. ThinQ does not persist these wall-clock times — they are captured by the status manager automations at the moment the `running` and `end` state transitions happen. Four `input_datetime` helpers (one per appliance per event) store these values. Because they survive restarts and are not derived from live sensor state, the pop-up shows accurate history even when the machine is idle.
 
@@ -84,7 +84,7 @@ TTS inputs:
 ## Prerequisites
 
 - LG ThinQ integration (`lg_thinq`) installed and authenticated
-- Chime TTS integration active with `notify.reminder_kitchen` and `notify.reminder_master_bedroom` configured (see `guides/chime_tts.md`)
+- `script.household_tts_announce` configured and active (see `guides/chime_tts.md`)
 - `binary_sensor.utility_room_door_contact` — utility room door sensor (Zigbee, via Z2M)
 - `input_boolean.everyone_sleeping` and `input_boolean.avery_sleeping` — sleep state helpers (see `guides/reminders.md`)
 - `zone.home` — default HA home zone
@@ -211,13 +211,13 @@ Two automations — one per appliance — handle the repeating TTS loop. Both ar
 1. Stop if `washer_status != alerting`
 2. Stop if `everyone_sleeping == on`
 3. Stop if `zone.home < 1`
-4. Choose: `avery_sleeping == on` → `notify.reminder_master_bedroom`; otherwise → `notify.reminder_kitchen`. Message: `"The washer is done."`
+4. Call `script.household_tts_announce` with `message: "The washer is done."`, `target: master_bedroom` (when `avery_sleeping == on`) or `target: kitchen` (otherwise), and `notification_title: "Washer Done"`. The household script handles camera-aware suppression and mobile push fallback — see `guides/chime_tts.md`.
 5. If `utility_room_door_contact == on` → set `washer_status → idle` and stop. Handles door left open before cycle ends: announces once then clears immediately rather than repeating indefinitely.
 6. Delay 30 minutes
 
 Mode: `restart` — ensures re-triggers (wake up / arrive home) cancel the mid-loop delay and fire TTS immediately.
 
-**Dryer done announcement** (`automation.utility_room_dryer_done_announcement`): mirror, referencing dryer entities. Message: `"The dryer is done."`
+**Dryer done announcement** (`automation.utility_room_dryer_done_announcement`): mirror, referencing dryer entities. Step 4 passes `message: "The dryer is done."` and `notification_title: "Dryer Done"` to `script.household_tts_announce`.
 
 ### 7. Add laundry chips and pop-up to mobile-home dashboard
 
@@ -227,12 +227,12 @@ The laundry integration surfaces two conditional chips in the existing chip stri
 
 Each appliance gets one sub-button in the chip strip's feature row (alongside thermostat, vacuum, reminders). The chip is hidden when the appliance is idle and no cycle is active. Visibility is driven by the chip strip card's global CSS-in-JS `styles` expression.
 
-| State | Icon color | Content |
-|---|---|---|
-| Running (status `idle` + active cycle) | Orange | Progress % |
-| Done (`status == alerting`) | Bright green | (icon only) |
-| Acknowledged | Muted / disabled | (icon only) |
-| Idle | Hidden | — |
+| State | Icon | Color | Content |
+|---|---|---|---|
+| Running (status `idle`, appliance not `power_off` / `initial`) | `mdi:washing-machine` / `mdi:tumble-dryer` | Warning (orange) | Progress % |
+| Done unacknowledged (`status == alerting`) | `mdi:washing-machine` / `mdi:tumble-dryer` | Success (green) | (icon only) |
+| Done acknowledged (`status == acknowledged`) | `mdi:washing-machine-alert` / `mdi:tumble-dryer-alert` | Success (green) | (icon only) |
+| Idle (no cycle active) | — | Hidden | — |
 
 **Tap:** navigate to `#laundry` pop-up.  
 **Hold:** calls `script.utility_room_acknowledge_laundry` with the appropriate appliance. No-op while running (script conditions on `status == alerting`).
@@ -289,6 +289,7 @@ Bubble Card `pop-up`, `hash: "#laundry"`, `popup_mode: adaptive-dialog`. Per-app
 | Dryer done announcement | `automation.utility_room_dryer_done_announcement` | Automation |
 | Washer cycles snapshot | `automation.utility_room_washer_cycles_snapshot_on_clean` | Automation |
 | Acknowledge laundry | `script.utility_room_acknowledge_laundry` | Script |
+| TTS dispatch | `script.household_tts_announce` | Script |
 | Laundry integration label | `int_laundry` | Label |
 | Utility room door | `binary_sensor.utility_room_door_contact` | Entity |
 
