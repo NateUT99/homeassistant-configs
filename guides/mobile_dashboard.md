@@ -1,6 +1,6 @@
 # Mobile Dashboard
 
-*Last updated: June 2026*
+*Last updated: June 2026 (updates chip added)*
 
 ---
 
@@ -113,7 +113,7 @@ Set the view header config: `layout: center`, `badges_position: bottom`, `badges
 
 Add one section with no title. Place a single Bubble Card `sub-buttons` card (`card_type: sub-buttons`). Chips are organized into two rows via the `bottom` sub-button group array. Conditional chip visibility is handled via native Lovelace `visibility` conditions on each sub-button — not CSS `display` toggling. Icon color and dynamic text (temperature, count, %) are handled in the card's `styles` CSS-in-JS block: icon colors use `ha-icon { color: ... }` scoped to `.bubble-sub-button-N`, and text is injected via `card.querySelector(...).innerText`. The Avery sleeping chip uses `binary_sensor.avery_sleep_reminder` (a template binary sensor) as its visibility entity, which encapsulates the morning and evening time-window logic server-side.
 
-Six chips across two rows. Row 1 (status/alert strip): Alarm, Water Leak, Freezer Door, Doors, Garage, Weather, AQI, Guest Mode, Avery Sleeping. Row 2 (feature chips):
+Six chips across two rows. Row 1 (status/alert strip): Alarm, Water Leak, Freezer Door, Doors, Garage, Weather, AQI, Guest Mode, Avery Sleeping, Updates. Row 2 (feature chips):
 
 | Chip | Icon | Icon color | Tap | Hold |
 |---|---|---|---|---|
@@ -127,6 +127,8 @@ Six chips across two rows. Row 1 (status/alert strip): Alarm, Water Leak, Freeze
 Reminders chips are mutually exclusive `type: conditional` wrappers. Washer and dryer chips are conditionally hidden (CSS `display: none`) when both `input_select` is `idle` and `current_status` is in `[power_off, initial]`. When running, the chip shows the current progress % as content alongside the icon.
 
 **Vacuum chip states** (evaluated in priority order): `vacuum_routine_pause` on → orange `mdi:robot-vacuum-off`; cleaning/returning/paused → orange `mdi:robot-vacuum`; ran today AND maintenance required → red `mdi:robot-vacuum-alert`; not run today → grey `mdi:robot-vacuum`; ran today, all clear → green `mdi:robot-vacuum`.
+
+**Updates chip (Row 1, position 10):** `mdi:update`, accent color, conditional on `binary_sensor.updates_available` = on. Shows a count badge when ≥ 2 updates are pending (same pattern as water leak / doors). Tap navigates to `/config/updates`. The visibility entity `binary_sensor.updates_available` is a template binary sensor helper that evaluates `on` when any `update.*` entity state is `on`.
 
 > **Thermostat chip content:** displays current indoor temperature (`state_attr('climate.living_room_thermostat', 'current_temperature') | int`). The chip has no `entity` field — `more-info` action not applicable here.
 
@@ -267,6 +269,7 @@ Once the new dashboard is verified:
 | Everyone sleeping | `input_boolean.everyone_sleeping` | Helper |
 | Avery sleeping | `input_boolean.avery_sleeping` | Helper |
 | Avery sleep reminder (chip visibility) | `binary_sensor.avery_sleep_reminder` | Helper (template binary sensor) |
+| Updates available (chip visibility) | `binary_sensor.updates_available` | Helper (template binary sensor) |
 | Guest mode | `input_boolean.guest_mode` | Helper |
 | Remind mark complete | `script.reminder_mark_complete` | Script |
 | Washer status | `input_select.utility_room_washer_status` | Helper (input_select) |
