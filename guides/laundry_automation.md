@@ -58,6 +58,7 @@ TTS inputs:
   input_select → alerting                   ──► start repeat loop
   input_boolean.everyone_sleeping → off     ──► re-trigger if alerting
   zone.home (0 → above 0)                   ──► re-trigger if alerting
+                                                (waits for garage door to close first)
   → stop: acknowledged │ door open │ everyone_sleeping │ away
 ```
 
@@ -70,6 +71,8 @@ TTS inputs:
 - **Dryer triggers on `end` only, not `cooling`.** Although clothes can technically be removed once cooling starts, triggering at `cooling` shows a "Done" card while time remaining is still counting down — which is confusing. The running card stays visible through cooling and wrinkle-care phases; the done card appears only when the cycle fully completes.
 
 - **TTS re-triggers on re-engagement.** The announcement automation uses `mode: restart` and fires on three triggers: `input_select → alerting`, `everyone_sleeping → off`, and `zone.home` crossing above 0. Sleep and away stop TTS but leave the visual (`input_select`) at `alerting`. When the household re-engages, the automation restarts and fires immediately rather than waiting up to 30 minutes for the next loop iteration.
+
+- **Garage entry grace window on arrival.** When the `someone_arrived` trigger fires, the announcement is gated on `binary_sensor.garage_interior_door_contact` closing before TTS fires — the person is likely still in the garage and would miss audio from interior HomePods. If the garage door is already closed (front-door entry), the gate is skipped and TTS proceeds immediately. 5-minute timeout with `continue_on_timeout: true` prevents the automation from hanging. This follows the standard pattern in `standards/automations.md` section 5.10, established in `automation.outdoor_air_quality_index_alert`.
 
 - **Chip over conditional section.** The original design used a condition-triggered dashboard section that auto-appeared above the chip strip. This was replaced with two conditional chips in the chip strip itself. Visual weight is lower — chips are compact and sit alongside vacuum/reminders rather than expanding the home view. A tap on either chip navigates to the shared `#laundry` pop-up rather than surfacing cards inline.
 
@@ -207,6 +210,9 @@ Two automations — one per appliance — handle the repeating TTS loop. Both ar
 - `everyone_sleeping == off`
 - `zone.home > 0`
 
+*Pre-loop action:*
+- If `trigger.id == someone_arrived` and `garage_interior_door_contact == on`: wait for the garage interior door to close (5-minute timeout, `continue_on_timeout: true`), then pause 15 seconds. Ensures the person is inside before TTS fires. See `standards/automations.md` section 5.10.
+
 *Action — repeat (count: 20):*
 1. Stop if `washer_status != alerting`
 2. Stop if `everyone_sleeping == on`
@@ -217,7 +223,7 @@ Two automations — one per appliance — handle the repeating TTS loop. Both ar
 
 Mode: `restart` — ensures re-triggers (wake up / arrive home) cancel the mid-loop delay and fire TTS immediately.
 
-**Dryer done announcement** (`automation.utility_room_dryer_done_announcement`): mirror, referencing dryer entities. Step 4 passes `message: "The dryer is done."` and `notification_title: "Dryer Done"` to `script.household_tts_announce`.
+**Dryer done announcement** (`automation.utility_room_dryer_done_announcement`): mirror, referencing dryer entities. Step 4 passes `message: "The dryer is done."` and `notification_title: "Dryer Done"` to `script.household_tts_announce`. Includes the same garage entry grace window pre-loop action.
 
 ### 7. Add laundry chips and pop-up to mobile-home dashboard
 

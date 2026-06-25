@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.7 — June 2026*
+*Version 1.8 — June 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.8 | June 2026 | Added section 5.10: arrival-triggered TTS garage entry grace window |
 | 1.7 | June 2026 | Updated TTS delivery pattern: automations call `script.household_tts_announce` instead of `notify.reminder_*` directly; updated `text_to_speech` label criterion accordingly; removed deprecated `media_player.play_media` from `notification` label criterion |
 | 1.6 | June 2026 | Added `text_to_speech` label for TTS-specific filtering alongside `notification` |
 | 1.5 | June 2026 | Added `int_home_alarm` (Home Alarm) and `waqi` (WAQI) to integration labels table |
@@ -284,6 +285,41 @@ Do not wrap actions in `if`/`then` blocks when the action is a no-op if the cond
 
 - Prefer label-targeted actions when broadcasting to a group of devices (e.g., `label.noonehome`).
 - Use `target:` syntax over `data: entity_id:` in service calls — it is the modern form.
+
+### 5.10 Arrival-Triggered TTS: Garage Entry Grace Window
+
+When an automation fires on `zone.home` crossing above 0 (first person arrives) and its action includes a TTS announcement, apply a garage entry grace window before announcing. The person is likely still in the garage and will miss audio delivered to interior HomePods.
+
+Place this block before the main action or repeat block, gated on the arrival trigger ID and the current state of the garage interior door:
+
+```yaml
+- alias: "If arrival triggered: wait for garage door to close first"
+  if:
+    - condition: trigger
+      id: someone_arrived          # match the arrival trigger's id
+    - condition: state
+      entity_id: binary_sensor.garage_interior_door_contact
+      state: "on"                  # door is open — person likely still in garage
+  then:
+    - alias: "Wait for interior garage door to close"
+      wait_for_trigger:
+        - trigger: state
+          entity_id: binary_sensor.garage_interior_door_contact
+          from: "on"
+          to: "off"
+      timeout:
+        minutes: 5
+      continue_on_timeout: true
+    - alias: "Buffer after entry"
+      delay:
+        seconds: 15
+```
+
+The `condition: state` gate on the door handles entry through the front door — if the garage door is already closed when arrival is detected, the wait block is skipped entirely and the announcement proceeds immediately. The 5-minute timeout with `continue_on_timeout: true` ensures the automation never hangs if the door doesn't close.
+
+**When to skip this pattern:**
+- The automation only sends push notifications, not TTS — push delivers to the phone regardless of physical location.
+- There is no `zone.home` arrival trigger — the `condition: trigger` gate already handles multi-trigger automations where only one trigger is an arrival.
 
 ---
 
