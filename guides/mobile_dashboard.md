@@ -1,6 +1,6 @@
 # Mobile Dashboard
 
-*Last updated: June 2026 (updates chip added)*
+*Last updated: June 2026 (doors pop-up added)*
 
 ---
 
@@ -37,6 +37,7 @@ mobile-home (storage-mode dashboard, url_path: mobile-home)
         ├── #vacuum      Commands + map + status + mop settings + consumables
         ├── #reminders   Trash + all 8 tasks with green/red state
         ├── #water-leaks 4 leak sensor tiles
+        ├── #doors       4 door/cover tiles (front, office sliding, interior garage, garage door)
         └── #laundry     Washer + dryer status, cycle info, ack button, stats grid
 ```
 
@@ -46,9 +47,9 @@ mobile-home (storage-mode dashboard, url_path: mobile-home)
 
 - **Header badges for status and alerts; chip strip for feature toggles.** Status and alert chips (Alarm, Water Leak, Doors, Garage, Weather, AQI, Guest, Avery) live in the view-level `badges` array as individual `mushroom-template-badge` entries — always visible regardless of scroll position. The chip strip below handles only the three feature toggles (Thermostat, Vacuum, Reminders). This matches the design of `mobile-app` and avoids multiple chip rows.
 
-- **All feature detail surfaces are pop-ups.** Chip taps navigate directly to their pop-up hash (`#thermostat`, `#vacuum`, `#reminders`). There are no inline panels — the Home view contains only the chip strip and the pop-up definitions. Browser back, ESC, tap-outside, and swipe-down all dismiss pop-ups.
+- **All feature detail surfaces are pop-ups.** Chip taps navigate directly to their pop-up hash (`#thermostat`, `#vacuum`, `#reminders`, `#doors`). There are no inline panels — the Home view contains only the chip strip and the pop-up definitions. Browser back, ESC, tap-outside, and swipe-down all dismiss pop-ups.
 
-- **Pop-ups over subviews for all detail views.** Thermostat, vacuum, reminders, and water leaks are all Bubble Card `pop-up` cards (hash-triggered modal overlays) rather than `subview: true` views. This simplifies the Home view to two sections: the chip strip and the pop-up block.
+- **Pop-ups over subviews for all detail views.** Thermostat, vacuum, reminders, water leaks, and doors are all Bubble Card `pop-up` cards (hash-triggered modal overlays) rather than `subview: true` views. This simplifies the Home view to two sections: the chip strip and the pop-up block.
 
 ---
 
@@ -128,6 +129,8 @@ Reminders chips are mutually exclusive `type: conditional` wrappers. Washer and 
 
 **Vacuum chip states** (evaluated in priority order): `vacuum_routine_pause` on → orange `mdi:robot-vacuum-off`; cleaning/returning/paused → orange `mdi:robot-vacuum`; ran today AND maintenance required → red `mdi:robot-vacuum-alert`; not run today → grey `mdi:robot-vacuum`; ran today, all clear → green `mdi:robot-vacuum`.
 
+**Doors chip (Row 1, position 4):** `mdi:door-open`, warning/error color based on sleeping/away state (same as Row 1 badge logic), conditional on `binary_sensor.exterior_door_open` = on. Shows a count badge when 2+ doors are open. Tap navigates to `#doors`.
+
 **Updates chip (Row 1, position 10):** `mdi:update`, accent color, conditional on `binary_sensor.updates_available` = on. Shows a count badge when ≥ 2 updates are pending (same pattern as water leak / doors). Tap navigates to `/config/updates`. The visibility entity `binary_sensor.updates_available` is a template binary sensor helper that evaluates `on` when any `update.*` entity state is `on`.
 
 > **Thermostat chip content:** displays current indoor temperature (`state_attr('climate.living_room_thermostat', 'current_temperature') | int`). The chip has no `entity` field — `more-info` action not applicable here.
@@ -206,7 +209,18 @@ Add two more Bubble Card `pop-up` cards to the same pop-up section at the bottom
 | Master Bath | `binary_sensor.master_bathroom_leak_water_leak` |
 | Utility | `binary_sensor.utility_room_leak_water_leak` |
 
-Triggered by tapping the water leak header badge (`tap_action: navigate #water-leaks`).
+Triggered by tapping the water leak chip (`tap_action: navigate #water-leaks`).
+
+**`#doors` pop-up** — 2-column grid of 4 native `tile` cards:
+
+| Name | Entity |
+|---|---|
+| Front Door | `binary_sensor.entrance_front_door_contact` |
+| Office Sliding | `binary_sensor.office_sliding_door_contact` |
+| Interior Garage | `binary_sensor.garage_interior_door_contact` |
+| Garage Door | `cover.garage_door` |
+
+Triggered by tapping the doors chip (`tap_action: navigate #doors`). The garage door tile uses the `cover` entity (not a binary sensor) since the exterior door is a motorized cover — the tile card handles open/closed/opening/closing states natively.
 
 ### Step 10 — Cutover
 
