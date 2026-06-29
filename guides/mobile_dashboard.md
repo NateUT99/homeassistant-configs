@@ -120,7 +120,7 @@ Six chips across two rows. Row 1 (status/alert strip): Alarm, Water Leak, Freeze
 |---|---|---|---|---|
 | Thermostat | `mdi:home-thermometer` | Template: blue/orange/grey by hvac_action | Navigate `#thermostat` | None |
 | Vacuum | Template (5 states, see below) | Template (5 states) | Navigate `#vacuum` | Toggle `input_boolean.vacuum_routine_pause` |
-| Reminders upcoming | `mdi:clock-alert-outline` | amber (upcoming > 0, nothing overdue) | Navigate `#reminders` | Navigate `#reminders` |
+| Reminders upcoming | `mdi:calendar-clock` | amber (upcoming > 0, nothing overdue) | Navigate `#reminders` | Navigate `#reminders` |
 | Reminders overdue | `mdi:calendar-alert` | red (any overdue) | Navigate `#reminders` | Navigate `#reminders` |
 | Washer | `mdi:washing-machine` | Orange (running) / green (alerting) / muted (acknowledged) / hidden (idle) | Navigate `#laundry` | Call `script.utility_room_acknowledge_laundry` (no-op when running) |
 | Dryer | `mdi:tumble-dryer` | Same pattern as washer | Navigate `#laundry` | Same pattern as washer |
