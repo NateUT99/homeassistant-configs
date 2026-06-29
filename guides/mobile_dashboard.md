@@ -1,6 +1,6 @@
 # Mobile Dashboard
 
-*Last updated: June 2026 (doors pop-up added)*
+*Last updated: June 2026 (#reminders sectioned into Overdue/Upcoming/Current)*
 
 ---
 
@@ -198,7 +198,21 @@ The `#laundry` pop-up is triggered by tapping either the washer or dryer chip in
 
 Add two more Bubble Card `pop-up` cards to the same pop-up section at the bottom of the Home view.
 
-**`#reminders` pop-up** — Full-width trash card (always visible) + 2-column grid of all 8 task Bubble Card buttons with green/red icon color (via `styles` block) based on overdue status. All tasks always visible; no conditional wrappers. Tap = none; hold on the card body = `script.reminder_mark_complete` — set via `button_action.hold_action`, not the top-level `hold_action` (which binds to the icon area, not the card body).
+**`#reminders` pop-up** — Organized into three sections: **Overdue**, **Upcoming** (due within 7 days), and **Current** (due > 7 days out). Overdue and Upcoming each begin with a Bubble Card separator (color-coded red and amber). Current uses a Bubble Card `button_type: name` header that taps to toggle `input_boolean.mobile_show_reminders_current`; a chevron sub-button reflects collapsed/expanded state via the `styles` JS block (same `subButtonIcon[0].setAttribute` pattern used in the chip strip).
+
+Each of the 8 reminders appears once per section — 24 total card instances, each gated by a `visibility` condition:
+
+| Section | Visibility logic | Icon color |
+|---|---|---|
+| Overdue | `condition: state`, `binary_sensor.<key>_overdue` = on | Red |
+| Upcoming | `condition: template` — not overdue AND `strptime(sensor.<key>_due, '%B %d, %Y').date() - now().date()).days <= 7` | Amber |
+| Current | `condition: state`, `input_boolean.mobile_show_reminders_current` = on AND same template with `> 7` | Green |
+
+Section headers hide when empty: the Overdue separator gates on `number.overdue_reminders_count` > 0; the Upcoming separator runs an aggregate template across all 8 reminder keys. Current collapses by default (`input_boolean.mobile_show_reminders_current` starts off and is never set on automatically). If an auto-close automation is added in the future, include `input_boolean.mobile_show_reminders_current` in its turn-off list alongside the other `mobile_show_*` helpers.
+
+All reminder cards use `entity: sensor.<key>_due` for the state display (the formatted due date string). Tap = none; hold on the card body = `script.reminder_mark_complete` — set via `button_action.hold_action`, not the top-level `hold_action` (which binds to the icon area, not the card body).
+
+> **Due-date template parsing:** `sensor.<key>_due` outputs `'%B %-d, %Y'` format (e.g., `July 4, 2026`). The visibility templates parse with `strptime(d, '%B %d, %Y')`. Python's `strptime` accepts `%d` with or without zero-padding, so single-digit days parse correctly.
 
 **`#water-leaks` pop-up** — Heading + 2-column grid of 4 native `tile` cards:
 
@@ -280,6 +294,7 @@ Once the new dashboard is verified:
 | Vacuum ran today | `input_select.vacuum_ran_today` | Helper |
 | Vacuum routine pause | `input_boolean.vacuum_routine_pause` | Helper |
 | Overdue reminders count | `number.overdue_reminders_count` | Helper |
+| Mobile Show Reminders Current | `input_boolean.mobile_show_reminders_current` | Helper |
 | Everyone sleeping | `input_boolean.everyone_sleeping` | Helper |
 | Avery sleeping | `input_boolean.avery_sleeping` | Helper |
 | Avery sleep reminder (chip visibility) | `binary_sensor.avery_sleep_reminder` | Helper (template binary sensor) |

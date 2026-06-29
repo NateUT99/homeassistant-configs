@@ -131,14 +131,18 @@ In `automation.household_reminder_notifications`, add `binary_sensor.<key>_overd
 
 **6. Add the task card to the mobile dashboard**
 
-New tasks must be added to two places in the `mobile-home` dashboard:
+New tasks must be added to the `mobile-home` dashboard in the `#reminders` pop-up. The pop-up is organized into three sections — **Overdue**, **Upcoming**, and **Current** — and each reminder appears once per section (three card instances total per reminder), each gated by a `visibility` condition that determines which section it renders in.
 
-- **`#reminders` pop-up** — add a Bubble Card `button` inside the pop-up's 2-column grid. Use `entity: sensor.<key>_due` — the sensor state is the formatted due date shown directly on the card. Icon color via the `styles` block (red if overdue, green if not), tap = `more-info`, hold = `script.reminder_mark_complete` with `data.reminder_entity: input_datetime.<key>` and a confirmation dialog.
-- **Inline overdue section** — add a `type: conditional` card (gated on `binary_sensor.<key>_overdue` state `on`) wrapping a Bubble Card `button`. The icon is always red here (the card only appears when overdue). Hold action is the same `script.reminder_mark_complete` call.
-
-The action pattern is identical in both locations. In Bubble Card, `hold_action` at the top level binds to the icon area — use `button_action.hold_action` to bind to the card body where the user expects to hold:
+In Bubble Card, `hold_action` at the top level binds to the icon area — use `button_action.hold_action` to bind to the card body where the user expects to hold:
 
 ```yaml
+# Template for all three section instances — change `styles` and `visibility` per section
+type: custom:bubble-card
+card_type: button
+button_type: state
+entity: sensor.<key>_due
+name: <Friendly Name>
+icon: <mdi:icon>
 tap_action:
   action: none
 hold_action:
@@ -156,7 +160,43 @@ button_action:
         reminder_entity: input_datetime.<key>
 ```
 
-> **Coordinated change:** Adding a new reminder requires four artifacts (helpers + template sensors) plus two dashboard locations — the pop-up grid and the inline overdue section. Both must be kept in sync with each other and with the automation registrations in step 5. `script.reminder_mark_complete` is shared — no script changes needed when adding a new reminder.
+**Overdue instance** — place after the Overdue separator:
+```yaml
+styles: "ha-icon { color: var(--error-color) !important; }"
+visibility:
+  - condition: state
+    entity: binary_sensor.<key>_overdue
+    state: "on"
+```
+
+**Upcoming instance** — place after the Upcoming separator:
+```yaml
+styles: "ha-icon { color: var(--warning-color) !important; }"
+visibility:
+  - condition: template
+    value_template: >-
+      {% set d = states('sensor.<key>_due') %}
+      {{ is_state('binary_sensor.<key>_overdue','off') and d not in ['unknown','unavailable']
+         and (strptime(d, '%B %d, %Y').date() - now().date()).days <= 7 }}
+```
+
+**Current instance** — place after the Current header card:
+```yaml
+styles: "ha-icon { color: var(--success-color) !important; }"
+visibility:
+  - condition: state
+    entity: input_boolean.mobile_show_reminders_current
+    state: "on"
+  - condition: template
+    value_template: >-
+      {% set d = states('sensor.<key>_due') %}
+      {{ is_state('binary_sensor.<key>_overdue','off') and d not in ['unknown','unavailable']
+         and (strptime(d, '%B %d, %Y').date() - now().date()).days > 7 }}
+```
+
+The Upcoming separator's visibility template must also be updated to include the new reminder key so it shows when the new reminder is in the 7-day window. Locate the Upcoming separator card and add `'<key>'` to its `keys` list.
+
+> **Coordinated change:** Adding a new reminder requires four artifacts (helpers + template sensors) plus three `#reminders` pop-up card instances (one per section) and an update to the Upcoming separator's aggregate template. All must be kept in sync with the automation registrations in step 5. `script.reminder_mark_complete` is shared — no script changes needed when adding a new reminder.
 
 ### Shared Scripts & Automations
 
