@@ -123,15 +123,30 @@ Entity ID: `sensor.<key>_due`. Returns a formatted string like `June 15, 2026`. 
 
 Entity ID: `binary_sensor.<key>_overdue`. HA sets it `on` when the template evaluates to `True`.
 
-**5. Register the new sensor in the shared notification automations**
+**5. Create the days-until-due template sensor**
+
+*Settings → Devices & Services → Helpers → Create Helper → Template → Sensor*
+
+| Field | Value |
+|---|---|
+| Name | `<Object> <Action> Days Until Due` |
+| Template | `{{ ((state_attr('input_datetime.<key>', 'timestamp') + states('input_number.<key>_offset')\|int * 86400 - as_timestamp(now())) / 86400) \| round(1) }}` |
+| Unit of measurement | `d` |
+| Device class | (leave blank) |
+
+Entity ID: `sensor.<key>_days_until_due`. Returns a floating-point count of days until the task is due (e.g., `17.1`). Negative when overdue. The mobile dashboard uses this for all Upcoming and Current visibility conditions — `condition: numeric_state` on a backend sensor works reliably where `condition: template` with date arithmetic fails: the Lovelace JS frontend cannot evaluate `as_timestamp(now())`, so all date bucketing must happen server-side.
+
+> **Note on the timestamp approach:** `state_attr('input_datetime.<key>', 'timestamp')` returns the Unix epoch seconds of the stored date (at midnight UTC). Adding `offset_days * 86400` gives the due-date epoch. Subtracting `as_timestamp(now())` and dividing by 86400 gives days remaining. This avoids `strptime()` and string manipulation entirely.
+
+**6. Register the new sensor in the shared notification automations**
 
 In `automation.household_reminder_notifications`, add `binary_sensor.<key>_overdue` to **both** the `edge_on` trigger's `entity_id` list and the `edge_off` trigger's `entity_id` list. Also add `<key>` (without `_overdue`) to the `for_each` list in the daily branch.
 
 > **Coordinated change:** The `for_each` list in `automation.household_reminder_notifications` and the trigger `entity_id` lists are the canonical registration point for all reminders. Adding a new reminder requires updating all three lists in sync — they are duplicates of the same set.
 
-**6. Add the task card to the mobile dashboard**
+**7. Add the task card to the mobile dashboard**
 
-New tasks must be added to the `mobile-home` dashboard in the `#reminders` pop-up. The pop-up is organized into three sections — **Overdue**, **Upcoming**, and **Current** — and each reminder appears once per section (three card instances total per reminder), each gated by a `visibility` condition that determines which section it renders in.
+New tasks must be added to the `mobile-home` dashboard in the `#reminders` pop-up. The pop-up is organized into three sections — **Overdue**, **Upcoming**, and **Current** — and each reminder appears once per section (three card instances total per reminder), each gated by a `visibility` condition.
 
 In Bubble Card, `hold_action` at the top level binds to the icon area — use `button_action.hold_action` to bind to the card body where the user expects to hold:
 
@@ -140,6 +155,7 @@ In Bubble Card, `hold_action` at the top level binds to the icon area — use `b
 type: custom:bubble-card
 card_type: button
 button_type: state
+card_layout: normal
 entity: sensor.<key>_due
 name: <Friendly Name>
 icon: <mdi:icon>
@@ -160,6 +176,8 @@ button_action:
         reminder_entity: input_datetime.<key>
 ```
 
+> **`card_layout: normal`** reduces Bubble Card's default card height to the compact "normal" size. Without it, each reminder card renders at the taller default height, making the pop-up excessively long with 8+ items per section.
+
 **Overdue instance** — place after the Overdue separator:
 ```yaml
 styles: "ha-icon { color: var(--error-color) !important; }"
@@ -169,34 +187,19 @@ visibility:
     state: "on"
 ```
 
-**Upcoming instance** — place after the Upcoming separator:
+**Next 7 Days instance** — place after the Next 7 Days separator:
 ```yaml
 styles: "ha-icon { color: var(--warning-color) !important; }"
 visibility:
-  - condition: template
-    value_template: >-
-      {% set d = states('sensor.<key>_due') %}
-      {{ is_state('binary_sensor.<key>_overdue','off') and d not in ['unknown','unavailable']
-         and (strptime(d, '%B %d, %Y').date() - now().date()).days <= 7 }}
+  - condition: numeric_state
+    entity: sensor.<key>_days_until_due
+    above: 0
+    below: 8
 ```
 
-**Current instance** — place after the Current header card:
-```yaml
-styles: "ha-icon { color: var(--success-color) !important; }"
-visibility:
-  - condition: state
-    entity: input_boolean.mobile_show_reminders_current
-    state: "on"
-  - condition: template
-    value_template: >-
-      {% set d = states('sensor.<key>_due') %}
-      {{ is_state('binary_sensor.<key>_overdue','off') and d not in ['unknown','unavailable']
-         and (strptime(d, '%B %d, %Y').date() - now().date()).days > 7 }}
-```
+The Next 7 Days separator's visibility gates on `sensor.upcoming_reminders_count` > 0. After adding a new reminder, update the `sensor.upcoming_reminders_count` template sensor to include the new `'<key>'` in its key list — the template iterates this list to count reminders in the 1–7 day window.
 
-The Upcoming separator's visibility template must also be updated to include the new reminder key so it shows when the new reminder is in the 7-day window. Locate the Upcoming separator card and add `'<key>'` to its `keys` list.
-
-> **Coordinated change:** Adding a new reminder requires four artifacts (helpers + template sensors) plus three `#reminders` pop-up card instances (one per section) and an update to the Upcoming separator's aggregate template. All must be kept in sync with the automation registrations in step 5. `script.reminder_mark_complete` is shared — no script changes needed when adding a new reminder.
+> **Coordinated change:** Adding a new reminder requires five artifacts — four per-reminder helpers (steps 1–4) and one days-until-due template sensor (step 5) — plus two `#reminders` pop-up card instances (Overdue and Next 7 Days) and an update to `sensor.upcoming_reminders_count`. All must be kept in sync with the automation registrations in step 6. `script.reminder_mark_complete` is shared — no script changes needed when adding a new reminder.
 
 ### Shared Scripts & Automations
 
@@ -365,16 +368,16 @@ The eight household maintenance reminders currently configured follow the interv
 
 #### Current reminders
 
-| Reminder | Last-Done Helper | Offset Helper | Due Sensor | Overdue Sensor |
-|---|---|---|---|---|
-| Accord Washed | `input_datetime.accord_washed` | `input_number.accord_washed_offset` | `sensor.accord_washed_due` | `binary_sensor.accord_washed_overdue` |
-| Coffee Grinder Cleaned | `input_datetime.coffee_grinder_cleaned` | `input_number.coffee_grinder_cleaned_offset` | `sensor.coffee_grinder_cleaned_due` | `binary_sensor.coffee_grinder_cleaned_overdue` |
-| Dishwasher Cleaned | `input_datetime.dishwasher_cleaned` | `input_number.dishwasher_cleaned_offset` | `sensor.dishwasher_cleaned_due` | `binary_sensor.dishwasher_cleaned_overdue` |
-| Disposal Cleaned | `input_datetime.disposal_cleaned` | `input_number.disposal_cleaned_offset` | `sensor.disposal_cleaned_due` | `binary_sensor.disposal_cleaned_overdue` |
-| Razor Blade Changed | `input_datetime.razor_blade_changed` | `input_number.razor_blade_changed_offset` | `sensor.razor_blade_changed_due` | `binary_sensor.razor_blade_changed_overdue` |
-| Toothbrushes Changed | `input_datetime.toothbrushes_changed` | `input_number.toothbrushes_changed_offset` | `sensor.toothbrushes_changed_due` | `binary_sensor.toothbrushes_changed_overdue` |
-| Washer Cleaned | `input_datetime.washer_cleaned` | `input_number.washer_cleaned_offset` | `sensor.washer_cleaned_due` | `binary_sensor.washer_cleaned_overdue` |
-| Water Filter Changed | `input_datetime.water_filter_changed` | `input_number.water_filter_changed_offset` | `sensor.water_filter_changed_due` | `binary_sensor.water_filter_changed_overdue` |
+| Reminder | Last-Done Helper | Offset Helper | Due Sensor | Overdue Sensor | Days Until Due |
+|---|---|---|---|---|---|
+| Accord Washed | `input_datetime.accord_washed` | `input_number.accord_washed_offset` | `sensor.accord_washed_due` | `binary_sensor.accord_washed_overdue` | `sensor.accord_washed_days_until_due` |
+| Coffee Grinder Cleaned | `input_datetime.coffee_grinder_cleaned` | `input_number.coffee_grinder_cleaned_offset` | `sensor.coffee_grinder_cleaned_due` | `binary_sensor.coffee_grinder_cleaned_overdue` | `sensor.coffee_grinder_cleaned_days_until_due` |
+| Dishwasher Cleaned | `input_datetime.dishwasher_cleaned` | `input_number.dishwasher_cleaned_offset` | `sensor.dishwasher_cleaned_due` | `binary_sensor.dishwasher_cleaned_overdue` | `sensor.dishwasher_cleaned_days_until_due` |
+| Disposal Cleaned | `input_datetime.disposal_cleaned` | `input_number.disposal_cleaned_offset` | `sensor.disposal_cleaned_due` | `binary_sensor.disposal_cleaned_overdue` | `sensor.disposal_cleaned_days_until_due` |
+| Razor Blade Changed | `input_datetime.razor_blade_changed` | `input_number.razor_blade_changed_offset` | `sensor.razor_blade_changed_due` | `binary_sensor.razor_blade_changed_overdue` | `sensor.razor_blade_changed_days_until_due` |
+| Toothbrushes Changed | `input_datetime.toothbrushes_changed` | `input_number.toothbrushes_changed_offset` | `sensor.toothbrushes_changed_due` | `binary_sensor.toothbrushes_changed_overdue` | `sensor.toothbrushes_changed_days_until_due` |
+| Washer Cleaned | `input_datetime.washer_cleaned` | `input_number.washer_cleaned_offset` | `sensor.washer_cleaned_due` | `binary_sensor.washer_cleaned_overdue` | `sensor.washer_cleaned_days_until_due` |
+| Water Filter Changed | `input_datetime.water_filter_changed` | `input_number.water_filter_changed_offset` | `sensor.water_filter_changed_due` | `binary_sensor.water_filter_changed_overdue` | `sensor.water_filter_changed_days_until_due` |
 
 #### Worked example — Accord Washed
 
@@ -386,20 +389,22 @@ The eight household maintenance reminders currently configured follow the interv
 | Accord Washed Offset | `input_number.accord_washed_offset` | `input_number` | 30 days |
 | Accord Washed Due | `sensor.accord_washed_due` | `sensor` (template) | `(last-done + 30 days)` as formatted string, e.g. `March 19, 2026` |
 | Accord Washed Overdue | `binary_sensor.accord_washed_overdue` | `binary_sensor` (template) | `on` when today >= due |
+| Accord Washed Days Until Due | `sensor.accord_washed_days_until_due` | `sensor` (template) | Float days until due (e.g. `17.1`); negative when overdue |
 
 ### Related HA Config
 
-#### Shared scripts & automations
+#### Shared scripts, automations, and aggregate helpers
 
 | Friendly Name | Entity ID | Type |
 |---|---|---|
 | Household: Reminder Notifications | `automation.household_reminder_notifications` | automation |
 | Household: Reminder Mark Complete | `automation.household_reminder_mark_complete` | automation |
 | Reminder: Mark Complete | `script.reminder_mark_complete` | script |
+| Upcoming Reminders Count | `sensor.upcoming_reminders_count` | template sensor |
 
 #### Per-reminder helpers
 
-See the Current reminders table above.
+See the Current reminders table above — each reminder has five helpers: last-done date, offset, due-date display sensor, overdue binary sensor, and days-until-due sensor.
 
 ### Troubleshooting
 
