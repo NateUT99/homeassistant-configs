@@ -1,6 +1,6 @@
 # Mobile Dashboard
 
-*Last updated: June 2026 (#reminders sectioned into Overdue/Upcoming/Current)*
+*Last updated: June 2026*
 
 ---
 
@@ -210,6 +210,8 @@ Each of the 8 reminders appears once per section — 16 total card instances, ea
 The Overdue separator gates on `number.overdue_reminders_count` > 0. The Next 7 Days separator gates on `sensor.upcoming_reminders_count` > 0 (an aggregate template sensor that counts reminders with `days_until_due` between 0 and 8).
 
 All reminder cards use `entity: sensor.<key>_due` for the state display (the formatted due date string), `card_layout: normal` for compact height, `button_type: state`. Tap = none; hold on the card body = `script.reminder_mark_complete` — set via `button_action.hold_action`, not the top-level `hold_action` (which binds to the icon area, not the card body).
+
+A final **empty state card** appears as the last card in the pop-up, visible only when both counts are 0 (nothing overdue, nothing in the next 7 days). It shows a green `mdi:calendar-check` icon with the label "All caught up." Tapping it navigates to `/mobile-home`, closing the pop-up — useful when the last overdue item is marked complete while the pop-up is open and both sections disappear, leaving an otherwise blank overlay.
 
 **`#water-leaks` pop-up** — Heading + 2-column grid of 4 native `tile` cards:
 

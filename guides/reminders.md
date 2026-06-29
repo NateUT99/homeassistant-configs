@@ -199,7 +199,7 @@ visibility:
 
 The Next 7 Days separator's visibility gates on `sensor.upcoming_reminders_count` > 0. After adding a new reminder, update the `sensor.upcoming_reminders_count` template sensor to include the new `'<key>'` in its key list — the template iterates this list to count reminders in the 1–7 day window.
 
-> **Coordinated change:** Adding a new reminder requires five artifacts — four per-reminder helpers (steps 1–4) and one days-until-due template sensor (step 5) — plus two `#reminders` pop-up card instances (Overdue and Next 7 Days) and an update to `sensor.upcoming_reminders_count`. All must be kept in sync with the automation registrations in step 6. `script.reminder_mark_complete` is shared — no script changes needed when adding a new reminder.
+> **Coordinated change:** Adding a new reminder requires five artifacts — four per-reminder helpers (steps 1–4) and one days-until-due template sensor (step 5) — plus two `#reminders` pop-up card instances (Overdue and Next 7 Days) and an update to `sensor.upcoming_reminders_count`. All must be kept in sync with the automation registrations in step 6. `script.reminder_mark_complete` and the empty state "All caught up" card are shared — no changes needed to either when adding a new reminder.
 
 ### Shared Scripts & Automations
 
