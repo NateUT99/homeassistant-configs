@@ -87,6 +87,36 @@ ha_set_entity(entity_id="automation.foo", categories={"automation": "some_id"})
 
 This does not affect full `config` replacement mode — the `category` parameter works correctly there.
 
+### HA Manual Alarm panel arms instantly even with open contacts — gate arming in an automation
+
+The HA Manual Alarm Control Panel (`platform: manual`) accepts an arm request (`alarm_arm_night`, `alarm_arm_away`, etc.) unconditionally. It never checks the state of contact sensors before arming and has no "arm failed" event. There are no `arming_requested` or `arm_failed` states.
+
+Combined with how `automation.household_alarm_perimeter_trigger` works — it only fires when a perimeter contact *changes* to `on` — a door that is **already open at arm time** creates a silent gap: the panel arms normally, but the perimeter trigger never fires for that door (its state did not change), and the alarm is now armed with an open contact that will never trip it.
+
+**Fix:** gate arming in an automation that checks perimeter state *before* calling the arm service. Do not rely on the panel or the perimeter trigger to catch this condition.
+
+```yaml
+# WRONG — arms unconditionally; open door at arm time silently creates a gap
+- action: alarm_control_panel.alarm_arm_night
+  target:
+    entity_id: alarm_control_panel.home_alarm
+
+# RIGHT — check perimeter first; arm only if clear (or notify if not)
+- if:
+    - condition: state
+      entity_id: binary_sensor.exterior_door_open
+      state: "off"
+    # ... additional checks (e.g. cover.garage_door state: closed)
+  then:
+    - action: alarm_control_panel.alarm_arm_night
+      ...
+  else:
+    - action: notify.mobile_app_nates_iphone
+      # critical push naming the open door(s)
+```
+
+`automation.household_bedtime_secure_and_report` implements this pattern for night arming. See `guides/home_alarm.md` for the full design.
+
 ### Restoration branches need guard conditions
 
 An automation that restores a prior state (turning a thermostat back on after a door closes, restoring lights after a guest mode ends) must verify the current state of the target before restoring. Don't assume that because the automation turned something off, it can blindly turn it back on — the user or another automation may have changed it in the interim.

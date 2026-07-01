@@ -1,12 +1,12 @@
 # Home Alarm
 
-*Last updated: June 2026*
+*Last updated: July 2026*
 
 ---
 
 ## Overview
 
-The home alarm uses HA's built-in Manual Alarm Control Panel as the state machine and two automations to handle perimeter detection and notifications. When the alarm is armed and a monitored sensor opens — an exterior door, window, garage door, or person detected by the kitchen camera — the perimeter trigger automation records what fired, optionally saves a camera snapshot, and trips the panel. The notification automation reacts to the panel's state changes: when the alarm enters the 60-second pending (entry delay) countdown, it sends a critical iOS push with a Disarm action button — tapping it disarms from the phone without entering the alarm code. If the delay expires without a response, the alarm triggers and the notification automation sends critical pushes naming the specific trigger, engages the Reolink camera siren when no one is home, and sends an immediate follow-up with a camera image if a person is subsequently detected while the alarm is active.
+The home alarm uses HA's built-in Manual Alarm Control Panel as the state machine and three automations to handle perimeter checking, detection, and notifications. Night-mode arming is handled by a dedicated automation (`automation.household_bedtime_secure_and_report`) that gates the arm on exterior doors being closed first — the panel itself never rejects an arm request and cannot detect open contacts at arm time, so the logic lives in the automation. When the alarm is armed and a monitored sensor opens — an exterior door, window, garage door, or person detected by the kitchen camera — the perimeter trigger automation records what fired, optionally saves a camera snapshot, and trips the panel. The notification automation reacts to the panel's state changes: when the alarm enters the 60-second pending (entry delay) countdown, it sends a critical iOS push with a Disarm action button — tapping it disarms from the phone without entering the alarm code. If the delay expires without a response, the alarm triggers and the notification automation sends critical pushes naming the specific trigger, engages the Reolink camera siren when no one is home, and sends an immediate follow-up with a camera image if a person is subsequently detected while the alarm is active.
 
 ---
 
@@ -61,8 +61,9 @@ The home alarm uses HA's built-in Manual Alarm Control Panel as the state machin
         │    ├─ saves fresh snapshot
         │    └─ critical push with image (tag: home_alarm_person)
         │
-        ├─ armed branch:
+        ├─ armed away branch:
         │    └─ standard push (tag: home_alarm)
+        │    (armed_night push suppressed — TTS goodnight report is the notification)
         │
         └─ disarmed branch:
              ├─ siren.turn_off
@@ -331,11 +332,11 @@ trigger:
     to: armed_away
     id: armed
 
-  - alias: "Alarm enters armed night mode"
+  - alias: "Alarm enters armed night mode — TTS goodnight report handles this, no push"
     platform: state
     entity_id: alarm_control_panel.home_alarm
     to: armed_night
-    id: armed
+    id: armed_night
 
   - alias: "Alarm is disarmed"
     platform: state
@@ -481,7 +482,7 @@ action:
                 tag: home_alarm_person
                 image: /local/snapshots/alarm_latest.jpg
 
-      - alias: "Armed — send standard armed notification"
+      - alias: "Armed away — send standard push notification"
         conditions:
           - condition: trigger
             id: armed
@@ -490,7 +491,7 @@ action:
             action: notify.mobile_app_nates_iphone
             data:
               title: "Colony Drive"
-              message: "🚨 Alarm Armed — {{ 'Away' if trigger.to_state.state == 'armed_away' else 'Night' }}"
+              message: "🚨 Alarm Armed — Away"
               data:
                 tag: home_alarm
 
@@ -517,10 +518,35 @@ Assign to the **Security** category with labels **Notification**, **Home Alarm**
 
 ---
 
+### `automation.household_bedtime_secure_and_report`
+
+*Friendly name: Household: Bedtime Secure and Report*
+
+Fires 30 seconds after `input_boolean.everyone_sleeping` turns on. This automation is the sole owner of night-mode arming — the arm step was removed from `automation.household_everyone_sleeping_toggle` to centralize the gate here.
+
+**Why gate arming in an automation?** The HA Manual Alarm panel accepts `alarm_arm_night` unconditionally — it never checks contact state before arming. The perimeter trigger automation (`household_alarm_perimeter_trigger`) only fires on a contact *changing* to open. A door that was already open at arm time will silently arm the alarm with a gap: the panel accepts the arm, and the perimeter trigger never fires for that door because its state did not change. The automation must own the decision to detect and block this case. See LESSONS.md for the full gotcha.
+
+**Night arming flow:**
+
+1. After 30 seconds (contacts settle, garage close command from `household_everyone_sleeping_toggle` has time to execute), checks `binary_sensor.exterior_door_open` and `cover.garage_door`. **Open windows never block arming** — they are announced as informational only.
+2. If all clear: calls `alarm_control_panel.alarm_arm_night`, then speaks a goodnight report on the master bedroom HomePod via `script.household_tts_announce` — alarm confirmation, any open windows, tomorrow's weather from `weather.apartment` (fetched via `weather.get_forecasts`).
+3. If a door is open: does **not** arm. Sends a critical actionable iPhone notification (`notify.mobile_app_nates_iphone`, tag `bedtime_arm_blocked`) naming the specific open door(s) with **Retry Arming** and **Arm Anyway** buttons, and speaks a one-time HomePod warning (suppressed on retries to avoid repeated chimes). Then waits up to 10 minutes for the perimeter to clear.
+4. If the perimeter clears within 10 minutes: arms and sends "perimeter secured" confirmation.
+5. If 10 minutes elapse without resolution: auto-arms anyway and sends "check for open doors" notification.
+6. If the user taps **Arm Anyway**: the automation restarts (mode: restart), hits the `arm_anyway` trigger branch, and arms immediately.
+7. If the user taps **Retry**: the automation restarts, re-evaluates the perimeter from the top, and resumes from the correct branch.
+
+**Relationship to `household_alarm_state_notifications`:** Night-mode arming sends no push from the state-notification automation — the armed_night trigger was given a distinct `id` so it orphans the push branch. The goodnight TTS report is the only bedtime arming notification. Armed-away push notifications are unaffected.
+
+Assign to the **Person** category with labels **Notification**, **Text to Speech**, **Home Alarm**, and **Whole Home**. Leave area unset.
+
+---
+
 ## Related HA Config
 
 | Friendly Name | Entity ID | Type |
 |---|---|---|
+| Household: Bedtime Secure and Report | `automation.household_bedtime_secure_and_report` | `automation` |
 | Household: Alarm Perimeter Trigger | `automation.household_alarm_perimeter_trigger` | `automation` |
 | Household: Alarm State Notifications | `automation.household_alarm_state_notifications` | `automation` |
 | Alarm Trigger Description | `input_text.alarm_trigger_description` | `input_text` |
