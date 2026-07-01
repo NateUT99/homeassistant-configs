@@ -522,13 +522,13 @@ Assign to the **Security** category with labels **Notification**, **Home Alarm**
 
 *Friendly name: Household: Bedtime Secure and Report*
 
-Fires 30 seconds after `input_boolean.everyone_sleeping` turns on. This automation is the sole owner of night-mode arming — the arm step was removed from `automation.household_everyone_sleeping_toggle` to centralize the gate here.
+Fires 60 seconds after `input_boolean.everyone_sleeping` turns on. This automation is the sole owner of night-mode arming — the arm step was removed from `automation.household_everyone_sleeping_toggle` to centralize the gate here.
 
 **Why gate arming in an automation?** The HA Manual Alarm panel accepts `alarm_arm_night` unconditionally — it never checks contact state before arming. The perimeter trigger automation (`household_alarm_perimeter_trigger`) only fires on a contact *changing* to open. A door that was already open at arm time will silently arm the alarm with a gap: the panel accepts the arm, and the perimeter trigger never fires for that door because its state did not change. The automation must own the decision to detect and block this case. See LESSONS.md for the full gotcha.
 
 **Night arming flow:**
 
-1. After 30 seconds (contacts settle, garage close command from `household_everyone_sleeping_toggle` has time to execute), checks `binary_sensor.exterior_door_open` and `cover.garage_door`. **Open windows never block arming** — they are announced as informational only.
+1. After 60 seconds (contacts settle, garage close command from `household_everyone_sleeping_toggle` has time to execute), checks `binary_sensor.exterior_door_open` and `cover.garage_door`. **Open windows never block arming** — they are announced as informational only.
 2. If all clear: calls `alarm_control_panel.alarm_arm_night`, then speaks a goodnight report on the master bedroom HomePod via `script.household_tts_announce` — alarm confirmation, any open windows, tomorrow's weather from `weather.apartment` (fetched via `weather.get_forecasts`).
 3. If a door is open: does **not** arm. Sends a critical actionable iPhone notification (`notify.mobile_app_nates_iphone`, tag `bedtime_arm_blocked`) naming the specific open door(s) with **Retry Arming** and **Arm Anyway** buttons, and speaks a one-time HomePod warning (suppressed on retries to avoid repeated chimes). Then waits up to 10 minutes for the perimeter to clear.
 4. If the perimeter clears within 10 minutes: arms and sends "perimeter secured" confirmation.
