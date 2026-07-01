@@ -289,6 +289,35 @@ Binary sensors derived from analog values (power above threshold = device on) ca
 
 ## Zigbee & Lighting Groups
 
+### Z2M reports `light.turn_off transition` state optimistically — breaks `wait_for_trigger`
+
+When `light.turn_off` is called with a `transition` value on a Z2M/MQTT light, Z2M immediately publishes `state: OFF` to MQTT even though the bulb is physically still fading. HA sees the state change and any `wait_for_trigger` watching for the light to go `off` fires instantly — well before the transition completes. Downstream actions (e.g. enabling AL sleep mode) then run while the bulb is still physically on.
+
+Additionally, some Zigbee bulbs (including Hue bulbs on Z2M) ignore `transition` on `turn_off` entirely at the hardware level, turning off immediately rather than fading.
+
+**Reliable fade-to-off pattern:**
+
+```yaml
+# 1. Dim to near-zero using "move to level" — reliably supported and not optimistically reported
+- action: light.turn_on
+  target:
+    entity_id: light.avery_room_ceiling
+  data:
+    brightness_pct: 1
+    transition: 44
+
+# 2. Fixed delay — immune to Z2M state reporting; waits for the physical transition
+- delay:
+    seconds: 47
+
+# 3. Instant off at 1% — imperceptible; no transition means no optimistic reporting problem
+- action: light.turn_off
+  target:
+    entity_id: light.avery_room_ceiling
+```
+
+Never use `wait_for_trigger` (watching for a Z2M light to go `off`) as a proxy for a transition completing — the trigger fires on the reported state, not the physical state.
+
 ### Prefer HA Light Groups over Zigbee groups for small fixtures
 
 For fixtures with 2–4 bulbs, **HA Light Groups** are simpler and more reliable than Zigbee-level groups:
