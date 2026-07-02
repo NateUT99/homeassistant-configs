@@ -1,6 +1,6 @@
 # Mobile Dashboard
 
-*Last updated: June 2026*
+*Last updated: July 2026*
 
 ---
 
@@ -127,7 +127,18 @@ Six chips across two rows. Row 1 (status/alert strip): Alarm, Water Leak, Freeze
 
 Reminders chips are mutually exclusive: the amber upcoming chip shows only when `sensor.upcoming_reminders_count > 0` AND `number.overdue_reminders_count < 1`; the red overdue chip shows only when `number.overdue_reminders_count > 0`; both hide when all tasks are current (nothing due within 7 days). Washer and dryer chips are conditionally hidden (CSS `display: none`) when both `input_select` is `idle` and `current_status` is in `[power_off, initial]`. When running, the chip shows the current progress % as content alongside the icon.
 
-**Vacuum chip states** (evaluated in priority order): `vacuum_routine_pause` on → orange `mdi:robot-vacuum-off`; cleaning/returning/paused → orange `mdi:robot-vacuum`; ran today AND maintenance required → red `mdi:robot-vacuum-alert`; not run today → grey `mdi:robot-vacuum`; ran today, all clear → green `mdi:robot-vacuum`.
+**Vacuum chip states** — color tracks operational status; icon tracks error/maintenance state independently.
+
+| Condition | Color | Icon |
+|---|---|---|
+| `vacuum_routine_pause` on | Orange | `mdi:robot-vacuum-off` |
+| Cleaning / returning / paused | Orange | `mdi:robot-vacuum-alert` if error or maintenance, else `mdi:robot-vacuum` |
+| Operational error (`vacuum_error` ≠ none or `dock_error` ≠ ok) | Red | `mdi:robot-vacuum-alert` |
+| Not run today | Grey | `mdi:robot-vacuum-alert` if maintenance required, else `mdi:robot-vacuum` |
+| Ran today, maintenance required | Green | `mdi:robot-vacuum-alert` |
+| Ran today, all clear | Green | `mdi:robot-vacuum` |
+
+Color signals whether the vacuum did its job today; icon signals whether anything needs attention. Red is reserved for actual hardware errors (`sensor.roborock_q8_max_vacuum_error`, `sensor.roborock_q8_max_dock_error`) — maintenance required never changes the color, only the icon.
 
 **Doors chip (Row 1, position 4):** `mdi:door-open`, warning/error color based on sleeping/away state (same as Row 1 badge logic), conditional on `binary_sensor.exterior_door_open` = on. Shows a count badge when 2+ doors are open. Tap navigates to `#doors`.
 
@@ -259,6 +270,8 @@ Once the new dashboard is verified:
 | Roborock Q8 Max | `vacuum.roborock_q8_max` | Entity |
 | Apartment map image | `image.roborock_q8_max_apartment` | Entity |
 | Vacuum cleaning (binary) | `binary_sensor.roborock_q8_max_cleaning` | Entity |
+| Vacuum error | `sensor.roborock_q8_max_vacuum_error` | Entity |
+| Dock error | `sensor.roborock_q8_max_dock_error` | Entity |
 | Maintenance required (aggregated) | `binary_sensor.roborock_maintenance_required` | Entity |
 | Replace filter | `binary_sensor.roborock_replace_filter` | Entity |
 | Replace main brush | `binary_sensor.roborock_replace_main_brush` | Entity |
