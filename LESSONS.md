@@ -311,6 +311,22 @@ To eliminate a floor:
 - Use an **absolute offset** via a `template` sensor that subtracts the floor value
 - Or adjust the **threshold** in any binary logic that consumes the sensor (e.g., "consider it 'on' above 5W instead of above 0W")
 
+### `| int` truncates negative floats to zero — use `| float` for threshold comparisons
+
+Jinja2's `| int` filter calls Python's `int()`, which truncates toward zero. A sensor value of `-0.97` becomes `0`, so `{{ value | int < 0 }}` evaluates to `False` even though the value is genuinely negative. This silently masks an overdue condition in any template that compares a float sensor against zero.
+
+Use `| float` instead of `| int` whenever the comparison involves values between -1 and 0:
+
+```jinja2
+{# Wrong — int(-0.97) = 0, so 0 < 0 is False even when sensor is overdue #}
+{{ states('sensor.roborock_q8_max_sensor_time_left') | int < 0 }}
+
+{# Right — float(-0.97) = -0.97, so -0.97 < 0 is True #}
+{{ states('sensor.roborock_q8_max_sensor_time_left') | float < 0 }}
+```
+
+This affected all four Roborock maintenance template sensors (`binary_sensor.roborock_clean_sensor`, `binary_sensor.roborock_replace_filter`, `binary_sensor.roborock_replace_main_brush`, `binary_sensor.roborock_replace_side_brush`): the underlying `_time_left` sensors report hours as floats, and the first hour of overdue time is between -1 and 0, which `| int` rounds to 0 and silently drops.
+
 ### Sensor-derived state values need debouncing for fast-changing inputs
 
 Binary sensors derived from analog values (power above threshold = device on) can chatter rapidly when the input hovers near the threshold. Use `for:` durations on triggers consuming these, or wrap the binary logic in a template sensor with hysteresis.
