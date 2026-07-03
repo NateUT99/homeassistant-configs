@@ -173,24 +173,26 @@ hash: "#vacuum"
 name: Vacuum
 icon: mdi:robot-vacuum
 popup_mode: adaptive-dialog
+with_bottom_offset: true
+show_header: false
 cards:
   # Vacuum commands button (Bubble Card button, sub-buttons)
   # Vacuum map image (conditional picture-entity)
   # Bubble Card separators as section headings
   # Status grid (native tile cards, 2 columns)
   # Mop settings (conditional on mop attached)
-  # Consumables (Bubble Card buttons, 4 items)
+  # Maintenance (Bubble Card buttons, 4 items)
 ```
 
 > **Pop-up mode:** all Bubble Card pop-ups on this dashboard use `popup_mode: adaptive-dialog` ("Fit content" on mobile). Set this on every pop-up card — it is not the default.
 
 **Map card** — `picture-entity` on `image.roborock_q8_max_apartment`, shown when vacuum is not docked OR `input_select.vacuum_ran_today` = Yes. Apply `card_mod` to crop black padding from the Roborock map image — see `standards/dashboards.md` → card-mod Use Cases for the exact CSS.
 
-**Status grid** — Native `tile` cards in a `grid` with `columns: 2`: vacuum state, battery, cleaning area (m²), duration (min). Add a `conditional` tile for `sensor.roborock_q8_max_current_room` shown only when `binary_sensor.roborock_q8_max_cleaning` = on.
+**Status** (`mdi:gauge`) — Native `tile` cards in a `grid` with `columns: 2`: vacuum state, battery, cleaning area (m²), duration (min). Add a `conditional` tile for `sensor.roborock_q8_max_current_room` shown only when `binary_sensor.roborock_q8_max_cleaning` = on.
 
-**Mop Settings** — A `conditional` card wrapping both a Bubble Card separator and a 2-column grid of tiles (`select.roborock_q8_max_mop_intensity`, `select.roborock_q8_max_mop_mode`, `binary_sensor.roborock_q8_max_water_shortage`), gated on `binary_sensor.roborock_q8_max_mop_attached` = on.
+**Mop Settings** (`mdi:water`) — A `conditional` card wrapping both a Bubble Card separator and a 2-column grid of tiles (`select.roborock_q8_max_mop_intensity`, `select.roborock_q8_max_mop_mode`, `binary_sensor.roborock_q8_max_water_shortage`), gated on `binary_sensor.roborock_q8_max_mop_attached` = on.
 
-**Consumables** — 4 Bubble Card buttons in a 2-column grid. Each shows hours remaining; icon color is set via the `styles` block (red when the maintenance binary sensor is on, green otherwise). Tap resets the consumable via `button.press` with a confirmation dialog.
+**Maintenance** (`mdi:wrench`) — 4 Bubble Card buttons in a 2-column grid. Each shows hours remaining; icon color is set via the `styles` block (red when the maintenance binary sensor is on, green otherwise). Tap resets the consumable via `button.press` with a confirmation dialog.
 
 | Consumable | Sensor | Reset button | Maintenance flag |
 |---|---|---|---|
