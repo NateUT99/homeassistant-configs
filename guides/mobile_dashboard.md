@@ -125,7 +125,7 @@ Six chips across two rows. Row 1 (status/alert strip): Alarm, Water Leak, Freeze
 | Washer | `mdi:washing-machine` | Orange (running) / green (alerting) / muted (acknowledged) / hidden (idle) | Navigate `#laundry` | Call `script.utility_room_acknowledge_laundry` (no-op when running) |
 | Dryer | `mdi:tumble-dryer` | Same pattern as washer | Navigate `#laundry` | Same pattern as washer |
 
-Reminders chips are mutually exclusive: the amber upcoming chip shows only when `sensor.upcoming_reminders_count > 0` AND `number.overdue_reminders_count < 1`; the red overdue chip shows only when `number.overdue_reminders_count > 0`; both hide when all tasks are current (nothing due within 7 days). Washer and dryer chips are conditionally hidden (CSS `display: none`) when both `input_select` is `idle` and `current_status` is in `[power_off, initial]`. When running, the chip shows the current progress % as content alongside the icon.
+Reminders chips are mutually exclusive: the amber upcoming chip shows only when `sensor.upcoming_reminders_count > 0` AND `number.overdue_reminders_count < 1`; the red overdue chip shows only when `number.overdue_reminders_count > 0`; both hide when all tasks are current (nothing due within 3 days). Washer and dryer chips are conditionally hidden (CSS `display: none`) when both `input_select` is `idle` and `current_status` is in `[power_off, initial]`. When running, the chip shows the current progress % as content alongside the icon.
 
 **Vacuum chip states** — color tracks operational status; icon tracks error/maintenance state independently.
 
@@ -211,20 +211,20 @@ The `#laundry` pop-up is triggered by tapping either the washer or dryer chip in
 
 Add two more Bubble Card `pop-up` cards to the same pop-up section at the bottom of the Home view.
 
-**`#reminders` pop-up** — Organized into two sections: **Overdue** and **Next 7 Days** (due within 7 days). Tasks due more than 7 days out are intentionally not shown — the popup surfaces only what needs attention. Each section begins with a Bubble Card separator (red and amber respectively). Both sections hide when empty, so the popup is blank when all tasks are current.
+**`#reminders` pop-up** — Organized into two sections: **Overdue** and **Next 3 Days** (due within 3 calendar days). Tasks due more than 3 days out are intentionally not shown — the popup surfaces only what needs attention. Each section begins with a Bubble Card separator (red and amber respectively). Both sections hide when empty, so the popup is blank when all tasks are current.
 
 Each of the 8 reminders appears once per section — 16 total card instances, each gated by a `visibility` condition. The Lovelace JS frontend cannot evaluate `as_timestamp(now())` or date arithmetic in `condition: template` visibility conditions, so all date bucketing uses `condition: numeric_state` on backend template sensors (`sensor.<key>_days_until_due`) instead:
 
 | Section | Visibility condition | Icon color |
 |---|---|---|
 | Overdue | `condition: state`, `binary_sensor.<key>_overdue` = on | Red |
-| Next 7 Days | `condition: numeric_state`, `sensor.<key>_days_until_due`, `above: 0, below: 8` | Amber |
+| Next 3 Days | `condition: numeric_state`, `sensor.<key>_days_until_due`, `above: 0, below: 4` | Amber |
 
-The Overdue separator gates on `number.overdue_reminders_count` > 0. The Next 7 Days separator gates on `sensor.upcoming_reminders_count` > 0 (an aggregate template sensor that counts reminders with `days_until_due` between 0 and 8).
+The `_days_until_due` sensors return **integer calendar days** (`(as_date(states('sensor.<key>_due')) - today()).days`), so `below: 4` means exactly 1, 2, or 3 — no fractional bleed. The Overdue separator gates on `number.overdue_reminders_count` > 0. The Next 3 Days separator gates on `sensor.upcoming_reminders_count` > 0 (an aggregate template sensor that counts reminders with integer `days_until_due` between 1 and 3).
 
 All reminder cards use `entity: sensor.<key>_due` for the state display (the formatted due date string), `card_layout: normal` for compact height, `button_type: state`. Tap = none; hold on the card body = `script.reminder_mark_complete` — set via `button_action.hold_action`, not the top-level `hold_action` (which binds to the icon area, not the card body).
 
-A final **empty state card** appears as the last card in the pop-up, visible only when both counts are 0 (nothing overdue, nothing in the next 7 days). It shows a green `mdi:calendar-check` icon with the label "All caught up." Tapping it navigates to `/mobile-home`, closing the pop-up — useful when the last overdue item is marked complete while the pop-up is open and both sections disappear, leaving an otherwise blank overlay.
+A final **empty state card** appears as the last card in the pop-up, visible only when both counts are 0 (nothing overdue, nothing in the next 3 days). It shows a green `mdi:calendar-check` icon with the label "All caught up." Tapping it navigates to `/mobile-home`, closing the pop-up — useful when the last overdue item is marked complete while the pop-up is open and both sections disappear, leaving an otherwise blank overlay.
 
 **`#water-leaks` pop-up** — Heading + 2-column grid of 4 native `tile` cards:
 

@@ -130,13 +130,13 @@ Entity ID: `binary_sensor.<key>_overdue`. HA sets it `on` when the template eval
 | Field | Value |
 |---|---|
 | Name | `<Object> <Action> Days Until Due` |
-| Template | `{{ ((state_attr('input_datetime.<key>', 'timestamp') + states('input_number.<key>_offset')\|int * 86400 - as_timestamp(now())) / 86400) \| round(1) }}` |
+| Template | `{{ (as_date(states('sensor.<key>_due')) - today()).days }}` |
 | Unit of measurement | `d` |
 | Device class | (leave blank) |
 
-Entity ID: `sensor.<key>_days_until_due`. Returns a floating-point count of days until the task is due (e.g., `17.1`). Negative when overdue. The mobile dashboard uses this for all Upcoming and Current visibility conditions — `condition: numeric_state` on a backend sensor works reliably where `condition: template` with date arithmetic fails: the Lovelace JS frontend cannot evaluate `as_timestamp(now())`, so all date bucketing must happen server-side.
+Entity ID: `sensor.<key>_days_until_due`. Returns an integer count of calendar days until the task is due (e.g., `17`). Negative when overdue. The mobile dashboard uses this for all Upcoming visibility conditions — `condition: numeric_state` on a backend sensor works reliably where `condition: template` with date arithmetic fails: the Lovelace JS frontend cannot evaluate `as_timestamp(now())`, so all date bucketing must happen server-side.
 
-> **Note on the timestamp approach:** `state_attr('input_datetime.<key>', 'timestamp')` returns the Unix epoch seconds of the stored date (at midnight UTC). Adding `offset_days * 86400` gives the due-date epoch. Subtracting `as_timestamp(now())` and dividing by 86400 gives days remaining. This avoids `strptime()` and string manipulation entirely.
+> **Note on the date approach:** `as_date(states('sensor.<key>_due'))` returns the due date as a Python `date` object. Subtracting `today()` yields a `timedelta`, and `.days` gives an exact integer calendar-day count. This is immune to time-of-day drift that affected the prior floating-point timestamp approach, making the bucketing threshold semantically exact.
 
 **6. Register the new sensor in the shared notification automations**
 
@@ -187,19 +187,19 @@ visibility:
     state: "on"
 ```
 
-**Next 7 Days instance** — place after the Next 7 Days separator:
+**Next 3 Days instance** — place after the Next 3 Days separator:
 ```yaml
 styles: "ha-icon { color: var(--warning-color) !important; }"
 visibility:
   - condition: numeric_state
     entity: sensor.<key>_days_until_due
     above: 0
-    below: 8
+    below: 4
 ```
 
-The Next 7 Days separator's visibility gates on `sensor.upcoming_reminders_count` > 0. After adding a new reminder, update the `sensor.upcoming_reminders_count` template sensor to include the new `'<key>'` in its key list — the template iterates this list to count reminders in the 1–7 day window.
+The Next 3 Days separator's visibility gates on `sensor.upcoming_reminders_count` > 0. After adding a new reminder, update the `sensor.upcoming_reminders_count` template sensor to include the new `'<key>'` in its key list — the template iterates this list to count reminders in the 1–3 day window.
 
-> **Coordinated change:** Adding a new reminder requires five artifacts — four per-reminder helpers (steps 1–4) and one days-until-due template sensor (step 5) — plus two `#reminders` pop-up card instances (Overdue and Next 7 Days) and an update to `sensor.upcoming_reminders_count`. All must be kept in sync with the automation registrations in step 6. `script.reminder_mark_complete` and the empty state "All caught up" card are shared — no changes needed to either when adding a new reminder.
+> **Coordinated change:** Adding a new reminder requires five artifacts — four per-reminder helpers (steps 1–4) and one days-until-due template sensor (step 5) — plus two `#reminders` pop-up card instances (Overdue and Next 3 Days) and an update to `sensor.upcoming_reminders_count`. All must be kept in sync with the automation registrations in step 6. `script.reminder_mark_complete` and the empty state "All caught up" card are shared — no changes needed to either when adding a new reminder.
 
 ### Shared Scripts & Automations
 
