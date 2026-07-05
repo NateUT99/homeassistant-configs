@@ -1,12 +1,12 @@
 # Laundry Automation
 
-*Last updated: June 2026*
+*Last updated: July 2026*
 
 ---
 
 ## Overview
 
-Two LG appliances — a washer and dryer — are managed via the `lg_thinq` integration and surface as entity sets in HA. This integration adds a state machine helper per appliance, four template sensors for progress computation, four automations for state management and TTS announcements, and a condition-triggered Laundry section on the `mobile-home` dashboard. When a cycle completes, the system announces on the kitchen HomePod (or master bedroom if Avery is sleeping) every 30 minutes until the laundry is retrieved or explicitly acknowledged, and re-announces immediately when the household re-engages after sleep or an absence.
+Two LG appliances — a washer and dryer — are managed via the `lg_thinq` integration and surface as entity sets in HA. This integration adds a state machine helper per appliance, four template sensors for progress computation, three automations for state management and TTS announcements, and a condition-triggered Laundry section on the `mobile-home` dashboard. When a cycle completes, the system announces on the kitchen HomePod (or master bedroom if Avery is sleeping) every 30 minutes until the laundry is retrieved or explicitly acknowledged, and re-announces immediately when the household re-engages after sleep or an absence.
 
 ---
 
@@ -35,7 +35,8 @@ LG ThinQ (lg_thinq integration)
   options: idle │ alerting │ acknowledged
          │
          ├─► TTS Announcement Automation
-         │   automation.utility_room_washer_done_announcement
+         │   automation.utility_room_laundry_done_announcement
+         │   ├── combined message when both appliances alerting
          │   ├── kitchen HomePod (default)
          │   └── master bedroom HomePod (avery_sleeping = on)
          │
@@ -72,7 +73,7 @@ TTS inputs:
 
 - **TTS re-triggers on re-engagement.** The announcement automation uses `mode: restart` and fires on three triggers: `input_select → alerting`, `everyone_sleeping → off`, and `zone.home` crossing above 0. Sleep and away stop TTS but leave the visual (`input_select`) at `alerting`. When the household re-engages, the automation restarts and fires immediately rather than waiting up to 30 minutes for the next loop iteration.
 
-- **Garage entry grace window on arrival.** When the `someone_arrived` trigger fires, the announcement is gated on `binary_sensor.garage_interior_door_contact` closing before TTS fires — the person is likely still in the garage and would miss audio from interior HomePods. If the garage door is already closed (front-door entry), the gate is skipped and TTS proceeds immediately. 5-minute timeout with `continue_on_timeout: true` prevents the automation from hanging. This follows the standard pattern in `standards/automations.md` section 5.10, established in `automation.outdoor_air_quality_index_alert`.
+- **Garage entry grace window on arrival.** When the `someone_arrived` trigger fires, the announcement always waits for the full interior garage door entry sequence before TTS fires: if the door is currently closed, wait up to 10 minutes for it to open (the person parking and walking to the door), then wait up to 5 minutes for it to close (the person stepping inside), then a 30-second buffer. If the door is already open when the trigger fires, the open-wait is skipped. Both waits use `continue_on_timeout: true` so TTS still fires if the person enters a different way. Without this sequence, TTS fires the moment zone.home registers the GPS arrival — before the person is inside to hear the HomePod. This follows the standard pattern in `standards/automations.md` section 5.10, established in `automation.outdoor_air_quality_index_alert`.
 
 - **Chip over conditional section.** The original design used a condition-triggered dashboard section that auto-appeared above the chip strip. This was replaced with two conditional chips in the chip strip itself. Visual weight is lower — chips are compact and sit alongside vacuum/reminders rather than expanding the home view. A tap on either chip navigates to the shared `#laundry` pop-up rather than surfacing cards inline.
 
@@ -194,36 +195,34 @@ Mode: `single`. The condition on the `end` trigger prevents re-alerting if the h
 
 **Dryer status manager** (`automation.utility_room_dryer_status_manager`): mirror of the above, triggering only on `end` for the alerting transition (not `cooling` — see design decision above).
 
-### 6. Create TTS announcement automations
+### 6. Create TTS announcement automation
 
-Two automations — one per appliance — handle the repeating TTS loop. Both are in the **Maintenance** category, **Utility Room** area, with labels `int_laundry`, `notification`, and `text_to_speech`.
-
-**Washer done announcement** (`automation.utility_room_washer_done_announcement`):
+One automation — `automation.utility_room_laundry_done_announcement` — handles the repeating TTS loop for both appliances. **Maintenance** category, **Utility Room** area, labels `int_laundry`, `notification`, and `text_to_speech`.
 
 *Triggers:*
-- `input_select.utility_room_washer_status` → `alerting` (primary)
-- `input_boolean.everyone_sleeping` → `off` (re-trigger after sleep)
-- `zone.home` numeric state crosses above 0 (re-trigger after absence)
+- `input_select.utility_room_washer_status` → `alerting` (primary, id: `status_alerting`)
+- `input_select.utility_room_dryer_status` → `alerting` (primary, id: `status_alerting`)
+- `input_boolean.everyone_sleeping` → `off` (re-trigger after sleep, id: `everyone_woke`)
+- `zone.home` numeric state crosses above 0 (re-trigger after absence, id: `someone_arrived`)
 
 *Start conditions (all must pass):*
-- `washer_status == alerting`
+- `washer_status == alerting` OR `dryer_status == alerting`
 - `everyone_sleeping == off`
 - `zone.home > 0`
 
-*Pre-loop action:*
-- If `trigger.id == someone_arrived` and `garage_interior_door_contact == on`: wait for the garage interior door to close (5-minute timeout, `continue_on_timeout: true`), then pause 15 seconds. Ensures the person is inside before TTS fires. See `standards/automations.md` section 5.10.
+*Pre-loop action (arrival only):*
+- If `trigger.id == someone_arrived`: wait for the interior garage door entry sequence — if door is currently closed, wait up to 10 minutes for it to open, then wait up to 5 minutes for it to close, then pause 30 seconds. If the door is already open when arrival fires, the open-wait is skipped. Both waits use `continue_on_timeout: true`. See `standards/automations.md` section 5.10.
 
 *Action — repeat (count: 20):*
-1. Stop if `washer_status != alerting`
+1. Stop if neither `washer_status` nor `dryer_status` is `alerting`
 2. Stop if `everyone_sleeping == on`
 3. Stop if `zone.home < 1`
-4. Call `script.household_tts_announce` with `message: "The washer is done."`, `target: master_bedroom` (when `avery_sleeping == on`) or `target: kitchen` (otherwise), and `notification_title: "Washer Done"`. The household script handles camera-aware suppression and mobile push fallback — see `guides/chime_tts.md`.
-5. If `utility_room_door_contact == on` → set `washer_status → idle` and stop. Handles door left open before cycle ends: announces once then clears immediately rather than repeating indefinitely.
-6. Delay 30 minutes
+4. Evaluate message and title: `"The washer and dryer cycles have both completed."` / `"Laundry Done"` when both alerting; `"The washer cycle has completed."` / `"Washer Done"` for washer only; `"The dryer cycle has completed."` / `"Dryer Done"` for dryer only.
+5. Call `script.household_tts_announce` with the computed message and title, `target: master_bedroom` (when `avery_sleeping == on`) or `target: kitchen` (otherwise). The script handles camera-aware suppression and mobile push fallback — see `guides/chime_tts.md`.
+6. If `utility_room_door_contact == on` → set both `washer_status` and `dryer_status` to `idle` and stop. Idempotent — setting an already-idle status to idle is a no-op.
+7. Delay 30 minutes
 
-Mode: `restart` — ensures re-triggers (wake up / arrive home) cancel the mid-loop delay and fire TTS immediately.
-
-**Dryer done announcement** (`automation.utility_room_dryer_done_announcement`): mirror, referencing dryer entities. Step 4 passes `message: "The dryer is done."` and `notification_title: "Dryer Done"` to `script.household_tts_announce`. Includes the same garage entry grace window pre-loop action.
+Mode: `restart` — ensures re-triggers (wake up / arrive home / second appliance finishing) cancel the mid-loop delay and fire TTS immediately with an updated message.
 
 ### 7. Add laundry chips and pop-up to mobile-home dashboard
 
@@ -291,8 +290,7 @@ Bubble Card `pop-up`, `hash: "#laundry"`, `popup_mode: adaptive-dialog`. Per-app
 | Washer cycles at last cleaning | `input_number.utility_room_washer_cycles_at_last_cleaning` | Helper (input_number) |
 | Washer status manager | `automation.utility_room_washer_status_manager` | Automation |
 | Dryer status manager | `automation.utility_room_dryer_status_manager` | Automation |
-| Washer done announcement | `automation.utility_room_washer_done_announcement` | Automation |
-| Dryer done announcement | `automation.utility_room_dryer_done_announcement` | Automation |
+| Laundry done announcement | `automation.utility_room_laundry_done_announcement` | Automation |
 | Washer cycles snapshot | `automation.utility_room_washer_cycles_snapshot_on_clean` | Automation |
 | Acknowledge laundry | `script.utility_room_acknowledge_laundry` | Script |
 | TTS dispatch | `script.household_tts_announce` | Script |
@@ -328,6 +326,6 @@ No structural changes needed; it's a two-entity swap per automation.
 
 **Progress bar not updating.** The template sensors update on a 30-second polling interval by default. If the bar appears frozen mid-cycle, navigate away and back to force a re-render, or check the template sensor's state in **Developer Tools → States**.
 
-**TTS not re-firing after returning home.** Confirm `zone.home` count actually dropped to 0 before your return — if you only stepped out briefly and the count stayed at 1 (someone else home), the re-trigger condition doesn't apply. Also verify `automation.utility_room_washer_done_announcement` is enabled in **Settings → Automations**.
+**TTS not re-firing after returning home.** Confirm `zone.home` count actually dropped to 0 before your return — if you only stepped out briefly and the count stayed at 1 (someone else home), the re-trigger condition doesn't apply. Also verify `automation.utility_room_laundry_done_announcement` is enabled in **Settings → Automations**.
 
 **Dryer chip appeared during cooling but machine was still hot.** The dryer status manager only triggers on `end`, not `cooling`. If the chip appeared before the cycle actually finished, check the dryer status manager automation trace — `sensor.dryer_current_status` may have briefly hit `end` before transitioning to `cooling` or `wrinkle_care`. This is normal ThinQ state machine behavior; the chip should clear correctly when the door opens.
