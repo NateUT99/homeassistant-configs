@@ -1,21 +1,230 @@
 # Reminder System
-*Last updated: June 2026*
+*Last updated: July 2026*
 
 ---
 
 ## Overview
 
-Three distinct reminder patterns are documented here. They share a common philosophy — actionable iOS notifications with tag-based lifecycle management and a Mark Complete action — but differ in how they determine when to fire and how they close the loop.
+The reminder system uses the [ha-chore-calendar](https://github.com/tcarney/ha-chore-calendar) HACS integration to manage two categories of recurring tasks: household maintenance chores (interval-based, anchored to last completion) and trash/recycling pickup (calendar-schedule-based, biweekly alternating). Both categories surface on the mobile dashboard through a single always-visible chip and a shared `#reminders` pop-up.
 
-| Pattern | Trigger | Close loop via | Use for |
-|---|---|---|---|
-| **Interval-Based** | Interval since last done | Mark Complete → set last-done date | Regular maintenance tasks (car wash, filter change, etc.) |
-| **Sensor-Threshold** | Vacuum returns to dock | Mark Complete → press integration reset button | Consumable-driven maintenance tied to vacuum usage |
-| **Calendar-Driven** | Calendar event tomorrow | Mark Complete → disarm pending boolean | Fixed-schedule events driven by an external calendar |
+A separate notification framework handles Roborock consumable alerts — see the [Sensor-Threshold Notifications](#sensor-threshold-notifications) section below.
+
+> **Migration note:** Prior to July 2026, the reminder system used manual `input_datetime` / `input_number` helpers for interval-based reminders and `input_boolean` / `input_text` helpers for trash pickup state. Both patterns were replaced by ha-chore-calendar. The previous automations (`automation.household_reminder_notifications`, `automation.household_reminder_mark_complete`, `automation.household_pickup_reminder`, `automation.household_pickup_morning_critical`, `automation.household_pickup_mark_complete`) were rewritten in place to use the new integration. Git history preserves the old implementation.
 
 ---
 
-## Interval-Based Reminders
+## Architecture
+
+```
+ha-chore-calendar integration (HACS)
+├── "Household Chores" config entry
+│   ├── calendar.household_chores   (on = any chore due/overdue)
+│   ├── todo.household_chores       (state = count of non-completed chores)
+│   └── sensor.household_chores_*  (one per chore, state = completed/pending/due/overdue)
+└── "Trash Pickup" config entry
+    ├── calendar.trash_pickup       (on = active pickup window)
+    ├── todo.trash_pickup           (state = count of non-completed trash chores)
+    └── sensor.trash_pickup_*      (one per chore)
+
+Status lifecycle per chore:
+  completed → pending (pending_period before due_at) → due (at due_at) → overdue (after grace_period)
+
+Notification lifecycle:
+  Household Chores:
+    09:00 daily → get_items(status=overdue) → push per overdue chore (tag: reminder_<uid>)
+    chore_calendar_status_changed(to=completed) → clear notification by uid tag
+
+  Trash Pickup:
+    19:00 daily → get_items(status=pending, calendar.trash_pickup) → push + TTS if pickup pending
+    19:30, 20:00 → TTS repeat if active trash sensor still pending/due
+    chore_calendar_status_changed(to=due, calendar.trash_pickup) → critical iOS alarm
+    09:00 daily → auto-complete active trash chore (cleanup if not manually done)
+    chore_calendar_status_changed(to=completed, calendar.trash_pickup) → clear push notification
+
+Dashboard:
+  chip strip → todo.household_chores (always visible; grey=0, yellow=pending, red=due/overdue)
+  #reminders popup → custom:chore-calendar-card for both lists (native mark-complete)
+```
+
+**Key design decisions:**
+
+- *Integration owns the state machine.* ha-chore-calendar tracks `last_completed`, computes `due_at`, manages `completed → pending → due → overdue` transitions, and fires `chore_calendar_status_changed` events. No HA helper mirrors this state — the integration is the single source of truth.
+- *Interval chores are anchored to last completion.* Due date = `last_completed + interval`. A chore that has never been completed starts in `pending` state with no due date; it enters the normal lifecycle on first completion.
+- *Scheduled trash chores are anchored to the calendar grid.* The biweekly RRULE determines the exact due times regardless of when the chore was last completed. Two separate chores with offset `dtstart` values (`2026-07-09` and `2026-07-16`) produce alternating Wednesday series: one for trash-only weeks, one for trash-and-recycling weeks.
+- *Alternating trash chores, not a single chore with a variable name.* Using two chore entities allows independent sensor state (`sensor.trash_pickup_put_out_trash` vs `sensor.trash_pickup_put_out_trash_recycling`) and means the 19:00 automation can derive the pickup label from `chore_name | replace('Put Out ', '')` — no stored label helper needed.
+- *07:00 critical uses chore_calendar_status_changed(to=due), not a time trigger.* The event fires when the trash chore transitions to `due` (at 07:00 Wednesday via pending_period expiry). This means the critical notification fires only on actual pickup days with zero false positives — no daily condition check against a boolean.
+- *09:00 auto-complete for trash cleanup.* If trash is still pending/due/overdue at 09:00, the automation calls `chore_calendar.complete_item` on the active sensor. This semantically marks pickup as done, advances the scheduled series to the next occurrence, and clears the iOS notification — a clean close even if the user forgot to tap Mark Complete.
+- *chore-calendar-card handles mark-complete natively.* The popup uses the integration's own Lovelace card, which has built-in mark-complete UI. No `script.reminder_mark_complete` wrapper is needed; the card calls `chore_calendar.complete_item` directly.
+- *Single always-visible chip with three color states.* Grey (no actionable chores), yellow (chores pending but nothing due/overdue yet), red (something due or overdue). The `calendar.household_chores` entity (`on` when any chore is due/overdue) drives the color; `todo.household_chores` drives the count badge.
+- *Notification action mark-complete uses UID.* The push notification `action` field encodes `REMINDER_MARK_COMPLETE_<uid>`. The handler strips the prefix and passes the UID directly to `chore_calendar.complete_item` — no lookup table needed.
+
+---
+
+## Prerequisites
+
+- ha-chore-calendar installed via HACS and both config entries created: **"Household Chores"** and **"Trash Pickup"**
+- HA Companion app on Nate's iPhone (`notify.mobile_app_nates_iphone`)
+- Critical Alerts entitlement enabled: **iPhone → Settings → Notifications → Home Assistant → Critical Alerts** (required for the 07:00 trash alarm to break through Do Not Disturb)
+
+---
+
+## Chore Lists
+
+### Household Chores (`calendar.household_chores`)
+
+All interval chores. All use `pending_period`: 3 days (4320 min), `grace_period`: 1 hour (60 min).
+
+| Chore Name | Entity ID | Interval | Notes |
+|---|---|---|---|
+| Accord Washed | `sensor.household_chores_accord_washed` | 30 days | |
+| Coffee Grinder Cleaned | `sensor.household_chores_coffee_grinder_cleaned` | 45 days | |
+| Dishwasher Cleaned | `sensor.household_chores_dishwasher_cleaned` | 30 days | |
+| Disposal Cleaned | `sensor.household_chores_disposal_cleaned` | 30 days | |
+| Razor Blade Changed | `sensor.household_chores_razor_blade_changed` | 14 days | |
+| Toothbrushes Changed | `sensor.household_chores_toothbrushes_changed` | 60 days | |
+| Washer Cleaned | `sensor.household_chores_washer_cleaned` | 30 days | |
+| Water Filter Changed | `sensor.household_chores_water_filter_changed` | 90 days | |
+
+### Trash Pickup (`calendar.trash_pickup`)
+
+Two scheduled chores with biweekly RRULE, offset by one week to produce an alternating pattern.
+
+| Chore Name | Entity ID | Schedule | Pending window | Grace |
+|---|---|---|---|---|
+| Put Out Trash | `sensor.trash_pickup_put_out_trash` | Biweekly Wed (`dtstart: 2026-07-09`) | 12 hours (720 min) | 2 hours (120 min) |
+| Put Out Trash & Recycling | `sensor.trash_pickup_put_out_trash_recycling` | Biweekly Wed (`dtstart: 2026-07-16`) | 12 hours (720 min) | 2 hours (120 min) |
+
+Both use `FREQ=WEEKLY;INTERVAL=2;BYDAY=WE` with `time: 07:00`. The 12-hour pending window means the chore enters `pending` state at 19:00 Tuesday (12 hours before 07:00 Wednesday), which aligns with the 19:00 evening notification trigger.
+
+---
+
+## Notification Timing
+
+### Household Reminders
+
+| Time | Trigger | Action |
+|---|---|---|
+| 09:00 daily | Time trigger | Push notification per overdue chore (`tag: reminder_<uid>`, `REMINDER_MARK_COMPLETE_<uid>` action) |
+| Any time | `chore_calendar_status_changed` → `to_status: completed` | Clear push notification by uid tag |
+
+### Trash Pickup
+
+| Time | Trigger | Action |
+|---|---|---|
+| 19:00 Tue | Time trigger | `get_items(status=pending)` on `calendar.trash_pickup`; push + TTS to kitchen if found |
+| 19:30 Tue | Time trigger | TTS repeat to kitchen if active trash sensor still `pending` or `due` |
+| 20:00 Tue | Time trigger | TTS repeat to kitchen if still pending/due and someone home |
+| 07:00 Wed | `chore_calendar_status_changed` → `to_status: due` | Critical iOS alarm (`tag: pickup`, `PICKUP_MARK_COMPLETE` action) |
+| 09:00 Wed | Time trigger | Auto-complete active trash chore if still `pending`/`due`/`overdue` |
+| Any time | `chore_calendar_status_changed` → `to_status: completed` (calendar.trash_pickup) | Clear pickup push notification |
+
+TTS announcements skip if no one is home (`zone.home` count ≤ 0). The 19:30 and 20:00 repeats check the active trash sensor state directly (`sensor.trash_pickup_put_out_trash` or `sensor.trash_pickup_put_out_trash_recycling`) rather than re-querying `get_items`.
+
+---
+
+## Dashboard Integration
+
+**Chip strip** — always-visible button in the second row (between Dryer and the end of the row):
+
+- Entity: `todo.household_chores`
+- Icon: `mdi:calendar-clock` (static)
+- Tap / hold: navigate to `#reminders`
+- Color: grey when `todo.household_chores` state = 0; yellow when > 0 and `calendar.household_chores` is `off`; red when > 0 and `calendar.household_chores` is `on`
+- Count badge: shows `todo.household_chores` state when > 0
+
+**`#reminders` pop-up** — two `custom:chore-calendar-card` instances:
+
+```yaml
+type: custom:chore-calendar-card
+entity: calendar.household_chores
+---
+type: custom:chore-calendar-card
+entity: calendar.trash_pickup
+```
+
+The chore-calendar-card provides native status grouping (overdue / due / pending) and a built-in mark-complete action — no custom Bubble Card buttons needed.
+
+---
+
+## Adding a New Chore
+
+**Interval chore:**
+1. Open ha-chore-calendar config entry for "Household Chores" → Add chore
+2. Set `chore_type: interval`, configure `interval` (days), `pending_period: 4320` (3 days), `grace_period: 60` (1 hour)
+3. The integration automatically creates `sensor.household_chores_<chore_name>` and registers it with the calendar/todo entities
+4. The 09:00 automation uses `get_items(status=overdue)` dynamically — no automation edit needed
+
+**Scheduled chore (trash-pattern):**
+1. Open ha-chore-calendar config entry for "Trash Pickup" → Add chore
+2. Set `chore_type: scheduled`, configure RRULE, `dtstart`, `pending_period: 720` (12 hours), `grace_period: 120` (2 hours)
+3. If adding a new pickup type, update `automation.household_pickup_reminder` to detect and derive the label from `chore_name`
+
+---
+
+## Related HA Config
+
+### ha-chore-calendar Entities
+
+| Friendly Name | Entity ID | Type |
+|---|---|---|
+| Household Chores | `calendar.household_chores` | calendar (on = any chore due/overdue) |
+| Household Chores | `todo.household_chores` | todo (state = actionable chore count) |
+| Trash Pickup | `calendar.trash_pickup` | calendar |
+| Trash Pickup | `todo.trash_pickup` | todo |
+| Household Chores: Accord Washed | `sensor.household_chores_accord_washed` | chore sensor |
+| Household Chores: Coffee Grinder Cleaned | `sensor.household_chores_coffee_grinder_cleaned` | chore sensor |
+| Household Chores: Dishwasher Cleaned | `sensor.household_chores_dishwasher_cleaned` | chore sensor |
+| Household Chores: Disposal Cleaned | `sensor.household_chores_disposal_cleaned` | chore sensor |
+| Household Chores: Razor Blade Changed | `sensor.household_chores_razor_blade_changed` | chore sensor |
+| Household Chores: Toothbrushes Changed | `sensor.household_chores_toothbrushes_changed` | chore sensor |
+| Household Chores: Washer Cleaned | `sensor.household_chores_washer_cleaned` | chore sensor |
+| Household Chores: Water Filter Changed | `sensor.household_chores_water_filter_changed` | chore sensor |
+| Trash Pickup: Put Out Trash | `sensor.trash_pickup_put_out_trash` | chore sensor |
+| Trash Pickup: Put Out Trash & Recycling | `sensor.trash_pickup_put_out_trash_recycling` | chore sensor |
+
+### Automations
+
+| Friendly Name | Entity ID | Role |
+|---|---|---|
+| Household: Reminder Notifications | `automation.household_reminder_notifications` | 09:00 overdue push; status_changed:completed → clear |
+| Household: Reminder Mark Complete | `automation.household_reminder_mark_complete` | Notification action REMINDER_MARK_COMPLETE_* → complete_item |
+| Household: Trash Pickup Reminder | `automation.household_pickup_reminder` | 19:00 push+TTS; 19:30/20:00 TTS repeats |
+| Household: Trash Pickup Morning Critical | `automation.household_pickup_morning_critical` | status_changed:due → critical alarm; 09:00 → auto-complete |
+| Household: Trash Pickup Mark Complete | `automation.household_pickup_mark_complete` | PICKUP_MARK_COMPLETE action → complete_item; status_changed:completed → clear |
+
+---
+
+## Troubleshooting
+
+**`get_items` returns a 500 error or sensors go unavailable**
+
+This indicates a corrupted coordinator state — most commonly caused by a `completed_at` value with no timezone offset being stored. The fix requires deleting and recreating the ha-chore-calendar config entry. After recreating, seed `last_completed` dates via the `chore_calendar.complete_item` service with timezone-aware timestamps (e.g., `"2026-06-16T00:00:00-04:00"` for EDT). Naive datetimes (`"2026-06-16T00:00:00"`) will trigger the same crash.
+
+**`get_items` result accessed with `.items` returns the dict method, not the data**
+
+The service response is a dict with an `items` key. In Jinja2, `result.items` resolves to the built-in dict `.items()` method. Always use bracket notation: `result['items']`.
+
+**Overdue notification fires but Mark Complete tap doesn't clear it**
+
+The notification tag is `reminder_<uid>` where `uid` is the chore's UUID attribute. The action ID is `REMINDER_MARK_COMPLETE_<uid>`. Verify the uid in `sensor.household_chores_*` attributes matches what was embedded in the push payload. Check `automation.household_reminder_mark_complete` traces for the `chore_uid` variable.
+
+**19:00 push fires but no TTS**
+
+Check that `zone.home` count > 0 at time of firing. TTS is gated on presence. Also confirm `script.household_tts_announce` is not suppressed (check `sensor.mac_mini_is_in_meeting` or similar camera sensor if applicable).
+
+**07:00 critical doesn't fire on a pickup Wednesday**
+
+The critical trigger is `chore_calendar_status_changed(to_status=due)`, which fires when the pending window expires at 07:00. If the status event doesn't fire, the coordinator may not have polled — check that ha-chore-calendar is reachable and the config entry is healthy. The coordinator polls every ~60 seconds.
+
+**Stale iOS notifications from before the July 2026 migration**
+
+The old system used tags like `reminder_accord_washed` (key-name-based). The new system uses `reminder_<uuid>`. Old-format notifications on the lock screen cannot be cleared by the new automations — dismiss them manually from the phone.
+
+---
+
+## Interval-Based Reminders (Deprecated)
+
+> **Deprecated July 2026.** This pattern was replaced by ha-chore-calendar interval chores. The documentation is preserved for reference in case the pattern needs to be recreated.
 
 A framework where each reminder tracks a last-done date and a configurable interval. The system automatically computes when the task is next due, marks it overdue, sends an actionable push notification, and closes the loop when the user taps Mark Complete on the lock screen — which resets the last-done date to today.
 
@@ -201,172 +410,9 @@ The Next 3 Days separator's visibility gates on `sensor.upcoming_reminders_count
 
 > **Coordinated change:** Adding a new reminder requires five artifacts — four per-reminder helpers (steps 1–4) and one days-until-due template sensor (step 5) — plus two `#reminders` pop-up card instances (Overdue and Next 3 Days) and an update to `sensor.upcoming_reminders_count`. All must be kept in sync with the automation registrations in step 6. `script.reminder_mark_complete` and the empty state "All caught up" card are shared — no changes needed to either when adding a new reminder.
 
-### Shared Scripts & Automations
-
-#### `automation.household_reminder_notifications`
-
-*Friendly name: Household: Reminder Notifications*
-
-Single automation covering the notification lifecycle: sends an actionable notification for each overdue reminder at 09:00 daily, and clears the iOS lock-screen notification when a reminder resolves. All sends go through the daily trigger — there is no edge-on send — so notifications never arrive at midnight when the date rolls over.
-
-```yaml
-alias: "Household: Reminder Notifications"
-description: >-
-  Notification lifecycle for overdue reminders. Sends an actionable iOS notification
-  for each overdue reminder at 09:00 daily, and clears the lock-screen notification
-  when a reminder flips back to not-overdue.
-mode: parallel
-max: 8
-trigger:
-  - id: edge_off
-    alias: "Any reminder flips back to not overdue"
-    platform: state
-    entity_id:
-      - binary_sensor.accord_washed_overdue
-      - binary_sensor.coffee_grinder_cleaned_overdue
-      - binary_sensor.dishwasher_cleaned_overdue
-      - binary_sensor.disposal_cleaned_overdue
-      - binary_sensor.razor_blade_changed_overdue
-      - binary_sensor.toothbrushes_changed_overdue
-      - binary_sensor.washer_cleaned_overdue
-      - binary_sensor.water_filter_changed_overdue
-    to: "off"
-  - id: daily
-    alias: "9am daily re-check"
-    platform: time
-    at: "09:00:00"
-action:
-  - choose:
-      - alias: "Edge OFF — clear the notification when reminder completes"
-        conditions:
-          - condition: trigger
-            id: edge_off
-        sequence:
-          - variables:
-              reminder_key: "{{ trigger.to_state.object_id | replace('_overdue', '') }}"
-          - alias: "Clear the iOS notification by tag"
-            action: notify.mobile_app_nates_iphone
-            data:
-              message: "clear_notification"
-              data:
-                tag: "reminder_{{ reminder_key }}"
-      - alias: "Daily — notify each reminder still overdue at 9am"
-        conditions:
-          - condition: trigger
-            id: daily
-        sequence:
-          - alias: "Iterate all reminders"
-            repeat:
-              for_each:
-                - accord_washed
-                - coffee_grinder_cleaned
-                - dishwasher_cleaned
-                - disposal_cleaned
-                - razor_blade_changed
-                - toothbrushes_changed
-                - washer_cleaned
-                - water_filter_changed
-              sequence:
-                - alias: "Notify if currently overdue"
-                  if:
-                    - condition: template
-                      value_template: "{{ is_state('binary_sensor.' ~ repeat.item ~ '_overdue', 'on') }}"
-                  then:
-                    - alias: "Send actionable iOS notification"
-                      action: notify.mobile_app_nates_iphone
-                      data:
-                        title: "Reminder Overdue"
-                        message: >-
-                          {{ state_attr('binary_sensor.' ~ repeat.item ~ '_overdue', 'friendly_name')
-                             | replace(' Overdue', '') }}
-                        data:
-                          tag: "reminder_{{ repeat.item }}"
-                          actions:
-                            - action: "REMINDER_MARK_COMPLETE_{{ repeat.item }}"
-                              title: "Mark Complete"
-```
-
-Assign to the **Routines** category with labels **Notification**, **Reminders**, and **Whole Home**. Leave area unset.
-
-#### `automation.household_reminder_mark_complete`
-
-*Friendly name: Household: Reminder Mark Complete*
-
-When the user taps *Mark Complete* on a reminder notification, this automation sets the corresponding last-done date to today. The `sensor.<key>_due` template sensor then updates reactively, which flips the overdue binary sensor off, which triggers the edge_off branch above to clear the notification.
-
-```yaml
-alias: "Household: Reminder Mark Complete"
-description: >-
-  When the user taps Mark Complete on a reminder notification, set the corresponding
-  last-done date to today. This closes the loop: the due-date template sensor updates
-  reactively, the overdue sensor flips off, and the notification clears automatically.
-mode: parallel
-max: 8
-trigger:
-  - alias: "iOS notification action fired"
-    platform: event
-    event_type: mobile_app_notification_action
-variables:
-  action_id: "{{ trigger.event.data.action | default('') }}"
-  reminder_key: "{{ action_id | replace('REMINDER_MARK_COMPLETE_', '') }}"
-  target_entity: "input_datetime.{{ reminder_key }}"
-condition:
-  - alias: "Action is a reminder Mark Complete"
-    condition: template
-    value_template: "{{ action_id.startswith('REMINDER_MARK_COMPLETE_') }}"
-  - alias: "Target input_datetime exists"
-    condition: template
-    value_template: "{{ states(target_entity) not in ['unknown', 'unavailable'] }}"
-action:
-  - alias: "Set last-done date to today"
-    action: input_datetime.set_datetime
-    target:
-      entity_id: "{{ target_entity }}"
-    data:
-      date: "{{ now().strftime('%Y-%m-%d') }}"
-```
-
-Assign to the **Routines** category with labels **Reminders** and **Whole Home**. Leave area unset.
-
-#### `script.reminder_mark_complete`
-
-*Friendly name: Reminder: Mark Complete*
-
-Sets the given `input_datetime` entity to today's date. All reminder cards on the dashboard call this script for their hold action. The script exists because Jinja2 templates in Lovelace card action `data` fields are not evaluated by the frontend — the date string `{{ now().strftime('%Y-%m-%d') }}` is passed literally to the service and fails validation. Running the same logic inside a script works because scripts execute server-side where Jinja2 templates are always evaluated.
-
-```yaml
-alias: "Reminder: Mark Complete"
-description: >-
-  Sets the given input_datetime entity to today's date, marking a reminder as
-  done. Called from dashboard reminder cards — Jinja2 templates in Lovelace
-  card action data are not evaluated by the frontend. Any action that needs
-  the current date must be routed through a server-side script where templates
-  are evaluated normally.
-icon: mdi:calendar-check
-fields:
-  reminder_entity:
-    description: The input_datetime entity to set to today
-    required: true
-    selector:
-      entity:
-        domain: input_datetime
-sequence:
-  - action: input_datetime.set_datetime
-    target:
-      entity_id: "{{ reminder_entity }}"
-    data:
-      date: "{{ now().strftime('%Y-%m-%d') }}"
-mode: parallel
-max: 8
-```
-
-Assign to the **Routines** category with label **Reminders**. Leave area unset.
-
 ### Example: Household Maintenance Tasks
 
-The eight household maintenance reminders currently configured follow the interval-based pattern. All share the two automations above; only their per-item helpers differ.
-
-#### Current reminders
+The eight household maintenance reminders that were migrated to ha-chore-calendar followed this pattern. All shared the two automations above; only their per-item helpers differed.
 
 | Reminder | Last-Done Helper | Offset Helper | Due Sensor | Overdue Sensor | Days Until Due |
 |---|---|---|---|---|---|
@@ -379,21 +425,7 @@ The eight household maintenance reminders currently configured follow the interv
 | Washer Cleaned | `input_datetime.washer_cleaned` | `input_number.washer_cleaned_offset` | `sensor.washer_cleaned_due` | `binary_sensor.washer_cleaned_overdue` | `sensor.washer_cleaned_days_until_due` |
 | Water Filter Changed | `input_datetime.water_filter_changed` | `input_number.water_filter_changed_offset` | `sensor.water_filter_changed_due` | `binary_sensor.water_filter_changed_overdue` | `sensor.water_filter_changed_days_until_due` |
 
-#### Worked example — Accord Washed
-
-**Current configuration (as of May 2026):** last washed 2026-02-17, interval 30 days, due 2026-03-19.
-
-| Helper | Entity ID | Type | Value |
-|---|---|---|---|
-| Accord Washed | `input_datetime.accord_washed` | `input_datetime` | Last-done date (user-sets to mark complete) |
-| Accord Washed Offset | `input_number.accord_washed_offset` | `input_number` | 30 days |
-| Accord Washed Due | `sensor.accord_washed_due` | `sensor` (template) | `(last-done + 30 days)` as formatted string, e.g. `March 19, 2026` |
-| Accord Washed Overdue | `binary_sensor.accord_washed_overdue` | `binary_sensor` (template) | `on` when today >= due |
-| Accord Washed Days Until Due | `sensor.accord_washed_days_until_due` | `sensor` (template) | Float days until due (e.g. `17.1`); negative when overdue |
-
-### Related HA Config
-
-#### Shared scripts, automations, and aggregate helpers
+### Shared Scripts & Automations
 
 | Friendly Name | Entity ID | Type |
 |---|---|---|
@@ -401,10 +433,6 @@ The eight household maintenance reminders currently configured follow the interv
 | Household: Reminder Mark Complete | `automation.household_reminder_mark_complete` | automation |
 | Reminder: Mark Complete | `script.reminder_mark_complete` | script |
 | Upcoming Reminders Count | `sensor.upcoming_reminders_count` | template sensor |
-
-#### Per-reminder helpers
-
-See the Current reminders table above — each reminder has five helpers: last-done date, offset, due-date display sensor, overdue binary sensor, and days-until-due sensor.
 
 ### Troubleshooting
 
@@ -426,194 +454,11 @@ The clear fires when the `binary_sensor.<key>_overdue` flips from `on` to `off`.
 
 The reminder key is likely missing from the `for_each` list in the daily branch of `automation.household_reminder_notifications`. Verify the key appears as `<key>` (without `binary_sensor.` prefix and without `_overdue` suffix).
 
-**Notification stacks instead of replacing**
-
-Both the edge_on send and the daily re-send must use the same `tag: reminder_<key>`. If the tag differs between calls (e.g., one uses `binary_sensor.accord_washed_overdue` as the tag and another uses `accord_washed`), iOS treats them as different notifications and stacks them.
-
 ---
 
-## Sensor-Threshold Notifications
+## Calendar-Driven Reminders (Deprecated)
 
-A pattern for maintenance tasks where an external integration — not a user-managed date — tracks usage and signals when attention is needed. The trigger is a sensor flipping to Problem state, not a time-based due date. Notifications fire when a relevant event occurs (e.g., the vacuum returning to its dock), and the close-the-loop action interacts with the integration directly (pressing a reset button) rather than updating a date helper.
-
-This pattern requires no per-item date or interval helpers. The integration owns the usage tracking; HA just observes the sensor state and routes notifications.
-
-### Example: Roborock Consumables
-
-The Roborock integration tracks four consumables internally and flips binary sensors to Problem state when each item needs maintenance. Notifications fire when the vacuum returns to its dock after a cleaning run. Tapping Reset on the notification presses the corresponding integration reset button, which resets the internal counter and resolves the sensor automatically.
-
-#### Architecture
-
-```
-vacuum.roborock_q8_max → "returning"
-         │
-         ▼
-automation.roborock_notify_maintenance_needed
-  └─ for each binary_sensor.roborock_* in Problem state:
-       notify.mobile_app_nates_iphone (tag: roborock_maintenance_<key>)
-         │
-         │     [User taps Reset]
-         ▼
-event: mobile_app_notification_action
-         ▼
-automation.roborock_dispatch_maintenance_reset
-         ▼
-button.roborock_q8_max_reset_*_consumable
-  (Roborock resets counter → sensor flips off → notification clears)
-
-Any sensor flips off (manual or app reset) ──────────────────────────────────┘
-  → edge_off branch → clear_notification by tag
-```
-
-**Key design decisions:**
-
-- *Dock-return trigger, not daily schedule.* Maintenance needs only become relevant after a cleaning run. Notifying at dock return is timely and avoids daily pings for a problem that changes state only during vacuum cycles.
-- *Reset action mirrors the reminders Mark Complete.* Tapping Reset calls `button.press` on the corresponding consumable reset button. The integration resets its internal usage counter, which flips the binary sensor off, which clears the iOS notification — same self-closing lifecycle as the date-based reminders.
-- *Per-sensor clearing, not aggregate.* The four sensors clear independently. If two items need attention and you reset one, that notification clears immediately. The other stays until its sensor resolves. This requires watching all four sensors individually in the `sensor_resolved` trigger rather than watching `sensor.roborock_maintenance_required`, which only goes false when all four are off.
-- *No per-item helpers.* The Roborock integration tracks consumable usage internally. No `input_datetime`, `input_number`, or due-date template sensor is needed.
-
-#### Sensor and Reset Button Mapping
-
-| Binary Sensor | Notification Label | Reset Button |
-|---|---|---|
-| `binary_sensor.roborock_clean_sensor` | Clean Sensor | `button.roborock_q8_max_reset_sensor_consumable` |
-| `binary_sensor.roborock_replace_filter` | Replace Filter | `button.roborock_q8_max_reset_air_filter_consumable` |
-| `binary_sensor.roborock_replace_main_brush` | Replace Main Brush | `button.roborock_q8_max_reset_main_brush_consumable` |
-| `binary_sensor.roborock_replace_side_brush` | Replace Side Brush | `button.roborock_q8_max_reset_side_brush_consumable` |
-
-#### `automation.roborock_notify_maintenance_needed`
-
-*Friendly name: Roborock: Notify maintenance needed*
-
-```yaml
-alias: "Roborock: Notify maintenance needed"
-description: >-
-  When the vacuum returns to its dock, sends an iOS notification for each Roborock
-  maintenance sensor currently in Problem state. Each notification includes a Reset
-  action that presses the corresponding Roborock consumable reset button. Clears
-  automatically when the sensor resolves.
-mode: parallel
-max: 5
-trigger:
-  - id: returning_to_dock
-    alias: "Vacuum returning to dock"
-    platform: state
-    entity_id:
-      - vacuum.roborock_q8_max
-    to: "returning"
-  - id: sensor_resolved
-    alias: "Maintenance sensor resolved"
-    platform: state
-    entity_id:
-      - binary_sensor.roborock_clean_sensor
-      - binary_sensor.roborock_replace_filter
-      - binary_sensor.roborock_replace_main_brush
-      - binary_sensor.roborock_replace_side_brush
-    to: "off"
-action:
-  - alias: "Route by trigger"
-    choose:
-      - alias: "Returning to dock — notify for any sensors in Problem state"
-        conditions:
-          - condition: trigger
-            id: returning_to_dock
-        sequence:
-          - alias: "Check each maintenance sensor"
-            repeat:
-              for_each:
-                - key: roborock_clean_sensor
-                  label: "Clean Sensor"
-                - key: roborock_replace_filter
-                  label: "Replace Filter"
-                - key: roborock_replace_main_brush
-                  label: "Replace Main Brush"
-                - key: roborock_replace_side_brush
-                  label: "Replace Side Brush"
-              sequence:
-                - alias: "Notify if sensor is in Problem state"
-                  if:
-                    - condition: template
-                      value_template: "{{ is_state('binary_sensor.' ~ repeat.item.key, 'on') }}"
-                  then:
-                    - alias: "Send actionable iOS notification"
-                      action: notify.mobile_app_nates_iphone
-                      data:
-                        title: "Vacuum Maintenance Needed"
-                        message: "{{ repeat.item.label }}"
-                        data:
-                          tag: "roborock_maintenance_{{ repeat.item.key }}"
-                          actions:
-                            - action: "ROBOROCK_RESET_{{ repeat.item.key }}"
-                              title: "Reset"
-      - alias: "Sensor resolved — clear lock-screen notification"
-        conditions:
-          - condition: trigger
-            id: sensor_resolved
-        sequence:
-          - variables:
-              sensor_key: "{{ trigger.to_state.object_id }}"
-          - alias: "Clear the iOS notification by tag"
-            action: notify.mobile_app_nates_iphone
-            data:
-              message: "clear_notification"
-              data:
-                tag: "roborock_maintenance_{{ sensor_key }}"
-```
-
-Assign to the **Maintenance** category with labels **Notification** and **Reminders**. Leave area unset.
-
-#### `automation.roborock_dispatch_maintenance_reset`
-
-*Friendly name: Roborock: Dispatch Maintenance Reset*
-
-```yaml
-alias: "Roborock: Dispatch Maintenance Reset"
-description: >-
-  When the user taps Reset on a Roborock maintenance notification, presses the
-  corresponding consumable reset button. This resets the Roborock internal counter,
-  which flips the maintenance sensor off, which clears the iOS notification automatically.
-mode: parallel
-max: 4
-trigger:
-  - alias: "iOS notification action fired"
-    platform: event
-    event_type: mobile_app_notification_action
-variables:
-  action_id: "{{ trigger.event.data.action | default('') }}"
-  sensor_key: "{{ action_id | replace('ROBOROCK_RESET_', '') }}"
-  button_map:
-    roborock_clean_sensor: button.roborock_q8_max_reset_sensor_consumable
-    roborock_replace_filter: button.roborock_q8_max_reset_air_filter_consumable
-    roborock_replace_main_brush: button.roborock_q8_max_reset_main_brush_consumable
-    roborock_replace_side_brush: button.roborock_q8_max_reset_side_brush_consumable
-  target_button: "{{ button_map[sensor_key] | default('') }}"
-condition:
-  - alias: "Action is a Roborock reset"
-    condition: template
-    value_template: "{{ action_id.startswith('ROBOROCK_RESET_') }}"
-  - alias: "Target button is valid"
-    condition: template
-    value_template: "{{ target_button != '' }}"
-action:
-  - alias: "Press the consumable reset button"
-    action: button.press
-    target:
-      entity_id: "{{ target_button }}"
-```
-
-Assign to the **Maintenance** category with label **Reminders**. Leave area unset.
-
-#### Related HA Config
-
-| Friendly Name | Entity ID | Type |
-|---|---|---|
-| Roborock: Notify maintenance needed | `automation.roborock_notify_maintenance_needed` | automation |
-| Roborock: Dispatch Maintenance Reset | `automation.roborock_dispatch_maintenance_reset` | automation |
-| Roborock Maintenance Required | `sensor.roborock_maintenance_required` | sensor (template) |
-
----
-
-## Calendar-Driven Reminders
+> **Deprecated July 2026.** This pattern was replaced by ha-chore-calendar scheduled chores. The documentation is preserved for reference in case the pattern needs to be recreated.
 
 A pattern for fixed-schedule events where the schedule is owned by an external calendar rather than by HA helpers. HA queries the calendar for upcoming events and sends notifications based on what it finds. Because the calendar is the source of truth, there is no last-done date or interval to manage — only a pending boolean that carries state across the notification lifecycle.
 
@@ -621,7 +466,7 @@ This pattern suits events that recur on a predictable external schedule (weekly,
 
 ### Example: Trash & Recycling Pickup
 
-The pickup schedule lives in an iCloud-published calendar subscribed in HA as `calendar.family` via the Remote Calendar integration. Single all-day events drive the logic: **"Trash Pickup"** (weekly, every Wednesday) and **"Trash & Recycling Pickup"** (biweekly, every other Wednesday). The event title directly encodes whether recycling is included that week — no separate series to correlate.
+The pickup schedule lived in an iCloud-published calendar subscribed in HA as `calendar.family` via the Remote Calendar integration. Single all-day events drove the logic: **"Trash Pickup"** (weekly, every Wednesday) and **"Trash & Recycling Pickup"** (biweekly, every other Wednesday). The event title directly encoded whether recycling was included that week — no separate series to correlate.
 
 #### Architecture
 
@@ -682,250 +527,6 @@ iCloud "Family" calendar  (subscribed read-only via Remote Calendar integration)
 | Trash Pickup Pending Label | `input_text.trash_pickup_pending_label` | `input_text` | Carries "Trash" or "Trash & Recycling" from 19:00 to 07:00 |
 | Trash Next Pickup Date | `input_text.trash_next_pickup_date` | `input_text` | Carries the formatted pickup date (e.g. "Wed, Jun 11") for dashboard display; set at 19:00 alongside the label |
 
-#### `automation.household_pickup_reminder`
-
-*Friendly name: Household: Trash Pickup Reminder*
-
-```yaml
-alias: "Household: Trash Pickup Reminder"
-description: >-
-  At 19:00, queries the Family calendar for tomorrow and sends a push + TTS
-  notification if pickup is found, arming the pending boolean. At 20:00, sends
-  a TTS repeat if pickup is still pending and someone is home. The 07:00
-  morning critical fires if still unacknowledged.
-mode: single
-trigger:
-  - id: evening_check
-    alias: "7pm daily check"
-    platform: time
-    at: "19:00:00"
-  - id: tts_repeat
-    alias: "8pm TTS repeat"
-    platform: time
-    at: "20:00:00"
-action:
-  - alias: "Route by trigger"
-    choose:
-      - alias: "Evening check — query calendar, send push + TTS, arm pending"
-        conditions:
-          - condition: trigger
-            id: evening_check
-        sequence:
-          - alias: "Compute tomorrow's window"
-            variables:
-              tomorrow_start: "{{ (now() + timedelta(days=1)).strftime('%Y-%m-%d 00:00:00') }}"
-              tomorrow_end: "{{ (now() + timedelta(days=1)).strftime('%Y-%m-%d 23:59:59') }}"
-          - alias: "Fetch tomorrow's events from the Family calendar"
-            action: calendar.get_events
-            target:
-              entity_id: calendar.family
-            data:
-              start_date_time: "{{ tomorrow_start }}"
-              end_date_time: "{{ tomorrow_end }}"
-            response_variable: family_events
-          - alias: "Extract pickup event from response"
-            variables:
-              summaries: >-
-                {{ family_events['calendar.family']['events']
-                   | map(attribute='summary') | list }}
-              has_pickup: >-
-                {{ 'Trash Pickup' in summaries or 'Trash & Recycling Pickup' in summaries }}
-              label: >-
-                {%- if 'Trash & Recycling Pickup' in summaries -%}Trash & Recycling
-                {%- else -%}Trash
-                {%- endif -%}
-          - alias: "Store the label for the morning critical reminder"
-            action: input_text.set_value
-            target:
-              entity_id: input_text.trash_pickup_pending_label
-            data:
-              value: "{{ label }}"
-          - alias: "Store the pickup date for dashboard display"
-            action: input_text.set_value
-            target:
-              entity_id: input_text.trash_next_pickup_date
-            data:
-              value: "{{ (now() + timedelta(days=1)).strftime('%a, %b %-d') }}"
-          - alias: "Arm or clear pending based on tomorrow's events"
-            choose:
-              - alias: "Pickup tomorrow — arm pending and send notification"
-                conditions:
-                  - condition: template
-                    value_template: "{{ has_pickup }}"
-                sequence:
-                  - alias: "Arm the pending state"
-                    action: input_boolean.turn_on
-                    target:
-                      entity_id: input_boolean.trash_pickup_pending
-                  - alias: "Send actionable iOS notification"
-                    action: notify.mobile_app_nates_iphone
-                    data:
-                      title: "Pickup Tomorrow"
-                      message: "{{ label }} bin{{ 's' if '&' in label else '' }} out tonight"
-                      data:
-                        tag: "pickup"
-                        actions:
-                          - action: "PICKUP_MARK_COMPLETE"
-                            title: "Mark Complete"
-                  - alias: "Send audio announcement to kitchen if someone is home"
-                    if:
-                      - condition: numeric_state
-                        entity_id: zone.home
-                        above: 0
-                    then:
-                      - alias: "Send TTS announcement to Kitchen HomePod"
-                        action: notify.reminder_kitchen
-                        metadata: {}
-                        data:
-                          message: "Don't forget, the {{ label }} bin{{ 's' if '&' in label else '' }} need{{ '' if '&' in label else 's' }} to go out tonight!"
-            default:
-              - alias: "No pickup tomorrow — clear pending (housekeeping)"
-                action: input_boolean.turn_off
-                target:
-                  entity_id: input_boolean.trash_pickup_pending
-      - alias: "8pm TTS repeat — if pickup still pending and someone home"
-        conditions:
-          - condition: trigger
-            id: tts_repeat
-          - condition: state
-            entity_id: input_boolean.trash_pickup_pending
-            state: "on"
-          - condition: numeric_state
-            entity_id: zone.home
-            above: 0
-        sequence:
-          - alias: "Read stored label"
-            variables:
-              label: "{{ states('input_text.trash_pickup_pending_label') }}"
-          - alias: "Send TTS repeat to Kitchen HomePod"
-            action: notify.reminder_kitchen
-            metadata: {}
-            data:
-              message: "Reminder — the {{ label }} bin{{ 's' if '&' in label else '' }} still need{{ '' if '&' in label else 's' }} to go out tonight!"
-```
-
-Assign to the **Routines** category with labels **Notification**, **text_to_speech**, and **Reminders**. Leave area unset.
-
-#### `automation.household_pickup_morning_critical`
-
-*Friendly name: Household: Trash Pickup Morning Critical*
-
-```yaml
-alias: "Household: Trash Pickup Morning Critical"
-description: >-
-  At 07:00, if trash pickup is still pending, sends a critical iOS alarm but
-  leaves the pending boolean armed so the dashboard chip stays visible (red).
-  At 09:00, if still pending, silently disarms — the mark_complete edge_off
-  then clears the iOS notification. Requires Critical Alerts entitlement on
-  the iPhone Companion app.
-mode: single
-trigger:
-  - id: critical
-    alias: "7am critical alarm"
-    platform: time
-    at: "07:00:00"
-  - id: cleanup
-    alias: "9am cleanup"
-    platform: time
-    at: "09:00:00"
-condition:
-  - alias: "Pickup still pending"
-    condition: state
-    entity_id: input_boolean.trash_pickup_pending
-    state: "on"
-action:
-  - alias: "Route by trigger"
-    choose:
-      - alias: "7am — send critical alarm, leave pending armed"
-        conditions:
-          - condition: trigger
-            id: critical
-        sequence:
-          - alias: "Capture the stored label"
-            variables:
-              label: "{{ states('input_text.trash_pickup_pending_label') }}"
-          - alias: "Send critical iOS alarm"
-            action: notify.mobile_app_nates_iphone
-            data:
-              title: "Pickup TODAY"
-              message: "{{ label }} bin{{ 's' if '&' in label else '' }} out NOW"
-              data:
-                push:
-                  sound:
-                    name: default
-                    critical: 1
-                    volume: 1.0
-                tag: "pickup"
-                actions:
-                  - action: "PICKUP_MARK_COMPLETE"
-                    title: "Mark Complete"
-      - alias: "9am — silently disarm if still pending"
-        conditions:
-          - condition: trigger
-            id: cleanup
-        sequence:
-          - alias: "Disarm pending boolean"
-            action: input_boolean.turn_off
-            target:
-              entity_id: input_boolean.trash_pickup_pending
-```
-
-Assign to the **Routines** category with labels **Notification** and **Reminders**. Leave area unset.
-
-#### `automation.household_pickup_mark_complete`
-
-*Friendly name: Household: Trash Pickup Mark Complete*
-
-```yaml
-alias: "Household: Trash Pickup Mark Complete"
-description: >-
-  Disarms input_boolean.trash_pickup_pending and clears the iOS lock-screen
-  notification by tag whenever the boolean turns off from any source: a
-  notification Mark Complete tap, a dashboard hold action, or the morning
-  critical automation. The edge_off trigger covers the dashboard-dismiss path;
-  the notification_action trigger covers the iOS lock-screen path. Both action
-  sequences are idempotent, so running both (the notification action turns off
-  the boolean, which re-fires edge_off) is harmless.
-mode: parallel
-max: 2
-trigger:
-  - id: notification_action
-    alias: "iOS notification Mark Complete tapped"
-    platform: event
-    event_type: mobile_app_notification_action
-    event_data:
-      action: "PICKUP_MARK_COMPLETE"
-  - id: edge_off
-    alias: "Pending boolean turned off from dashboard or other source"
-    platform: state
-    entity_id: input_boolean.trash_pickup_pending
-    from: "on"
-    to: "off"
-action:
-  - alias: "Disarm pending state"
-    action: input_boolean.turn_off
-    target:
-      entity_id: input_boolean.trash_pickup_pending
-  - alias: "Clear the iOS notification by tag"
-    action: notify.mobile_app_nates_iphone
-    data:
-      message: "clear_notification"
-      data:
-        tag: "pickup"
-```
-
-Assign to the **Routines** category with labels **Notification** and **Reminders**. Leave area unset.
-
-#### Dashboard Integration
-
-The trash pickup pending state is surfaced directly on the `mobile-app` dashboard alongside the interval-based overdue reminders:
-
-- **Chip strip trash button** — a conditional sub-button in the second row (position 7, after washer/dryer). Visible only when `input_boolean.trash_pickup_pending` is on. Icon only — no text. Icon is `mdi:trash-can` on trash-only weeks or `mdi:recycle` on combined weeks, derived from `input_text.trash_pickup_pending_label`. Color is orange (19:00–06:59, evening before pickup) or red (07:00–18:59, morning of pickup day). Hold = turn off the boolean with confirmation. Tap = no action.
-- **`#reminders` pop-up** — trash is no longer shown here. The pop-up contains only the interval-based maintenance reminder cards.
-- **`number.overdue_reminders_count` template** — counts only interval-based `binary_sensor.*_overdue` sensors in `on` state. Trash pickup pending is no longer included in this count.
-
-The `edge_off` trigger on `automation.household_pickup_mark_complete` handles the dashboard-dismiss path: holding the trash chip turns off the boolean, which fires the trigger, which clears the iOS notification — identical outcome to tapping Mark Complete on the lock screen.
-
 #### Related HA Config
 
 | Friendly Name | Entity ID | Type |
@@ -952,3 +553,26 @@ The critical alarm requires iOS to grant the entitlement: **iPhone → Settings 
 **Notification doesn't clear after tapping Mark Complete**
 
 Check that the `action:` field in the notification payload exactly matches the trigger `event_data.action` in `automation.household_pickup_mark_complete`. Both must be `PICKUP_MARK_COMPLETE`. Also verify the `tag:` field is `pickup` in both the send and the clear calls — mismatched tags produce a notification that can't be cleared by the handler.
+
+---
+
+## Sensor-Threshold Notifications
+
+A separate pattern for maintenance tasks where an external integration tracks usage and signals when attention is needed. The Roborock integration tracks four consumables and flips binary sensors to Problem state when each needs service. Notifications fire when the vacuum docks after a cleaning run; tapping Reset presses the corresponding integration reset button.
+
+This framework lives independently of ha-chore-calendar — the Roborock integration owns the usage counters, and HA observes sensor state rather than tracking intervals manually.
+
+| Binary Sensor | Notification Label | Reset Button |
+|---|---|---|
+| `binary_sensor.roborock_clean_sensor` | Clean Sensor | `button.roborock_q8_max_reset_sensor_consumable` |
+| `binary_sensor.roborock_replace_filter` | Replace Filter | `button.roborock_q8_max_reset_air_filter_consumable` |
+| `binary_sensor.roborock_replace_main_brush` | Replace Main Brush | `button.roborock_q8_max_reset_main_brush_consumable` |
+| `binary_sensor.roborock_replace_side_brush` | Replace Side Brush | `button.roborock_q8_max_reset_side_brush_consumable` |
+
+### Related HA Config
+
+| Friendly Name | Entity ID | Type |
+|---|---|---|
+| Roborock: Notify maintenance needed | `automation.roborock_notify_maintenance_needed` | automation |
+| Roborock: Dispatch Maintenance Reset | `automation.roborock_dispatch_maintenance_reset` | automation |
+| Roborock Maintenance Required | `sensor.roborock_maintenance_required` | sensor (template) |
