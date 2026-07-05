@@ -192,7 +192,7 @@ cards:
 
 **Mop Settings** (`mdi:water`) — A `conditional` card wrapping both a Bubble Card separator and a 2-column grid of tiles (`select.roborock_q8_max_mop_intensity`, `select.roborock_q8_max_mop_mode`, `binary_sensor.roborock_q8_max_water_shortage`), gated on `binary_sensor.roborock_q8_max_mop_attached` = on.
 
-**Maintenance** (`mdi:wrench`) — 4 Bubble Card buttons in a 2-column grid. Each shows hours remaining; icon color is set via the `styles` block (red when the maintenance binary sensor is on, green otherwise). Tap resets the consumable via `button.press` with a confirmation dialog.
+**Maintenance** (`mdi:wrench`) — 4 Bubble Card buttons in a 2-column grid. Each shows hours remaining; icon color is set via the `styles` block (red when the maintenance binary sensor is on, green otherwise). Tap calls `script.vacuum_reset_consumable` (with a confirmation dialog), which presses the reset button then force-refreshes all consumable sensors so the UI reflects the cleared state within ~2 seconds.
 
 | Consumable | Sensor | Reset button | Maintenance flag |
 |---|---|---|---|
@@ -292,6 +292,7 @@ Once the new dashboard is verified:
 | Reset main brush | `button.roborock_q8_max_reset_main_brush_consumable` | Entity |
 | Reset side brush | `button.roborock_q8_max_reset_side_brush_consumable` | Entity |
 | Reset sensor | `button.roborock_q8_max_reset_sensor_consumable` | Entity |
+| Vacuum Reset Consumable | `script.vacuum_reset_consumable` | Script |
 | Water leak detected (aggregate) | `binary_sensor.water_leak_detected` | Helper (group) |
 | Kitchen water leak | `binary_sensor.kitchen_leak_water_leak` | Entity |
 | Bathroom water leak | `binary_sensor.bathroom_leak_water_leak` | Entity |
