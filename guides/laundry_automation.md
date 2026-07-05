@@ -316,7 +316,7 @@ Bubble Card `pop-up`, `hash: "#laundry"`, `popup_mode: adaptive-dialog`. Per-app
 1. The status manager's `door_opened` trigger — currently clears both appliances when anyone enters the utility room; per-appliance sensors would clear each independently
 2. The announcement loop's post-announcement door check — same scoping improvement
 
-No structural changes needed; it's a two-entity swap per automation.
+No structural changes needed; it's a two-entity swap in each status manager and a one-entity swap in the announcement automation.
 
 ---
 
