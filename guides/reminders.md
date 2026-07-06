@@ -5,7 +5,7 @@
 
 ## Overview
 
-The reminder system uses the [ha-chore-calendar](https://github.com/tcarney/ha-chore-calendar) HACS integration to manage two categories of recurring tasks: household maintenance chores (interval-based, anchored to last completion) and trash/recycling pickup (calendar-schedule-based, biweekly alternating). Both categories surface on the mobile dashboard through a single always-visible chip and a shared `#reminders` pop-up.
+The reminder system uses the [ha-chore-calendar](https://github.com/tcarney/ha-chore-calendar) HACS integration to manage all recurring tasks in a single **"Household Chores"** config entry: interval-based maintenance chores (anchored to last completion) and biweekly trash/recycling pickup (calendar-schedule-based, alternating weeks). All chores surface on the mobile dashboard through a chip and a shared `#reminders` pop-up.
 
 A separate notification framework handles Roborock consumable alerts — see the [Sensor-Threshold Notifications](#sensor-threshold-notifications) section below.
 
@@ -17,14 +17,10 @@ A separate notification framework handles Roborock consumable alerts — see the
 
 ```
 ha-chore-calendar integration (HACS)
-├── "Household Chores" config entry
-│   ├── calendar.household_chores   (on = any chore due/overdue)
-│   ├── todo.household_chores       (state = count of non-completed chores)
-│   └── sensor.household_chores_*  (one per chore, state = completed/pending/due/overdue)
-└── "Trash Pickup" config entry
-    ├── calendar.trash_pickup       (on = active pickup window)
-    ├── todo.trash_pickup           (state = count of non-completed trash chores)
-    └── sensor.trash_pickup_*      (one per chore)
+└── "Household Chores" config entry
+    ├── calendar.household_chores   (on = any chore due/overdue)
+    ├── todo.household_chores       (state = count of non-completed chores)
+    └── sensor.household_chores_*  (one per chore, state = completed/pending/due/overdue)
 
 Status lifecycle per chore:
   completed → pending (pending_period before due_at) → due (at due_at) → overdue (after grace_period)
@@ -35,15 +31,15 @@ Notification lifecycle:
     chore_calendar_status_changed(to=completed) → clear notification by uid tag
 
   Trash Pickup:
-    19:00 daily → get_items(status=pending, calendar.trash_pickup) → push + TTS if pickup pending
-    19:30, 20:00 → TTS repeat if active trash sensor still pending/due
-    chore_calendar_status_changed(to=due, calendar.trash_pickup) → critical iOS alarm
+    19:00 daily → sensor state check on household_chores_put_out_trash* → push + TTS if pending
+    19:30, 20:00 → TTS repeat if active trash sensor still pending
+    chore_calendar_status_changed(to=due, calendar.household_chores, chore_name=trash) → critical iOS alarm
     09:00 daily → auto-complete active trash chore (cleanup if not manually done)
-    chore_calendar_status_changed(to=completed, calendar.trash_pickup) → clear push notification
+    chore_calendar_status_changed(to=completed, calendar.household_chores, chore_name=trash) → clear push notification
 
 Dashboard:
-  chip strip → todo.household_chores (always visible; grey=0, yellow=pending, red=due/overdue)
-  #reminders popup → custom:chore-calendar-card for both lists (native mark-complete)
+  chip strip → todo.household_chores (grey=0, orange=something due, red=something overdue)
+  #reminders popup → custom:chore-calendar-card (single card, entities: [calendar.household_chores])
 ```
 
 **Key design decisions:**
@@ -51,18 +47,18 @@ Dashboard:
 - *Integration owns the state machine.* ha-chore-calendar tracks `last_completed`, computes `due_at`, manages `completed → pending → due → overdue` transitions, and fires `chore_calendar_status_changed` events. No HA helper mirrors this state — the integration is the single source of truth.
 - *Interval chores are anchored to last completion.* Due date = `last_completed + interval`. A chore that has never been completed starts in `pending` state with no due date; it enters the normal lifecycle on first completion.
 - *Scheduled trash chores are anchored to the calendar grid.* The biweekly RRULE determines the exact due times regardless of when the chore was last completed. Two separate chores with offset `dtstart` values (`2026-07-09` and `2026-07-16`) produce alternating Wednesday series: one for trash-only weeks, one for trash-and-recycling weeks.
-- *Alternating trash chores, not a single chore with a variable name.* Using two chore entities allows independent sensor state (`sensor.trash_pickup_put_out_trash` vs `sensor.trash_pickup_put_out_trash_recycling`) and means the 19:00 automation can derive the pickup label from `chore_name | replace('Put Out ', '')` — no stored label helper needed.
-- *07:00 critical uses chore_calendar_status_changed(to=due), not a time trigger.* The event fires when the trash chore transitions to `due` (at 07:00 Wednesday via pending_period expiry). This means the critical notification fires only on actual pickup days with zero false positives — no daily condition check against a boolean.
+- *Alternating trash chores, not a single chore with a variable name.* Using two chore entities allows independent sensor state (`sensor.household_chores_put_out_trash` vs `sensor.household_chores_put_out_trash_recycling`) and means the 19:00 automation can derive the pickup label from `chore_name | replace('Put Out ', '')` — no stored label helper needed.
+- *07:00 critical uses chore_calendar_status_changed(to=due), not a time trigger.* The event fires when the trash chore transitions to `due` (at 07:00 Wednesday via pending_period expiry). A `chore_name in ['Put Out Trash', 'Put Out Trash & Recycling']` condition guard prevents the critical alarm from firing for non-trash chores becoming due.
 - *09:00 auto-complete for trash cleanup.* If trash is still pending/due/overdue at 09:00, the automation calls `chore_calendar.complete_item` on the active sensor. This semantically marks pickup as done, advances the scheduled series to the next occurrence, and clears the iOS notification — a clean close even if the user forgot to tap Mark Complete.
 - *chore-calendar-card handles mark-complete natively.* The popup uses the integration's own Lovelace card, which has built-in mark-complete UI. No `script.reminder_mark_complete` wrapper is needed; the card calls `chore_calendar.complete_item` directly.
-- *Single always-visible chip with three color states.* Grey (no actionable chores), yellow (chores pending but nothing due/overdue yet), red (something due or overdue). The `calendar.household_chores` entity (`on` when any chore is due/overdue) drives the color; `todo.household_chores` drives the count badge.
+- *Single chip with three color states.* Grey (count = 0), orange (something due), red (something overdue). Color is driven by iterating `sensor.household_chores_*` states — overdue takes precedence over due. `todo.household_chores` drives the count badge and grey state.
 - *Notification action mark-complete uses UID.* The push notification `action` field encodes `REMINDER_MARK_COMPLETE_<uid>`. The handler strips the prefix and passes the UID directly to `chore_calendar.complete_item` — no lookup table needed.
 
 ---
 
 ## Prerequisites
 
-- ha-chore-calendar installed via HACS and both config entries created: **"Household Chores"** and **"Trash Pickup"**
+- ha-chore-calendar installed via HACS with the **"Household Chores"** config entry created
 - HA Companion app on Nate's iPhone (`notify.mobile_app_nates_iphone`)
 - Critical Alerts entitlement enabled: **iPhone → Settings → Notifications → Home Assistant → Critical Alerts** (required for the 07:00 trash alarm to break through Do Not Disturb)
 
@@ -85,16 +81,16 @@ All interval chores. All use `pending_period`: 3 days (4320 min), `grace_period`
 | Washer Cleaned | `sensor.household_chores_washer_cleaned` | 30 days | |
 | Water Filter Changed | `sensor.household_chores_water_filter_changed` | 90 days | |
 
-### Trash Pickup (`calendar.trash_pickup`)
+### Trash Pickup (in `calendar.household_chores`)
 
-Two scheduled chores with biweekly RRULE, offset by one week to produce an alternating pattern.
+Two scheduled chores with biweekly RRULE, offset by one week to produce an alternating pattern. Both use `FREQ=WEEKLY;INTERVAL=2;BYDAY=WE` with `time: 07:00`.
 
 | Chore Name | Entity ID | Schedule | Pending window | Grace |
 |---|---|---|---|---|
-| Put Out Trash | `sensor.trash_pickup_put_out_trash` | Biweekly Wed (`dtstart: 2026-07-09`) | 12 hours (720 min) | 2 hours (120 min) |
-| Put Out Trash & Recycling | `sensor.trash_pickup_put_out_trash_recycling` | Biweekly Wed (`dtstart: 2026-07-16`) | 12 hours (720 min) | 2 hours (120 min) |
+| Put Out Trash | `sensor.household_chores_put_out_trash` | Biweekly Wed | 12 hours (720 min) | 2 hours (120 min) |
+| Put Out Trash & Recycling | `sensor.household_chores_put_out_trash_recycling` | Biweekly Wed (offset 1 week) | 12 hours (720 min) | 2 hours (120 min) |
 
-Both use `FREQ=WEEKLY;INTERVAL=2;BYDAY=WE` with `time: 07:00`. The 12-hour pending window means the chore enters `pending` state at 19:00 Tuesday (12 hours before 07:00 Wednesday), which aligns with the 19:00 evening notification trigger.
+The 12-hour pending window means the chore enters `pending` state at 19:00 Tuesday (12 hours before 07:00 Wednesday), which aligns with the 19:00 evening notification trigger. The alternating pattern is established by seeding different `last_completed` dates — not by separate dtstart values — so the two chores never fall due on the same week.
 
 ---
 
@@ -111,14 +107,14 @@ Both use `FREQ=WEEKLY;INTERVAL=2;BYDAY=WE` with `time: 07:00`. The 12-hour pendi
 
 | Time | Trigger | Action |
 |---|---|---|
-| 19:00 Tue | Time trigger | `get_items(status=pending)` on `calendar.trash_pickup`; push + TTS to kitchen if found |
-| 19:30 Tue | Time trigger | TTS repeat to kitchen if active trash sensor still `pending` or `due` |
-| 20:00 Tue | Time trigger | TTS repeat to kitchen if still pending/due and someone home |
-| 07:00 Wed | `chore_calendar_status_changed` → `to_status: due` | Critical iOS alarm (`tag: pickup`, `PICKUP_MARK_COMPLETE` action) |
+| 19:00 Tue | Time trigger | Check `sensor.household_chores_put_out_trash*` state; push + TTS to kitchen if `pending` |
+| 19:30 Tue | Time trigger | TTS repeat to kitchen if active trash sensor still `pending` |
+| 20:00 Tue | Time trigger | TTS repeat to kitchen if still `pending` and someone home |
+| 07:00 Wed | `chore_calendar_status_changed` → `to_status: due` (with chore_name guard) | Critical iOS alarm (`tag: pickup`, `PICKUP_MARK_COMPLETE` action) |
 | 09:00 Wed | Time trigger | Auto-complete active trash chore if still `pending`/`due`/`overdue` |
-| Any time | `chore_calendar_status_changed` → `to_status: completed` (calendar.trash_pickup) | Clear pickup push notification |
+| Any time | `chore_calendar_status_changed` → `to_status: completed` (with chore_name guard) | Clear pickup push notification |
 
-TTS announcements skip if no one is home (`zone.home` count ≤ 0). The 19:30 and 20:00 repeats check the active trash sensor state directly (`sensor.trash_pickup_put_out_trash` or `sensor.trash_pickup_put_out_trash_recycling`) rather than re-querying `get_items`.
+TTS announcements skip if no one is home (`zone.home` count ≤ 0). The 19:30 and 20:00 repeats check `sensor.household_chores_put_out_trash` and `sensor.household_chores_put_out_trash_recycling` directly. The `chore_calendar_status_changed` triggers filter on `chore_name in ['Put Out Trash', 'Put Out Trash & Recycling']` to prevent other household chores from triggering pickup notifications.
 
 ---
 
@@ -129,17 +125,15 @@ TTS announcements skip if no one is home (`zone.home` count ≤ 0). The 19:30 an
 - Entity: `todo.household_chores`
 - Icon: `mdi:calendar-clock` (static)
 - Tap / hold: navigate to `#reminders`
-- Color: grey when `todo.household_chores` state = 0; yellow when > 0 and `calendar.household_chores` is `off`; red when > 0 and `calendar.household_chores` is `on`
+- Color: grey when `todo.household_chores` state = 0; orange when something is `due`; red when anything is `overdue` (determined by iterating `sensor.household_chores_*` states)
 - Count badge: shows `todo.household_chores` state when > 0
 
-**`#reminders` pop-up** — two `custom:chore-calendar-card` instances:
+**`#reminders` pop-up** — single `custom:chore-calendar-card`:
 
 ```yaml
 type: custom:chore-calendar-card
-entity: calendar.household_chores
----
-type: custom:chore-calendar-card
-entity: calendar.trash_pickup
+entities:
+  - calendar.household_chores
 ```
 
 The chore-calendar-card provides native status grouping (overdue / due / pending) and a built-in mark-complete action — no custom Bubble Card buttons needed.
@@ -155,9 +149,9 @@ The chore-calendar-card provides native status grouping (overdue / due / pending
 4. The 09:00 automation uses `get_items(status=overdue)` dynamically — no automation edit needed
 
 **Scheduled chore (trash-pattern):**
-1. Open ha-chore-calendar config entry for "Trash Pickup" → Add chore
+1. Open ha-chore-calendar config entry for "Household Chores" → Add chore
 2. Set `chore_type: scheduled`, configure RRULE, `dtstart`, `pending_period: 720` (12 hours), `grace_period: 120` (2 hours)
-3. If adding a new pickup type, update `automation.household_pickup_reminder` to detect and derive the label from `chore_name`
+3. If adding a new pickup type, update `automation.household_pickup_reminder` and add the chore name to the `chore_name in [...]` guards in `automation.household_pickup_morning_critical` and `automation.household_pickup_mark_complete`
 
 ---
 
@@ -169,8 +163,6 @@ The chore-calendar-card provides native status grouping (overdue / due / pending
 |---|---|---|
 | Household Chores | `calendar.household_chores` | calendar (on = any chore due/overdue) |
 | Household Chores | `todo.household_chores` | todo (state = actionable chore count) |
-| Trash Pickup | `calendar.trash_pickup` | calendar |
-| Trash Pickup | `todo.trash_pickup` | todo |
 | Household Chores: Accord Washed | `sensor.household_chores_accord_washed` | chore sensor |
 | Household Chores: Coffee Grinder Cleaned | `sensor.household_chores_coffee_grinder_cleaned` | chore sensor |
 | Household Chores: Dishwasher Cleaned | `sensor.household_chores_dishwasher_cleaned` | chore sensor |
@@ -179,8 +171,8 @@ The chore-calendar-card provides native status grouping (overdue / due / pending
 | Household Chores: Toothbrushes Changed | `sensor.household_chores_toothbrushes_changed` | chore sensor |
 | Household Chores: Washer Cleaned | `sensor.household_chores_washer_cleaned` | chore sensor |
 | Household Chores: Water Filter Changed | `sensor.household_chores_water_filter_changed` | chore sensor |
-| Trash Pickup: Put Out Trash | `sensor.trash_pickup_put_out_trash` | chore sensor |
-| Trash Pickup: Put Out Trash & Recycling | `sensor.trash_pickup_put_out_trash_recycling` | chore sensor |
+| Household Chores: Put Out Trash | `sensor.household_chores_put_out_trash` | chore sensor |
+| Household Chores: Put Out Trash & Recycling | `sensor.household_chores_put_out_trash_recycling` | chore sensor |
 
 ### Automations
 
