@@ -47,8 +47,8 @@ Dashboard:
 - *Integration owns the state machine.* ha-chore-calendar tracks `last_completed`, computes `due_at`, manages `completed → pending → due → overdue` transitions, and fires `chore_calendar_status_changed` events. No HA helper mirrors this state — the integration is the single source of truth.
 - *Interval chores are anchored to last completion.* Due date = `last_completed + interval`. A chore that has never been completed starts in `pending` state with no due date; it enters the normal lifecycle on first completion.
 - *Scheduled trash chores are anchored to the calendar grid.* The biweekly RRULE determines the exact due times regardless of when the chore was last completed. Two separate chores with offset `dtstart` values (`2026-07-09` and `2026-07-16`) produce alternating Wednesday series: one for trash-only weeks, one for trash-and-recycling weeks.
-- *Alternating trash chores, not a single chore with a variable name.* Using two chore entities allows independent sensor state (`sensor.household_chores_put_out_trash` vs `sensor.household_chores_put_out_trash_recycling`) and means the 19:00 automation can derive the pickup label from `chore_name | replace('Put Out ', '')` — no stored label helper needed.
-- *07:00 critical uses chore_calendar_status_changed(to=due), not a time trigger.* The event fires when the trash chore transitions to `due` (at 07:00 Wednesday via pending_period expiry). A `chore_name in ['Put Out Trash', 'Put Out Trash & Recycling']` condition guard prevents the critical alarm from firing for non-trash chores becoming due.
+- *Alternating trash chores, not a single chore with a variable name.* Using two chore entities allows independent sensor state (`sensor.household_chores_put_out_trash` vs `sensor.household_chores_put_out_trash_recycling`) and means the 19:00 automation can derive the pickup label from `chore_name | replace('Take Out ', '')` — no stored label helper needed.
+- *07:00 critical uses chore_calendar_status_changed(to=due), not a time trigger.* The event fires when the trash chore transitions to `due` (at 07:00 Wednesday via pending_period expiry). A `chore_name in ['Take Out Trash', 'Take Out Trash & Recycling']` condition guard prevents the critical alarm from firing for non-trash chores becoming due.
 - *09:00 auto-complete for trash cleanup.* If trash is still pending/due/overdue at 09:00, the automation calls `chore_calendar.complete_item` on the active sensor. This semantically marks pickup as done, advances the scheduled series to the next occurrence, and clears the iOS notification — a clean close even if the user forgot to tap Mark Complete.
 - *chore-calendar-card handles mark-complete natively.* The popup uses the integration's own Lovelace card, which has built-in mark-complete UI. No `script.reminder_mark_complete` wrapper is needed; the card calls `chore_calendar.complete_item` directly.
 - *Single chip with three color states.* Grey (nothing due or overdue — includes pending-only), orange (something due), red (something overdue). Color is driven by iterating `sensor.household_chores_*` states — overdue takes precedence over due. Count badge shows due+overdue count only; grey when that count is zero.
@@ -70,16 +70,18 @@ Dashboard:
 
 All interval chores. All use `grace_period`: 1 hour (60 min). `pending_period` must not exceed the chore's interval — see LESSONS.md.
 
+> **Note:** ha-chore-calendar preserves entity IDs when a chore is renamed — only the friendly name changes. Entity IDs remain anchored to the original chore name at creation time.
+
 | Chore Name | Entity ID | Interval | Pending period |
 |---|---|---|---|
-| Accord Washed | `sensor.household_chores_accord_washed` | 30 days | 21 days (30240 min) |
-| Coffee Grinder Cleaned | `sensor.household_chores_coffee_grinder_cleaned` | 45 days | 21 days (30240 min) |
-| Dishwasher Cleaned | `sensor.household_chores_dishwasher_cleaned` | 30 days | 21 days (30240 min) |
-| Disposal Cleaned | `sensor.household_chores_disposal_cleaned` | 30 days | 21 days (30240 min) |
-| Razor Blade Changed | `sensor.household_chores_razor_blade_changed` | 14 days | 7 days (10080 min) |
-| Toothbrushes Changed | `sensor.household_chores_toothbrushes_changed` | 60 days | 21 days (30240 min) |
-| Washer Cleaned | `sensor.household_chores_washer_cleaned` | 30 days | 21 days (30240 min) |
-| Water Filter Changed | `sensor.household_chores_water_filter_changed` | 90 days | 21 days (30240 min) |
+| Wash Accord | `sensor.household_chores_accord_washed` | 30 days | 21 days (30240 min) |
+| Clean Coffee Grinder | `sensor.household_chores_coffee_grinder_cleaned` | 45 days | 21 days (30240 min) |
+| Clean Dishwasher | `sensor.household_chores_dishwasher_cleaned` | 30 days | 21 days (30240 min) |
+| Clean Garbage Disposal | `sensor.household_chores_disposal_cleaned` | 30 days | 21 days (30240 min) |
+| Replace Razor Blade | `sensor.household_chores_razor_blade_changed` | 14 days | 7 days (10080 min) |
+| Replace Toothbrushes | `sensor.household_chores_toothbrushes_changed` | 60 days | 21 days (30240 min) |
+| Clean Washing Machine | `sensor.household_chores_washer_cleaned` | 30 days | 21 days (30240 min) |
+| Replace Water Filter | `sensor.household_chores_water_filter_changed` | 90 days | 21 days (30240 min) |
 
 ### Trash Pickup (in `calendar.household_chores`)
 
@@ -87,8 +89,8 @@ Two scheduled chores with biweekly RRULE, offset by one week to produce an alter
 
 | Chore Name | Entity ID | Schedule | Pending window | Grace |
 |---|---|---|---|---|
-| Put Out Trash | `sensor.household_chores_put_out_trash` | Biweekly Wed | 1 day (1440 min) | 2 hours (120 min) |
-| Put Out Trash & Recycling | `sensor.household_chores_put_out_trash_recycling` | Biweekly Wed (offset 1 week) | 1 day (1440 min) | 2 hours (120 min) |
+| Take Out Trash | `sensor.household_chores_put_out_trash` | Biweekly Wed | 1 day (1440 min) | 2 hours (120 min) |
+| Take Out Trash & Recycling | `sensor.household_chores_put_out_trash_recycling` | Biweekly Wed (offset 1 week) | 1 day (1440 min) | 2 hours (120 min) |
 
 The 1-day pending window means the chore enters `pending` state at 07:00 Tuesday (24 hours before 07:00 Wednesday), which aligns with the 19:00 evening notification trigger. The alternating pattern is established by seeding different `last_completed` dates — not by separate dtstart values — so the two chores never fall due on the same week.
 
@@ -114,7 +116,7 @@ The 1-day pending window means the chore enters `pending` state at 07:00 Tuesday
 | 09:00 Wed | Time trigger | Auto-complete active trash chore if still `pending`/`due`/`overdue` |
 | Any time | `chore_calendar_status_changed` → `to_status: completed` (with chore_name guard) | Clear pickup push notification |
 
-TTS announcements skip if no one is home (`zone.home` count ≤ 0). The 19:30 and 20:00 repeats check `sensor.household_chores_put_out_trash` and `sensor.household_chores_put_out_trash_recycling` directly. The `chore_calendar_status_changed` triggers filter on `chore_name in ['Put Out Trash', 'Put Out Trash & Recycling']` to prevent other household chores from triggering pickup notifications.
+TTS announcements skip if no one is home (`zone.home` count ≤ 0). The 19:30 and 20:00 repeats check `sensor.household_chores_put_out_trash` and `sensor.household_chores_put_out_trash_recycling` directly. The `chore_calendar_status_changed` triggers filter on `chore_name in ['Take Out Trash', 'Take Out Trash & Recycling']` to prevent other household chores from triggering pickup notifications.
 
 ---
 
@@ -151,7 +153,7 @@ The chore-calendar-card provides native status grouping (overdue / due / pending
 **Scheduled chore (trash-pattern):**
 1. Open ha-chore-calendar config entry for "Household Chores" → Add chore
 2. Set `chore_type: scheduled`, configure RRULE, `dtstart`, `pending_period: 720` (12 hours), `grace_period: 120` (2 hours)
-3. If adding a new pickup type, update `automation.household_pickup_reminder` and add the chore name to the `chore_name in [...]` guards in `automation.household_pickup_morning_critical` and `automation.household_pickup_mark_complete`
+3. If adding a new pickup type, update `automation.household_pickup_reminder` and add the chore name to the `chore_name in ['Take Out Trash', 'Take Out Trash & Recycling', ...]` guards in `automation.household_pickup_morning_critical` and `automation.household_pickup_mark_complete`
 
 ---
 
@@ -163,16 +165,16 @@ The chore-calendar-card provides native status grouping (overdue / due / pending
 |---|---|---|
 | Household Chores | `calendar.household_chores` | calendar (on = any chore due/overdue) |
 | Household Chores | `todo.household_chores` | todo (state = actionable chore count) |
-| Household Chores: Accord Washed | `sensor.household_chores_accord_washed` | chore sensor |
-| Household Chores: Coffee Grinder Cleaned | `sensor.household_chores_coffee_grinder_cleaned` | chore sensor |
-| Household Chores: Dishwasher Cleaned | `sensor.household_chores_dishwasher_cleaned` | chore sensor |
-| Household Chores: Disposal Cleaned | `sensor.household_chores_disposal_cleaned` | chore sensor |
-| Household Chores: Razor Blade Changed | `sensor.household_chores_razor_blade_changed` | chore sensor |
-| Household Chores: Toothbrushes Changed | `sensor.household_chores_toothbrushes_changed` | chore sensor |
-| Household Chores: Washer Cleaned | `sensor.household_chores_washer_cleaned` | chore sensor |
-| Household Chores: Water Filter Changed | `sensor.household_chores_water_filter_changed` | chore sensor |
-| Household Chores: Put Out Trash | `sensor.household_chores_put_out_trash` | chore sensor |
-| Household Chores: Put Out Trash & Recycling | `sensor.household_chores_put_out_trash_recycling` | chore sensor |
+| Household Chores: Wash Accord | `sensor.household_chores_accord_washed` | chore sensor |
+| Household Chores: Clean Coffee Grinder | `sensor.household_chores_coffee_grinder_cleaned` | chore sensor |
+| Household Chores: Clean Dishwasher | `sensor.household_chores_dishwasher_cleaned` | chore sensor |
+| Household Chores: Clean Garbage Disposal | `sensor.household_chores_disposal_cleaned` | chore sensor |
+| Household Chores: Replace Razor Blade | `sensor.household_chores_razor_blade_changed` | chore sensor |
+| Household Chores: Replace Toothbrushes | `sensor.household_chores_toothbrushes_changed` | chore sensor |
+| Household Chores: Clean Washing Machine | `sensor.household_chores_washer_cleaned` | chore sensor |
+| Household Chores: Replace Water Filter | `sensor.household_chores_water_filter_changed` | chore sensor |
+| Household Chores: Take Out Trash | `sensor.household_chores_put_out_trash` | chore sensor |
+| Household Chores: Take Out Trash & Recycling | `sensor.household_chores_put_out_trash_recycling` | chore sensor |
 
 ### Automations
 
