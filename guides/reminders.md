@@ -51,7 +51,7 @@ Dashboard:
 - *07:00 critical uses chore_calendar_status_changed(to=due), not a time trigger.* The event fires when the trash chore transitions to `due` (at 07:00 Wednesday via pending_period expiry). A `chore_name in ['Put Out Trash', 'Put Out Trash & Recycling']` condition guard prevents the critical alarm from firing for non-trash chores becoming due.
 - *09:00 auto-complete for trash cleanup.* If trash is still pending/due/overdue at 09:00, the automation calls `chore_calendar.complete_item` on the active sensor. This semantically marks pickup as done, advances the scheduled series to the next occurrence, and clears the iOS notification — a clean close even if the user forgot to tap Mark Complete.
 - *chore-calendar-card handles mark-complete natively.* The popup uses the integration's own Lovelace card, which has built-in mark-complete UI. No `script.reminder_mark_complete` wrapper is needed; the card calls `chore_calendar.complete_item` directly.
-- *Single chip with three color states.* Grey (count = 0), orange (something due), red (something overdue). Color is driven by iterating `sensor.household_chores_*` states — overdue takes precedence over due. `todo.household_chores` drives the count badge and grey state.
+- *Single chip with three color states.* Grey (nothing due or overdue — includes pending-only), orange (something due), red (something overdue). Color is driven by iterating `sensor.household_chores_*` states — overdue takes precedence over due. Count badge shows due+overdue count only; grey when that count is zero.
 - *Notification action mark-complete uses UID.* The push notification `action` field encodes `REMINDER_MARK_COMPLETE_<uid>`. The handler strips the prefix and passes the UID directly to `chore_calendar.complete_item` — no lookup table needed.
 
 ---
@@ -68,18 +68,18 @@ Dashboard:
 
 ### Household Chores (`calendar.household_chores`)
 
-All interval chores. All use `pending_period`: 7 days (10080 min), `grace_period`: 1 hour (60 min).
+All interval chores. All use `grace_period`: 1 hour (60 min). `pending_period` must not exceed the chore's interval — see LESSONS.md.
 
-| Chore Name | Entity ID | Interval | Notes |
+| Chore Name | Entity ID | Interval | Pending period |
 |---|---|---|---|
-| Accord Washed | `sensor.household_chores_accord_washed` | 30 days | |
-| Coffee Grinder Cleaned | `sensor.household_chores_coffee_grinder_cleaned` | 45 days | |
-| Dishwasher Cleaned | `sensor.household_chores_dishwasher_cleaned` | 30 days | |
-| Disposal Cleaned | `sensor.household_chores_disposal_cleaned` | 30 days | |
-| Razor Blade Changed | `sensor.household_chores_razor_blade_changed` | 14 days | |
-| Toothbrushes Changed | `sensor.household_chores_toothbrushes_changed` | 60 days | |
-| Washer Cleaned | `sensor.household_chores_washer_cleaned` | 30 days | |
-| Water Filter Changed | `sensor.household_chores_water_filter_changed` | 90 days | |
+| Accord Washed | `sensor.household_chores_accord_washed` | 30 days | 21 days (30240 min) |
+| Coffee Grinder Cleaned | `sensor.household_chores_coffee_grinder_cleaned` | 45 days | 21 days (30240 min) |
+| Dishwasher Cleaned | `sensor.household_chores_dishwasher_cleaned` | 30 days | 21 days (30240 min) |
+| Disposal Cleaned | `sensor.household_chores_disposal_cleaned` | 30 days | 21 days (30240 min) |
+| Razor Blade Changed | `sensor.household_chores_razor_blade_changed` | 14 days | 7 days (10080 min) |
+| Toothbrushes Changed | `sensor.household_chores_toothbrushes_changed` | 60 days | 21 days (30240 min) |
+| Washer Cleaned | `sensor.household_chores_washer_cleaned` | 30 days | 21 days (30240 min) |
+| Water Filter Changed | `sensor.household_chores_water_filter_changed` | 90 days | 21 days (30240 min) |
 
 ### Trash Pickup (in `calendar.household_chores`)
 
@@ -125,8 +125,8 @@ TTS announcements skip if no one is home (`zone.home` count ≤ 0). The 19:30 an
 - Entity: `todo.household_chores`
 - Icon: `mdi:calendar-clock` (static)
 - Tap / hold: navigate to `#reminders`
-- Color: grey when `todo.household_chores` state = 0; orange when something is `due`; red when anything is `overdue` (determined by iterating `sensor.household_chores_*` states)
-- Count badge: shows `todo.household_chores` state when > 0
+- Color: grey when nothing is `due` or `overdue` (pending-only counts as grey); orange when something is `due`; red when anything is `overdue` (determined by iterating `sensor.household_chores_*` states)
+- Count badge: shows count of `due` + `overdue` chores only; hidden when zero
 
 **`#reminders` pop-up** — single `custom:chore-calendar-card`:
 
@@ -144,7 +144,7 @@ The chore-calendar-card provides native status grouping (overdue / due / pending
 
 **Interval chore:**
 1. Open ha-chore-calendar config entry for "Household Chores" → Add chore
-2. Set `chore_type: interval`, configure `interval` (days), `pending_period: 4320` (3 days), `grace_period: 60` (1 hour)
+2. Set `chore_type: interval`, configure `interval` (days), `pending_period` (must be less than `interval`; 21 days works for most), `grace_period: 60` (1 hour)
 3. The integration automatically creates `sensor.household_chores_<chore_name>` and registers it with the calendar/todo entities
 4. The 09:00 automation uses `get_items(status=overdue)` dynamically — no automation edit needed
 

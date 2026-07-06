@@ -417,6 +417,18 @@ Shell command integrations that SSH into another machine should use:
 
 ---
 
+## HACS Integrations
+
+### ha-chore-calendar: `pending_period` must be less than the chore's interval
+
+Setting a `pending_period` that equals or exceeds the chore's interval causes the chore to get stuck in `completed` state after the `update_item` service call. The integration appears to update (the new `pending_period_mins` is visible in diagnostics), but the sensor state never transitions to `pending` — it stays `completed` indefinitely.
+
+The root cause: when `pending_period >= interval`, the calculated "pending from" date (`next_due - pending_period`) falls before the `last_completed` date. The integration's state machine doesn't handle this overlap and leaves the chore in `completed`.
+
+**Rule:** always set `pending_period < interval`. For a 14-day interval, cap pending_period at 7 days. For 30-day intervals, 21 days works well. If you need to see a chore earlier, shorten the interval instead.
+
+---
+
 ## Physical Setup
 
 ### Key light distance matters more than brightness
