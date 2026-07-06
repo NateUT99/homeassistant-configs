@@ -68,7 +68,7 @@ Dashboard:
 
 ### Household Chores (`calendar.household_chores`)
 
-All interval chores. All use `pending_period`: 3 days (4320 min), `grace_period`: 1 hour (60 min).
+All interval chores. All use `pending_period`: 7 days (10080 min), `grace_period`: 1 hour (60 min).
 
 | Chore Name | Entity ID | Interval | Notes |
 |---|---|---|---|
@@ -87,10 +87,10 @@ Two scheduled chores with biweekly RRULE, offset by one week to produce an alter
 
 | Chore Name | Entity ID | Schedule | Pending window | Grace |
 |---|---|---|---|---|
-| Put Out Trash | `sensor.household_chores_put_out_trash` | Biweekly Wed | 12 hours (720 min) | 2 hours (120 min) |
-| Put Out Trash & Recycling | `sensor.household_chores_put_out_trash_recycling` | Biweekly Wed (offset 1 week) | 12 hours (720 min) | 2 hours (120 min) |
+| Put Out Trash | `sensor.household_chores_put_out_trash` | Biweekly Wed | 1 day (1440 min) | 2 hours (120 min) |
+| Put Out Trash & Recycling | `sensor.household_chores_put_out_trash_recycling` | Biweekly Wed (offset 1 week) | 1 day (1440 min) | 2 hours (120 min) |
 
-The 12-hour pending window means the chore enters `pending` state at 19:00 Tuesday (12 hours before 07:00 Wednesday), which aligns with the 19:00 evening notification trigger. The alternating pattern is established by seeding different `last_completed` dates — not by separate dtstart values — so the two chores never fall due on the same week.
+The 1-day pending window means the chore enters `pending` state at 07:00 Tuesday (24 hours before 07:00 Wednesday), which aligns with the 19:00 evening notification trigger. The alternating pattern is established by seeding different `last_completed` dates — not by separate dtstart values — so the two chores never fall due on the same week.
 
 ---
 
