@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.8 — June 2026*
+*Version 1.9 — July 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.9 | July 2026 | Added `presence` label; updated section 5.10 to reference `sensor.household_people_home` instead of `zone.home` |
 | 1.8 | June 2026 | Added section 5.10: arrival-triggered TTS garage entry grace window |
 | 1.7 | June 2026 | Updated TTS delivery pattern: automations call `script.household_tts_announce` instead of `notify.reminder_*` directly; updated `text_to_speech` label criterion accordingly; removed deprecated `media_player.play_media` from `notification` label criterion |
 | 1.6 | June 2026 | Added `text_to_speech` label for TTS-specific filtering alongside `notification` |
@@ -102,6 +103,16 @@ Applied to every automation that updates device tracker state, regardless of its
 | Label ID | Friendly Name | When to apply |
 |---|---|---|
 | `device_tracker` | Device Tracker | Any automation with an `mqtt.publish` call targeting a `presence/*` topic, or a `device_tracker.see` call |
+
+#### Presence label — icon `mdi:home-account`
+
+Applied to every automation that gates on or reacts to household presence state — who is home, whether anyone is home, and arrival/departure events. Use this to find all automations that would be affected by changes to the presence sensing architecture.
+
+Presence state is read from `sensor.household_people_home`, a template sensor that counts people home via `person.state == "home"` directly. This sensor is immune to the `zone.home` startup race condition introduced in HA 2024.x, where `zone.home` derived its count from `person.in_zones` (populated late after MQTT reconnects) rather than `person.state` (restored immediately from the entity registry).
+
+| Label ID | Friendly Name | When to apply |
+|---|---|---|
+| `presence` | Presence | Any automation with a trigger, condition, or action that reads household presence state |
 
 #### Scope labels — color `blue`
 
@@ -288,7 +299,7 @@ Do not wrap actions in `if`/`then` blocks when the action is a no-op if the cond
 
 ### 5.10 Arrival-Triggered TTS: Garage Entry Grace Window
 
-When an automation fires on `zone.home` crossing above 0 (first person arrives) and its action includes a TTS announcement, apply a garage entry grace window before announcing. The person is likely still in the garage and will miss audio delivered to interior HomePods.
+When an automation fires on `sensor.household_people_home` crossing above 0 (first person arrives) and its action includes a TTS announcement, apply a garage entry grace window before announcing. The person is likely still in the garage and will miss audio delivered to interior HomePods.
 
 Place this block before the main action or repeat block, gated on the arrival trigger ID and the current state of the garage interior door:
 
@@ -319,7 +330,7 @@ The `condition: state` gate on the door handles entry through the front door —
 
 **When to skip this pattern:**
 - The automation only sends push notifications, not TTS — push delivers to the phone regardless of physical location.
-- There is no `zone.home` arrival trigger — the `condition: trigger` gate already handles multi-trigger automations where only one trigger is an arrival.
+- There is no `sensor.household_people_home` arrival trigger — the `condition: trigger` gate already handles multi-trigger automations where only one trigger is an arrival.
 
 ---
 
