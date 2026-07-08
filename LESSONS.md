@@ -427,13 +427,13 @@ The root cause: when `pending_period >= interval`, the calculated "pending from"
 
 **Rule:** always set `pending_period < interval`. For a 14-day interval, cap pending_period at 7 days. For 30-day intervals, 21 days works well. If you need to see a chore earlier, shorten the interval instead.
 
-### ha-chore-calendar: pending state transitions evaluate at midnight, not in real-time
+### ha-chore-calendar: pending state transitions evaluate at midnight, not in real-time (integration bug)
 
-The integration evaluates the `completed → pending` transition at midnight each day (00:00), not at the exact `next_due − pending_period` timestamp. A chore becomes `pending` at the first midnight *after* the `pending_from` time has passed.
+The README documents `pending_period` as "how long before the due time the chore reads as pending" — implying real-time evaluation. The actual implementation does not honor this: the `completed → pending` transition is evaluated on a midnight tick, and the chore becomes `pending` at the first midnight where `today.date > pending_from.date` (strict greater-than, not >=).
 
-Consequence: with `next_due = 07:00` and `pending_period_mins = 1440` (1 day), `pending_from` is `next_due − 1440 min = previous day at 07:00`. At midnight of the previous day that timestamp is still in the future, so the midnight check doesn't flip to pending until midnight of the due day itself — 7 hours before pickup, not 24.
+Consequence: with `next_due = 07:00` and `pending_period_mins = 1440` (1 day), `pending_from = previous day at 07:00`. At midnight of the previous day, `today.date == pending_from.date` — the strict-greater check fails, so the chore stays `completed`. It doesn't flip to pending until midnight of the due day itself — 7 hours before pickup, not 24.
 
-**Rule:** size `pending_period` so that `pending_from` falls before midnight of the day you want the chore to appear as pending. For a 07:00 due time and a 19:00 evening-before notification, a 2-day period (2880 min) puts `pending_from` at 07:00 two days before pickup, ensuring the chore flips to pending at midnight the evening before — well ahead of the 19:00 check.
+**Workaround:** size `pending_period` so that `pending_from` falls on a calendar day *before* the day you need `pending` state. For a 07:00 due time and a 19:00 evening-before notification, a 2-day period (2880 min) puts `pending_from` at 07:00 two days before pickup — `pending_from.date` is then strictly before the notification day, so the midnight check flips to pending at midnight the evening before.
 
 ---
 
