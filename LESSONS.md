@@ -427,6 +427,14 @@ The root cause: when `pending_period >= interval`, the calculated "pending from"
 
 **Rule:** always set `pending_period < interval`. For a 14-day interval, cap pending_period at 7 days. For 30-day intervals, 21 days works well. If you need to see a chore earlier, shorten the interval instead.
 
+### ha-chore-calendar: pending state transitions evaluate at midnight, not in real-time
+
+The integration evaluates the `completed → pending` transition at midnight each day (00:00), not at the exact `next_due − pending_period` timestamp. A chore becomes `pending` at the first midnight *after* the `pending_from` time has passed.
+
+Consequence: with `next_due = 07:00` and `pending_period_mins = 1440` (1 day), `pending_from` is `next_due − 1440 min = previous day at 07:00`. At midnight of the previous day that timestamp is still in the future, so the midnight check doesn't flip to pending until midnight of the due day itself — 7 hours before pickup, not 24.
+
+**Rule:** size `pending_period` so that `pending_from` falls before midnight of the day you want the chore to appear as pending. For a 07:00 due time and a 19:00 evening-before notification, a 2-day period (2880 min) puts `pending_from` at 07:00 two days before pickup, ensuring the chore flips to pending at midnight the evening before — well ahead of the 19:00 check.
+
 ---
 
 ## Physical Setup

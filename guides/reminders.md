@@ -89,10 +89,12 @@ Two scheduled chores with biweekly RRULE, offset by one week to produce an alter
 
 | Chore Name | Entity ID | Schedule | Pending window | Grace |
 |---|---|---|---|---|
-| Take Out Trash | `sensor.household_chores_put_out_trash` | Biweekly Wed | 1 day (1440 min) | 2 hours (120 min) |
-| Take Out Trash & Recycling | `sensor.household_chores_put_out_trash_recycling` | Biweekly Wed (offset 1 week) | 1 day (1440 min) | 2 hours (120 min) |
+| Take Out Trash | `sensor.household_chores_put_out_trash` | Biweekly Wed | 2 days (2880 min) | 2 hours (120 min) |
+| Take Out Trash & Recycling | `sensor.household_chores_put_out_trash_recycling` | Biweekly Wed (offset 1 week) | 2 days (2880 min) | 2 hours (120 min) |
 
-The 1-day pending window means the chore enters `pending` state at 07:00 Tuesday (24 hours before 07:00 Wednesday), which aligns with the 19:00 evening notification trigger. The alternating pattern is established by seeding different `last_completed` dates — not by separate dtstart values — so the two chores never fall due on the same week.
+The 2-day pending window is required to align with the 19:00 Tuesday notification. ha-chore-calendar evaluates the `completed → pending` transition at midnight (not in real-time), so `pending_from = next_due − pending_period` must fall before midnight of the day you need `pending` state. With `next_due = 07:00 Wednesday` and a 2-day window, `pending_from = Monday 07:00` — the Tuesday midnight check sees this has passed and flips the chore to `pending`, in time for the 19:00 check. A 1-day window sets `pending_from = Tuesday 07:00`; at midnight Tuesday that time is still in the future, so the chore stays `completed` until midnight Wednesday — too late. See LESSONS.md for the full gotcha.
+
+The alternating pattern is established by seeding different `last_completed` dates — not by separate dtstart values — so the two chores never fall due on the same week.
 
 ---
 
