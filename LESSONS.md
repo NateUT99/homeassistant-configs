@@ -435,6 +435,14 @@ Consequence: with `next_due = 07:00` and `pending_period_mins = 1440` (1 day), `
 
 **Workaround:** size `pending_period` so that `pending_from` falls on a calendar day *before* the day you need `pending` state. For a 07:00 due time and a 19:00 evening-before notification, a 2-day period (2880 min) puts `pending_from` at 07:00 two days before pickup — `pending_from.date` is then strictly before the notification day, so the midnight check flips to pending at midnight the evening before.
 
+### ha-chore-calendar: scheduled chores unreliable for narrow notification windows — don't use
+
+Even with a correctly sized 2-day pending window, the trash pickup scheduled chore missed the `completed → pending` transition on two consecutive pickup cycles (sensors remained in `completed` state at the 19:00 notification window, despite `next_due` being the next day). A coordinator reload did not fix it.
+
+The midnight tick mechanism for scheduled chores is fragile: any missed poll, coordinator hiccup, or off-by-one in the date math can silently leave a sensor stuck in `completed` indefinitely with no error surfaced.
+
+**Rule:** don't use ha-chore-calendar scheduled chores for any automation with a narrow or time-critical notification window. Use `calendar.get_events` against an external calendar (iCloud via Remote Calendar integration) instead — it queries the authoritative schedule at notification time with no state machine dependency. ha-chore-calendar interval chores remain reliable for the 09:00-daily overdue check because the window is 24 hours wide and failure means a 1-day delay rather than a silent miss.
+
 ---
 
 ## Physical Setup
