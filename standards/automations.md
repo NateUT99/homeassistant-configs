@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.9 — July 2026*
+*Version 1.10 — July 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.10 | July 2026 | Assigned color `green` to functional taxonomy labels (`notification`, `text_to_speech`, `device_tracker`, `presence`); corrected `int_home_alarm` from `indigo` to `purple` |
 | 1.9 | July 2026 | Added `presence` label; updated section 5.10 to reference `sensor.household_people_home` instead of `zone.home` |
 | 1.8 | June 2026 | Added section 5.10: arrival-triggered TTS garage entry grace window |
 | 1.7 | June 2026 | Updated TTS delivery pattern: automations call `script.household_tts_announce` instead of `notify.reminder_*` directly; updated `text_to_speech` label criterion accordingly; removed deprecated `media_player.play_media` from `notification` label criterion |
@@ -78,7 +79,7 @@ Labels let automations carry orthogonal metadata that categories can't express. 
 
 > **Broadcast-target labels** (e.g., `noonehome`, `everyone_is_sleeping`) are used in service calls to target groups of devices. They serve a different purpose and are not part of this taxonomy. When a broadcast-target label is needed, its name follows the entity-naming convention, not this one.
 
-#### Notification label
+#### Notification label — color `green`
 
 Applied to every automation that sends a push notification or TTS announcement, regardless of its primary category. Use this to filter "all automations that touch the notification system" across Security, Routines, Maintenance, and other categories.
 
@@ -86,7 +87,7 @@ Applied to every automation that sends a push notification or TTS announcement, 
 |---|---|---|
 | `notification` | Notification | Any automation with a `notify.*` action |
 
-#### Text to Speech label
+#### Text to Speech label — color `green`
 
 Applied to every automation that delivers a spoken TTS announcement, regardless of its primary category. Carries alongside `notification` — TTS automations should have both labels. Use `text_to_speech` to filter specifically for automations that speak, as distinct from those that only push silent notifications.
 
@@ -96,7 +97,7 @@ TTS announcements in this instance are delivered via `script.household_tts_annou
 |---|---|---|
 | `text_to_speech` | Text to Speech | Any automation with a `script.household_tts_announce` action |
 
-#### Device Tracker label — icon `mdi:map-marker-account`
+#### Device Tracker label — color `green`, icon `mdi:map-marker-account`
 
 Applied to every automation that updates device tracker state, regardless of its primary category. Use this to find all automations that participate in the presence tracking pipeline — useful when debugging presence issues or auditing what breaks if the tracking architecture changes.
 
@@ -104,7 +105,7 @@ Applied to every automation that updates device tracker state, regardless of its
 |---|---|---|
 | `device_tracker` | Device Tracker | Any automation with an `mqtt.publish` call targeting a `presence/*` topic, or a `device_tracker.see` call |
 
-#### Presence label — icon `mdi:home-account`
+#### Presence label — color `green`, icon `mdi:home-account`
 
 Applied to every automation that gates on or reacts to household presence state — who is home, whether anyone is home, and arrival/departure events. Use this to find all automations that would be affected by changes to the presence sensing architecture.
 
