@@ -1,0 +1,232 @@
+summary:
+  total: 153
+  loaded: 129
+  not_loaded: 24
+note: template/group/switch_as_x entries are listed summarized above; full detail
+  in the HA instance. meross_lan devices marked ignored/disabled are in process of
+  migrating to HomeKit Controller.
+active:
+- domain: hassio
+  title: Supervisor
+  note: system
+- domain: homeassistant_green
+  title: Home Assistant Green
+  note: system
+- domain: homeassistant_sky_connect
+  title: Home Assistant SkyConnect (Thread/OTBR)
+  note: usb
+- domain: cloud
+  title: Home Assistant Cloud (Nabu Casa)
+  note: system
+- domain: backup
+  title: Backup
+  note: system
+- domain: analytics
+  title: Analytics
+  note: system
+- domain: go2rtc
+  title: go2rtc
+  note: system
+- domain: uptime
+  title: Uptime
+- domain: sun
+  title: Sun
+- domain: season
+  title: Season
+- domain: workday
+  title: Workday
+- domain: systemmonitor
+  title: System Monitor
+- domain: mqtt
+  title: Mosquitto broker
+  note: Z2M, PS5, and Litra Glow all use this
+- domain: otbr
+  title: Home Assistant Connect ZBT-1 (OpenThread Border Router)
+- domain: thread
+  title: Thread
+- domain: matter
+  title: Matter
+- domain: zha
+  title: SONOFF Dongle Plus MG24
+  note: not_loaded/ignored — ZHA was set up then replaced by Z2M; entry kept for reference
+- domain: hue
+  title: Hue Bridge 0017887f7a9c
+- domain: huesyncbox
+  title: Living Room Sync Box
+- domain: adaptive_lighting
+  title: Standard
+- domain: adaptive_lighting
+  title: Color Only
+- domain: adaptive_lighting
+  title: Avery Schedule
+- domain: apple_tv
+  title: Master Bedroom AppleTV
+- domain: apple_tv
+  title: Living Room AppleTV
+- domain: apple_tv
+  title: Kitchen HomePod
+- domain: apple_tv
+  title: Office HomePod
+- domain: apple_tv
+  title: Master Bedroom HomePod
+- domain: apple_tv
+  title: Avery's Room HomePod
+- domain: webostv
+  title: Living Room TV
+- domain: webostv
+  title: Master Bedroom TV
+- domain: sonos
+  title: Sonos
+- domain: playstation_network
+  title: NightStormUT (PS5)
+- domain: roborock
+  title: nateut@mac.com (Roborock)
+- domain: reolink
+  title: Kitchen Camera
+- domain: lg_thinq
+  title: LG ThinQ (washer + dryer)
+- domain: xiaomi_miot
+  title: Avery Room Pedestal Fan
+- domain: firewalla_local
+  title: Firewalla (fire.walla)
+- domain: brother
+  title: HL-L2420DW (Brother printer)
+- domain: esphome
+  title: Upsy Desky bbc988 (standing desk)
+- domain: weatherkit
+  title: WeatherKit (location coordinates)
+- domain: waqi
+  title: World Air Quality Index
+- domain: homekit_controller
+  title: Kitchen Counter Light Strip
+- domain: homekit_controller
+  title: Office Movie Poster
+- domain: homekit_controller
+  title: Avery's Room Smart Plug
+- domain: homekit_controller
+  title: Ecobee Thermostat
+- domain: homekit_controller
+  title: MSG100-af57 (Meross garage)
+- domain: homekit_controller
+  title: MSL320-9fcb (Meross floor accent)
+- domain: homekit_controller
+  title: MSL320-ff76 (Meross floor accent)
+- domain: homekit_controller
+  title: MSS620-fcd9 (Meross outdoor plug)
+- domain: meross_lan
+  title: nightstrm@mac.com (meross_lan account)
+- domain: meross_lan
+  title: msl320m - Office Floor Accent Left
+- domain: homekit
+  title: HASS Bridge:21064
+- domain: mobile_app
+  title: Nate's iPhone
+- domain: mobile_app
+  title: Nate Mac Mini
+- domain: mobile_app
+  title: Nate's MacBook Pro
+- domain: mobile_app
+  title: Nate's iPad
+- domain: hacs
+  title: HACS
+- domain: chime_tts
+  title: Chime TTS
+- domain: chore_calendar
+  title: Household Chores
+- domain: bubble_card_tools
+  title: Bubble Card Tools
+- domain: remote_calendar
+  title: Avery
+- domain: remote_calendar
+  title: Columbus Crew
+- domain: remote_calendar
+  title: Family
+- domain: template
+  title: (many) — see integrations_full.yaml for complete list
+- domain: group
+  title: (many) — see integrations_full.yaml for complete list
+- domain: switch_as_x
+  title: (many) — see integrations_full.yaml for complete list
+- domain: generic_hygrostat
+  title: Master Bedroom Humidifier
+- domain: generic_hygrostat
+  title: Avery Room Humidifier
+- domain: threshold
+  title: Home Air Quality Index High
+- domain: history_stats
+  title: Heating/Cooling/Desk Standing (Today)
+- domain: statistics
+  title: Office Illuminance Average
+disabled_or_ignored:
+- domain: google_translate
+  title: Google Translate TTS
+  disabled_by: user
+- domain: met
+  title: Home (Met.no weather)
+  disabled_by: user
+- domain: ecobee
+  title: ecobee (HomeKit discovered duplicate)
+  disabled_by: user
+- domain: openweathermap
+  title: OpenWeatherMap
+  disabled_by: user
+- domain: esphome
+  title: Bluetooth Proxy ba1268
+  disabled_by: user
+- domain: nws
+  title: KTOL (National Weather Service)
+  disabled_by: user
+- domain: twinkly
+  title: Christmas Tree
+  disabled_by: user
+- domain: homekit_controller
+  title: LG webOS TV C91D (duplicate/ignored)
+  disabled_by: ignored
+- domain: homekit_controller
+  title: Hue C52E Bridge (ignored)
+  disabled_by: ignored
+- domain: homekit_controller
+  title: Sonos 5561 Bridge (ignored)
+  disabled_by: ignored
+- domain: homekit_controller
+  title: MSS425E-3337 (Meross — migrating to HK)
+  disabled_by: user
+- domain: homekit_controller
+  title: Christmas Tree Lights
+  disabled_by: user
+- domain: homekit_controller
+  title: LG webOS TV 6481 (ignored)
+  disabled_by: ignored
+- domain: meross_lan
+  title: mpd100 - Outside Patio String Lights
+  disabled_by: user
+- domain: meross_lan
+  title: mss620 - Smart Outdoor Plug
+  disabled_by: ignored
+- domain: meross_lan
+  title: mss425e - Smart Surge Protector
+  disabled_by: ignored
+- domain: meross_lan
+  title: msg100 - Smart Garage Door Opener
+  disabled_by: ignored
+- domain: meross_lan
+  title: msl320cpr - floor accent
+  disabled_by: ignored
+- domain: meross_lan
+  title: msl320c - Smart Wi-Fi Light Strip
+  disabled_by: ignored
+- domain: oralb
+  title: Smart Series 7000 6A0C (ignored)
+  disabled_by: ignored
+- domain: oralb
+  title: Smart Series 7000 F905 (ignored)
+  disabled_by: ignored
+- domain: ipp
+  title: Brother HL-L2420DW (ignored duplicate)
+  disabled_by: ignored
+- domain: cast
+  title: cast (ignored)
+  disabled_by: ignored
+- domain: zha
+  title: SONOFF Dongle Plus MG24 (ZHA — replaced by Z2M)
+  disabled_by: ignored

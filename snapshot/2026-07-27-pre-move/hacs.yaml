@@ -1,0 +1,111 @@
+integrations:
+- name: Adaptive Lighting
+  repo: basnijholt/adaptive-lighting
+  domain: adaptive_lighting
+  version: v1.31.0
+  pending_update: false
+- name: Bubble Card Tools
+  repo: Clooos/Bubble-Card-Tools
+  domain: bubble_card_tools
+  version: v1.0.2
+  pending_update: false
+- name: Chime TTS
+  repo: nimroddolev/chime_tts
+  domain: chime_tts
+  version: v1.2.2
+  pending_update: false
+- name: Chore Calendar
+  repo: tcarney/ha-chore-calendar
+  domain: chore_calendar
+  version: v0.11.0
+  pending_update: false
+- name: Firewalla Local
+  repo: ccpk1/firewalla-local-ha
+  domain: firewalla_local
+  version: 1.1.6
+  pending_update: true
+  available_version: 1.1.8
+- name: HACS
+  repo: hacs/integration
+  domain: hacs
+  version: 2.0.5
+  pending_update: false
+- name: Meross LAN
+  repo: krahabb/meross_lan
+  domain: meross_lan
+  version: v5.8.0
+  pending_update: false
+- name: Philips Hue Play HDMI Sync Box
+  repo: mvdwetering/huesyncbox
+  domain: huesyncbox
+  version: v3.0.0
+  pending_update: false
+- name: Xiaomi Miot
+  repo: al-one/hass-xiaomi-miot
+  domain: xiaomi_miot
+  version: v1.1.4
+  pending_update: false
+- name: Zwift Sensors
+  repo: snicker/zwift_hass
+  domain: zwift
+  version: v3.3.5
+  pending_update: true
+  available_version: v4.1.0
+lovelace:
+- name: ATV Media Remote
+  repo: jamesmcginnis/atv-media-remote
+  version: v1.0.2
+  pending_update: false
+- name: Battery State Card / Entity Row
+  repo: maxwroc/battery-state-card
+  version: v4.2.0
+  pending_update: false
+- name: Bubble Card
+  repo: Clooos/Bubble-Card
+  version: v3.2.5
+  pending_update: false
+- name: card-mod
+  repo: thomasloven/lovelace-card-mod
+  version: v4.2.1
+  pending_update: false
+- name: Custom brand icons
+  repo: elax46/custom-brand-icons
+  version: 2026.07.4
+  pending_update: false
+- name: Kiosk Mode
+  repo: NemesisRE/kiosk-mode
+  version: v14.0.2
+  pending_update: false
+- name: Mini Media Player
+  repo: kalkih/mini-media-player
+  version: v1.16.12
+  pending_update: false
+- name: mini-graph-card
+  repo: kalkih/mini-graph-card
+  version: v0.13.0
+  pending_update: false
+- name: Mushroom
+  repo: piitaya/lovelace-mushroom
+  version: v5.1.1
+  pending_update: false
+- name: Room Summary Card
+  repo: homeassistant-extras/room-summary-card
+  version: 2.1.0
+  pending_update: false
+- name: Stack In Card
+  repo: custom-cards/stack-in-card
+  version: 0.2.0
+  pending_update: false
+- name: Universal Remote Card
+  repo: Nerwyn/universal-remote-card
+  version: 4.11.5
+  pending_update: false
+- name: Yet Another Media Player
+  repo: jianyu-li/yet-another-media-player
+  version: 2026.7.0
+  pending_update: false
+themes:
+- name: Frosted Glass Theme
+  repo: wessamlauf/homeassistant-frosted-glass-themes
+  version: v1.3
+  pending_update: false
