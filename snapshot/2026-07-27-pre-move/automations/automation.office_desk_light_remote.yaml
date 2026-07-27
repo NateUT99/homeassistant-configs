@@ -1,0 +1,67 @@
+id: '1780802353390'
+alias: 'Office: Desk Light Remote'
+description: Controls office ceiling and bourbon lamp via Matter 2-button remote.
+  Button 1 single press toggles the ceiling; button 2 single press toggles the bourbon
+  lamp; button 2 double press enables the fireplace light effect.
+triggers:
+- entity_id: event.office_office_desk_light_remote_button_1
+  id: button_1
+  alias: Button 1 event
+  trigger: state
+- entity_id: event.office_office_desk_light_remote_button_2
+  id: button_2
+  alias: Button 2 event
+  trigger: state
+actions:
+- alias: Route by button and action
+  choose:
+  - conditions:
+    - condition: trigger
+      id: button_1
+      alias: Button 1 triggered
+    - condition: template
+      value_template: '{{ trigger.to_state.attributes.event_type == ''multi_press_1''
+        }}'
+      alias: Single press
+    sequence:
+    - alias: Toggle office ceiling
+      action: light.toggle
+      target:
+        entity_id: light.office_ceiling
+      data: {}
+    alias: Button 1 single press
+  - conditions:
+    - condition: trigger
+      id: button_2
+      alias: Button 2 triggered
+    - condition: template
+      value_template: '{{ trigger.to_state.attributes.event_type == ''multi_press_1''
+        }}'
+      alias: Single press
+    sequence:
+    - alias: Toggle bourbon lamp
+      action: light.toggle
+      target:
+        entity_id: light.office_bourbon_lamp
+      data:
+        brightness_pct: 95
+        effect: stop_effect
+    alias: Button 2 single press
+  - conditions:
+    - condition: trigger
+      id: button_2
+      alias: Button 2 triggered
+    - condition: template
+      value_template: '{{ trigger.to_state.attributes.event_type == ''multi_press_2''
+        }}'
+      alias: Double press
+    sequence:
+    - action: light.turn_on
+      target:
+        entity_id: light.office_bourbon_lamp
+      data:
+        effect: fireplace
+      alias: Enable fireplace effect
+    alias: Button 2 double press — enable fireplace
+mode: restart
+category: 01KQA4YGXGDK2DH076K5A7H8YH

@@ -1,0 +1,26 @@
+alias: 'Office: Bourbon Lamp Fireplace Toggle'
+description: If on with fireplace effect, turns off. Otherwise turns on with fireplace
+  effect.
+icon: mdi:fireplace
+mode: single
+sequence:
+- choose:
+  - alias: Already on with fireplace — turn off
+    conditions:
+    - condition: state
+      entity_id: light.office_bourbon_lamp
+      state: 'on'
+    - condition: state
+      entity_id: light.office_bourbon_lamp
+      attribute: effect
+      state: fireplace
+    sequence:
+    - action: light.turn_off
+      target:
+        entity_id: light.office_bourbon_lamp
+  default:
+  - action: light.turn_on
+    target:
+      entity_id: light.office_bourbon_lamp
+    data:
+      effect: fireplace

@@ -1,0 +1,60 @@
+id: '1757891945535'
+alias: 'Household: Reminder Notifications'
+description: Notification lifecycle for overdue household chores. Sends an actionable
+  iOS notification for each overdue chore at 09:00 daily, and clears the lock-screen
+  notification when a chore is completed.
+triggers:
+- id: daily
+  alias: 9am daily re-check
+  trigger: time
+  at: 09:00:00
+- id: completed
+  alias: Any household chore completed
+  trigger: event
+  event_type: chore_calendar_status_changed
+  event_data:
+    entity_id: calendar.household_chores
+    to_status: completed
+conditions: []
+actions:
+- alias: Notification lifecycle branch
+  choose:
+  - alias: Daily — notify each overdue chore at 9am
+    conditions:
+    - condition: trigger
+      id: daily
+    sequence:
+    - alias: Get all overdue chores
+      action: chore_calendar.get_items
+      data:
+        entity_id: calendar.household_chores
+        status: overdue
+      response_variable: overdue_result
+    - alias: Notify for each overdue chore
+      repeat:
+        for_each: '{{ overdue_result[''items''] }}'
+        sequence:
+        - alias: Send actionable iOS notification
+          action: notify.mobile_app_nates_iphone
+          data:
+            title: Reminder Overdue
+            message: '{{ repeat.item.chore_name }}'
+            data:
+              tag: reminder_{{ repeat.item.uid }}
+              actions:
+              - action: REMINDER_MARK_COMPLETE_{{ repeat.item.uid }}
+                title: Mark Complete
+  - alias: Chore completed — clear lock-screen notification
+    conditions:
+    - condition: trigger
+      id: completed
+    sequence:
+    - alias: Clear the iOS notification by tag
+      action: notify.mobile_app_nates_iphone
+      data:
+        message: clear_notification
+        data:
+          tag: reminder_{{ trigger.event.data.uid }}
+mode: parallel
+max: 8
+category: 01J8E2QBF6XVHBZKTQCZ73TK5T

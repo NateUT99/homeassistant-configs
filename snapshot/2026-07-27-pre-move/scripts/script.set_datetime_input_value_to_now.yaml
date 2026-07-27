@@ -1,0 +1,40 @@
+alias: Set DateTime input value to Now
+mode: parallel
+fields:
+  target_entity:
+    description: The input_datetime entity to update
+    example: input_datetime.accord_washed
+sequence:
+- variables:
+    has_date: '{{ state_attr(target_entity, ''has_date'') }}'
+    has_time: '{{ state_attr(target_entity, ''has_time'') }}'
+- choose:
+  - conditions:
+    - condition: template
+      value_template: '{{ has_date and has_time }}'
+    sequence:
+    - target:
+        entity_id: '{{ target_entity }}'
+      data:
+        datetime: '{{ now().strftime(''%Y-%m-%d %H:%M:%S'') }}'
+      action: input_datetime.set_datetime
+  - conditions:
+    - condition: template
+      value_template: '{{ has_date and not has_time }}'
+    sequence:
+    - target:
+        entity_id: '{{ target_entity }}'
+      data:
+        date: '{{ now().strftime(''%Y-%m-%d'') }}'
+      action: input_datetime.set_datetime
+  - conditions:
+    - condition: template
+      value_template: '{{ has_time and not has_date }}'
+    sequence:
+    - target:
+        entity_id: '{{ target_entity }}'
+      data:
+        time: '{{ now().strftime(''%H:%M:%S'') }}'
+      action: input_datetime.set_datetime
+description: This script is used to update the respective date for the reminders functionality
+  that I built into the dashboard to help me remember to do various tasks.

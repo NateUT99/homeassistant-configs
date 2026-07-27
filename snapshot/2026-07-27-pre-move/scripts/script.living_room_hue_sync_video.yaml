@@ -1,0 +1,14 @@
+alias: Living Room Hue Sync (Video)
+description: Configures the Hue Sync Box for video content. Brightness 50, intensity
+  high - smooth transitions suitable for film and TV. Used for Apple TV and for PS5
+  when input_boolean.movie_mode is on.
+icon: mdi:movie-open
+sequence:
+- action: huesyncbox.set_sync_state
+  data:
+    device_id: a99ddac081e83072ec97e2d8b8d3c6ba
+    power: true
+    sync: true
+    mode: video
+    intensity: high
+    brightness: 50

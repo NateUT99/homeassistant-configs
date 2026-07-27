@@ -1,0 +1,60 @@
+id: '1774960222305'
+alias: Roborock - Apply Cleaning Mode
+description: Used to send cleaning mode information to Apple Home via Matter Hub.
+triggers:
+- entity_id: input_select.roborock_cleaning_mode_store
+  trigger: state
+actions:
+- choose:
+  - conditions:
+    - condition: state
+      entity_id: input_select.roborock_cleaning_mode_store
+      state: vacuum
+    sequence:
+    - action: vacuum.set_fan_speed
+      target:
+        entity_id:
+        - vacuum.roborock_q8_max
+      data:
+        fan_speed: balanced
+    - action: select.select_option
+      target:
+        entity_id:
+        - select.roborock_q8_max_mop_intensity
+      data:
+        option: 'off'
+  - conditions:
+    - condition: state
+      entity_id: input_select.roborock_cleaning_mode_store
+      state: mop
+    sequence:
+    - action: vacuum.set_fan_speed
+      target:
+        entity_id:
+        - vacuum.roborock_q8_max
+      data:
+        fan_speed: 'off'
+    - action: select.select_option
+      target:
+        entity_id:
+        - select.roborock_q8_max_mop_intensity
+      data:
+        option: mild
+  - conditions:
+    - condition: state
+      entity_id: input_select.roborock_cleaning_mode_store
+      state: vacuum_and_mop
+    sequence:
+    - action: vacuum.set_fan_speed
+      target:
+        entity_id:
+        - vacuum.roborock_q8_max
+      data:
+        fan_speed: balanced
+    - action: select.select_option
+      target:
+        entity_id:
+        - select.roborock_q8_max_mop_intensity
+      data:
+        option: mild
+category: 01KS3AHTTAQVWP6HWNE9CJ207W

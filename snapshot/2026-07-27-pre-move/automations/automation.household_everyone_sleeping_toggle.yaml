@@ -1,0 +1,150 @@
+id: '1712689091787'
+alias: 'Household: Configure Home for Sleep and Wake'
+description: 'Reacts to the Everyone Sleeping toggle. When turned on, configures the
+  home for sleep: dims/turns off lights, enables adaptive lighting sleep mode, sets
+  thermostat to Sleep preset, arms the alarm, closes garage doors, and turns on the
+  kitchen counter strip as a nightlight. When turned off, restores the wake state:
+  disarms the alarm, clears thermostat hold, turns off the humidifier, restores adaptive
+  lighting, and brings the counter strip up to daytime brightness.'
+triggers:
+- alias: Everyone Sleeping turned on
+  entity_id: input_boolean.everyone_sleeping
+  from: 'off'
+  to: 'on'
+  id: sleep_on
+  trigger: state
+- alias: Everyone Sleeping turned off
+  entity_id: input_boolean.everyone_sleeping
+  from: 'on'
+  to: 'off'
+  id: sleep_off
+  trigger: state
+conditions: []
+actions:
+- alias: Configure home for sleep or wake state
+  choose:
+  - alias: Everyone Sleeping turned ON — configure home for sleep
+    conditions:
+    - condition: trigger
+      id: sleep_on
+    sequence:
+    - alias: Turn off switches tagged as "Everyone Is Sleeping"
+      action: switch.turn_off
+      target:
+        label_id: everyone_is_sleeping
+        entity_id: switch.z2m_everyone_is_sleeping
+      data: {}
+    - alias: Turn off lights tagged as "Everyone Is Sleeping"
+      action: light.turn_off
+      target:
+        label_id: everyone_is_sleeping
+        entity_id:
+        - light.z2m_everyone_is_sleeping
+        - light.everyone_is_sleeping
+    - alias: Enable Adaptive Lighting sleep mode
+      action: switch.turn_on
+      target:
+        entity_id:
+        - switch.adaptive_lighting_sleep_mode_standard
+      data: {}
+    - alias: Dim kitchen counter strip to nightlight level
+      action: light.turn_on
+      target:
+        entity_id: light.kitchen_counter_strip
+      data:
+        brightness_pct: 3
+    - alias: Configure master bedroom for night
+      parallel:
+      - alias: Turn on accent lights at 25% brightness
+        action: light.turn_on
+        target:
+          entity_id:
+          - light.portable_accent_lamp
+          - light.master_bedroom_master_bedroom_nightstand_lamp_left
+        data:
+          brightness_pct: 25
+      - alias: Turn on master bedroom Apple TV
+        action: media_player.turn_on
+        target:
+          entity_id: media_player.master_bedroom_appletv
+      - alias: If master bedroom windows are closed, turn on humidifier
+        if:
+        - condition: state
+          entity_id: binary_sensor.master_bedroom_windows
+          state: 'off'
+          alias: Master bedroom windows are closed
+        then:
+        - action: humidifier.turn_on
+          target:
+            entity_id: humidifier.master_bedroom_humidifier
+          alias: Turn on master bedroom humidifier
+    - alias: House-wide sleep configuration
+      parallel:
+      - alias: Set thermostat to Sleep preset
+        action: select.select_option
+        target:
+          entity_id: select.living_room_thermostat_current_mode
+        data:
+          option: sleep
+      - alias: Enable kitchen camera auto-tracking
+        action: switch.turn_on
+        target:
+          entity_id: switch.kitchen_camera_auto_tracking
+      - alias: Close garage doors tagged as "Everyone Is Sleeping"
+        action: cover.close_cover
+        target:
+          label_id: everyone_is_sleeping
+      - alias: Turn off media players tagged as "Everyone Is Sleeping"
+        action: media_player.turn_off
+        target:
+          label_id: everyone_is_sleeping
+      - alias: Turn off fans tagged as "Everyone Is Sleeping"
+        action: fan.turn_off
+        target:
+          label_id: everyone_is_sleeping
+      - alias: Press buttons tagged as "Everyone Is Sleeping"
+        action: button.press
+        target:
+          label_id: everyone_is_sleeping
+      - alias: Run scripts tagged as "Everyone Is Sleeping"
+        action: script.turn_on
+        target:
+          label_id: everyone_is_sleeping
+    - alias: Disable kitchen camera privacy mode
+      action: switch.turn_off
+      target:
+        entity_id: switch.kitchen_camera_privacy_mode
+  default:
+  - alias: Disable Adaptive Lighting sleep mode
+    action: switch.turn_off
+    target:
+      entity_id:
+      - switch.adaptive_lighting_sleep_mode_standard
+    data: {}
+  - alias: Clear thermostat hold
+    action: button.press
+    target:
+      entity_id: button.living_room_thermostat_clear_hold
+    data: {}
+  - alias: Turn off master bedroom humidifier
+    action: humidifier.turn_off
+    target:
+      entity_id: humidifier.master_bedroom_humidifier
+  - alias: Disarm alarm
+    action: alarm_control_panel.alarm_disarm
+    target:
+      entity_id: alarm_control_panel.home_alarm
+    data:
+      code: 0128
+  - alias: Restore kitchen counter strip to daytime brightness
+    action: light.turn_on
+    target:
+      entity_id: light.kitchen_counter_strip
+    data:
+      brightness_pct: 25
+  - alias: Enable kitchen camera privacy mode
+    action: switch.turn_on
+    target:
+      entity_id: switch.kitchen_camera_privacy_mode
+mode: single
+category: 01KS3AHT8PTYGYCRABF23BFTXH

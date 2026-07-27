@@ -1,0 +1,68 @@
+id: '1774202290704'
+alias: 'Avery''s Room: Ceiling Button'
+description: Controls lights in Avery's room from the ceiling button. Single tap toggles
+  the ceiling light. Hold turns off all room lights (ceiling, desk lamp, bed strip,
+  dresser lamp). Double tap and release triggers are reserved for future use.
+triggers:
+- alias: Ceiling button single tap
+  domain: mqtt
+  device_id: c229f79aa86ee7a8e16384ec91040302
+  type: action
+  subtype: single
+  id: single
+  trigger: device
+- alias: Ceiling button double tap
+  domain: mqtt
+  device_id: c229f79aa86ee7a8e16384ec91040302
+  type: action
+  subtype: double
+  id: double
+  enabled: false
+  trigger: device
+- alias: Ceiling button hold
+  domain: mqtt
+  device_id: c229f79aa86ee7a8e16384ec91040302
+  type: action
+  subtype: hold
+  id: hold
+  trigger: device
+- alias: Ceiling button release
+  domain: mqtt
+  device_id: c229f79aa86ee7a8e16384ec91040302
+  type: action
+  subtype: release
+  id: release
+  enabled: false
+  trigger: device
+conditions: []
+actions:
+- alias: Route by button action
+  choose:
+  - alias: Single tap — toggle ceiling
+    conditions:
+    - alias: Single tap trigger
+      condition: trigger
+      id:
+      - single
+    sequence:
+    - alias: Toggle ceiling light
+      action: light.toggle
+      target:
+        entity_id: light.avery_room_ceiling
+  - alias: Hold — turn off all room lights
+    conditions:
+    - alias: Hold trigger
+      condition: trigger
+      id:
+      - hold
+    sequence:
+    - alias: Turn off all room lights
+      action: light.turn_off
+      target:
+        entity_id:
+        - light.avery_room_ceiling
+        - light.avery_room_desk_lamp
+        - light.avery_room_bed_strip
+        - light.avery_room_dresser_lamp
+mode: restart
+category: 01KQA4YGXGDK2DH076K5A7H8YH

@@ -1,0 +1,25 @@
+id: '1709433117920'
+alias: 'Household: Vacuum Ran Today'
+description: If the vacuum has completed at least 50% of its cleaning cycle, set "Vacuum
+  Ran Today" to "yes" when it returns to its dock. This will prevent it from starting
+  (via automation) again for the rest of the calendar day.
+triggers:
+- alias: Roborock returning to dock
+  entity_id:
+  - vacuum.roborock_q8_max
+  to: returning
+  trigger: state
+conditions:
+- alias: Cleaned at least 50% of cycle
+  condition: numeric_state
+  entity_id: input_number.roborock_daily_max_progress
+  above: 50
+actions:
+- alias: Set Vacuum Ran Today to Yes
+  action: input_select.select_option
+  data:
+    option: 'Yes'
+  target:
+    entity_id: input_select.vacuum_ran_today
+mode: single
+category: 01KS3AHTTAQVWP6HWNE9CJ207W

@@ -1,0 +1,205 @@
+id: '1694613227643'
+alias: 'Avery''s Room: Sleep Mode'
+description: 'Reacts to the Avery Sleeping toggle. When turned on, configures Avery''s
+  room for sleep: turns on the bed strip nightlight, noise machine, and dresser lamp;
+  turns off the desk lamp; turns on the humidifier if the window is closed; enables
+  Sonos night mode; disables the living room subwoofer; and fades the ceiling lights
+  off over 60 seconds, then enables Adaptive Lighting sleep mode once the ceiling
+  is off. When turned off, restores wake state: pauses the HomePod; turns off nightlight
+  devices, humidifier, and noise machine; disables Sonos night mode and Adaptive Lighting
+  sleep mode; locks manual control; fades the ceiling lights up to morning brightness
+  over 3 minutes via Adaptive Lighting; turns on the living room fan, kitchen ceiling,
+  Apple TV, and living room subwoofer; then waits for the fade to complete or the
+  bedroom door to open — whichever comes first — before snapping to the current AL
+  target and handing control back.'
+triggers:
+- alias: Avery Sleeping turned on
+  entity_id: input_boolean.avery_sleeping
+  from: 'off'
+  to: 'on'
+  id: sleep_on
+  trigger: state
+- alias: Avery Sleeping turned off
+  entity_id: input_boolean.avery_sleeping
+  from: 'on'
+  to: 'off'
+  id: sleep_off
+  trigger: state
+conditions: []
+actions:
+- alias: Route by toggle state
+  choose:
+  - alias: Avery Sleeping turned ON — configure room for sleep
+    conditions:
+    - condition: trigger
+      id: sleep_on
+    sequence:
+    - alias: Lock manual control to protect ceiling fade from AL interference
+      action: adaptive_lighting.set_manual_control
+      data:
+        entity_id: switch.adaptive_lighting_avery_schedule
+        manual_control: true
+        lights:
+        - light.avery_room_ceiling_bulb_1
+        - light.avery_room_ceiling_bulb_2
+    - alias: Configure sleep accessories in parallel
+      parallel:
+      - alias: Turn on bed light strip at 10% as nightlight
+        action: light.turn_on
+        target:
+          entity_id: light.avery_room_bed_strip
+        data:
+          brightness_pct: 10
+      - alias: Turn on noise machine and dresser lamp
+        action: switch.turn_on
+        target:
+          entity_id:
+          - switch.avery_room_noise_machine
+          - switch.avery_room_dresser_lamp
+      - alias: If window is closed, turn on humidifier
+        if:
+        - condition: state
+          entity_id: binary_sensor.avery_room_window
+          state: 'off'
+          alias: Window is closed
+        then:
+        - action: humidifier.turn_on
+          target:
+            entity_id: humidifier.avery_room_humidifier
+      - alias: Enable Night Mode for Sonos speakers
+        action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.sonos_night_mode
+      - alias: Disable Living Room subwoofer
+        action: switch.turn_off
+        target:
+          entity_id: switch.living_room_sonos_subwoofer_enabled
+      - action: light.turn_off
+        target:
+          entity_id: light.avery_room_desk_lamp
+        alias: Turn off desk lamp
+      - alias: 'Fade ceiling off: dim to 1%, wait, then turn off'
+        sequence:
+        - alias: Fade ceiling to 1% over 44 seconds
+          action: light.turn_on
+          target:
+            entity_id: light.avery_room_ceiling
+          data:
+            brightness_pct: 1
+            transition: 44
+        - alias: Wait for fade to complete
+          delay:
+            hours: 0
+            minutes: 0
+            seconds: 47
+            milliseconds: 0
+        - alias: Turn off ceiling at 1%
+          action: light.turn_off
+          target:
+            entity_id: light.avery_room_ceiling
+          data: {}
+    - alias: Enable Adaptive Lighting sleep mode for ceiling
+      action: switch.turn_on
+      target:
+        entity_id:
+        - switch.adaptive_lighting_sleep_mode_avery_schedule
+      data: {}
+  - alias: Avery Sleeping turned OFF — restore wake state
+    conditions:
+    - condition: trigger
+      id: sleep_off
+    sequence:
+    - alias: Configure Avery's Room for wake in parallel
+      parallel:
+      - alias: Disable Adaptive Lighting sleep mode for ceiling
+        action: switch.turn_off
+        target:
+          entity_id:
+          - switch.adaptive_lighting_sleep_mode_avery_schedule
+      - alias: Turn off humidifier
+        action: humidifier.turn_off
+        target:
+          entity_id: humidifier.avery_room_humidifier
+      - alias: Turn off noise machine
+        action: switch.turn_off
+        target:
+          entity_id: switch.avery_room_noise_machine
+      - alias: Turn off bed strip and dresser lamp
+        action: light.turn_off
+        target:
+          entity_id:
+          - light.avery_room_bed_strip
+          - light.avery_room_dresser_lamp
+      - alias: Pause HomePod
+        action: media_player.media_pause
+        target:
+          entity_id: media_player.avery_room_homepod
+    - alias: Lock manual control to protect fade from AL interference
+      action: adaptive_lighting.set_manual_control
+      data:
+        entity_id: switch.adaptive_lighting_avery_schedule
+        manual_control: true
+        lights:
+        - light.avery_room_ceiling
+    - alias: Fade ceiling up to Adaptive Lighting morning target over 3 minutes
+      action: adaptive_lighting.apply
+      data:
+        entity_id: switch.adaptive_lighting_avery_schedule
+        transition: 180
+        turn_on_lights: true
+        adapt_brightness: true
+        adapt_color: true
+        lights:
+        - light.avery_room_ceiling
+    - parallel:
+      - action: light.turn_on
+        target:
+          entity_id:
+          - light.living_room_fan
+          - light.kitchen_ceiling
+        alias: Turn on living room fan and kitchen ceiling lights
+      - alias: Disable Night Mode for Sonos speakers
+        action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.sonos_night_mode
+      - alias: Enable Living Room subwoofer
+        action: switch.turn_on
+        target:
+          entity_id:
+          - switch.living_room_sonos_subwoofer_enabled
+      - action: media_player.turn_on
+        target:
+          entity_id: media_player.living_room_appletv
+        alias: Turn on Apple TV
+      alias: Configure Living Room and Kitchen for wake in parallel
+    - alias: Wait for fade to complete or door to open
+      wait_for_trigger:
+      - alias: Bedroom door opened during fade
+        entity_id: binary_sensor.avery_room_door_contact
+        to: 'on'
+        trigger: state
+      timeout:
+        hours: 0
+        minutes: 3
+        seconds: 5
+        milliseconds: 0
+      continue_on_timeout: true
+    - alias: Snap ceiling to current AL target
+      action: adaptive_lighting.apply
+      data:
+        entity_id: switch.adaptive_lighting_avery_schedule
+        transition: 2
+        turn_on_lights: true
+        adapt_brightness: true
+        adapt_color: true
+        lights:
+        - light.avery_room_ceiling
+    - alias: Hand control back to Adaptive Lighting
+      action: adaptive_lighting.set_manual_control
+      data:
+        entity_id: switch.adaptive_lighting_avery_schedule
+        manual_control: false
+        lights:
+        - light.avery_room_ceiling
+mode: restart
+category: 01KS3AHT8PTYGYCRABF23BFTXH

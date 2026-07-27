@@ -1,0 +1,19 @@
+sequence:
+- action: switch.turn_on
+  metadata: {}
+  data: {}
+  target:
+    entity_id:
+    - switch.office_headphone_amp
+- delay:
+    hours: 0
+    minutes: 0
+    seconds: 5
+    milliseconds: 0
+- action: switch.turn_on
+  metadata: {}
+  data: {}
+  target:
+    entity_id: switch.office_speaker_amplifier_power
+alias: Turn On Turntable Equipment
+description: ''

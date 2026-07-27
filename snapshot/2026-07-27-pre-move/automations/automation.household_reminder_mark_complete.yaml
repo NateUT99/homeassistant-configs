@@ -1,0 +1,25 @@
+id: '1779207455880'
+alias: 'Household: Reminder Mark Complete'
+description: When the user taps Mark Complete on a reminder notification, completes
+  the corresponding chore. The chore_calendar_status_changed event then triggers the
+  notifications automation to clear the lock-screen notification automatically.
+triggers:
+- alias: iOS notification action fired
+  trigger: event
+  event_type: mobile_app_notification_action
+conditions:
+- alias: Action is a reminder Mark Complete
+  condition: template
+  value_template: '{{ action_id.startswith(''REMINDER_MARK_COMPLETE_'') }}'
+actions:
+- alias: Complete the chore
+  action: chore_calendar.complete_item
+  data:
+    entity_id: calendar.household_chores
+    item: '{{ chore_uid }}'
+mode: parallel
+max: 8
+variables:
+  action_id: '{{ trigger.event.data.action | default('''') }}'
+  chore_uid: '{{ action_id | replace(''REMINDER_MARK_COMPLETE_'', '''') }}'
+category: 01J8E2QBF6XVHBZKTQCZ73TK5T

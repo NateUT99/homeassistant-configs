@@ -1,0 +1,140 @@
+id: '1779132631145'
+alias: 'Office: Ceiling Remote'
+description: 'Controls light.office_ceiling via a two-button Matter remote. Button
+  1 single: turn on. Button 1 double: release Adaptive Lighting manual control. Button
+  1 hold: step brightness up 10% per 500ms. Button 2 single: turn off. Button 2 hold:
+  step brightness down.
+
+
+  Hold release is detected inside the loop via wait_for_trigger; restart mode also
+  cancels any active hold loop when long_release fires the top-level trigger. Button
+  2 double is wired but disabled — no use case yet.'
+triggers:
+- entity_id: event.office_office_ceiling_lights_remote_button_1
+  id: button_1
+  alias: Button 1 any event
+  trigger: state
+- entity_id: event.office_office_ceiling_lights_remote_button_2
+  id: button_2
+  alias: Button 2 any event
+  trigger: state
+conditions: []
+actions:
+- choose:
+  - alias: Button 1 single — turn on ceiling
+    conditions:
+    - alias: Triggered by button 1
+      condition: trigger
+      id: button_1
+    - alias: Single press event type
+      condition: state
+      entity_id: event.office_office_ceiling_lights_remote_button_1
+      attribute: event_type
+      state: multi_press_1
+    sequence:
+    - alias: Turn on office ceiling
+      action: light.turn_on
+      target:
+        entity_id: light.office_ceiling
+  - alias: Button 1 double — release AL manual control
+    conditions:
+    - alias: Triggered by button 1
+      condition: trigger
+      id: button_1
+    - alias: Double press event type
+      condition: state
+      entity_id: event.office_office_ceiling_lights_remote_button_1
+      attribute: event_type
+      state: multi_press_2
+    sequence:
+    - alias: Release AL manual control for office ceiling
+      action: adaptive_lighting.set_manual_control
+      data:
+        manual_control: false
+        entity_id: switch.adaptive_lighting_standard
+        lights:
+        - light.office_ceiling
+  - alias: Button 1 hold — step brightness up
+    conditions:
+    - alias: Triggered by button 1
+      condition: trigger
+      id: button_1
+    - alias: Long press event type
+      condition: state
+      entity_id: event.office_office_ceiling_lights_remote_button_1
+      attribute: event_type
+      state: long_press
+    sequence:
+    - alias: Step brightness up until release
+      repeat:
+        sequence:
+        - alias: Step brightness up 10%
+          action: light.turn_on
+          target:
+            entity_id: light.office_ceiling
+          data:
+            brightness_step_pct: 10
+        - alias: Wait for release or next step interval
+          wait_for_trigger:
+          - trigger: state
+            entity_id: event.office_office_ceiling_lights_remote_button_1
+            attribute: event_type
+            to: long_release
+          timeout:
+            milliseconds: 500
+          continue_on_timeout: true
+        until:
+        - alias: Button released
+          condition: template
+          value_template: '{{ wait.completed }}'
+  - alias: Button 2 single — turn off ceiling
+    conditions:
+    - alias: Triggered by button 2
+      condition: trigger
+      id: button_2
+    - alias: Single press event type
+      condition: state
+      entity_id: event.office_office_ceiling_lights_remote_button_2
+      attribute: event_type
+      state: multi_press_1
+    sequence:
+    - alias: Turn off office ceiling
+      action: light.turn_off
+      target:
+        entity_id: light.office_ceiling
+      data: {}
+  - alias: Button 2 hold — step brightness down
+    conditions:
+    - alias: Triggered by button 2
+      condition: trigger
+      id: button_2
+    - alias: Long press event type
+      condition: state
+      entity_id: event.office_office_ceiling_lights_remote_button_2
+      attribute: event_type
+      state: long_press
+    sequence:
+    - alias: Step brightness down until release
+      repeat:
+        sequence:
+        - alias: Step brightness down 10%
+          action: light.turn_on
+          target:
+            entity_id: light.office_ceiling
+          data:
+            brightness_step_pct: -10
+        - alias: Wait for release or next step interval
+          wait_for_trigger:
+          - trigger: state
+            entity_id: event.office_office_ceiling_lights_remote_button_2
+            attribute: event_type
+            to: long_release
+          timeout:
+            milliseconds: 500
+          continue_on_timeout: true
+        until:
+        - alias: Button released
+          condition: template
+          value_template: '{{ wait.completed }}'
+mode: restart
+category: 01KQA4YGXGDK2DH076K5A7H8YH

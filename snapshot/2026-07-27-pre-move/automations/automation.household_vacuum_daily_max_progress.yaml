@@ -1,0 +1,26 @@
+id: '1757649359611'
+alias: 'Household: Vacuum Daily Max Progress'
+description: Tracks the maximum cleaning progress percentage each day.
+triggers:
+- entity_id: sensor.roborock_q8_max_cleaning_progress
+  alias: Cleaning progress updated
+  trigger: state
+conditions:
+- condition: template
+  value_template: '{% set current = states(''sensor.roborock_q8_max_cleaning_progress'')
+    | float(0) %}
+
+    {% set stored = states(''input_number.roborock_daily_max_progress'') | float(0)
+    %}
+
+    {{ current > stored }}'
+  alias: New value exceeds stored daily max
+actions:
+- data:
+    value: '{{ states(''sensor.roborock_q8_max_cleaning_progress'') | float(0) }}'
+  action: input_number.set_value
+  alias: Update stored daily max
+  target:
+    entity_id: input_number.roborock_daily_max_progress
+mode: single
+category: 01KS3AHTTAQVWP6HWNE9CJ207W

@@ -1,0 +1,14 @@
+alias: Living Room Hue Sync (Game)
+description: Configures the Hue Sync Box for game content. Brightness 85, intensity
+  intense - rapid, saturated color shifts for gaming responsiveness. Used for PS5
+  when input_boolean.movie_mode is off.
+icon: mdi:controller
+sequence:
+- action: huesyncbox.set_sync_state
+  data:
+    device_id: a99ddac081e83072ec97e2d8b8d3c6ba
+    power: true
+    sync: true
+    mode: game
+    intensity: intense
+    brightness: 85

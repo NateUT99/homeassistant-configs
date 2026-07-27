@@ -1,0 +1,28 @@
+id: '1764701794450'
+alias: 'Living Room: Thermostat Previous Mode'
+description: Saves the thermostat's previous operating mode whenever it changes to
+  a different valid mode. This is primarily used to restore the mode when a window
+  or door is closed.
+triggers:
+- alias: Thermostat operating mode changed
+  entity_id:
+  - climate.living_room_thermostat
+  from:
+  - 'off'
+  - heat
+  - cool
+  - heat_cool
+  not_to:
+  - unavailable
+  - unknown
+  trigger: state
+conditions: []
+actions:
+- alias: Save previous mode to helper
+  action: input_select.select_option
+  data:
+    option: '{{ trigger.from_state.state }}'
+  target:
+    entity_id: input_select.thermostat_previous_mode
+mode: single
+category: 01KS3AHTTAQVWP6HWNE9CJ207W

@@ -1,0 +1,74 @@
+id: '1779741447221'
+alias: 'Roborock: Notify maintenance needed'
+description: When the vacuum returns to its dock, sends an iOS notification for each
+  Roborock maintenance sensor currently in Problem state. Each notification includes
+  a Reset action that presses the corresponding Roborock consumable reset button.
+  Clears automatically when the sensor resolves.
+triggers:
+- id: returning_to_dock
+  alias: Vacuum returning to dock
+  entity_id:
+  - vacuum.roborock_q8_max
+  to: returning
+  trigger: state
+- id: sensor_resolved
+  alias: Maintenance sensor resolved
+  entity_id:
+  - binary_sensor.roborock_clean_sensor
+  - binary_sensor.roborock_replace_filter
+  - binary_sensor.roborock_replace_main_brush
+  - binary_sensor.roborock_replace_side_brush
+  to: 'off'
+  trigger: state
+actions:
+- alias: Route by trigger
+  choose:
+  - alias: Returning to dock — notify for any sensors in Problem state
+    conditions:
+    - condition: trigger
+      id: returning_to_dock
+    sequence:
+    - alias: Check each maintenance sensor
+      repeat:
+        for_each:
+        - key: roborock_clean_sensor
+          label: Clean Sensor
+        - key: roborock_replace_filter
+          label: Replace Filter
+        - key: roborock_replace_main_brush
+          label: Replace Main Brush
+        - key: roborock_replace_side_brush
+          label: Replace Side Brush
+        sequence:
+        - alias: Notify if sensor is in Problem state
+          if:
+          - condition: template
+            value_template: '{{ is_state(''binary_sensor.'' ~ repeat.item.key, ''on'')
+              }}'
+          then:
+          - alias: Send actionable iOS notification
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: Vacuum Maintenance Needed
+              message: '{{ repeat.item.label }}'
+              data:
+                tag: roborock_maintenance_{{ repeat.item.key }}
+                actions:
+                - action: ROBOROCK_RESET_{{ repeat.item.key }}
+                  title: Reset
+  - alias: Sensor resolved — clear lock-screen notification
+    conditions:
+    - condition: trigger
+      id: sensor_resolved
+    sequence:
+    - variables:
+        sensor_key: '{{ trigger.to_state.object_id }}'
+    - alias: Clear the iOS notification by tag
+      action: notify.mobile_app_nates_iphone
+      data:
+        message: clear_notification
+        data:
+          tag: roborock_maintenance_{{ sensor_key }}
+mode: parallel
+max: 5
+category: 01KS3AHTTAQVWP6HWNE9CJ207W

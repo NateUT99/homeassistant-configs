@@ -1,0 +1,57 @@
+id: '1784207087432'
+alias: 'Household: Morning Report'
+description: Fires when everyone wakes up (everyone_sleeping off). Speaks today's
+  weather on the master bedroom HomePod; adds AQI warning if high, overdue chore count
+  if any.
+triggers:
+- trigger: state
+  entity_id: input_boolean.everyone_sleeping
+  from: 'on'
+  to: 'off'
+  alias: Everyone wakes up
+conditions: []
+actions:
+- alias: Fetch today's weather forecast
+  action: weather.get_forecasts
+  target:
+    entity_id: weather.apartment
+  data:
+    type: daily
+  response_variable: fc
+- alias: Get overdue chores
+  action: chore_calendar.get_items
+  data:
+    entity_id: calendar.household_chores
+    status: overdue
+  response_variable: overdue_result
+- alias: Build report variables
+  variables:
+    v_today_condition: '{% set cond_map = {''clear-night'': ''clear'', ''partlycloudy'':
+      ''partly cloudy'', ''lightning-rainy'': ''stormy'', ''lightning'': ''stormy'',
+      ''snowy-rainy'': ''wintry mix'', ''windy-variant'': ''windy'', ''pouring'':
+      ''rainy''} %}{% set raw = fc[''weather.apartment''].forecast[0].condition %}{{
+      cond_map.get(raw, raw) }}'
+    v_today_high: '{{ fc[''weather.apartment''].forecast[0].temperature | round(0)
+      | int }}'
+    v_today_low: '{{ fc[''weather.apartment''].forecast[0].templow | round(0) | int
+      }}'
+    v_aqi_high: '{{ is_state(''binary_sensor.outdoor_air_quality_index_high'', ''on'')
+      }}'
+    v_aqi_value: '{{ states(''sensor.toledo_ohio_usa_air_quality_index'') }}'
+    v_overdue_count: '{{ overdue_result[''items''] | length }}'
+    v_aqi_urgency: '{% if v_aqi_value | int > 150 %}Please keep the exterior doors
+      and windows closed.{% else %}Consider keeping the exterior doors and windows
+      closed.{% endif %}'
+- alias: Speak morning report on master bedroom HomePod
+  action: script.household_tts_announce
+  data:
+    target: master_bedroom
+    notification_title: Good Morning
+    message: Good morning. Today's weather will be {{ v_today_condition }} with a
+      high of {{ v_today_high }} and a low of {{ v_today_low }}.{% if v_aqi_high %}
+      Heads up — outdoor air quality index is {{ v_aqi_value }}. {{ v_aqi_urgency
+      }}{% endif %}{% if v_overdue_count | int > 0 %} You have {{ v_overdue_count
+      }} overdue reminder{{ 's' if v_overdue_count | int > 1 }}.{% endif %} Have a
+      great day!
+mode: single
+category: 01J8E2QBF6XVHBZKTQCZ73TK5T

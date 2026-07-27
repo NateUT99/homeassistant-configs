@@ -1,0 +1,45 @@
+- area_id: avery_room
+  name: Avery's Room
+  icon: mdi:teddy-bear
+  temperature_entity_id: sensor.avery_room_climate_temperature
+  humidity_entity_id: sensor.avery_room_climate_humidity
+- area_id: bathroom
+  name: Bathroom
+  icon: mdi:toilet
+- area_id: entrance
+  name: Entrance
+  icon: phu:rooms-front-door
+- area_id: garage
+  name: Garage
+  icon: mdi:car
+  temperature_entity_id: sensor.garage_motion_temperature
+- area_id: kitchen
+  name: Kitchen
+  icon: mdi:countertop
+  temperature_entity_id: sensor.kitchen_climate_temperature
+  humidity_entity_id: sensor.kitchen_climate_humidity
+- area_id: living_room
+  name: Living Room
+  icon: mdi:sofa
+  temperature_entity_id: sensor.living_room_thermostat_current_temperature
+  humidity_entity_id: sensor.living_room_thermostat_current_humidity
+- area_id: master_bedroom
+  name: Master Bedroom
+  icon: mdi:bed-king
+  temperature_entity_id: sensor.master_bedroom_climate_temperature
+  humidity_entity_id: sensor.master_bedroom_climate_humidity
+- area_id: office
+  name: Office
+  icon: mdi:desktop-classic
+  temperature_entity_id: sensor.office_climate_temperature
+  humidity_entity_id: sensor.office_climate_humidity
+- area_id: outside
+  name: Outside
+  icon: mdi:tree
+  temperature_entity_id: sensor.outside_temperature
+  humidity_entity_id: sensor.outside_humidity
+- area_id: utility_room
+  name: Utility Room
+  icon: mdi:washing-machine
+  temperature_entity_id: sensor.utility_room_climate_temperature
+  humidity_entity_id: sensor.utility_room_climate_humidity

@@ -1,0 +1,180 @@
+id: '1732935137258'
+alias: 'Household: Bedroom Doors Sleep Mode'
+description: When either the master bedroom or Avery's room door opens or closes at
+  night, turn on or off the appropriate lights and send a critical notification if
+  Avery's door opens. Master bedroom branches are gated on everyone_sleeping; Avery's
+  door branches are gated on avery_sleeping with nested logic for the parent's sleep
+  state.
+triggers:
+- entity_id:
+  - binary_sensor.master_bedroom_door_contact
+  from:
+  - 'off'
+  to:
+  - 'on'
+  id: master open
+  alias: Master bedroom door opens
+  trigger: state
+- entity_id:
+  - binary_sensor.master_bedroom_door_contact
+  from:
+  - 'on'
+  to:
+  - 'off'
+  id: master closed
+  alias: Master bedroom door closes
+  trigger: state
+- entity_id:
+  - binary_sensor.avery_room_door_contact
+  from:
+  - 'off'
+  to:
+  - 'on'
+  id: avery open
+  alias: Avery's room door opens
+  trigger: state
+- entity_id:
+  - binary_sensor.avery_room_door_contact
+  from:
+  - 'on'
+  to:
+  - 'off'
+  id: avery closed
+  alias: Avery's room door closes
+  trigger: state
+conditions: []
+actions:
+- alias: Handle bedroom door event
+  choose:
+  - alias: When Avery's Room door opens
+    conditions:
+    - condition: trigger
+      id:
+      - avery open
+    - condition: state
+      entity_id: input_boolean.avery_sleeping
+      state: 'on'
+    sequence:
+    - alias: Handle based on parent's sleep state
+      choose:
+      - alias: Everyone sleeping — full lights and notification
+        conditions:
+        - condition: state
+          entity_id: input_boolean.everyone_sleeping
+          state: 'on'
+        sequence:
+        - action: light.turn_on
+          metadata: {}
+          target:
+            entity_id:
+            - light.avery_room_ceiling
+            - light.living_room_fan
+          data: {}
+          alias: Turn on Avery's room and fan lights
+        - alias: Notify only if master bedroom door is closed
+          if:
+          - condition: state
+            entity_id: binary_sensor.master_bedroom_door_contact
+            state: 'off'
+            alias: If master bedroom door is closed
+          then:
+          - data:
+              data:
+                push:
+                  sound:
+                    name: default
+                    critical: 1
+                    volume: 1
+              title: Avery's Room Door Opened
+              message: You may want to check and make sure everything is alright!
+            action: notify.mobile_app_nates_iphone
+            alias: Send critical notification to Nate's iPhone
+      - alias: Parent awake — dim ceiling only, no notification
+        conditions:
+        - condition: state
+          entity_id: input_boolean.everyone_sleeping
+          state: 'off'
+        sequence:
+        - action: light.turn_on
+          target:
+            entity_id: light.avery_room_ceiling
+          data:
+            brightness_pct: 25
+          alias: Turn on Avery's room ceiling at 25%
+  - alias: When Avery's Room door closes
+    conditions:
+    - condition: trigger
+      id:
+      - avery closed
+    - condition: state
+      entity_id: input_boolean.avery_sleeping
+      state: 'on'
+    sequence:
+    - delay:
+        hours: 0
+        minutes: 0
+        seconds: 15
+        milliseconds: 0
+      enabled: false
+    - alias: Handle based on parent's sleep state
+      choose:
+      - alias: Everyone sleeping — turn off ceiling and fan light
+        conditions:
+        - condition: state
+          entity_id: input_boolean.everyone_sleeping
+          state: 'on'
+        sequence:
+        - action: light.turn_off
+          metadata: {}
+          target:
+            entity_id:
+            - light.avery_room_ceiling
+            - light.living_room_fan
+          data:
+            transition: 15
+          alias: Turn off Avery's room and fan lights over 15 seconds
+      - alias: Parent awake — turn off ceiling only
+        conditions:
+        - condition: state
+          entity_id: input_boolean.everyone_sleeping
+          state: 'off'
+        sequence:
+        - action: light.turn_off
+          target:
+            entity_id: light.avery_room_ceiling
+          data:
+            transition: 15
+          alias: Turn off Avery's room ceiling over 15 seconds
+  - alias: When Master Bedroom door opens
+    conditions:
+    - condition: trigger
+      id:
+      - master open
+    - condition: state
+      entity_id: input_boolean.everyone_sleeping
+      state: 'on'
+    sequence:
+    - action: light.turn_on
+      metadata: {}
+      target:
+        entity_id: light.living_room_fan
+      data: {}
+      alias: Turn on living room fan light
+  - alias: When Master Bedroom door closes
+    conditions:
+    - condition: trigger
+      id:
+      - master closed
+    - condition: state
+      entity_id: input_boolean.everyone_sleeping
+      state: 'on'
+    sequence:
+    - action: light.turn_off
+      metadata: {}
+      target:
+        entity_id:
+        - light.living_room_fan
+      data: {}
+      alias: Turn off living room fan light
+mode: single
+category: 01KS3AHT8PTYGYCRABF23BFTXH

@@ -1,0 +1,99 @@
+id: '1775566374534'
+alias: 'Household: Status Lights Home Mode'
+description: 'Keeps status lights in sync with alarm state, guest mode, and sleep
+  state. Guest mode takes priority (green), then everyone sleeping (warm white), then
+  armed away (red), otherwise off.
+
+  '
+triggers:
+- event: start
+  id: ha_started
+  alias: HA started
+  trigger: homeassistant
+- entity_id: alarm_control_panel.home_alarm
+  id: alarm_state_changed
+  alias: Alarm state changed
+  trigger: state
+- entity_id: input_boolean.guest_mode
+  id: guest_mode_changed
+  alias: Guest mode changed
+  trigger: state
+- entity_id: input_boolean.everyone_sleeping
+  id: everyone_sleeping_changed
+  alias: Everyone sleeping changed
+  trigger: state
+conditions: []
+actions:
+- alias: Delay on startup to let integrations initialize
+  if:
+  - condition: trigger
+    id: ha_started
+    alias: Triggered by HA start
+  then:
+  - delay:
+      seconds: 30
+    alias: Wait 30 seconds for integrations to initialize
+- alias: Determine status light state
+  choose:
+  - conditions:
+    - condition: state
+      entity_id: input_boolean.guest_mode
+      state: 'on'
+      alias: Guest mode is on
+    sequence:
+    - alias: Set status lamp to green (guest mode)
+      action: light.turn_on
+      data:
+        rgb_color:
+        - 0
+        - 249
+        - 0
+        brightness_pct: 50
+      target:
+        entity_id:
+        - light.living_room_status_lamp
+        - light.office_presence_sensor
+    alias: Guest mode is on
+  - conditions:
+    - condition: state
+      entity_id: input_boolean.everyone_sleeping
+      state: 'on'
+      alias: Everyone is sleeping
+    sequence:
+    - action: light.turn_on
+      data:
+        brightness_pct: 35
+      target:
+        entity_id:
+        - light.living_room_status_lamp
+        - light.office_presence_sensor
+      alias: Set status lights to warm white (sleeping)
+    alias: Everyone is sleeping
+  - conditions:
+    - condition: state
+      entity_id: alarm_control_panel.home_alarm
+      state: armed_away
+      alias: Alarm is armed away
+    sequence:
+    - action: light.turn_on
+      data:
+        rgb_color:
+        - 255
+        - 38
+        - 0
+        brightness_pct: 50
+      target:
+        entity_id:
+        - light.living_room_status_lamp
+        - light.office_presence_sensor
+      alias: Set status lights to red (armed away)
+    alias: Alarm is armed away
+  default:
+  - action: light.turn_off
+    target:
+      entity_id:
+      - light.living_room_status_lamp
+      - light.office_presence_sensor
+    alias: Turn off status lights
+mode: single
+category: 01KQA4YGXGDK2DH076K5A7H8YH

@@ -1,0 +1,33 @@
+id: '1779741541039'
+alias: 'Roborock: Dispatch Maintenance Reset'
+description: When the user taps Reset on a Roborock maintenance notification, presses
+  the corresponding consumable reset button. This resets the Roborock internal counter,
+  which flips the maintenance sensor off, which clears the iOS notification automatically.
+triggers:
+- alias: iOS notification action fired
+  event_type: mobile_app_notification_action
+  trigger: event
+conditions:
+- alias: Action is a Roborock reset
+  condition: template
+  value_template: '{{ action_id.startswith(''ROBOROCK_RESET_'') }}'
+- alias: Target button is valid
+  condition: template
+  value_template: '{{ target_button != '''' }}'
+actions:
+- alias: Press the consumable reset button
+  action: button.press
+  target:
+    entity_id: '{{ target_button }}'
+mode: parallel
+max: 4
+variables:
+  action_id: '{{ trigger.event.data.action | default('''') }}'
+  sensor_key: '{{ action_id | replace(''ROBOROCK_RESET_'', '''') }}'
+  button_map:
+    roborock_clean_sensor: button.roborock_q8_max_reset_sensor_consumable
+    roborock_replace_filter: button.roborock_q8_max_reset_air_filter_consumable
+    roborock_replace_main_brush: button.roborock_q8_max_reset_main_brush_consumable
+    roborock_replace_side_brush: button.roborock_q8_max_reset_side_brush_consumable
+  target_button: '{{ button_map[sensor_key] | default('''') }}'
+category: 01KS3AHTTAQVWP6HWNE9CJ207W

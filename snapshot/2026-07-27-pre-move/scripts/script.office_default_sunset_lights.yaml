@@ -1,0 +1,45 @@
+sequence:
+- action: switch.turn_off
+  metadata: {}
+  data: {}
+  target:
+    entity_id: switch.adaptive_lighting_office_desk_lamp
+- action: light.turn_on
+  metadata: {}
+  data:
+    rgb_color:
+    - 0
+    - 253
+    - 255
+    brightness_pct: 30
+  target:
+    entity_id:
+    - light.office_arcade_accent_lights
+- action: light.turn_on
+  metadata: {}
+  data:
+    rgb_color:
+    - 255
+    - 64
+    - 255
+  target:
+    entity_id:
+    - light.office_turntable_cabinet_accent
+- action: light.turn_on
+  metadata: {}
+  data: {}
+  target:
+    entity_id:
+    - light.office_arcade_surge_protector_switch_3
+    - light.office_arcade_surge_protector_outlet_3
+  enabled: false
+- action: hue.activate_scene
+  metadata: {}
+  data:
+    brightness: 214
+    dynamic: true
+  target:
+    entity_id:
+    - scene.office_office_accents_fire_orange
+alias: Office Default Sunset Lights
+description: ''

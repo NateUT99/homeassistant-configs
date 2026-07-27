@@ -1,0 +1,204 @@
+id: '1778856215268'
+alias: 'Living Room: Fan Remote Left Button Actions'
+description: Handles all button actions for the Living Room Fan Remote Left (Hue Dimmer
+  Gen 2). Power toggles fan light, up/down short-press steps 10%, up/down hold dims
+  continuously until released, Hue button re-enables Adaptive Lighting on the fan
+  light. Power hold is reserved for future use (turn off multiple living room lights)
+  — trigger is registered but disabled.
+triggers:
+- alias: Power short press
+  domain: mqtt
+  device_id: 881cd492b2ca9c91b093439b25f736ad
+  type: action
+  subtype: on_press_release
+  id: power_short
+  trigger: device
+- alias: Power hold
+  domain: mqtt
+  device_id: 881cd492b2ca9c91b093439b25f736ad
+  type: action
+  subtype: on_hold_release
+  id: power_hold
+  enabled: false
+  trigger: device
+- alias: Brightness up short press
+  domain: mqtt
+  device_id: 881cd492b2ca9c91b093439b25f736ad
+  type: action
+  subtype: up_press_release
+  id: up_short
+  trigger: device
+- alias: Brightness up hold
+  domain: mqtt
+  device_id: 881cd492b2ca9c91b093439b25f736ad
+  type: action
+  subtype: up_hold
+  id: up_hold
+  trigger: device
+- alias: Brightness down short press
+  domain: mqtt
+  device_id: 881cd492b2ca9c91b093439b25f736ad
+  type: action
+  subtype: down_press_release
+  id: down_short
+  trigger: device
+- alias: Brightness down hold
+  domain: mqtt
+  device_id: 881cd492b2ca9c91b093439b25f736ad
+  type: action
+  subtype: down_hold
+  id: down_hold
+  trigger: device
+- alias: Hue button press
+  domain: mqtt
+  device_id: 881cd492b2ca9c91b093439b25f736ad
+  type: action
+  subtype: off_press_release
+  id: hue_button
+  trigger: device
+conditions: []
+actions:
+- alias: Route button action
+  choose:
+  - alias: Power short press — toggle fan light
+    conditions:
+    - condition: trigger
+      id: power_short
+    sequence:
+    - alias: Toggle fan light
+      action: light.toggle
+      target:
+        entity_id: light.living_room_fan
+      data:
+        transition: 1
+  - alias: Power hold — turn off living room lights (placeholder)
+    conditions:
+    - condition: trigger
+      id: power_hold
+    sequence:
+    - alias: Placeholder — fill in entity list when ready
+      action: light.turn_off
+      target:
+        entity_id:
+        - light.living_room_fan
+      data:
+        transition: 1
+  - alias: Brightness up short press — step up 10%
+    conditions:
+    - condition: trigger
+      id: up_short
+    sequence:
+    - alias: Step fan light brightness up
+      action: light.turn_on
+      target:
+        entity_id: light.living_room_fan
+      data:
+        brightness_step_pct: 10
+        transition: 0.3
+  - alias: Brightness up hold — step up continuously until released
+    conditions:
+    - condition: trigger
+      id: up_hold
+    sequence:
+    - alias: Step up until button released
+      repeat:
+        count: 20
+        sequence:
+        - alias: Step fan light brightness up
+          action: light.turn_on
+          target:
+            entity_id: light.living_room_fan
+          data:
+            brightness_step_pct: 5
+            transition: 0.3
+        - alias: Wait for up button release
+          wait_for_trigger:
+          - platform: device
+            domain: mqtt
+            device_id: 881cd492b2ca9c91b093439b25f736ad
+            type: action
+            subtype: up_hold_release
+          timeout:
+            milliseconds: 500
+          continue_on_timeout: true
+        - alias: Stop if button was released
+          if:
+          - condition: template
+            value_template: '{{ wait.trigger is not none }}'
+          then:
+          - stop: Up button released
+  - alias: Brightness down short press — step down 10%
+    conditions:
+    - condition: trigger
+      id: down_short
+    sequence:
+    - alias: Step fan light brightness down
+      action: light.turn_on
+      target:
+        entity_id: light.living_room_fan
+      data:
+        brightness_step_pct: -10
+        transition: 0.3
+  - alias: Brightness down hold — step down continuously until released
+    conditions:
+    - condition: trigger
+      id: down_hold
+    sequence:
+    - alias: Step down until button released
+      repeat:
+        count: 20
+        sequence:
+        - alias: Stop if already at minimum brightness
+          if:
+          - alias: Brightness at or below 5%
+            condition: numeric_state
+            entity_id: light.living_room_fan
+            attribute: brightness
+            below: 14
+          then:
+          - stop: Minimum brightness reached
+        - alias: Step fan light brightness down
+          action: light.turn_on
+          target:
+            entity_id: light.living_room_fan
+          data:
+            brightness_step_pct: -5
+            transition: 0.3
+        - alias: Wait for down button release
+          wait_for_trigger:
+          - platform: device
+            domain: mqtt
+            device_id: 881cd492b2ca9c91b093439b25f736ad
+            type: action
+            subtype: down_hold_release
+          timeout:
+            milliseconds: 500
+          continue_on_timeout: true
+        - alias: Stop if button was released
+          if:
+          - condition: template
+            value_template: '{{ wait.trigger is not none }}'
+          then:
+          - stop: Down button released
+  - alias: Hue button — re-enable Adaptive Lighting on fan light
+    conditions:
+    - condition: trigger
+      id: hue_button
+    sequence:
+    - alias: Clear manual control on fan light
+      action: adaptive_lighting.set_manual_control
+      data:
+        entity_id: switch.adaptive_lighting_standard
+        lights:
+        - light.living_room_fan
+        manual_control: false
+    - alias: Apply AL immediately
+      action: adaptive_lighting.apply
+      data:
+        entity_id: switch.adaptive_lighting_standard
+        lights:
+        - light.living_room_fan
+        transition: 1
+mode: parallel
+max: 3
+category: 01KQA4YGXGDK2DH076K5A7H8YH

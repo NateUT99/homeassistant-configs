@@ -1,0 +1,53 @@
+id: '1780423156303'
+alias: Outdoor Air Quality Index Alert Clear
+description: Clears the air quality alert notification when AQI drops back below threshold
+  or all exterior doors and windows are closed. Also announces on the kitchen HomePod
+  when AQI clears and outdoor feels-like temperature is lower than indoor temperature.
+  Companion to Outdoor Air Quality Index Alert.
+triggers:
+- entity_id: binary_sensor.outdoor_air_quality_index_high
+  to: 'off'
+  alias: AQI drops below threshold
+  id: aqi_clears
+  trigger: state
+- alias: All exterior doors / windows closed
+  entity_id:
+  - binary_sensor.exterior_door_window_open
+  to:
+  - 'off'
+  trigger: state
+actions:
+- alias: TTS if AQI clears and outdoor is cooler than indoor
+  choose:
+  - conditions:
+    - condition: trigger
+      id: aqi_clears
+      alias: AQI drops below threshold trigger
+    - condition: numeric_state
+      entity_id: sensor.household_people_home
+      above: 0
+      alias: Someone is home
+    - condition: state
+      entity_id: input_boolean.everyone_sleeping
+      state: 'off'
+      alias: Everyone awake
+    - condition: template
+      value_template: '{{ states(''sensor.outside_feels_like_temperature'') | float
+        < states(''sensor.apartment_temperature'') | float }}'
+      alias: Outdoor feels cooler than indoor
+    sequence:
+    - alias: TTS to kitchen HomePod
+      action: script.household_tts_announce
+      data:
+        message: Good news — air quality has improved to {{ states('sensor.toledo_ohio_usa_air_quality_index')
+          }}. It's cooler outside, so feel free to open the windows up.
+        target: kitchen
+        notification_title: Air Quality Improved
+- alias: Clear air quality alert notification
+  action: notify.mobile_app_nates_iphone
+  data:
+    message: clear_notification
+    data:
+      tag: air_quality_index_alert
+mode: single
+category: 01KRKH5XD6FDD72M36FQHAXF6R

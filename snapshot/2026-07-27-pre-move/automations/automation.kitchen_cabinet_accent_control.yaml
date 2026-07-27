@@ -1,0 +1,113 @@
+id: '1701124886352'
+alias: 'Kitchen: Cabinet Accent Control'
+description: 'Controls the Kitchen Cabinet Accent Hue zone based on ceiling light
+  state, arrivals home, morning wakeup, and time of day.
+
+
+  Activates the accent scene when: the ceiling lights turn off; the first person arrives
+  home with the ceiling off; sunset approaches (with someone home and movie mode off);
+  or everyone_sleeping clears at morning wakeup (so accents come on after the house
+  wakes up with the ceiling still off).
+
+
+  Scene selection: Resplendent (dynamic) after sunset −30 min; Painted Sky (dynamic)
+  at all other times.
+
+
+  Turns off the accents when the ceiling lights turn on. Blocked entirely while everyone
+  is sleeping.'
+triggers:
+- alias: Ceiling lights turned off
+  entity_id:
+  - light.kitchen_ceiling
+  from:
+  - 'on'
+  to:
+  - 'off'
+  id: ceiling_lights_off
+  trigger: state
+- alias: Ceiling lights turned on
+  entity_id:
+  - light.kitchen_ceiling
+  from:
+  - 'off'
+  to:
+  - 'on'
+  id: ceiling_lights_on
+  trigger: state
+- alias: First person arrives home
+  entity_id:
+  - sensor.household_people_home
+  from: '0'
+  id: first_person_home
+  trigger: state
+- alias: 30 minutes before sunset
+  event: sunset
+  offset: -00:30:00
+  id: pre_sunset
+  trigger: sun
+- alias: Everyone sleeping cleared (morning wakeup)
+  entity_id: input_boolean.everyone_sleeping
+  from: 'on'
+  to: 'off'
+  id: morning_wakeup
+  trigger: state
+conditions:
+- alias: No one is sleeping
+  condition: state
+  entity_id: input_boolean.everyone_sleeping
+  state: 'off'
+actions:
+- choose:
+  - alias: Activate cabinet accent scene
+    conditions:
+    - alias: Triggered by ceiling off, arrival home, pre-sunset, or morning wakeup
+      condition: trigger
+      id:
+      - ceiling_lights_off
+      - first_person_home
+      - pre_sunset
+      - morning_wakeup
+    - alias: Ceiling lights are off
+      condition: state
+      entity_id: light.kitchen_ceiling
+      state:
+      - 'off'
+    - alias: Pre-sunset trigger requires someone home and movie mode off
+      condition: template
+      value_template: "{{ trigger.id != 'pre_sunset' or\n   (states('sensor.household_people_home')\
+        \ | int(0) > 0 and\n    is_state('input_boolean.movie_mode', 'off')) }}"
+    sequence:
+    - alias: Pick scene by time of day
+      choose:
+      - alias: Evening (after sunset −30 min)
+        conditions:
+        - condition: sun
+          after: sunset
+          after_offset: -00:30:00
+        sequence:
+        - alias: Activate Hue dynamic scene Resplendent
+          action: hue.activate_scene
+          data:
+            dynamic: true
+          target:
+            entity_id: scene.kitchen_cabinet_accent_resplendent
+      default:
+      - alias: Activate Hue dynamic scene Painted Sky (daytime default)
+        action: hue.activate_scene
+        data:
+          dynamic: true
+        target:
+          entity_id: scene.kitchen_cabinet_accent_painted_sky
+  - alias: Turn off cabinet accents
+    conditions:
+    - alias: Triggered by ceiling on
+      condition: trigger
+      id: ceiling_lights_on
+    sequence:
+    - alias: Turn off Kitchen Cabinet Accent
+      action: light.turn_off
+      target:
+        entity_id: light.kitchen_cabinet_accent
+mode: restart
+category: 01KQA4YGXGDK2DH076K5A7H8YH

@@ -1,0 +1,100 @@
+- label_id: noonehome
+  name: Everyone Leaves Home
+  icon: mdi:home-export-outline
+  color: null
+- label_id: everyone_is_sleeping
+  name: Everyone Is Sleeping
+  icon: mdi:sleep
+  color: null
+- label_id: first_arrives_home
+  name: Arrive Home
+  icon: mdi:home-import-outline
+  color: null
+- label_id: arrive_home_sunset
+  name: Arrive Home Sunset
+  icon: mdi:weather-sunset
+  color: null
+- label_id: nate_leaves_home
+  name: Nate Leaves Home
+  icon: mdi:home-export-outline
+  color: null
+- label_id: notification
+  name: Notification
+  icon: mdi:alarm-light
+  color: green
+- label_id: reminders
+  name: Reminders
+  icon: mdi:reminder
+  color: purple
+  description: Entities that are related to reminders.
+- label_id: avery_s_sleeping
+  name: Avery's Sleeping
+  icon: mdi:bed-clock
+  color: null
+- label_id: christmas
+  name: Christmas
+  icon: mdi:gift
+  color: green
+- label_id: matter
+  name: Matter
+  icon: phu:matter
+  color: null
+  description: Used to dynamically share devices via Matter.
+- label_id: matter_lightbridge
+  name: Matter-LightBridge
+  icon: phu:matter
+  color: yellow
+  description: Dynamically assigns any entity with this label to the 'Light Bridge'
+    bridge in Matter Hub.
+- label_id: testing
+  name: Testing
+  icon: mdi:ab-testing
+  color: null
+- label_id: scope_whole_home
+  name: Whole Home
+  icon: mdi:home
+  color: blue
+- label_id: scope_multi_area
+  name: Multi-Area
+  icon: mdi:home-group
+  color: blue
+- label_id: int_hue_sync
+  name: Hue Sync
+  icon: mdi:television-ambient-light
+  color: purple
+- label_id: int_adaptive_lighting
+  name: Adaptive Lighting
+  icon: mdi:brightness-auto
+  color: purple
+- label_id: int_litra_glow
+  name: Litra Glow
+  icon: mdi:desk-lamp
+  color: purple
+- label_id: device_tracker
+  name: Device Tracker
+  icon: mdi:map-marker-account
+  color: green
+  description: Applied to automations that update device tracker state.
+- label_id: int_home_alarm
+  name: Home Alarm
+  icon: mdi:shield-home
+  color: purple
+  description: Entities documented in guides/home_alarm.md
+- label_id: waqi
+  name: WAQI
+  icon: mdi:air-filter
+  color: purple
+  description: Entities documented in guides/air_quality_alerting.md
+- label_id: int_laundry
+  name: Laundry
+  icon: mdi:washing-machine
+  color: purple
+  description: LG laundry automation integration
+- label_id: text_to_speech
+  name: Text to Speech
+  icon: mdi:microphone-message
+  color: green
+- label_id: presence
+  name: Presence
+  icon: mdi:home-account
+  color: green

@@ -1,0 +1,13 @@
+alias: 'Trash Pickup: Mark Complete'
+description: 'Clears the pending boolean and dismisses the iOS pickup notification.
+  Called by the #reminders popup hold action.'
+mode: single
+sequence:
+- action: input_boolean.turn_off
+  target:
+    entity_id: input_boolean.trash_pickup_pending
+- action: notify.mobile_app_nates_iphone
+  data:
+    message: clear_notification
+    data:
+      tag: pickup

@@ -1,0 +1,92 @@
+id: '1773798524300'
+alias: 'Master Bedroom: Nightstand Button'
+description: Controls master bedroom accent lamps and ceiling lights via Aqara wireless
+  button
+triggers:
+- domain: mqtt
+  device_id: 527e180e2aa1748413db3bbd0e088d4e
+  type: action
+  subtype: single
+  id: single
+  alias: Single press
+  trigger: device
+- domain: mqtt
+  device_id: 527e180e2aa1748413db3bbd0e088d4e
+  type: action
+  subtype: double
+  id: double
+  alias: Double press
+  trigger: device
+- domain: mqtt
+  device_id: 527e180e2aa1748413db3bbd0e088d4e
+  type: action
+  subtype: hold
+  id: hold
+  alias: Hold
+  trigger: device
+conditions: []
+actions:
+- alias: Route by button action
+  choose:
+  - conditions:
+    - condition: trigger
+      id:
+      - single
+      alias: Triggered by single press
+    sequence:
+    - alias: Toggle accent lights (brightness depends on sleep mode)
+      if:
+      - condition: state
+        entity_id: input_boolean.everyone_sleeping
+        state:
+        - 'on'
+        alias: Everyone is sleeping
+      then:
+      - alias: Toggle accent lights at 25% brightness
+        action: light.toggle
+        target:
+          entity_id:
+          - light.portable_accent_lamp
+          - light.master_bedroom_master_bedroom_nightstand_lamp_left
+        data:
+          brightness_pct: 25
+      else:
+      - alias: Toggle accent lights at 75% brightness
+        action: light.toggle
+        target:
+          entity_id:
+          - light.portable_accent_lamp
+          - light.master_bedroom_master_bedroom_nightstand_lamp_left
+        data:
+          brightness_pct: 75
+    alias: Single press
+  - conditions:
+    - condition: trigger
+      id:
+      - double
+      alias: Triggered by double press
+    sequence:
+    - action: light.toggle
+      target:
+        entity_id:
+        - light.master_bedroom_fan
+      alias: Toggle ceiling fan lights
+      data: {}
+    alias: Double press
+  - conditions:
+    - condition: trigger
+      id:
+      - hold
+      alias: Triggered by hold
+    sequence:
+    - alias: Turn off all bedroom lights
+      action: light.turn_off
+      target:
+        entity_id:
+        - light.master_bedroom_fan
+        - light.portable_accent_lamp
+        - light.master_bedroom_master_bedroom_nightstand_lamp_left
+      data: {}
+    alias: Hold
+mode: restart
+category: 01KQA4YGXGDK2DH076K5A7H8YH

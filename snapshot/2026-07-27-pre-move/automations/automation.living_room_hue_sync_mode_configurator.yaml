@@ -1,0 +1,180 @@
+id: '1777383559780'
+alias: 'Living Room: Hue Sync Mode Configurator'
+description: "Configures the Hue Sync Box profile and Living Room Fan brightness based\
+  \ on\nthe current HDMI input and movie_mode flag. The sync switch itself is the\n\
+  user's intent signal: turning it on means \"sync this content,\" and this\nautomation\
+  \ picks the right profile.\n\nTriggers:\n  - Sync switch turning on   -> apply profile\
+  \ (sync box configured; fan dimmed if already on)\n  - Sync switch turning off \
+  \ -> release fan brightness back to AL\n  - Input change (sync on)   -> re-apply\
+  \ profile for new input\n  - Movie mode change (sync on) -> re-apply profile\n \
+  \ - Fan turned on (sync on)  -> apply profile brightness to fan immediately\n\n\
+  Profile selection rule:\n  1. movie_mode on  -> video profile (overrides input)\n\
+  \  2. Apple TV input -> video profile\n  3. PS5 input      -> game profile\n  4.\
+  \ Unknown input  -> video profile (fallback)\n\nFan behavior: the fan is only dimmed\
+  \ if it is already on when the profile\nruns AND movie mode is off. When movie mode\
+  \ is on, AL sleep mode owns the\nfan's brightness and the profile does not override\
+  \ it. If the fan turns on mid-sync, the fan_turned_on trigger re-runs\nprofile selection\
+  \ and applies the correct brightness. A 1-second transition\nsoftens the dim to\
+  \ avoid a harsh snap correction.\n\nProfiles:\n  - Video: sync box brightness 50,\
+  \ intensity high; Living Room Fan 40% (skipped in movie mode -- AL sleep mode owns\
+  \ brightness)\n  - Game:  sync box brightness 85, intensity intense; Living Room\
+  \ Fan 8%\n\nLiving Room Fan brightness is set directly via light.turn_on. AL Standard's\n\
+  take_over_control_mode: pause_changed pauses brightness on the fan while\ncontinuing\
+  \ to adapt its color temperature. Master Bedroom Fan and Office\nCeiling (also in\
+  \ AL Standard) are unaffected. On sync stop,\nadaptive_lighting.set_manual_control\
+  \ releases the fan back to AL.\n\nThis automation does NOT touch the bias light\
+  \ directly; the Bias Light\nController handles that via its sync switch trigger."
+triggers:
+- alias: Sync switch turned on
+  trigger: state
+  entity_id: switch.living_room_sync_box_light_sync
+  from: 'off'
+  to: 'on'
+  id: sync_start
+- alias: Sync switch turned off for 15 seconds
+  trigger: state
+  entity_id:
+  - switch.living_room_sync_box_light_sync
+  from:
+  - 'on'
+  to:
+  - 'off'
+  id: sync_stop
+  for:
+    hours: 0
+    minutes: 0
+    seconds: 15
+- alias: HDMI input changed
+  trigger: state
+  entity_id: select.living_room_sync_box_hdmi_input
+  id: input_change
+- alias: Movie mode toggled
+  trigger: state
+  entity_id: input_boolean.movie_mode
+  id: movie_mode_change
+- alias: Living Room Fan turned on
+  trigger: state
+  entity_id: light.living_room_fan
+  to: 'on'
+  id: fan_turned_on
+conditions: []
+actions:
+- alias: Route by trigger type
+  choose:
+  - alias: Sync stopped - release fan to AL control
+    conditions:
+    - condition: trigger
+      id: sync_stop
+    sequence:
+    - alias: Release Living Room Fan brightness to AL control
+      action: adaptive_lighting.set_manual_control
+      data:
+        entity_id: switch.adaptive_lighting_standard
+        lights:
+        - light.living_room_fan
+        manual_control: false
+  - alias: Reconfigure profile (sync_start, or state change while sync is on)
+    conditions:
+    - alias: Sync started, or relevant state changed while sync is on
+      condition: or
+      conditions:
+      - alias: Sync switch just turned on
+        condition: trigger
+        id: sync_start
+      - alias: Input, movie_mode, or fan changed while sync is on
+        condition: and
+        conditions:
+        - alias: Relevant state changed
+          condition: or
+          conditions:
+          - alias: HDMI input changed
+            condition: trigger
+            id: input_change
+          - alias: Movie mode toggled
+            condition: trigger
+            id: movie_mode_change
+          - alias: Fan turned on
+            condition: trigger
+            id: fan_turned_on
+        - alias: Sync switch is currently on
+          condition: state
+          entity_id: switch.living_room_sync_box_light_sync
+          state: 'on'
+    sequence:
+    - alias: Select sync profile
+      choose:
+      - alias: Movie mode on OR Apple TV input -> video profile
+        conditions:
+        - condition: or
+          conditions:
+          - condition: state
+            entity_id: input_boolean.movie_mode
+            state: 'on'
+          - condition: state
+            entity_id: select.living_room_sync_box_hdmi_input
+            state: Apple TV
+        sequence:
+        - alias: Apply video profile to Hue Sync Box
+          action: script.living_room_hue_sync_video
+        - alias: Dim Living Room Fan to 35% if already on and movie mode off (video
+            profile)
+          if:
+          - alias: Fan is on
+            condition: state
+            entity_id: light.living_room_fan
+            state: 'on'
+          - alias: Movie mode is off (AL sleep mode owns fan brightness in movie mode)
+            condition: state
+            entity_id: input_boolean.movie_mode
+            state: 'off'
+          then:
+          - alias: Dim Living Room Fan to 35% (video profile)
+            action: light.turn_on
+            target:
+              entity_id: light.living_room_fan
+            data:
+              transition: 1
+              brightness_pct: 35
+      - alias: PS5 input (movie_mode off) -> game profile
+        conditions:
+        - condition: state
+          entity_id: select.living_room_sync_box_hdmi_input
+          state: Playstation 5
+        sequence:
+        - alias: Apply game profile to Hue Sync Box
+          action: script.living_room_hue_sync_game
+        - alias: Dim Living Room Fan to 8% if already on (game profile)
+          if:
+          - alias: Fan is on
+            condition: state
+            entity_id: light.living_room_fan
+            state: 'on'
+          then:
+          - alias: Dim Living Room Fan to 8% (game profile)
+            action: light.turn_on
+            target:
+              entity_id: light.living_room_fan
+            data:
+              brightness_pct: 8
+              transition: 1
+              color_temp_kelvin: 2700
+      default:
+      - alias: Unknown input - apply video profile as fallback
+        action: script.living_room_hue_sync_video
+      - alias: Dim Living Room Fan to 35% if already on (video fallback)
+        if:
+        - alias: Fan is on
+          condition: state
+          entity_id: light.living_room_fan
+          state: 'on'
+        then:
+        - alias: Dim Living Room Fan to 35% (video fallback)
+          action: light.turn_on
+          target:
+            entity_id: light.living_room_fan
+          data:
+            transition: 1
+            brightness_pct: 35
+            color_temp_kelvin: 2700
+mode: restart
+category: 01KR9GEKQ24R9BQ1KXEFJ4YPN7

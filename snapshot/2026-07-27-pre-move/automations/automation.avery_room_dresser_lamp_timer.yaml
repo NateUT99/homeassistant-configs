@@ -1,0 +1,60 @@
+id: '1771283946325'
+alias: 'Avery''s Room: Dresser Lamp Timer'
+description: Turns off the dresser lamp two hours after it's manually turned on. While
+  Avery is sleeping, opening the bedroom door re-activates the lamp for one hour,
+  then turns it off again — useful for late-night checks.
+triggers:
+- entity_id: light.avery_room_dresser_lamp
+  from: 'off'
+  to: 'on'
+  for:
+    hours: 2
+  id: lamp_on_two_hours
+  alias: Lamp has been on for two hours
+  trigger: state
+- alias: Bedroom door opened
+  entity_id:
+  - binary_sensor.avery_room_door_contact
+  from:
+  - 'off'
+  to:
+  - 'on'
+  id: door_opened_while_sleeping
+  trigger: state
+conditions: []
+actions:
+- choose:
+  - alias: Two-hour auto-off
+    conditions:
+    - condition: trigger
+      id: lamp_on_two_hours
+      alias: Lamp has been on for two hours
+    sequence:
+    - action: light.turn_off
+      target:
+        entity_id: light.avery_room_dresser_lamp
+      alias: Turn off dresser lamp
+  - alias: Door opened during sleep mode — re-activate lamp for one hour
+    conditions:
+    - condition: trigger
+      id: door_opened_while_sleeping
+      alias: Door opened while sleeping
+    - condition: state
+      entity_id: input_boolean.avery_sleeping
+      state: 'on'
+      alias: Avery is in sleep mode
+    sequence:
+    - action: light.turn_on
+      target:
+        entity_id: light.avery_room_dresser_lamp
+      alias: Turn lamp back on
+    - delay:
+        hours: 1
+      alias: Wait one hour
+    - action: light.turn_off
+      target:
+        entity_id: light.avery_room_dresser_lamp
+      alias: Turn off dresser lamp
+  alias: Route by trigger type
+mode: restart
+category: 01KS3AHT8PTYGYCRABF23BFTXH

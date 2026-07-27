@@ -1,0 +1,34 @@
+id: '1780406687231'
+alias: 'Household: Tracker State Recovery'
+description: 'Recovers MQTT device tracker state on HA startup when a tracker is in
+  unknown state. Fires on homeassistant_started and republishes the correct home/not_home
+  payload from the corresponding input_boolean to each tracker''s state topic with
+  retain: true. Guards on unknown state so known trackers are not disturbed. Handles
+  the case where the MQTT broker lost retained messages between restarts.'
+triggers:
+- alias: HA finished starting
+  event: start
+  trigger: homeassistant
+actions:
+- alias: Check and recover each tracker
+  repeat:
+    for_each:
+    - tracker: device_tracker.homekit_nate
+      boolean: input_boolean.nate_home
+      topic: presence/homekit_nate
+    - tracker: device_tracker.guest_tracker
+      boolean: input_boolean.guest_mode
+      topic: presence/guest_tracker
+    sequence:
+    - alias: Only if tracker state is unknown
+      condition: template
+      value_template: '{{ is_state(repeat.item.tracker, ''unknown'') }}'
+    - alias: Publish state derived from boolean
+      action: mqtt.publish
+      data:
+        topic: '{{ repeat.item.topic }}'
+        payload: '{{ ''home'' if is_state(repeat.item.boolean, ''on'') else ''not_home''
+          }}'
+        retain: true
+mode: single
+category: 01KS3AHTTAQVWP6HWNE9CJ207W

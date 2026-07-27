@@ -1,0 +1,44 @@
+alias: 'Utility Room: Acknowledge Laundry'
+description: Sets washer or dryer status from alerting to acknowledged. No-op if not
+  alerting, preventing accidental holds while a cycle is running.
+mode: single
+fields:
+  appliance:
+    description: Which appliance to acknowledge
+    required: true
+    selector:
+      select:
+        options:
+        - washer
+        - dryer
+sequence:
+- alias: Choose appliance and acknowledge if alerting
+  choose:
+  - alias: Acknowledge washer if alerting
+    conditions:
+    - condition: template
+      value_template: '{{ appliance == ''washer'' }}'
+    - condition: state
+      entity_id: input_select.utility_room_washer_status
+      state: alerting
+    sequence:
+    - alias: Set washer status to acknowledged
+      action: input_select.select_option
+      target:
+        entity_id: input_select.utility_room_washer_status
+      data:
+        option: acknowledged
+  - alias: Acknowledge dryer if alerting
+    conditions:
+    - condition: template
+      value_template: '{{ appliance == ''dryer'' }}'
+    - condition: state
+      entity_id: input_select.utility_room_dryer_status
+      state: alerting
+    sequence:
+    - alias: Set dryer status to acknowledged
+      action: input_select.select_option
+      target:
+        entity_id: input_select.utility_room_dryer_status
+      data:
+        option: acknowledged

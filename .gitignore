@@ -1,3 +1,5 @@
 .env
 .mcp.json
 .DS_Store
+secrets.yaml
+*.secret

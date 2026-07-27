@@ -1,0 +1,21 @@
+id: '1694557729085'
+alias: 'Household: Night Mode Enable'
+description: 'Enables Sonos night mode every night at 9pm by turning on input_boolean.sonos_night_mode,
+  which triggers automation.household_sonos_night_mode to reduce Sonos volumes and
+  enable speech and night sound enhancements on the Living Room and Master Bedroom
+  speakers.
+
+
+  Disabled each morning by automation.household_morning_startup.'
+triggers:
+- alias: 9pm daily
+  at: '21:00:00'
+  trigger: time
+conditions: []
+actions:
+- alias: Enable night mode
+  action: input_boolean.turn_on
+  target:
+    entity_id: input_boolean.sonos_night_mode
+mode: single
+category: 01J8E2QBF6XVHBZKTQCZ73TK5T

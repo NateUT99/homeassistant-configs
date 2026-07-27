@@ -1,0 +1,265 @@
+id: '1779071444854'
+alias: 'Adaptive Lighting: Pre-Stage'
+description: 'Keeps all pre-stage-compatible bulbs loaded with current Adaptive Lighting
+  values whenever they are off. With execute_if_off enabled on the bulbs (set via
+  direct MQTT publish), Z2M stores the values without turning the bulb on — so the
+  next turn-on, from any source, lands at the correct adapted state instead of the
+  last-on values.
+
+  Solves the "flash to previous brightness/color before AL catches up" problem for
+  turn-on paths that bypass HA''s light.turn_on service: Zigbee bindings, physical
+  power cycles, and any other on-event AL''s intercept doesn''t see.
+
+  Runs on a 10-minute schedule. Standard fixtures receive full payloads (brightness
+  + color temp). Color Only fixtures receive color-only payloads — brightness intentionally
+  omitted so the bulb retains its user-set value.
+
+  Per-fixture blocks run in series with a 0.5-second stagger to spread the MQTT publish
+  burst. Within each fixture, per-bulb publishes run in parallel. Only publishes to
+  bulbs that are currently off.'
+triggers:
+- minutes: /10
+  alias: Every 10 minutes
+  trigger: time_pattern
+actions:
+- alias: Pre-stage Office Ceiling bulbs in parallel (brightness & color)
+  parallel:
+  - alias: Office Ceiling Bulb 1 — pre-stage if currently off
+    if:
+    - alias: Bulb 1 is off
+      condition: state
+      entity_id: light.office_ceiling_bulb_1
+      state: 'off'
+    then:
+    - alias: Publish current AL curve values to Office Ceiling Bulb 1
+      action: mqtt.publish
+      data:
+        topic: zigbee2mqtt/Office Ceiling Bulb 1/set
+        payload: "{\n  \"state\": null,\n  \"brightness\": {{ brightness }},\n  \"\
+          color_temp\": {{ color_temp }}\n}"
+  - alias: Office Ceiling Bulb 2 — pre-stage if currently off
+    if:
+    - alias: Bulb 2 is off
+      condition: state
+      entity_id: light.office_ceiling_bulb_2
+      state: 'off'
+    then:
+    - alias: Publish current AL curve values to Office Ceiling Bulb 2
+      action: mqtt.publish
+      data:
+        topic: zigbee2mqtt/Office Ceiling Bulb 2/set
+        payload: "{\n  \"state\": null,\n  \"brightness\": {{ brightness }},\n  \"\
+          color_temp\": {{ color_temp }}\n}"
+- alias: Stagger before next fixture
+  delay:
+    milliseconds: 500
+- alias: Pre-stage Master Bedroom Fan bulbs in parallel (brightness & color)
+  parallel:
+  - alias: Master Bedroom Fan Bulb 1 — pre-stage if currently off
+    if:
+    - alias: Bulb 1 is off
+      condition: state
+      entity_id: light.master_bedroom_fan_bulb_1
+      state: 'off'
+    then:
+    - alias: Publish current AL curve values to Master Bedroom Fan Bulb 1
+      action: mqtt.publish
+      data:
+        topic: zigbee2mqtt/Master Bedroom Fan Bulb 1/set
+        payload: "{\n  \"state\": null,\n  \"brightness\": {{ brightness }},\n  \"\
+          color_temp\": {{ color_temp }}\n}"
+  - alias: Master Bedroom Fan Bulb 2 — pre-stage if currently off
+    if:
+    - alias: Bulb 2 is off
+      condition: state
+      entity_id: light.master_bedroom_fan_bulb_2
+      state: 'off'
+    then:
+    - alias: Publish current AL curve values to Master Bedroom Fan Bulb 2
+      action: mqtt.publish
+      data:
+        topic: zigbee2mqtt/Master Bedroom Fan Bulb 2/set
+        payload: "{\n  \"state\": null,\n  \"brightness\": {{ brightness }},\n  \"\
+          color_temp\": {{ color_temp }}\n}"
+  - alias: Master Bedroom Fan Bulb 3 — pre-stage if currently off
+    if:
+    - alias: Bulb 3 is off
+      condition: state
+      entity_id: light.master_bedroom_fan_bulb_3
+      state: 'off'
+    then:
+    - alias: Publish current AL curve values to Master Bedroom Fan Bulb 3
+      action: mqtt.publish
+      data:
+        topic: zigbee2mqtt/Master Bedroom Fan Bulb 3/set
+        payload: "{\n  \"state\": null,\n  \"brightness\": {{ brightness }},\n  \"\
+          color_temp\": {{ color_temp }}\n}"
+  - alias: Master Bedroom Fan Bulb 4 — pre-stage if currently off
+    if:
+    - alias: Bulb 4 is off
+      condition: state
+      entity_id: light.master_bedroom_fan_bulb_4
+      state: 'off'
+    then:
+    - alias: Publish current AL curve values to Master Bedroom Fan Bulb 4
+      action: mqtt.publish
+      data:
+        topic: zigbee2mqtt/Master Bedroom Fan Bulb 4/set
+        payload: "{\n  \"state\": null,\n  \"brightness\": {{ brightness }},\n  \"\
+          color_temp\": {{ color_temp }}\n}"
+- alias: Stagger before next fixture
+  delay:
+    milliseconds: 500
+- alias: Pre-stage Living Room Fan bulbs in parallel (brightness & color)
+  parallel:
+  - alias: Living Room Fan Bulb 1 — pre-stage if currently off
+    if:
+    - alias: Bulb 1 is off
+      condition: state
+      entity_id: light.living_room_fan_bulb_1
+      state: 'off'
+    then:
+    - alias: Publish current AL curve values to Living Room Fan Bulb 1
+      action: mqtt.publish
+      data:
+        topic: zigbee2mqtt/Living Room Fan Bulb 1/set
+        payload: "{\n  \"state\": null,\n  \"brightness\": {{ brightness }},\n  \"\
+          color_temp\": {{ color_temp }}\n}"
+  - alias: Living Room Fan Bulb 2 — pre-stage if currently off
+    if:
+    - alias: Bulb 2 is off
+      condition: state
+      entity_id: light.living_room_fan_bulb_2
+      state: 'off'
+    then:
+    - alias: Publish current AL curve values to Living Room Fan Bulb 2
+      action: mqtt.publish
+      data:
+        topic: zigbee2mqtt/Living Room Fan Bulb 2/set
+        payload: "{\n  \"state\": null,\n  \"brightness\": {{ brightness }},\n  \"\
+          color_temp\": {{ color_temp }}\n}"
+  - alias: Living Room Fan Bulb 3 — pre-stage if currently off
+    if:
+    - alias: Bulb 3 is off
+      condition: state
+      entity_id: light.living_room_fan_bulb_3
+      state: 'off'
+    then:
+    - alias: Publish current AL curve values to Living Room Fan Bulb 3
+      action: mqtt.publish
+      data:
+        topic: zigbee2mqtt/Living Room Fan Bulb 3/set
+        payload: "{\n  \"state\": null,\n  \"brightness\": {{ brightness }},\n  \"\
+          color_temp\": {{ color_temp }}\n}"
+- alias: Stagger before next fixture
+  delay:
+    milliseconds: 500
+- alias: Pre-stage Avery Room Ceiling bulbs in parallel (brightness & color)
+  parallel:
+  - alias: Avery Room Ceiling Bulb 1 — pre-stage if currently off
+    if:
+    - alias: Bulb 1 is off
+      condition: state
+      entity_id: light.avery_room_ceiling_bulb_1
+      state: 'off'
+    then:
+    - alias: Publish current AL curve values to Avery Room Ceiling Bulb 1
+      action: mqtt.publish
+      data:
+        topic: zigbee2mqtt/Avery Room Ceiling Bulb 1/set
+        payload: "{\n  \"state\": null,\n  \"brightness\": {{ brightness }},\n  \"\
+          color_temp\": {{ color_temp }}\n}"
+  - alias: Avery Room Ceiling Bulb 2 — pre-stage if currently off
+    if:
+    - alias: Bulb 2 is off
+      condition: state
+      entity_id: light.avery_room_ceiling_bulb_2
+      state: 'off'
+    then:
+    - alias: Publish current AL curve values to Avery Room Ceiling Bulb 2
+      action: mqtt.publish
+      data:
+        topic: zigbee2mqtt/Avery Room Ceiling Bulb 2/set
+        payload: "{\n  \"state\": null,\n  \"brightness\": {{ brightness }},\n  \"\
+          color_temp\": {{ color_temp }}\n}"
+- alias: Stagger before next fixture
+  delay:
+    milliseconds: 500
+- alias: Pre-stage Entrance Ceiling bulbs in parallel (color)
+  parallel:
+  - alias: Entrance Ceiling Bulb 1 — pre-stage if currently off
+    if:
+    - alias: Bulb 1 is off
+      condition: state
+      entity_id: light.entrance_ceiling_bulb_1
+      state: 'off'
+    then:
+    - alias: Publish current AL color temp to Entrance Ceiling Bulb 1
+      action: mqtt.publish
+      data:
+        topic: zigbee2mqtt/Entrance Ceiling Bulb 1/set
+        payload: "{\n  \"state\": null,\n  \"color_temp\": {{ color_temp }}\n}"
+  - alias: Entrance Ceiling Bulb 2 — pre-stage if currently off
+    if:
+    - alias: Bulb 2 is off
+      condition: state
+      entity_id: light.entrance_ceiling_bulb_2
+      state: 'off'
+    then:
+    - alias: Publish current AL color temp to Entrance Ceiling Bulb 2
+      action: mqtt.publish
+      data:
+        topic: zigbee2mqtt/Entrance Ceiling Bulb 2/set
+        payload: "{\n  \"state\": null,\n  \"color_temp\": {{ color_temp }}\n}"
+- alias: Stagger before next fixture
+  delay:
+    milliseconds: 500
+- alias: Pre-stage Bathroom Hallway Ceiling bulbs in parallel (color)
+  parallel:
+  - alias: Bathroom Hallway Ceiling Bulb 1 — pre-stage if currently off
+    if:
+    - alias: Bulb 1 is off
+      condition: state
+      entity_id: light.bathroom_hallway_ceiling_bulb_1
+      state: 'off'
+    then:
+    - alias: Publish current AL color temp to Bathroom Hallway Ceiling Bulb 1
+      action: mqtt.publish
+      data:
+        topic: zigbee2mqtt/Bathroom Hallway Ceiling Bulb 1/set
+        payload: "{\n  \"state\": null,\n  \"color_temp\": {{ color_temp }}\n}"
+  - alias: Bathroom Hallway Ceiling Bulb 2 — pre-stage if currently off
+    if:
+    - alias: Bulb 2 is off
+      condition: state
+      entity_id: light.bathroom_hallway_ceiling_bulb_2
+      state: 'off'
+    then:
+    - alias: Publish current AL color temp to Bathroom Hallway Ceiling Bulb 2
+      action: mqtt.publish
+      data:
+        topic: zigbee2mqtt/Bathroom Hallway Ceiling Bulb 2/set
+        payload: "{\n  \"state\": null,\n  \"color_temp\": {{ color_temp }}\n}"
+- alias: Stagger before next fixture
+  delay:
+    milliseconds: 500
+- alias: Portable Accent Lamp — pre-stage if currently off (color)
+  if:
+  - alias: Lamp is off
+    condition: state
+    entity_id: light.portable_accent_lamp
+    state: 'off'
+  then:
+  - alias: Publish current AL color temp to Portable Accent Lamp
+    action: mqtt.publish
+    data:
+      topic: zigbee2mqtt/Portable Accent Lamp/set
+      payload: "{\n  \"state\": null,\n  \"color_temp\": {{ color_temp }}\n}"
+mode: single
+max_exceeded: silent
+variables:
+  brightness: '{{ ((state_attr(''switch.adaptive_lighting_standard'', ''brightness_pct'')
+    / 100) * 254) | round(0) | int }}'
+  color_temp: '{{ state_attr(''switch.adaptive_lighting_standard'', ''color_temp_mired'')
+    | int }}'
+category: 01KS3AHTTAQVWP6HWNE9CJ207W

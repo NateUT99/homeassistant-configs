@@ -1,0 +1,59 @@
+id: '1694756372498'
+alias: 'Household: First Arrives Home'
+description: Actions to run when the first person arrives home (sensor.household_people_home
+  transitions from 0). Gated by a 5-minute HA uptime check to avoid false triggers
+  on restart.
+triggers:
+- entity_id:
+  - sensor.household_people_home
+  from: '0'
+  alias: At least one person arrives home
+  trigger: state
+conditions:
+- alias: Run only if Home Assistant has been up for at least 5 minutes
+  condition: template
+  value_template: '{{ (now() - states(''sensor.uptime'') | as_datetime).total_seconds()
+    > 300 }}
+
+    '
+actions:
+- alias: Disarm the home alarm
+  action: alarm_control_panel.alarm_disarm
+  data:
+    code: 0128
+  target:
+    entity_id: alarm_control_panel.home_alarm
+- alias: 'Turn on Kitchen Counter light strip at 25% brightness '
+  action: light.turn_on
+  data:
+    brightness_pct: 25
+  target:
+    entity_id: light.kitchen_counter_strip
+- alias: Enable kitchen camera privacy mode
+  action: switch.turn_on
+  target:
+    entity_id: switch.kitchen_camera_privacy_mode
+- alias: Clear thermostat hold
+  action: button.press
+  target:
+    entity_id: button.living_room_thermostat_clear_hold
+- alias: If vacuum is cleaning, tell it to return to dock
+  if:
+  - condition: state
+    entity_id: vacuum.roborock_q8_max
+    state: cleaning
+    alias: Vacuum is currently cleaning
+  then:
+  - action: vacuum.return_to_base
+    target:
+      entity_id: vacuum.roborock_q8_max
+- alias: Clear vacuum routine pause
+  action: input_boolean.turn_off
+  target:
+    entity_id: input_boolean.vacuum_routine_pause
+- alias: Run scripts tagged as "Arrive Home"
+  action: script.turn_on
+  target:
+    label_id: first_arrives_home
+mode: single
+category: 01KS3AHT8PTYGYCRABF23BFTXH

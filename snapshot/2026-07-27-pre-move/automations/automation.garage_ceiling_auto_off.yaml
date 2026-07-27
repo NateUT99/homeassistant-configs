@@ -1,0 +1,28 @@
+id: '1708914581532'
+alias: 'Garage: Ceiling Lights Auto-Off'
+description: When motion clears in the garage for five minutes, turn off the ceiling
+  lights.
+triggers:
+- entity_id:
+  - binary_sensor.garage_motion_occupancy
+  from:
+  - 'on'
+  for:
+    hours: 0
+    minutes: 5
+    seconds: 0
+  to:
+  - 'off'
+  alias: Garage motion clear for 5 min
+  trigger: state
+conditions: []
+actions:
+- metadata: {}
+  data: {}
+  target:
+    entity_id:
+    - light.garage_ceiling
+  action: light.turn_off
+  alias: Turn off ceiling lights
+mode: single
+category: 01KQA4YGXGDK2DH076K5A7H8YH

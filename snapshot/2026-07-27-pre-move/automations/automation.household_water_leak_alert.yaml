@@ -1,0 +1,118 @@
+id: '1736436721534'
+alias: 'Household: Water Leak Alert'
+description: 'Sends a critical iPhone notification and repeating TTS announcements
+  (every minute) when any water leak sensor detects moisture. Supports per-sensor
+  acknowledgement via an actionable notification button, which stops the repeat loop
+  and plays a confirmation TTS. Clears the notification once acknowledged.
+
+  '
+triggers:
+- alias: When a water leak sensor triggers "wet" from any state
+  entity_id:
+  - binary_sensor.bathroom_leak_water_leak
+  - binary_sensor.kitchen_leak_water_leak
+  - binary_sensor.master_bathroom_leak_water_leak
+  - binary_sensor.utility_room_leak_water_leak
+  to:
+  - 'on'
+  from: null
+  trigger: state
+conditions: []
+actions:
+- alias: Derive area name from entity ID (e.g. "bathroom_leak_water_leak" -> "Bathroom")
+  variables:
+    area_name: '{{ trigger.entity_id.split(''.'')[1].split(''_leak'')[0].replace(''_'',
+      '' '') | title }}
+
+      '
+    ack_action: '{{ ''ACKNOWLEDGE_WATER_LEAK_'' ~ trigger.entity_id.split(''.'')[1].split(''_leak'')[0].upper()
+      }}
+
+      '
+- alias: Send critical notification to Nate's iPhone with acknowledge action
+  action: notify.mobile_app_nates_iphone
+  data:
+    message: '{{ area_name }} water leak detected!'
+    data:
+      push:
+        sound:
+          name: default
+          critical: 1
+          volume: 1
+      tag: water_leak_{{ trigger.entity_id.split('.')[1].split('_leak')[0] }}
+      actions:
+      - action: '{{ ack_action }}'
+        title: Acknowledge
+- alias: Repeat TTS every minute until sensor is dry or user acknowledges
+  repeat:
+    sequence:
+    - alias: TTS to HomePod
+      action: script.household_tts_announce
+      data:
+        message: '{{ area_name }} water leak detected. Please investigate immediately.'
+        target: auto
+        notification_title: '{{ area_name }} Water Leak'
+    - alias: Wait one minute before repeating, or exit early if acknowledged
+      wait_for_trigger:
+      - alias: Acknowledgement action received from iPhone notification
+        trigger: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: '{{ ack_action }}'
+      timeout:
+        minutes: 1
+      continue_on_timeout: true
+    until:
+    - alias: Stop loop if sensor is dry OR user has acknowledged via notification
+      condition: or
+      conditions:
+      - alias: Sensor has returned to dry state
+        condition: template
+        value_template: '{{ states(trigger.entity_id) == ''off'' }}
+
+          '
+      - alias: Acknowledgement event was received (wait_for_trigger did not time out)
+        condition: template
+        value_template: '{{ wait.trigger is not none }}'
+- alias: Play acknowledgement or all-clear TTS
+  if:
+  - alias: Check if loop exited due to acknowledgement (not sensor clearing)
+    condition: template
+    value_template: '{{ wait.trigger is not none }}'
+  then:
+  - alias: TTS to HomePod
+    action: script.household_tts_announce
+    data:
+      message: '{{ area_name }} water leak has been acknowledged. Please investigate
+        as soon as possible.'
+      target: auto
+      notification_title: '{{ area_name }} Water Leak'
+  else:
+  - alias: TTS to HomePod
+    action: script.household_tts_announce
+    data:
+      message: '{{ area_name }} water leak sensor is now dry.'
+      target: auto
+      notification_title: '{{ area_name }} Water Leak'
+- alias: Clear the critical notification from Nate's iPhone
+  action: notify.mobile_app_nates_iphone
+  data:
+    message: clear_notification
+    data:
+      tag: water_leak_{{ trigger.entity_id.split('.')[1].split('_leak')[0] }}
+- alias: Send closed confirmation notification to Nate's iPhone (only if sensor cleared
+    on its own)
+  if:
+  - alias: Loop exited because sensor cleared, not because user acknowledged
+    condition: template
+    value_template: '{{ wait.trigger is none }}'
+  then:
+  - action: notify.mobile_app_nates_iphone
+    data:
+      message: '{{ area_name }} water leak sensor is now dry.'
+      data:
+        tag: water_leak_{{ trigger.entity_id.split('.')[1].split('_leak')[0] }}
+    alias: Send sensor dry confirmation to iPhone
+mode: parallel
+max: 4
+category: 01KRKESQARY7R9TR5V88FMZV1K

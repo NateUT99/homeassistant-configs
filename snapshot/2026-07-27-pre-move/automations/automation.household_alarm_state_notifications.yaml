@@ -1,0 +1,270 @@
+id: '1736383829780'
+alias: 'Household: Alarm State Notifications'
+description: 'Handles the full push notification lifecycle for the home alarm panel.
+  All notifications share the home_alarm tag so each new state replaces the previous
+  notification.
+
+
+  **Pending (armed_away only):** Sends a critical actionable notification naming the
+  triggering sensor with a Disarm button. Waits up to 60 seconds (delay_time) for
+  the action; calls alarm_disarm if tapped. No-op if the alarm transitions to triggered
+  before the user responds.
+
+
+  **Armed:** Sends a standard notification when the alarm arms in away or night mode.
+
+
+  **Triggered:** Activates the camera siren for 60s (armed_away only). Sends a critical
+  push every 90s for up to 10 iterations naming the triggering sensor from input_text.alarm_trigger_description;
+  attaches a camera snapshot when person detection fired. Also plays TTS if everyone
+  is sleeping. Stops siren after the loop or on disarm.
+
+
+  **Person detected while triggered:** If person detection fires after a door/window
+  caused the initial trigger, sends an immediate followup critical push with a fresh
+  snapshot (tag home_alarm_person). Skipped if person detection was the original trigger.
+
+
+  **Disarmed:** Stops siren and replaces the active alarm notification with a disarmed
+  confirmation.'
+triggers:
+- alias: Alarm enters pending state
+  entity_id:
+  - alarm_control_panel.home_alarm
+  to: pending
+  id: pending
+  trigger: state
+- alias: Alarm enters triggered state
+  entity_id:
+  - alarm_control_panel.home_alarm
+  to: triggered
+  id: triggered
+  trigger: state
+- alias: Alarm enters armed away mode
+  entity_id:
+  - alarm_control_panel.home_alarm
+  to: armed_away
+  id: armed
+  trigger: state
+- alias: Alarm enters armed night mode — TTS goodnight report handles this, no push
+  entity_id:
+  - alarm_control_panel.home_alarm
+  to: armed_night
+  id: armed_night
+  trigger: state
+- alias: Alarm is disarmed
+  entity_id:
+  - alarm_control_panel.home_alarm
+  to: disarmed
+  id: disarmed
+  trigger: state
+- alias: Kitchen camera detects person while alarm is triggered
+  entity_id:
+  - binary_sensor.kitchen_camera_person
+  to: 'on'
+  for:
+    seconds: 3
+  id: person_while_triggered
+  trigger: state
+conditions: []
+actions:
+- alias: Route by alarm state
+  choose:
+  - alias: Pending — send actionable disarm notification and wait for response
+    conditions:
+    - condition: trigger
+      id: pending
+    sequence:
+    - alias: Send critical pending notification with disarm action
+      action: notify.mobile_app_nates_iphone
+      data:
+        title: Colony Drive
+        message: ⚠️ Alarm Pending — {{ states('input_text.alarm_trigger_description')
+          | trim }}. Tap to disarm.
+        data:
+          push:
+            sound:
+              name: default
+              critical: 1
+              volume: 1
+          tag: home_alarm
+          actions:
+          - action: DISARM_ALARM
+            title: Disarm
+            destructive: false
+            authenticationRequired: true
+    - alias: Wait for disarm action or alarm leaving pending state
+      wait_for_trigger:
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: DISARM_ALARM
+      - trigger: state
+        entity_id: alarm_control_panel.home_alarm
+        from: pending
+      timeout:
+        seconds: 60
+      continue_on_timeout: true
+    - alias: Disarm if user tapped Disarm button
+      if:
+      - condition: template
+        value_template: '{{ wait.trigger is not none and wait.trigger.platform ==
+          ''event'' }}'
+      then:
+      - alias: Disarm the home alarm
+        action: alarm_control_panel.alarm_disarm
+        target:
+          entity_id: alarm_control_panel.home_alarm
+        data:
+          code: 0128
+  - alias: Triggered — activate siren, repeat critical push until state changes
+    conditions:
+    - condition: trigger
+      id: triggered
+    sequence:
+    - alias: Activate siren if armed away (no one home)
+      if:
+      - alias: Prior alarm state was armed away
+        condition: template
+        value_template: '{{ trigger.from_state.state == ''armed_away'' }}'
+      then:
+      - alias: Turn on kitchen camera siren for 60 seconds at full volume
+        action: siren.turn_on
+        target:
+          entity_id: siren.kitchen_camera_siren
+        data:
+          duration: 60
+          volume_level: 1
+    - alias: Announce alarm via TTS if everyone is sleeping
+      if:
+      - alias: Everyone is sleeping
+        condition: state
+        entity_id: input_boolean.everyone_sleeping
+        state: 'on'
+      then:
+      - alias: Announce alarm to master bedroom HomePod
+        action: script.household_tts_announce
+        data:
+          message: Alert — the home alarm has been triggered. {{ states('input_text.alarm_trigger_description')
+            | trim }}.
+          target: master_bedroom
+          notification_title: Alarm Triggered
+    - alias: Send critical notifications every 90s while triggered (max 10)
+      repeat:
+        count: 10
+        sequence:
+        - alias: Stop if alarm is no longer triggered
+          if:
+          - alias: Alarm has left triggered state
+            condition: not
+            conditions:
+            - condition: state
+              entity_id: alarm_control_panel.home_alarm
+              state: triggered
+          then:
+          - alias: Exit the loop
+            stop: Alarm no longer triggered
+        - alias: Send push — person detected (with camera snapshot)
+          if:
+          - alias: Trigger was person detection
+            condition: template
+            value_template: '{{ ''Person Detected'' in states(''input_text.alarm_trigger_description'')
+              }}'
+          then:
+          - alias: Send critical push with camera image
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: Colony Drive
+              message: 🚨 {{ states('input_text.alarm_trigger_description') | trim
+                }}
+              data:
+                push:
+                  sound:
+                    name: default
+                    critical: 1
+                    volume: 1
+                tag: home_alarm
+                image: /local/snapshots/alarm_latest.jpg
+          else:
+          - alias: Send critical push to iPhone
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: Colony Drive
+              message: 🚨 {{ states('input_text.alarm_trigger_description') | trim
+                }}
+              data:
+                push:
+                  sound:
+                    name: default
+                    critical: 1
+                    volume: 1
+                tag: home_alarm
+        - alias: Wait before re-notifying
+          delay:
+            seconds: 90
+    - alias: Stop siren after notification loop ends
+      action: siren.turn_off
+      target:
+        entity_id: siren.kitchen_camera_siren
+  - alias: Person detected while alarm is triggered — send followup with snapshot
+    conditions:
+    - condition: trigger
+      id: person_while_triggered
+    - condition: state
+      entity_id: alarm_control_panel.home_alarm
+      state: triggered
+    - alias: Person was not the original alarm trigger
+      condition: template
+      value_template: '{{ ''Person Detected'' not in states(''input_text.alarm_trigger_description'')
+        }}'
+    sequence:
+    - alias: Save fresh camera snapshot
+      action: camera.snapshot
+      target:
+        entity_id: camera.kitchen_camera_fluent
+      data:
+        filename: /config/www/snapshots/alarm_latest.jpg
+    - alias: Send critical push with person image
+      action: notify.mobile_app_nates_iphone
+      data:
+        title: Colony Drive
+        message: 🚨 Person Detected (Kitchen Camera)
+        data:
+          push:
+            sound:
+              name: default
+              critical: 1
+              volume: 1
+          tag: home_alarm_person
+          image: /local/snapshots/alarm_latest.jpg
+  - alias: Armed away — send standard push notification
+    conditions:
+    - condition: trigger
+      id: armed
+    sequence:
+    - alias: Send armed notification to iPhone
+      action: notify.mobile_app_nates_iphone
+      data:
+        title: Colony Drive
+        message: 🚨 Alarm Armed — Away
+        data:
+          tag: home_alarm
+  - alias: Disarmed — stop siren and replace alarm notification with confirmation
+    conditions:
+    - condition: trigger
+      id: disarmed
+    sequence:
+    - alias: Stop camera siren
+      action: siren.turn_off
+      target:
+        entity_id: siren.kitchen_camera_siren
+    - alias: Send disarmed confirmation to iPhone
+      action: notify.mobile_app_nates_iphone
+      data:
+        title: Colony Drive
+        message: ✅ Alarm Disarmed
+        data:
+          tag: home_alarm
+mode: parallel
+max: 3
+category: 01KRKESQARY7R9TR5V88FMZV1K

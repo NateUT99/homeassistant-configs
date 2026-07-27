@@ -1,0 +1,74 @@
+id: '1781020640510'
+alias: 'Utility Room: Washer Status Manager'
+description: Manages the washer status helper state machine. Sets to alerting when
+  a cycle completes, resets to idle when a new cycle starts or the utility room door
+  opens.
+triggers:
+- alias: Washer cycle done
+  entity_id: sensor.washer_current_status
+  to: end
+  id: cycle_done
+  trigger: state
+- alias: Washer cycle started
+  entity_id: sensor.washer_current_status
+  to: running
+  id: cycle_started
+  trigger: state
+- alias: Utility room door opened
+  entity_id: binary_sensor.utility_room_door_contact
+  to: 'on'
+  id: door_opened
+  trigger: state
+actions:
+- alias: Choose action based on trigger
+  choose:
+  - alias: Cycle done — set alerting if idle
+    conditions:
+    - condition: trigger
+      id: cycle_done
+    - condition: state
+      entity_id: input_select.utility_room_washer_status
+      state: idle
+    sequence:
+    - alias: Set washer status to alerting
+      action: input_select.select_option
+      target:
+        entity_id: input_select.utility_room_washer_status
+      data:
+        option: alerting
+    - alias: Stamp cycle ended timestamp
+      action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.utility_room_washer_cycle_ended
+      data:
+        datetime: '{{ now().strftime(''%Y-%m-%d %H:%M:%S'') }}'
+  - alias: New cycle started — reset to idle
+    conditions:
+    - condition: trigger
+      id: cycle_started
+    sequence:
+    - alias: Reset washer status to idle
+      action: input_select.select_option
+      target:
+        entity_id: input_select.utility_room_washer_status
+      data:
+        option: idle
+    - alias: Stamp cycle started timestamp
+      action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.utility_room_washer_cycle_started
+      data:
+        datetime: '{{ now().strftime(''%Y-%m-%d %H:%M:%S'') }}'
+  - alias: Door opened — reset to idle
+    conditions:
+    - condition: trigger
+      id: door_opened
+    sequence:
+    - alias: Reset washer status to idle on door open
+      action: input_select.select_option
+      target:
+        entity_id: input_select.utility_room_washer_status
+      data:
+        option: idle
+mode: single
+category: 01KS3AHTTAQVWP6HWNE9CJ207W

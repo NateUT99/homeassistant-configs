@@ -1,0 +1,55 @@
+id: '1708821455475'
+alias: 'Office: Turntable Platter Light'
+description: Turns the turntable platter light on when the dust cover is opened, off
+  when closed. A 5-second delay on the close trigger prevents the light from cutting
+  out during brief cover movements.
+triggers:
+- alias: Dust cover opened
+  entity_id:
+  - binary_sensor.office_turntable_cover_contact
+  from:
+  - 'off'
+  to:
+  - 'on'
+  id: open
+  trigger: state
+- alias: Dust cover closed for 5 seconds
+  entity_id:
+  - binary_sensor.office_turntable_cover_contact
+  from:
+  - 'on'
+  to:
+  - 'off'
+  for:
+    hours: 0
+    minutes: 0
+    seconds: 5
+  id: closed
+  trigger: state
+conditions: []
+actions:
+- choose:
+  - alias: Cover opened — turn on platter light
+    conditions:
+    - condition: trigger
+      id:
+      - open
+    sequence:
+    - alias: Turn on turntable platter light
+      action: light.turn_on
+      target:
+        entity_id:
+        - light.office_turntable_platter
+  - alias: Cover closed — turn off platter light
+    conditions:
+    - condition: trigger
+      id:
+      - closed
+    sequence:
+    - alias: Turn off turntable platter light
+      action: light.turn_off
+      target:
+        entity_id:
+        - light.office_turntable_platter
+mode: single
+category: 01KQA4YGXGDK2DH076K5A7H8YH

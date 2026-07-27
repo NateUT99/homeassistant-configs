@@ -1,0 +1,88 @@
+id: '1742060641586'
+alias: 'Bathroom: Night Lamp'
+description: Controls the bathroom night lamp based on ambient light, household sleep
+  state, and arrivals. Turns on when the bathroom gets dark, when everyone goes to
+  sleep (as a fallback in case it's off), or when the first person arrives home to
+  a dark bathroom. Turns off when the bathroom gets bright.
+triggers:
+- alias: Bathroom illuminance drops below threshold
+  entity_id: sensor.bathroom_night_lamp_illuminance
+  below: 5
+  id: dark
+  trigger: numeric_state
+- alias: Bathroom illuminance rises above threshold
+  entity_id: sensor.bathroom_night_lamp_illuminance
+  above: 5
+  id: bright
+  trigger: numeric_state
+- alias: Everyone goes to sleep
+  entity_id: input_boolean.everyone_sleeping
+  from: 'off'
+  to: 'on'
+  id: sleeping
+  trigger: state
+- alias: First person arrives home
+  entity_id: sensor.household_people_home
+  from: '0'
+  id: home
+  trigger: state
+conditions: []
+actions:
+- alias: Route by trigger
+  choose:
+  - alias: Bathroom got dark — turn lamp on
+    conditions:
+    - alias: Dark trigger
+      condition: trigger
+      id: dark
+    sequence:
+    - alias: Turn on night lamp at 35%
+      action: light.turn_on
+      target:
+        entity_id: light.bathroom_night_lamp
+      data:
+        brightness_pct: 35
+  - alias: Bathroom got bright — turn lamp off
+    conditions:
+    - alias: Bright trigger
+      condition: trigger
+      id: bright
+    sequence:
+    - alias: Turn off night lamp
+      action: light.turn_off
+      target:
+        entity_id: light.bathroom_night_lamp
+  - alias: Everyone went to sleep — ensure lamp is on if dark
+    conditions:
+    - alias: Sleeping trigger
+      condition: trigger
+      id: sleeping
+    - alias: Bathroom is dark
+      condition: numeric_state
+      entity_id: sensor.bathroom_night_lamp_illuminance
+      below: 5
+    sequence:
+    - alias: Turn on night lamp at 35%
+      action: light.turn_on
+      target:
+        entity_id: light.bathroom_night_lamp
+      data:
+        brightness_pct: 35
+  - alias: First person home and bathroom is dark — turn lamp on
+    conditions:
+    - alias: Home trigger
+      condition: trigger
+      id: home
+    - alias: Bathroom is dark
+      condition: numeric_state
+      entity_id: sensor.bathroom_night_lamp_illuminance
+      below: 5
+    sequence:
+    - alias: Turn on night lamp at 35%
+      action: light.turn_on
+      target:
+        entity_id: light.bathroom_night_lamp
+      data:
+        brightness_pct: 35
+mode: single
+category: 01KQA4YGXGDK2DH076K5A7H8YH

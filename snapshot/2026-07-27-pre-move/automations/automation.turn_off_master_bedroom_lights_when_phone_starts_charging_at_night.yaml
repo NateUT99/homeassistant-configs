@@ -1,0 +1,23 @@
+id: '1760549300370'
+alias: At night, turn off bedroom lights when phone begins charging
+description: ''
+triggers:
+- trigger: state
+  entity_id:
+  - sensor.nates_iphone_battery_state
+  to: Charging
+conditions:
+- condition: state
+  entity_id: input_boolean.everyone_sleeping
+  state: 'on'
+actions:
+- action: light.turn_off
+  metadata: {}
+  data: {}
+  target:
+    entity_id:
+    - light.master_bedroom_fan
+    - light.portable_accent_lamp
+    - light.master_bedroom_master_bedroom_nightstand_lamp_left
+mode: single
+category: 01KS3AHT8PTYGYCRABF23BFTXH

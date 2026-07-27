@@ -1,0 +1,32 @@
+id: '1781714001853'
+alias: 'Household: Mobile Dashboard View Timeout'
+description: Resets the active dashboard section to Summary after 5 minutes with no
+  view change. Fires only when a room section is active; does not override if the
+  user has already navigated away to none.
+triggers:
+- alias: Room section selected
+  trigger: state
+  entity_id: input_select.mobile_dashboard_active_view
+  not_to:
+  - summary
+  - none
+conditions: []
+actions:
+- alias: Wait 5 minutes of inactivity
+  delay: 00:05:00
+- alias: Skip if already dismissed
+  condition: not
+  conditions:
+  - condition: state
+    entity_id: input_select.mobile_dashboard_active_view
+    state:
+    - summary
+    - none
+- alias: Reset to summary
+  action: input_select.select_option
+  target:
+    entity_id: input_select.mobile_dashboard_active_view
+  data:
+    option: summary
+mode: restart
+category: 01KS3AHTTAQVWP6HWNE9CJ207W

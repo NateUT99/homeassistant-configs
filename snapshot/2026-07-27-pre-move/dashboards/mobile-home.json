@@ -1,0 +1,466 @@
+{
+  "views": [
+    {
+      "max_columns": 1,
+      "sections": [
+        {
+          "cards": [
+            {
+              "type": "custom:bubble-card",
+              "card_type": "sub-buttons",
+              "hide_main_background": true,
+              "sub_button": {
+                "main": [],
+                "bottom": [
+                  {
+                    "buttons_layout": "inline",
+                    "justify_content": "center",
+                    "group": [
+                      {
+                        "entity": "alarm_control_panel.home_alarm",
+                        "icon": "mdi:shield-home",
+                        "fill_width": false,
+                        "show_background": true,
+                        "state_background": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "tap_action": {
+                          "action": "more-info"
+                        },
+                        "hold_action": {
+                          "action": "none"
+                        },
+                        "double_tap_action": {
+                          "action": "none"
+                        },
+                        "name": "Alarm"
+                      },
+                      {
+                        "entity": "binary_sensor.water_leak_detected",
+                        "icon": "mdi:water-alert",
+                        "fill_width": false,
+                        "show_background": true,
+                        "state_background": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "show_attribute": true,
+                        "tap_action": {
+                          "action": "navigate",
+                          "navigation_path": "#water-leaks"
+                        },
+                        "hold_action": {
+                          "action": "none"
+                        },
+                        "double_tap_action": {
+                          "action": "none"
+                        },
+                        "name": "Water Leak",
+                        "visibility": [
+                          {
+                            "condition": "state",
+                            "entity": "binary_sensor.water_leak_detected",
+                            "state": "on"
+                          }
+                        ]
+                      },
+                      {
+                        "entity": "binary_sensor.kitchen_freezer_door_contact",
+                        "icon": "mdi:fridge-alert",
+                        "fill_width": false,
+                        "show_background": true,
+                        "state_background": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "tap_action": {
+                          "action": "more-info"
+                        },
+                        "hold_action": {
+                          "action": "none"
+                        },
+                        "double_tap_action": {
+                          "action": "none"
+                        },
+                        "name": "Freezer Door",
+                        "visibility": [
+                          {
+                            "condition": "state",
+                            "entity": "binary_sensor.kitchen_freezer_door_contact",
+                            "state": "on"
+                          }
+                        ]
+                      },
+                      {
+                        "entity": "binary_sensor.entrance_front_door_contact",
+                        "icon": "mdi:door-open",
+                        "fill_width": false,
+                        "show_background": true,
+                        "state_background": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "show_attribute": true,
+                        "tap_action": {
+                          "action": "navigate",
+                          "navigation_path": "#doors"
+                        },
+                        "hold_action": {
+                          "action": "none"
+                        },
+                        "double_tap_action": {
+                          "action": "none"
+                        },
+                        "name": "Exterior Door",
+                        "visibility": [
+                          {
+                            "condition": "state",
+                            "entity": "binary_sensor.exterior_door_open",
+                            "state": "on"
+                          }
+                        ]
+                      },
+                      {
+                        "entity": "cover.garage_door",
+                        "icon": "mdi:garage-variant",
+                        "fill_width": false,
+                        "show_background": true,
+                        "state_background": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "tap_action": {
+                          "action": "more-info"
+                        },
+                        "hold_action": {
+                          "action": "more-info"
+                        },
+                        "double_tap_action": {
+                          "action": "none"
+                        },
+                        "name": "Garage Door"
+                      },
+                      {
+                        "entity": "weather.apartment",
+                        "icon": "mdi:weather-cloudy",
+                        "fill_width": false,
+                        "show_background": true,
+                        "state_background": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "show_attribute": true,
+                        "tap_action": {
+                          "action": "more-info"
+                        },
+                        "hold_action": {
+                          "action": "none"
+                        },
+                        "double_tap_action": {
+                          "action": "none"
+                        },
+                        "name": "Weather"
+                      },
+                      {
+                        "entity": "sensor.toledo_ohio_usa_air_quality_index",
+                        "icon": "mdi:smog",
+                        "fill_width": false,
+                        "show_background": true,
+                        "state_background": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "show_attribute": true,
+                        "tap_action": {
+                          "action": "more-info"
+                        },
+                        "hold_action": {
+                          "action": "none"
+                        },
+                        "double_tap_action": {
+                          "action": "none"
+                        },
+                        "name": "AQI"
+                      },
+                      {
+                        "entity": "input_boolean.guest_mode",
+                        "icon": "mdi:hand-wave",
+                        "fill_width": false,
+                        "show_background": true,
+                        "state_background": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "tap_action": {
+                          "action": "none"
+                        },
+                        "hold_action": {
+                          "action": "perform-action",
+                          "perform_action": "input_boolean.toggle",
+                          "target": {
+                            "entity_id": "input_boolean.guest_mode"
+                          }
+                        },
+                        "double_tap_action": {
+                          "action": "none"
+                        },
+                        "name": "Guest Mode"
+                      },
+                      {
+                        "entity": "input_boolean.avery_sleeping",
+                        "icon": "mdi:teddy-bear",
+                        "fill_width": false,
+                        "show_background": true,
+                        "state_background": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "tap_action": {
+                          "action": "none"
+                        },
+                        "hold_action": {
+                          "action": "perform-action",
+                          "perform_action": "input_boolean.toggle",
+                          "target": {
+                            "entity_id": "input_boolean.avery_sleeping"
+                          }
+                        },
+                        "double_tap_action": {
+                          "action": "none"
+                        },
+                        "name": "Avery Sleeping",
+                        "visibility": [
+                          {
+                            "condition": "state",
+                            "entity": "binary_sensor.avery_sleep_reminder",
+                            "state": "on"
+                          }
+                        ]
+                      },
+                      {
+                        "entity": "binary_sensor.updates_available",
+                        "icon": "mdi:update",
+                        "fill_width": false,
+                        "show_background": true,
+                        "state_background": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "show_attribute": false,
+                        "tap_action": {
+                          "action": "navigate",
+                          "navigation_path": "/config/updates"
+                        },
+                        "hold_action": {
+                          "action": "none"
+                        },
+                        "double_tap_action": {
+                          "action": "none"
+                        },
+                        "name": "Updates",
+                        "visibility": [
+                          {
+                            "condition": "state",
+                            "entity": "binary_sensor.updates_available",
+                            "state": "on"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "buttons_layout": "inline",
+                    "justify_content": "center",
+                    "group": [
+                      {
+                        "entity": "climate.living_room_thermostat",
+                        "icon": "mdi:home-thermometer",
+                        "fill_width": false,
+                        "show_background": true,
+                        "state_background": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "show_attribute": true,
+                        "tap_action": {
+                          "action": "navigate",
+                          "navigation_path": "#thermostat"
+                        },
+                        "hold_action": {
+                          "action": "none"
+                        },
+                        "double_tap_action": {
+                          "action": "none"
+                        },
+                        "name": "Thermostat"
+                      },
+                      {
+                        "entity": "vacuum.roborock_q8_max",
+                        "icon": "mdi:robot-vacuum",
+                        "fill_width": false,
+                        "show_background": true,
+                        "state_background": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "tap_action": {
+                          "action": "navigate",
+                          "navigation_path": "#vacuum"
+                        },
+                        "hold_action": {
+                          "action": "perform-action",
+                          "perform_action": "input_boolean.toggle",
+                          "target": {
+                            "entity_id": "input_boolean.vacuum_routine_pause"
+                          }
+                        },
+                        "double_tap_action": {
+                          "action": "none"
+                        },
+                        "name": "Vacuum"
+                      },
+                      {
+                        "entity": "sensor.washer_current_status",
+                        "icon": "mdi:washing-machine",
+                        "fill_width": false,
+                        "show_background": true,
+                        "state_background": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "tap_action": {
+                          "action": "navigate",
+                          "navigation_path": "#laundry"
+                        },
+                        "hold_action": {
+                          "action": "perform-action",
+                          "perform_action": "script.turn_on",
+                          "target": {
+                            "entity_id": "script.utility_room_acknowledge_laundry"
+                          },
+                          "data": {
+                            "variables": {
+                              "appliance": "washer"
+                            }
+                          }
+                        },
+                        "double_tap_action": {
+                          "action": "none"
+                        },
+                        "name": "Washer",
+                        "show_attribute": true,
+                        "visibility": [
+                          {
+                            "condition": "or",
+                            "conditions": [
+                              {
+                                "condition": "state",
+                                "entity": "input_select.utility_room_washer_status",
+                                "state_not": "idle"
+                              },
+                              {
+                                "condition": "and",
+                                "conditions": [
+                                  {
+                                    "condition": "state",
+                                    "entity": "sensor.washer_current_status",
+                                    "state_not": "power_off"
+                                  },
+                                  {
+                                    "condition": "state",
+                                    "entity": "sensor.washer_current_status",
+                                    "state_not": "initial"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "entity": "sensor.dryer_current_status",
+                        "icon": "mdi:tumble-dryer",
+                        "fill_width": false,
+                        "show_background": true,
+                        "state_background": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "tap_action": {
+                          "action": "navigate",
+                          "navigation_path": "#laundry"
+                        },
+                        "hold_action": {
+                          "action": "perform-action",
+                          "perform_action": "script.turn_on",
+                          "target": {
+                            "entity_id": "script.utility_room_acknowledge_laundry"
+                          },
+                          "data": {
+                            "variables": {
+                              "appliance": "dryer"
+                            }
+                          }
+                        },
+                        "double_tap_action": {
+                          "action": "none"
+                        },
+                        "name": "Dryer",
+                        "show_attribute": true,
+                        "visibility": [
+                          {
+                            "condition": "or",
+                            "conditions": [
+                              {
+                                "condition": "state",
+                                "entity": "input_select.utility_room_dryer_status",
+                                "state_not": "idle"
+                              },
+                              {
+                                "condition": "and",
+                                "conditions": [
+                                  {
+                                    "condition": "state",
+                                    "entity": "sensor.dryer_current_status",
+                                    "state_not": "power_off"
+                                  },
+                                  {
+                                    "condition": "state",
+                                    "entity": "sensor.dryer_current_status",
+                                    "state_not": "initial"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "entity": "todo.household_chores",
+                        "icon": "mdi:calendar-clock",
+                        "fill_width": false,
+                        "show_background": true,
+                        "state_background": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "tap_action": {
+                          "action": "navigate",
+                          "navigation_path": "#reminders"
+                        },
+                        "hold_action": {
+                          "action": "navigate",
+                          "navigation_path": "#reminders"
+                        },
+                        "double_tap_action": {
+                          "action": "none"
+                        },
+                        "name": "Reminders"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "rows": 1.625,
+              "styles": ".bubble-sub-button-1 > ha-icon { color: ${['triggered','pending'].includes(hass.states['alarm_control_panel.home_alarm'].state) ? 'var(--error-color)' : ['armed_away','armed_home','armed_night','arming'].includes(hass.states['alarm_control_panel.home_alarm'].state) ? 'var(--warning-color)' : 'var(--success-color)'} !important; }\n.bubble-sub-button-2 > ha-icon { color: var(--error-color) !important; }\n.bubble-sub-button-3 > ha-icon { color: var(--error-color) !important; }\n.bubble-sub-button-4 > ha-icon { color: ${(hass.states['input_boolean.everyone_sleeping'].state === 'on' || parseInt(hass.states['zone.home'].state) < 1) ? 'var(--error-color)' : 'var(--warning-color)'} !important; }\n.bubble-sub-button-5 > ha-icon { color: ${hass.states['cover.garage_door'].state !== 'closed' ? ((hass.states['input_boolean.everyone_sleeping'].state === 'on' || parseInt(hass.states['zone.home'].state) < 1) ? 'var(--error-color)' : 'var(--warning-color)') : 'var(--success-color)'} !important; }\n.bubble-sub-button-7 > ha-icon { color: ${parseInt(hass.states['sensor.toledo_ohio_usa_air_quality_index'].state) >= 126 ? 'var(--error-color)' : parseInt(hass.states['sensor.toledo_ohio_usa_air_quality_index'].state) >= 101 ? 'var(--accent-color)' : 'var(--success-color)'} !important; }\n.bubble-sub-button-8 > ha-icon { color: ${hass.states['input_boolean.guest_mode'].state === 'on' ? 'var(--success-color)' : 'var(--disabled-color)'} !important; }\n.bubble-sub-button-9 > ha-icon { color: ${hass.states['input_boolean.avery_sleeping'].state === 'on' ? 'var(--success-color)' : 'var(--disabled-color)'} !important; }\n.bubble-sub-button-10 > ha-icon { color: var(--accent-color) !important; }\n.bubble-sub-button-11 > ha-icon { color: ${hass.states['climate.living_room_thermostat'].attributes.hvac_action === 'cooling' ? 'var(--info-color)' : hass.states['climate.living_room_thermostat'].attributes.hvac_action === 'heating' ? 'var(--warning-color)' : 'var(--disabled-color)'} !important; }\n.bubble-sub-button-12 > ha-icon { color: ${hass.states['input_boolean.vacuum_routine_pause'].state === 'on' ? 'var(--warning-color)' : ['cleaning','returning','paused'].includes(hass.states['vacuum.roborock_q8_max'].state) ? 'var(--warning-color)' : (hass.states['sensor.roborock_q8_max_vacuum_error'].state !== 'none' || hass.states['sensor.roborock_q8_max_dock_error'].state !== 'ok') ? 'var(--error-color)' : hass.states['input_select.vacuum_ran_today'].state !== 'Yes' ? 'var(--disabled-color)' : 'var(--success-color)'} !important; }\n.bubble-sub-button-15 > ha-icon { color: ${(() => { const sensors = Object.keys(hass.states).filter(e => e.startsWith('sensor.household_chores_')); const anyOverdue = sensors.some(s => hass.states[s].state === 'overdue'); const anyDue = sensors.some(s => hass.states[s].state === 'due'); const trashPending = hass.states['input_boolean.trash_pickup_pending']?.state === 'on'; return anyOverdue ? 'var(--error-color)' : (anyDue || trashPending) ? 'var(--warning-color)' : 'var(--disabled-color)'; })()} !important; }",
+              "card_mod": {
+                "style": "ha-card { background: transparent !important; box-shadow: none !important; border: none !important; }"
+              }
+            }
+          ],
+          "type": "grid"
+        }
+      ],
+      "title": "Home",
+      "type": "sections",
+      "badges": [],
+      "footer": {}
+    }
+  ]
+}

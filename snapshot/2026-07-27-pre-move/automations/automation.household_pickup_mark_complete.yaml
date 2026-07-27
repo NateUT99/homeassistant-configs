@@ -1,0 +1,23 @@
+id: '1780273259913'
+alias: 'Household: Trash Pickup Mark Complete'
+description: Handles PICKUP_MARK_COMPLETE notification action — clears the pending
+  boolean and dismisses the iOS notification.
+triggers:
+- id: notification_action
+  alias: iOS notification Mark Complete tapped
+  trigger: event
+  event_type: mobile_app_notification_action
+  event_data:
+    action: PICKUP_MARK_COMPLETE
+conditions: []
+actions:
+- action: input_boolean.turn_off
+  target:
+    entity_id: input_boolean.trash_pickup_pending
+- action: notify.mobile_app_nates_iphone
+  data:
+    message: clear_notification
+    data:
+      tag: pickup
+mode: single
+category: 01J8E2QBF6XVHBZKTQCZ73TK5T

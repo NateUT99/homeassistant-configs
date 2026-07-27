@@ -1,0 +1,72 @@
+id: '1714236434821'
+alias: 'Kitchen: Freezer Door Left Open'
+description: 'Sends a critical iPhone notification and repeating TTS announcements
+  (every minute) when the kitchen freezer door has been left open for three minutes.
+  Clears the notification and plays a confirmation announcement once the door is closed.
+
+
+  TTS target is the master bedroom HomePod when everyone is sleeping, kitchen HomePod
+  otherwise.'
+triggers:
+- alias: Freezer door open for 3 minutes
+  entity_id:
+  - binary_sensor.kitchen_freezer_door_contact
+  to:
+  - 'on'
+  for:
+    hours: 0
+    minutes: 3
+    seconds: 0
+  trigger: state
+conditions: []
+actions:
+- alias: Send critical notification to Nate's iPhone
+  action: notify.mobile_app_nates_iphone
+  data:
+    message: Kitchen Freezer Door Left Open!
+    data:
+      push:
+        sound:
+          name: default
+          critical: 1
+          volume: 1
+      tag: freezer_door_open
+- alias: Repeat TTS alert every minute until door closes
+  repeat:
+    until:
+    - alias: Freezer door is closed
+      condition: state
+      entity_id: binary_sensor.kitchen_freezer_door_contact
+      state:
+      - 'off'
+    sequence:
+    - alias: TTS to HomePod
+      action: script.household_tts_announce
+      data:
+        message: The kitchen freezer door is open. Please close it.
+        target: auto
+        notification_title: Freezer Door Open
+    - alias: Wait 1 minute before next announcement
+      delay:
+        hours: 0
+        minutes: 1
+        seconds: 0
+        milliseconds: 0
+- alias: TTS to HomePod
+  action: script.household_tts_announce
+  data:
+    message: The freezer door has been closed. Thank you!
+    target: auto
+    notification_title: Freezer Closed
+- alias: Clear critical notification on Nate's iPhone
+  action: notify.mobile_app_nates_iphone
+  data:
+    message: clear_notification
+    data:
+      tag: freezer_door_open
+- alias: Send closed confirmation notification to Nate's iPhone
+  action: notify.mobile_app_nates_iphone
+  data:
+    message: The freezer door has been closed.
+mode: single
+category: 01KRKESQARY7R9TR5V88FMZV1K

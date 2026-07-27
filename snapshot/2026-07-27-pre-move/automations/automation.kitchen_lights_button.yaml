@@ -1,0 +1,164 @@
+id: '1779238216937'
+alias: 'Kitchen: Lights Button'
+description: 'Two-button controller for kitchen lights. Up button (single) toggles
+  the sink bulb at 95%. Down button (single) toggles the counter strip — 3% when sleeping,
+  25% normally, off if already on. Down button (double) cycles strip brightness: 3%↔50%
+  in sleep mode, 25%↔100% in normal mode.'
+triggers:
+- alias: Button 1 single (up)
+  domain: mqtt
+  device_id: c47656928cd8b532349bce7b6faf0568
+  type: action
+  subtype: 'on'
+  id: button_1_single
+  trigger: device
+- alias: Button 2 single (down)
+  domain: mqtt
+  device_id: c47656928cd8b532349bce7b6faf0568
+  type: action
+  subtype: 'off'
+  id: button_2_single
+  trigger: device
+- alias: Button 2 double (down)
+  domain: mqtt
+  device_id: c47656928cd8b532349bce7b6faf0568
+  type: action
+  subtype: off_double
+  id: button_2_double
+  trigger: device
+conditions: []
+actions:
+- alias: Route by button action
+  choose:
+  - alias: Button 1 single — toggle sink light
+    conditions:
+    - alias: Button 1 single trigger
+      condition: trigger
+      id:
+      - button_1_single
+    sequence:
+    - alias: Toggle sink light at 95%
+      action: light.toggle
+      target:
+        entity_id: light.kitchen_sink_bulb
+      data:
+        brightness_pct: 95
+  - alias: Button 2 single — toggle counter strip
+    conditions:
+    - alias: Button 2 single trigger
+      condition: trigger
+      id:
+      - button_2_single
+    sequence:
+    - alias: Toggle counter strip based on sleep mode
+      choose:
+      - alias: Strip off, everyone sleeping — turn on at 3%
+        conditions:
+        - alias: Strip is off
+          condition: state
+          entity_id: light.kitchen_counter_strip
+          state: 'off'
+        - alias: Everyone is sleeping
+          condition: state
+          entity_id: input_boolean.everyone_sleeping
+          state: 'on'
+        sequence:
+        - alias: Turn on counter strip at 3%
+          action: light.turn_on
+          target:
+            entity_id: light.kitchen_counter_strip
+          data:
+            brightness_pct: 3
+      - alias: Strip off, normal mode — turn on at 25%
+        conditions:
+        - alias: Strip is off
+          condition: state
+          entity_id: light.kitchen_counter_strip
+          state: 'off'
+        sequence:
+        - alias: Turn on counter strip at 25%
+          action: light.turn_on
+          target:
+            entity_id: light.kitchen_counter_strip
+          data:
+            brightness_pct: 25
+      default:
+      - alias: Strip is on — turn off
+        action: light.turn_off
+        target:
+          entity_id: light.kitchen_counter_strip
+  - alias: Button 2 double — cycle counter strip brightness
+    conditions:
+    - alias: Button 2 double trigger
+      condition: trigger
+      id:
+      - button_2_double
+    sequence:
+    - alias: Cycle brightness only when strip is on
+      choose:
+      - alias: Sleep mode — cycle between 3% and 50%
+        conditions:
+        - alias: Strip is on
+          condition: state
+          entity_id: light.kitchen_counter_strip
+          state: 'on'
+        - alias: Everyone is sleeping
+          condition: state
+          entity_id: input_boolean.everyone_sleeping
+          state: 'on'
+        sequence:
+        - alias: Cycle 3%/50% based on current brightness
+          choose:
+          - alias: At 3% — step up to 50%
+            conditions:
+            - alias: Brightness below midpoint of 3% and 50%
+              condition: numeric_state
+              entity_id: light.kitchen_counter_strip
+              attribute: brightness
+              below: 68
+            sequence:
+            - alias: Turn on counter strip at 50%
+              action: light.turn_on
+              target:
+                entity_id: light.kitchen_counter_strip
+              data:
+                brightness_pct: 50
+          default:
+          - alias: At 50% or other — step down to 3%
+            action: light.turn_on
+            target:
+              entity_id: light.kitchen_counter_strip
+            data:
+              brightness_pct: 3
+      - alias: Normal mode — cycle between 25% and 100%
+        conditions:
+        - alias: Strip is on
+          condition: state
+          entity_id: light.kitchen_counter_strip
+          state: 'on'
+        sequence:
+        - alias: Cycle 25%/100% based on current brightness
+          choose:
+          - alias: At 25% — step up to 100%
+            conditions:
+            - alias: Brightness below midpoint of 25% and 100%
+              condition: numeric_state
+              entity_id: light.kitchen_counter_strip
+              attribute: brightness
+              below: 160
+            sequence:
+            - alias: Turn on counter strip at 100%
+              action: light.turn_on
+              target:
+                entity_id: light.kitchen_counter_strip
+              data:
+                brightness_pct: 100
+          default:
+          - alias: At 100% or other — step down to 25%
+            action: light.turn_on
+            target:
+              entity_id: light.kitchen_counter_strip
+            data:
+              brightness_pct: 25
+mode: restart
+category: 01KQA4YGXGDK2DH076K5A7H8YH

@@ -1,0 +1,78 @@
+id: '1694560330438'
+alias: 'Outside: Exterior Lights Sunset Cycle'
+description: Manages the full overnight cycle for exterior lights. Turns on the garage,
+  patio, and porch 30 minutes before sunset; turns off the patio and porch 30 minutes
+  after sunset (brief twilight transition only). The garage exterior light stays on
+  overnight and is turned off 30 minutes after sunrise.
+triggers:
+- alias: 30 minutes before sunset
+  event: sunset
+  offset: -00:30:00
+  id: pre_sunset
+  trigger: sun
+- alias: 30 minutes after sunset
+  event: sunset
+  offset: 00:30:00
+  id: post_sunset
+  trigger: sun
+- alias: 30 minutes after sunrise
+  event: sunrise
+  offset: 00:30:00
+  id: post_sunrise
+  trigger: sun
+conditions: []
+actions:
+- alias: Route by trigger
+  choose:
+  - alias: Pre-sunset — turn on exterior lights
+    conditions:
+    - alias: Triggered by pre-sunset
+      condition: trigger
+      id:
+      - pre_sunset
+    sequence:
+    - alias: Turn on garage exterior light
+      action: light.turn_on
+      target:
+        entity_id: light.outside_garage_bulb
+      data:
+        brightness_pct: 85
+    - alias: Turn on patio light
+      action: light.turn_on
+      target:
+        entity_id: light.outside_patio_bulb
+      data:
+        brightness_pct: 65
+    - alias: Turn on porch ceiling
+      action: light.turn_on
+      target:
+        entity_id: light.outside_porch_ceiling
+      data:
+        brightness_pct: 65
+        color_temp_kelvin: 2700
+  - alias: Post-sunset — turn off patio and porch
+    conditions:
+    - alias: Triggered by post-sunset
+      condition: trigger
+      id:
+      - post_sunset
+    sequence:
+    - alias: Turn off patio and porch
+      action: light.turn_off
+      target:
+        entity_id:
+        - light.outside_patio_bulb
+        - light.outside_porch_ceiling
+  - alias: Post-sunrise — turn off garage exterior light
+    conditions:
+    - alias: Triggered by post-sunrise
+      condition: trigger
+      id:
+      - post_sunrise
+    sequence:
+    - alias: Turn off garage exterior light
+      action: light.turn_off
+      target:
+        entity_id: light.outside_garage_bulb
+mode: single
+category: 01J8E2QBF6XVHBZKTQCZ73TK5T

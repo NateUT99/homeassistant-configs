@@ -1,0 +1,20 @@
+sequence:
+- action: switch.turn_off
+  metadata: {}
+  data: {}
+  target:
+    entity_id: switch.office_speaker_amplifier_power
+- delay:
+    hours: 0
+    minutes: 0
+    seconds: 15
+    milliseconds: 0
+- action: switch.turn_off
+  metadata: {}
+  data: {}
+  target:
+    entity_id:
+    - switch.office_headphone_amp
+alias: Turn Off Turntable Equipment
+description: Ensures that the speaker amp and headphone amp turn off in the proper
+  order to avoid a loud popping noise.

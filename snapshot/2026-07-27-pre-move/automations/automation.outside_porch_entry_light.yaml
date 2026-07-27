@@ -1,0 +1,52 @@
+id: '1694552214543'
+alias: 'Outside: Porch Entry Light'
+description: Provides brief porch lighting when the front door opens at night and
+  the porch ceiling is already off. Turns on at 50%/2700K, waits up to 90 seconds
+  for the door to close, then fades off over 90 seconds. Active between sunset −30
+  min and sunrise +30 min. Runs in restart mode so a second door opening during the
+  fade restores the light immediately.
+triggers:
+- alias: Front door opens
+  entity_id:
+  - binary_sensor.entrance_front_door_contact
+  from: 'off'
+  to: 'on'
+  trigger: state
+conditions:
+- alias: Porch ceiling already off
+  condition: state
+  entity_id: light.outside_porch_ceiling
+  state: 'off'
+- alias: Night window — sunset minus 30 min to sunrise plus 30 min
+  condition: sun
+  after: sunset
+  after_offset: -00:30:00
+  before: sunrise
+  before_offset: 00:30:00
+actions:
+- alias: Turn on porch ceiling
+  action: light.turn_on
+  target:
+    entity_id: light.outside_porch_ceiling
+  data:
+    color_temp_kelvin: 2700
+    brightness_pct: 50
+- alias: Wait for door to close or 90 second timeout
+  wait_for_trigger:
+  - alias: Front door closes
+    trigger: state
+    entity_id:
+    - binary_sensor.entrance_front_door_contact
+    to:
+    - 'off'
+  timeout:
+    seconds: 90
+  continue_on_timeout: true
+- alias: Fade off porch ceiling
+  action: light.turn_off
+  target:
+    entity_id: light.outside_porch_ceiling
+  data:
+    transition: 90
+mode: restart
+category: 01KQA4YGXGDK2DH076K5A7H8YH

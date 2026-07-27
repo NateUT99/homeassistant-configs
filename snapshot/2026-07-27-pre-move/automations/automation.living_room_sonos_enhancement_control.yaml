@@ -1,0 +1,67 @@
+id: '1736110816337'
+alias: 'Living Room: Sonos Enhancement Control'
+description: Enables Sonos Night Sound and Speech Enhancement when the active source
+  becomes PS5 (via Hue Sync Box) or Live TV (via the TV). Disables them when switching
+  away to any other valid source. Ignores transitions to/from unavailable so brief
+  device dropouts don't toggle the settings.
+triggers:
+- entity_id: select.living_room_sync_box_hdmi_input
+  to: Playstation 5
+  id: to_ps5
+  alias: Sync Box switched to PS5
+  trigger: state
+- entity_id: select.living_room_sync_box_hdmi_input
+  from: Playstation 5
+  not_to:
+  - unavailable
+  - unknown
+  id: from_ps5
+  alias: Sync Box switched away from PS5
+  trigger: state
+- entity_id: media_player.living_room_tv
+  attribute: source
+  to: Live TV
+  id: to_live_tv
+  alias: TV switched to Live TV
+  trigger: state
+- entity_id: media_player.living_room_tv
+  attribute: source
+  from: Live TV
+  not_to:
+  - unavailable
+  - unknown
+  - none
+  id: from_live_tv
+  alias: TV switched away from Live TV
+  trigger: state
+conditions: []
+actions:
+- choose:
+  - alias: Switched TO PS5 or Live TV - enable Sonos enhancements
+    conditions:
+    - condition: trigger
+      id:
+      - to_ps5
+      - to_live_tv
+    sequence:
+    - alias: Turn on Night Sound and Speech Enhancement
+      action: switch.turn_on
+      target:
+        entity_id:
+        - switch.living_room_sonos_night_sound
+        - switch.living_room_sonos_speech_enhancement
+  - alias: Switched AWAY FROM PS5 or Live TV - disable Sonos enhancements
+    conditions:
+    - condition: trigger
+      id:
+      - from_ps5
+      - from_live_tv
+    sequence:
+    - alias: Turn off Night Sound and Speech Enhancement
+      action: switch.turn_off
+      target:
+        entity_id:
+        - switch.living_room_sonos_night_sound
+        - switch.living_room_sonos_speech_enhancement
+mode: single
+category: 01KR9GEKQ24R9BQ1KXEFJ4YPN7

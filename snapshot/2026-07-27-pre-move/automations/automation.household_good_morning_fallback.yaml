@@ -1,0 +1,20 @@
+id: '1784207083088'
+alias: 'Household: Good Morning Fallback'
+description: Turns off everyone_sleeping at 9:00 AM if still on — safety net for when
+  the Good Morning HomeKit scene was not run.
+triggers:
+- trigger: time
+  at: 09:00:00
+  alias: 9 AM fallback
+conditions:
+- condition: state
+  entity_id: input_boolean.everyone_sleeping
+  state: 'on'
+  alias: Everyone sleeping still on
+actions:
+- alias: Turn off everyone sleeping
+  action: input_boolean.turn_off
+  target:
+    entity_id: input_boolean.everyone_sleeping
+mode: single
+category: 01J8E2QBF6XVHBZKTQCZ73TK5T

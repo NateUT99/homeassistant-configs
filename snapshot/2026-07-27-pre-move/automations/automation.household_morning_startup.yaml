@@ -1,0 +1,61 @@
+id: '1694571042042'
+alias: 'Household: Morning Startup'
+description: 'Daily morning startup tasks, split by presence.
+
+
+  **Always:** Resets movie_mode and night_mode to off.
+
+
+  **If anyone is home:** Clears any thermostat hold (returns ecobee to its scheduled
+  comfort setting) if all exterior doors and windows are closed; starts turntable
+  equipment.'
+triggers:
+- alias: Weekday — 6:30am
+  at: 06:30:00
+  id: weekday
+  weekday:
+  - mon
+  - tue
+  - wed
+  - thu
+  - fri
+  trigger: time
+- alias: Weekend — 7:30am
+  at: 07:30:00
+  id: weekend
+  weekday:
+  - sun
+  - sat
+  trigger: time
+conditions: []
+actions:
+- alias: Reset household state flags
+  action: input_boolean.turn_off
+  target:
+    entity_id:
+    - input_boolean.movie_mode
+    - input_boolean.sonos_night_mode
+- alias: Additional actions when someone is home
+  if:
+  - alias: Someone home
+    condition: numeric_state
+    entity_id: sensor.household_people_home
+    above: 0
+  then:
+  - alias: Clear thermostat hold if exterior is closed
+    if:
+    - alias: All exterior doors and windows closed
+      condition: state
+      entity_id: binary_sensor.exterior_door_window_open
+      state: 'off'
+    then:
+    - alias: Clear thermostat hold
+      action: button.press
+      target:
+        entity_id: button.living_room_thermostat_clear_hold
+  - alias: Start turntable equipment
+    action: script.turn_on
+    target:
+      entity_id: script.turn_on_turntable_equipment
+mode: single
+category: 01J8E2QBF6XVHBZKTQCZ73TK5T

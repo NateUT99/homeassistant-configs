@@ -1,0 +1,31 @@
+id: '1779665656871'
+alias: 'Avery''s Room: Sleep Wind Down'
+description: One hour after the household goes to sleep, turn off the noise machine
+  in Avery's room. Only runs when Avery's sleep mode is on, so the noise machine stays
+  on during adult-only sleep periods.
+triggers:
+- alias: Everyone has been asleep for one hour
+  entity_id: input_boolean.everyone_sleeping
+  to: 'on'
+  for:
+    hours: 1
+  id: everyone_asleep_one_hour
+  trigger: state
+conditions:
+- alias: Avery is in sleep mode
+  condition: state
+  entity_id: input_boolean.avery_sleeping
+  state: 'on'
+actions:
+- alias: Turn off Avery's noise machine
+  action: switch.turn_off
+  target:
+    entity_id: switch.avery_room_noise_machine
+- alias: Dim bed strip to 1%
+  action: light.turn_on
+  target:
+    entity_id: light.avery_room_bed_strip
+  data:
+    brightness_pct: 1
+mode: single
+category: 01KS3AHT8PTYGYCRABF23BFTXH

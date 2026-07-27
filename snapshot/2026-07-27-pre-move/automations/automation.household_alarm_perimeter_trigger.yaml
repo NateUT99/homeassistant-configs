@@ -1,0 +1,100 @@
+id: '1735829339669'
+alias: 'Household: Alarm Perimeter Trigger'
+description: If the home alarm is armed (away or night) and a perimeter sensor opens,
+  trigger the alarm. The kitchen camera is only honored when armed away, so normal
+  nighttime movement in the kitchen does not trigger the alarm. Before triggering,
+  stores the trigger source in input_text.alarm_trigger_description so the notification
+  automation can name it in the push message. When person detection fires, also saves
+  a camera snapshot to /config/www/snapshots/alarm_latest.jpg.
+triggers:
+- alias: Perimeter door, window, or garage opened (from closed)
+  entity_id:
+  - binary_sensor.entrance_front_door_contact
+  - binary_sensor.office_sliding_door_contact
+  - binary_sensor.garage_interior_door_contact
+  - binary_sensor.master_bedroom_windows
+  - binary_sensor.avery_room_window
+  - cover.garage_door
+  to:
+  - 'on'
+  id: perimeter
+  trigger: state
+  from:
+  - 'off'
+- alias: Kitchen camera detected a person
+  entity_id:
+  - binary_sensor.kitchen_camera_person
+  to:
+  - 'on'
+  id: interior_motion
+  trigger: state
+conditions:
+- alias: Alarm is armed (away or night)
+  condition: or
+  conditions:
+  - condition: state
+    entity_id: alarm_control_panel.home_alarm
+    state: armed_away
+  - condition: state
+    entity_id: alarm_control_panel.home_alarm
+    state: armed_night
+actions:
+- alias: Route by alarm state
+  choose:
+  - alias: Armed away - any perimeter or interior motion trigger
+    conditions:
+    - condition: state
+      entity_id: alarm_control_panel.home_alarm
+      state: armed_away
+    sequence:
+    - alias: Record trigger description
+      action: input_text.set_value
+      target:
+        entity_id: input_text.alarm_trigger_description
+      data:
+        value: '{{ trigger_description | trim }}'
+    - alias: Save camera snapshot if person detected
+      if:
+      - alias: Trigger was person detection
+        condition: template
+        value_template: '{{ trigger.entity_id == ''binary_sensor.kitchen_camera_person''
+          }}'
+      then:
+      - alias: Snapshot kitchen camera to disk
+        action: camera.snapshot
+        target:
+          entity_id: camera.kitchen_camera_fluent
+        data:
+          filename: /config/www/snapshots/alarm_latest.jpg
+    - alias: Trigger the alarm
+      action: alarm_control_panel.alarm_trigger
+      target:
+        entity_id: alarm_control_panel.home_alarm
+  - alias: Armed night - perimeter only (ignore interior motion)
+    conditions:
+    - condition: state
+      entity_id: alarm_control_panel.home_alarm
+      state: armed_night
+    - condition: trigger
+      id: perimeter
+    sequence:
+    - alias: Record trigger description
+      action: input_text.set_value
+      target:
+        entity_id: input_text.alarm_trigger_description
+      data:
+        value: '{{ trigger_description | trim }}'
+    - alias: Trigger the alarm
+      action: alarm_control_panel.alarm_trigger
+      target:
+        entity_id: alarm_control_panel.home_alarm
+mode: single
+variables:
+  trigger_description: '{% set label_map = {''cover.garage_door'': ''Garage Door Opened'',
+    ''binary_sensor.entrance_front_door_contact'': ''Front Door Opened'', ''binary_sensor.office_sliding_door_contact'':
+    ''Office Sliding Door Opened'', ''binary_sensor.garage_interior_door_contact'':
+    ''Garage Interior Door Opened'', ''binary_sensor.master_bedroom_windows'': ''Master
+    Bedroom Windows Opened'', ''binary_sensor.avery_room_window'': ''Avery Room Window
+    Opened'', ''binary_sensor.kitchen_camera_person'': ''Person Detected (Kitchen
+    Camera)''} %}{{ label_map.get(trigger.entity_id, ''Unknown sensor'') }}'
+category: 01KRKESQARY7R9TR5V88FMZV1K

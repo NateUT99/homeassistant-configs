@@ -1,0 +1,110 @@
+id: '1777383650878'
+alias: 'Living Room: TV Bias Light Controller'
+description: 'Sole owner of light.living_room_tv_lights during TV sessions. Maintains
+  the invariant: bias is ON only when (TV is on) AND (Hue Sync light sync is off)
+  AND (room is dim per sensor.living_room_motion_illuminance).
+
+  Triggers on any input that affects this invariant and re-evaluates the whole condition
+  every time, so it converges to the correct state regardless of which input changed.
+
+  Room brightness uses dual thresholds for hysteresis: bias considers the room "dim"
+  when illuminance is below 15 lux, and "lit" when above 25 lux. The 10-lux deadband
+  prevents flapping when the sensor sits near a single threshold.
+
+  A 1-second delay before turning bias on covers the brief window when the Hue Sync
+  Box is releasing control of the strip after sync stops.
+
+  Bias settings are inlined here: 40% brightness, 6500K (D65 white point to match
+  TV reference white).
+
+  Off-TV protection (catching manual bias turn-ons while TV is off) is handled by
+  a separate automation, not this one. This avoids a feedback loop where the bias
+  light''s own state change re-triggers this controller and a brief illuminance spike
+  from the strip itself causes a false "should be off" decision.'
+triggers:
+- entity_id: media_player.living_room_tv
+  from: 'on'
+  id: tv_off
+  alias: TV turned off
+  trigger: state
+- entity_id: media_player.living_room_tv
+  to: 'on'
+  id: tv_on
+  alias: TV turned on
+  trigger: state
+- entity_id: switch.living_room_sync_box_light_sync
+  from: 'on'
+  id: sync_off
+  alias: Light sync turned off
+  trigger: state
+- entity_id: switch.living_room_sync_box_light_sync
+  to: 'on'
+  id: sync_on
+  alias: Light sync turned on
+  trigger: state
+- entity_id: sensor.living_room_motion_illuminance
+  below: 15
+  id: room_dim
+  alias: Room became dim (below 15 lux)
+  trigger: numeric_state
+- alias: Room became lit (above 20 lux)
+  entity_id:
+  - sensor.living_room_motion_illuminance
+  above: 20
+  id: room_lit
+  trigger: numeric_state
+conditions: []
+actions:
+- alias: Determine bias state
+  choose:
+  - alias: Bias should be ON (TV on, sync off, room dim)
+    conditions:
+    - condition: state
+      entity_id: media_player.living_room_tv
+      state: 'on'
+      alias: TV is on
+    - condition: state
+      entity_id: switch.living_room_sync_box_light_sync
+      state: 'off'
+      alias: Light sync is off
+    - condition: numeric_state
+      entity_id: sensor.living_room_motion_illuminance
+      below: 15
+      alias: Room is dim (below 15 lux)
+    sequence:
+    - delay:
+        seconds: 1
+      alias: Brief delay for sync box to release strip
+    - alias: Set bias light to 40% / 6500K
+      action: light.turn_on
+      target:
+        entity_id: light.living_room_tv_lights
+      data:
+        brightness_pct: 40
+        color_temp_kelvin: 6500
+  - alias: Bias stays ON in deadband (already on, illuminance between 15 and 25)
+    conditions:
+    - condition: state
+      entity_id: media_player.living_room_tv
+      state: 'on'
+      alias: TV is on
+    - condition: state
+      entity_id: switch.living_room_sync_box_light_sync
+      state: 'off'
+      alias: Light sync is off
+    - condition: state
+      entity_id: light.living_room_tv_lights
+      state: 'on'
+      alias: Bias light is already on
+    - alias: Room is in hysteresis deadband (below 20 lux)
+      condition: numeric_state
+      entity_id: sensor.living_room_motion_illuminance
+      below: 20
+    sequence: []
+  default:
+  - alias: Bias should be OFF
+    action: light.turn_off
+    target:
+      entity_id: light.living_room_tv_lights
+mode: restart
+category: 01KR9GEKQ24R9BQ1KXEFJ4YPN7

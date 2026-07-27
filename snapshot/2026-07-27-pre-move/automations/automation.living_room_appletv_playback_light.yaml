@@ -1,0 +1,72 @@
+id: '1694904412856'
+alias: 'Living Room: AppleTV Playback Light'
+description: 'When movie mode is enabled, turns on the living room fan light when
+  AppleTV is paused, and off when playback resumes. Adaptive Lighting sleep mode controls
+  brightness.
+
+
+  An idle trigger (10s debounce) is present but disabled — it was causing false positives
+  during Dolby Vision negotiation. Re-enable and increase the debounce if testing
+  shows the experience is stable without it.'
+triggers:
+- alias: AppleTV paused while playing
+  entity_id: media_player.living_room_appletv
+  from: playing
+  to: paused
+  id: paused_or_idle
+  trigger: state
+- alias: AppleTV idle for 5 seconds after playing
+  entity_id:
+  - media_player.living_room_appletv
+  from:
+  - playing
+  to:
+  - idle
+  for:
+    hours: 0
+    minutes: 0
+    seconds: 10
+  id: paused_or_idle
+  enabled: false
+  trigger: state
+- alias: AppleTV playing
+  entity_id: media_player.living_room_appletv
+  to: playing
+  id: playing
+  trigger: state
+conditions:
+- alias: Only run when movie mode is enabled
+  condition: state
+  entity_id: input_boolean.movie_mode
+  state: 'on'
+  enabled: true
+- condition: state
+  entity_id: switch.living_room_sync_box_light_sync
+  state:
+  - 'on'
+  enabled: false
+actions:
+- choose:
+  - alias: Paused or idle — turn light on
+    conditions:
+    - condition: trigger
+      id: paused_or_idle
+      alias: Triggered by pause or idle
+    sequence:
+    - alias: Turn on living room fan light (Adaptive Lighting sets brightness)
+      action: light.turn_on
+      target:
+        entity_id: light.living_room_fan
+      data: {}
+  - alias: Playing — turn light off
+    conditions:
+    - condition: trigger
+      id: playing
+      alias: Triggered by playback resuming
+    sequence:
+    - alias: Turn off living room fan light
+      action: light.turn_off
+      target:
+        entity_id: light.living_room_fan
+mode: single
+category: 01KR9GEKQ24R9BQ1KXEFJ4YPN7

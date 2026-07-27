@@ -1,0 +1,110 @@
+id: '1780273251225'
+alias: 'Household: Trash Pickup Reminder'
+description: At 19:00, queries calendar.family for tomorrow's pickup events and arms
+  the pending boolean with the label and date. Sends push notification and kitchen
+  TTS. At 19:30 and 20:00, sends TTS repeats if pickup is still pending and someone
+  is home.
+triggers:
+- id: evening_check
+  alias: 7pm daily check
+  trigger: time
+  at: '19:00:00'
+- id: tts_repeat
+  alias: 7:30pm TTS repeat
+  trigger: time
+  at: '19:30:00'
+- id: tts_repeat
+  alias: 8pm TTS repeat
+  trigger: time
+  at: '20:00:00'
+conditions: []
+actions:
+- alias: Route by trigger
+  choose:
+  - alias: Evening check — query calendar and notify
+    conditions:
+    - condition: trigger
+      id: evening_check
+    sequence:
+    - alias: Get tomorrow's family calendar events
+      action: calendar.get_events
+      target:
+        entity_id: calendar.family
+      data:
+        start_date_time: '{{ (now() + timedelta(days=1)).strftime(''%Y-%m-%d'') }}T00:00:00'
+        end_date_time: '{{ (now() + timedelta(days=1)).strftime(''%Y-%m-%d'') }}T23:59:59'
+      response_variable: calendar_result
+    - variables:
+        pickup_events: '{{ calendar_result[''calendar.family''][''events''] | selectattr(''summary'',
+          ''in'', [''Trash Pickup'', ''Trash & Recycling Pickup'']) | list }}'
+        has_pickup: '{{ pickup_events | length > 0 }}'
+        label: '{{ ''Trash & Recycling'' if pickup_events | selectattr(''summary'',
+          ''equalto'', ''Trash & Recycling Pickup'') | list | length > 0 else ''Trash''
+          }}'
+        pickup_date: '{{ (now() + timedelta(days=1)).strftime(''%a, %b %-d'') }}'
+    - alias: If pickup is tomorrow, arm pending state and notify
+      if:
+      - condition: template
+        value_template: '{{ has_pickup }}'
+      then:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.trash_pickup_pending
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.trash_pickup_pending_label
+        data:
+          value: '{{ label }}'
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.trash_next_pickup_date
+        data:
+          value: '{{ pickup_date }}'
+      - alias: Send actionable iOS notification
+        action: notify.mobile_app_nates_iphone
+        data:
+          title: Pickup Tomorrow
+          message: '{{ label }} bin{{ ''s'' if ''&'' in label else '''' }} out tonight'
+          data:
+            tag: pickup
+            actions:
+            - action: PICKUP_MARK_COMPLETE
+              title: Mark Complete
+      - alias: TTS to kitchen if someone home
+        if:
+        - condition: numeric_state
+          entity_id: sensor.household_people_home
+          above: 0
+        then:
+        - action: script.household_tts_announce
+          data:
+            message: Don't forget, the {{ label }} bin{{ 's' if '&' in label else
+              '' }} need{{ '' if '&' in label else 's' }} to go out tonight!
+            target: kitchen
+            notification_title: Pickup Tomorrow
+      else:
+      - alias: No pickup tomorrow — clear pending state
+        action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.trash_pickup_pending
+  - alias: TTS repeat — if pickup still pending and someone home
+    conditions:
+    - condition: trigger
+      id: tts_repeat
+    - condition: state
+      entity_id: input_boolean.trash_pickup_pending
+      state: 'on'
+    - condition: numeric_state
+      entity_id: sensor.household_people_home
+      above: 0
+    sequence:
+    - variables:
+        label: '{{ states(''input_text.trash_pickup_pending_label'') }}'
+    - action: script.household_tts_announce
+      data:
+        message: Reminder — the {{ label }} bin{{ 's' if '&' in label else '' }} still
+          need{{ '' if '&' in label else 's' }} to go out tonight!
+        target: kitchen
+        notification_title: Pickup Reminder
+mode: single
+category: 01J8E2QBF6XVHBZKTQCZ73TK5T

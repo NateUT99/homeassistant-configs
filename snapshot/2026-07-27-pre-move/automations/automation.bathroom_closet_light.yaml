@@ -1,0 +1,53 @@
+id: '1694546798854'
+alias: 'Bathroom: Closet Light'
+description: Controls the bathroom hallway ceiling light based on the closet door
+  state. Opens turn the light on at 95%; closes turn it off.
+triggers:
+- entity_id:
+  - binary_sensor.bathroom_closet_door_contact
+  from:
+  - 'off'
+  to:
+  - 'on'
+  id: open
+  alias: Closet door opened
+  trigger: state
+- entity_id:
+  - binary_sensor.bathroom_closet_door_contact
+  from:
+  - 'on'
+  to:
+  - 'off'
+  id: closed
+  alias: Closet door closed
+  trigger: state
+conditions: []
+actions:
+- choose:
+  - conditions:
+    - condition: trigger
+      id:
+      - open
+      alias: Triggered by door open
+    sequence:
+    - action: light.turn_on
+      target:
+        entity_id: light.bathroom_hallway_ceiling
+      data:
+        brightness_pct: 95
+      alias: Turn on hallway ceiling at 95%
+    alias: Door opened
+  - conditions:
+    - condition: trigger
+      id:
+      - closed
+      alias: Triggered by door close
+    sequence:
+    - action: light.turn_off
+      target:
+        entity_id: light.bathroom_hallway_ceiling
+      alias: Turn off hallway ceiling
+    alias: Door closed
+  alias: Route by door state
+mode: single
+category: 01KQA4YGXGDK2DH076K5A7H8YH

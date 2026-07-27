@@ -1,0 +1,24 @@
+id: '1757650240314'
+alias: 'Household: Vacuum Daily Reset'
+description: Resets vacuum daily-state helpers at midnight so the last-leaves-home
+  automation can correctly decide whether to run the vacuum the following day.
+triggers:
+- at: 00:00:00
+  alias: Midnight
+  trigger: time
+conditions: []
+actions:
+- action: input_number.set_value
+  data:
+    value: 0
+  target:
+    entity_id: input_number.roborock_daily_max_progress
+  alias: Reset Roborock daily max progress to 0
+- action: input_select.select_option
+  data:
+    option: 'No'
+  target:
+    entity_id: input_select.vacuum_ran_today
+  alias: Set "Vacuum Ran Today" to "No"
+mode: single
+category: 01J8E2QBF6XVHBZKTQCZ73TK5T

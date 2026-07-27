@@ -1,0 +1,67 @@
+id: '1694823100357'
+alias: 'Master Bedroom: Bathroom Light'
+description: Controls light.master_bathroom_fan based on the bathroom door contact
+  sensor. Opening the door turns the light on — at 95% if everyone is awake, 5% if
+  everyone is sleeping. Closing the door turns it off. Closing while inside will also
+  turn the light off; occupancy detection is not yet in place.
+triggers:
+- entity_id:
+  - binary_sensor.master_bathroom_door_contact
+  from: 'off'
+  to: 'on'
+  id: open
+  alias: Bathroom door opened
+  trigger: state
+- entity_id:
+  - binary_sensor.master_bathroom_door_contact
+  from: 'on'
+  to: 'off'
+  id: closed
+  alias: Bathroom door closed
+  trigger: state
+conditions: []
+actions:
+- choose:
+  - conditions:
+    - condition: trigger
+      id:
+      - open
+      alias: Triggered by door opening
+    sequence:
+    - if:
+      - condition: state
+        entity_id: input_boolean.everyone_sleeping
+        state: 'off'
+        alias: Everyone is awake
+      then:
+      - action: light.turn_on
+        target:
+          entity_id:
+          - light.master_bathroom_fan
+        data:
+          brightness_pct: 95
+        alias: Turn on Bathroom Fan light at 95%
+      else:
+      - alias: Turn on Bathroom Fan light at 5%
+        action: light.turn_on
+        target:
+          entity_id:
+          - light.master_bathroom_fan
+        data:
+          brightness_pct: 5
+      alias: Set brightness based on sleep state
+    alias: Door opened — turn on light
+  - conditions:
+    - condition: trigger
+      id:
+      - closed
+      alias: Triggered by door closing
+    sequence:
+    - action: light.turn_off
+      target:
+        entity_id:
+        - light.master_bathroom_fan
+      alias: Turn off bathroom fan light
+    alias: Door closed — turn off light
+mode: single
+category: 01KQA4YGXGDK2DH076K5A7H8YH

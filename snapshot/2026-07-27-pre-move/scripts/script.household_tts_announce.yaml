@@ -1,0 +1,82 @@
+alias: 'Household: TTS Announce'
+description: 'Central TTS dispatcher. If either Mac camera sensor is not Inactive
+  (Nate is likely on a video call), suppresses the announcement and sends a push notification
+  fallback instead. Target: ''kitchen'', ''master_bedroom'', or ''auto'' (auto picks
+  master_bedroom when everyone_sleeping is on, kitchen otherwise).'
+mode: parallel
+max: 10
+fields:
+  message:
+    name: Message
+    description: The text to speak, or send as a push if TTS is suppressed.
+    required: true
+    example: The washer cycle has completed.
+    selector:
+      text: {}
+  target:
+    name: Target
+    description: 'TTS target: ''kitchen'', ''master_bedroom'', or ''auto''.'
+    required: false
+    default: auto
+    example: auto
+    selector:
+      select:
+        options:
+        - kitchen
+        - master_bedroom
+        - auto
+  notification_title:
+    name: Notification Title
+    description: Title for the push notification fallback when a video call is active.
+    required: false
+    default: Missed Announcement
+    example: Water Leak Alert
+    selector:
+      text: {}
+sequence:
+- alias: Skip TTS and push instead if Nate is on a video call
+  if:
+  - condition: or
+    conditions:
+    - condition: not
+      conditions:
+      - condition: state
+        entity_id: sensor.nate_mac_mini_active_camera
+        state: Inactive
+    - condition: not
+      conditions:
+      - condition: state
+        entity_id: sensor.nates_macbook_pro_active_camera
+        state: Inactive
+  then:
+  - alias: Send push notification fallback
+    action: notify.mobile_app_nates_iphone
+    data:
+      title: '{{ notification_title | default(''Missed Announcement'') }}'
+      message: '{{ message }}'
+  - stop: On video call — TTS suppressed, push sent
+- alias: Route to appropriate HomePod
+  choose:
+  - alias: Explicit master bedroom, or auto with everyone sleeping
+    conditions:
+    - condition: or
+      conditions:
+      - condition: template
+        value_template: '{{ target | default(''auto'') == ''master_bedroom'' }}'
+      - condition: and
+        conditions:
+        - condition: template
+          value_template: '{{ target | default(''auto'') == ''auto'' }}'
+        - condition: state
+          entity_id: input_boolean.everyone_sleeping
+          state: 'on'
+    sequence:
+    - alias: TTS to master bedroom HomePod
+      action: notify.reminder_master_bedroom
+      data:
+        message: '{{ message }}'
+  default:
+  - alias: TTS to kitchen HomePod
+    action: notify.reminder_kitchen
+    data:
+      message: '{{ message }}'

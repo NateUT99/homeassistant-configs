@@ -1,0 +1,170 @@
+id: '1783269125658'
+alias: 'Utility Room: Laundry Done Announcement'
+description: Announces on HomePod when the washer or dryer cycle completes. Handles
+  both appliances — announces a combined message when both are alerting, individual
+  messages otherwise. Repeats every 30 minutes until acknowledged, utility room door
+  opened, everyone sleeping, or nobody home. Re-announces immediately when household
+  re-engages (wake up or arrive home) while still alerting. When re-triggered by an
+  arrival, waits for the interior garage door to open then close (up to 10 + 5 minutes)
+  before announcing — so the person is actually inside before TTS fires.
+triggers:
+- alias: Washer status set to alerting
+  entity_id: input_select.utility_room_washer_status
+  id: status_alerting
+  to: alerting
+  trigger: state
+- alias: Dryer status set to alerting
+  entity_id: input_select.utility_room_dryer_status
+  id: status_alerting
+  to: alerting
+  trigger: state
+- alias: Everyone woke up while laundry may still be alerting
+  entity_id: input_boolean.everyone_sleeping
+  id: everyone_woke
+  to: 'off'
+  trigger: state
+- above: 0
+  alias: Someone arrived home while laundry may still be alerting
+  entity_id: sensor.household_people_home
+  id: someone_arrived
+  trigger: numeric_state
+conditions:
+- alias: Only proceed if at least one appliance is alerting
+  condition: or
+  conditions:
+  - condition: state
+    entity_id: input_select.utility_room_washer_status
+    state: alerting
+  - condition: state
+    entity_id: input_select.utility_room_dryer_status
+    state: alerting
+- alias: Only proceed if household is awake
+  condition: state
+  entity_id: input_boolean.everyone_sleeping
+  state: 'off'
+- above: 0
+  alias: Only proceed if someone is home
+  condition: numeric_state
+  entity_id: sensor.household_people_home
+actions:
+- alias: 'If arrival triggered: wait for interior door entry sequence'
+  if:
+  - condition: trigger
+    id: someone_arrived
+  then:
+  - alias: Wait for interior garage door to open (if not already open)
+    if:
+    - condition: state
+      entity_id: binary_sensor.garage_interior_door_contact
+      state: 'off'
+    then:
+    - alias: Wait for interior garage door to open
+      continue_on_timeout: true
+      timeout:
+        minutes: 10
+      wait_for_trigger:
+      - entity_id: binary_sensor.garage_interior_door_contact
+        from: 'off'
+        to: 'on'
+        trigger: state
+  - alias: Wait for interior garage door to close
+    continue_on_timeout: true
+    timeout:
+      minutes: 5
+    wait_for_trigger:
+    - entity_id: binary_sensor.garage_interior_door_contact
+      from: 'on'
+      to: 'off'
+      trigger: state
+  - alias: Buffer after entry
+    delay:
+      seconds: 30
+- alias: Repeat TTS every 30 minutes until all stop conditions met
+  repeat:
+    count: 20
+    sequence:
+    - alias: Stop if no appliances are alerting
+      if:
+      - condition: not
+        conditions:
+        - condition: or
+          conditions:
+          - condition: state
+            entity_id: input_select.utility_room_washer_status
+            state: alerting
+          - condition: state
+            entity_id: input_select.utility_room_dryer_status
+            state: alerting
+      then:
+      - stop: No laundry appliances are alerting
+    - alias: Stop if everyone sleeping
+      if:
+      - condition: state
+        entity_id: input_boolean.everyone_sleeping
+        state: 'on'
+      then:
+      - stop: Everyone went to sleep
+    - alias: Stop if nobody home
+      if:
+      - below: 1
+        condition: numeric_state
+        entity_id: sensor.household_people_home
+      then:
+      - stop: Nobody is home
+    - alias: Determine announcement message and title
+      variables:
+        announce_message: '{% if is_state(''input_select.utility_room_washer_status'',
+          ''alerting'') and is_state(''input_select.utility_room_dryer_status'', ''alerting'')
+          %}The washer and dryer cycles have both completed.{% elif is_state(''input_select.utility_room_washer_status'',
+          ''alerting'') %}The washer cycle has completed.{% else %}The dryer cycle
+          has completed.{% endif %}'
+        announce_title: '{% if is_state(''input_select.utility_room_washer_status'',
+          ''alerting'') and is_state(''input_select.utility_room_dryer_status'', ''alerting'')
+          %}Laundry Done{% elif is_state(''input_select.utility_room_washer_status'',
+          ''alerting'') %}Washer Done{% else %}Dryer Done{% endif %}'
+    - alias: Announce — master bedroom if Avery sleeping, kitchen otherwise
+      choose:
+      - alias: Avery sleeping — announce in master bedroom
+        conditions:
+        - condition: state
+          entity_id: input_boolean.avery_sleeping
+          state: 'on'
+        sequence:
+        - action: script.household_tts_announce
+          alias: TTS to master bedroom HomePod
+          data:
+            message: '{{ announce_message }}'
+            notification_title: '{{ announce_title }}'
+            target: master_bedroom
+      default:
+      - action: script.household_tts_announce
+        alias: TTS to kitchen HomePod
+        data:
+          message: '{{ announce_message }}'
+          notification_title: '{{ announce_title }}'
+          target: kitchen
+    - alias: Clear and stop if utility room door is open after announcement
+      if:
+      - condition: state
+        entity_id: binary_sensor.utility_room_door_contact
+        state: 'on'
+      then:
+      - action: input_select.select_option
+        alias: Set washer status to idle
+        data:
+          option: idle
+        target:
+          entity_id: input_select.utility_room_washer_status
+      - action: input_select.select_option
+        alias: Set dryer status to idle
+        data:
+          option: idle
+        target:
+          entity_id: input_select.utility_room_dryer_status
+      - stop: Utility room door was open after announcement — cleared all alerting
+          statuses and stopped
+    - alias: Wait 30 minutes before next announcement
+      delay:
+        minutes: 30
+mode: restart
+category: 01KS3AHTTAQVWP6HWNE9CJ207W

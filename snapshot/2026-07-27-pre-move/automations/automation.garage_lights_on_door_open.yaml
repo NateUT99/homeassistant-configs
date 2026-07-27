@@ -1,0 +1,32 @@
+id: '1694561882594'
+alias: 'Garage: Ceiling Lights On Door Open'
+description: When either garage door opens and the room is dark (illuminance below
+  10 lux), turn on the ceiling lights at 95%.
+triggers:
+- alias: When the Interior Garage Door is opened
+  entity_id:
+  - binary_sensor.garage_interior_door_contact
+  to:
+  - 'on'
+  trigger: state
+- alias: When the Exterior Garage Door is opening
+  entity_id:
+  - cover.garage_door
+  to:
+  - opening
+  trigger: state
+conditions:
+- condition: numeric_state
+  entity_id: sensor.garage_motion_illuminance
+  below: 10
+  alias: Room is dark
+actions:
+- alias: Turn on ceiling lights
+  data:
+    brightness_pct: 95
+  target:
+    entity_id:
+    - light.garage_ceiling
+  action: light.turn_on
+mode: single
+category: 01KQA4YGXGDK2DH076K5A7H8YH

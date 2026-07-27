@@ -1,0 +1,69 @@
+id: '1701225107247'
+alias: 'Household: Nate Presence'
+description: 'Nate-specific arrival and departure actions, gated by a 5-minute HA
+  uptime check to avoid false triggers on restart.
+
+
+  - **Arrival:** opens the garage door when iPhone activity is Automotive, Unknown,
+  or Unavailable (suppresses trigger on walks), then disables guest mode.
+
+  - **Departure:** trigger is wired but disabled — no actions yet. Re-enable and populate
+  the sequence when departure logic is needed.'
+triggers:
+- entity_id:
+  - person.nate
+  from: home
+  to: not_home
+  for:
+    hours: 0
+    minutes: 0
+    seconds: 30
+  id: away
+  alias: Nate left home
+  enabled: false
+  trigger: state
+- entity_id:
+  - person.nate
+  from: not_home
+  to: home
+  id: home
+  alias: Nate arrived home
+  trigger: state
+conditions: []
+actions:
+- choose:
+  - conditions:
+    - condition: trigger
+      id:
+      - away
+      alias: Triggered by Nate leaving home
+    sequence: []
+    alias: Nate left home — no actions
+  - conditions:
+    - condition: trigger
+      id:
+      - home
+      alias: Triggered by Nate arriving home
+    sequence:
+    - if:
+      - condition: state
+        entity_id: sensor.nates_iphone_activity
+        state:
+        - Automotive
+        - Unknown
+        - unavailable
+        alias: Activity is Automotive, Unknown, or Unavailable
+      then:
+      - alias: Open the Garage Door
+        action: cover.open_cover
+        target:
+          entity_id: cover.garage_door
+      alias: Open Garage Door if Driving
+    - alias: Disable Guest Mode
+      action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.guest_mode
+    alias: Nate arrived home
+  enabled: true
+mode: single
+category: 01KS3AHT8PTYGYCRABF23BFTXH

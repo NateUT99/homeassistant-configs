@@ -1,0 +1,55 @@
+id: '1774136249870'
+alias: 'Garage: Ceiling Remote'
+description: Controls light.garage_ceiling via a single-button Zigbee remote. Single
+  press toggles the light at 95% brightness. Double, hold, and release triggers are
+  wired but disabled — reserved for future gestures.
+triggers:
+- domain: mqtt
+  device_id: a84043239e4b0a10a94d37e987c867be
+  type: action
+  subtype: single
+  id: single
+  alias: Button single press
+  trigger: device
+- domain: mqtt
+  device_id: a84043239e4b0a10a94d37e987c867be
+  type: action
+  subtype: double
+  id: double
+  enabled: false
+  alias: Button double press
+  trigger: device
+- domain: mqtt
+  device_id: a84043239e4b0a10a94d37e987c867be
+  type: action
+  subtype: hold
+  id: hold
+  enabled: false
+  alias: Button hold
+  trigger: device
+- domain: mqtt
+  device_id: a84043239e4b0a10a94d37e987c867be
+  type: action
+  subtype: release
+  id: release
+  enabled: false
+  alias: Button release
+  trigger: device
+conditions: []
+actions:
+- choose:
+  - conditions:
+    - condition: trigger
+      id:
+      - single
+      alias: Triggered by single press
+    sequence:
+    - action: light.toggle
+      target:
+        entity_id: light.garage_ceiling
+      data:
+        brightness_pct: 95
+      alias: Toggle garage ceiling at 95%
+    alias: Single press — toggle ceiling
+mode: single
+category: 01KQA4YGXGDK2DH076K5A7H8YH

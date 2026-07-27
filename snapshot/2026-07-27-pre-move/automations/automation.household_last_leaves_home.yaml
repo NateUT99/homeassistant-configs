@@ -1,0 +1,93 @@
+id: '1712689418142'
+alias: 'Household: Last Leaves Home'
+description: Actions to run when the last person leaves home (sensor.household_people_home
+  holds at 0 for 2 minutes 30 seconds). Broadcasts turn-off commands to all noonehome-labeled
+  devices, sets thermostat to Away, disables kitchen camera privacy, starts the vacuum
+  if it has not run today (9am–7pm window), and arms the alarm in away mode.
+triggers:
+- entity_id:
+  - sensor.household_people_home
+  to: '0'
+  for:
+    hours: 0
+    minutes: 2
+    seconds: 30
+  alias: Last person leaves home for at least 2 minutes 30 seconds
+  trigger: state
+actions:
+- alias: Close garage doors tagged as "No One Is Home"
+  action: cover.close_cover
+  target:
+    label_id: noonehome
+- alias: Turn off lights tagged as "No One Is Home"
+  action: light.turn_off
+  target:
+    label_id: noonehome
+    entity_id:
+    - light.z2m_last_person_leaves
+    - light.hue_last_person_leaves
+- alias: Turn off switches tagged as "No One Is Home"
+  action: switch.turn_off
+  target:
+    label_id: noonehome
+    entity_id: switch.z2m_last_person_leaves
+  data: {}
+- alias: Turn off media players tagged as "No One Is Home"
+  action: media_player.turn_off
+  target:
+    label_id: noonehome
+- alias: Turn off fans tagged as "No One Is Home"
+  action: fan.turn_off
+  target:
+    label_id: noonehome
+- alias: Set thermostat mode to Away
+  action: select.select_option
+  target:
+    entity_id: select.living_room_thermostat_current_mode
+  data:
+    option: away
+- alias: Disable kitchen camera privacy mode
+  action: switch.turn_off
+  target:
+    entity_id: switch.kitchen_camera_privacy_mode
+- alias: Run scripts tagged as "No One Is Home"
+  action: script.turn_on
+  target:
+    label_id: noonehome
+- alias: Start Roborock cleaning if it hasn't already for the day
+  if:
+  - condition: state
+    entity_id: input_select.vacuum_ran_today
+    state: 'No'
+    alias: Vacuum has not run today
+  - condition: time
+    after: 09:00:00
+    before: '19:00:00'
+    alias: Within cleaning hours (9am–7pm)
+  - condition: not
+    conditions:
+    - condition: state
+      entity_id: vacuum.roborock_q8_max
+      state: cleaning
+      alias: Vacuum is currently cleaning
+    alias: Vacuum is not already cleaning
+  - condition: state
+    entity_id: input_boolean.vacuum_routine_pause
+    state: 'off'
+    alias: Vacuum routine is not paused
+  then:
+  - alias: Start cleaning the apartment
+    action: vacuum.start
+    target:
+      entity_id: vacuum.roborock_q8_max
+  - alias: Send "start cleaning" notification to Nate's phone
+    action: notify.mobile_app_nates_iphone
+    data:
+      message: Roborock has started cleaning.
+      title: Colony Drive
+- alias: Arm the home alarm in away mode
+  action: alarm_control_panel.alarm_arm_away
+  target:
+    entity_id: alarm_control_panel.home_alarm
+mode: single
+category: 01KS3AHT8PTYGYCRABF23BFTXH

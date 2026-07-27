@@ -1,0 +1,66 @@
+id: '1777383524280'
+alias: 'Living Room: TV Power Handler'
+description: 'Owns TV power transitions. On TV-on, powers up the Hue Sync Box. On
+  TV-off, cleans up: powers down the sync box, turns off light sync, clears movie_mode,
+  and disables Sonos Night Sound / Speech Enhancement if active. Bias lighting is
+  handled by the Bias Light Controller automation, not here.
+
+  LG WebOS TVs report "unavailable" rather than "off" when powered off (the network
+  interface drops with power), so both states are treated as "TV is off."'
+triggers:
+- entity_id:
+  - media_player.living_room_tv
+  from:
+  - 'off'
+  - unavailable
+  to:
+  - 'on'
+  id: tv_on
+  alias: TV turned on
+  trigger: state
+- entity_id: media_player.living_room_tv
+  from: 'on'
+  to:
+  - 'off'
+  - unavailable
+  id: tv_off
+  alias: TV turned off
+  trigger: state
+conditions: []
+actions:
+- choose:
+  - alias: TV turned on
+    conditions:
+    - condition: trigger
+      id: tv_on
+    sequence:
+    - alias: Power on the Hue Sync Box
+      action: switch.turn_on
+      target:
+        entity_id: switch.living_room_sync_box_power
+  - alias: TV turned off
+    conditions:
+    - condition: trigger
+      id: tv_off
+    sequence:
+    - alias: Turn off light sync (resets intent for next session)
+      action: switch.turn_off
+      target:
+        entity_id: switch.living_room_sync_box_light_sync
+    - alias: Power off the Hue Sync Box
+      action: switch.turn_off
+      target:
+        entity_id: switch.living_room_sync_box_power
+    - alias: Clear movie mode
+      action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.movie_mode
+    - alias: Disable Sonos Night Sound and Speech Enhancement
+      action: switch.turn_off
+      target:
+        entity_id:
+        - switch.living_room_sonos_night_sound
+        - switch.living_room_sonos_speech_enhancement
+  alias: Route by trigger type
+mode: single
+category: 01KR9GEKQ24R9BQ1KXEFJ4YPN7

@@ -1,0 +1,53 @@
+id: '1694560747494'
+alias: 'Utility Room: Ceiling Light'
+description: Controls the utility room ceiling light based on door state. Opening
+  turns it on at 95%; closing turns it off.
+triggers:
+- entity_id:
+  - binary_sensor.utility_room_door_contact
+  from:
+  - 'off'
+  id: open
+  to:
+  - 'on'
+  alias: Door opened
+  trigger: state
+- entity_id:
+  - binary_sensor.utility_room_door_contact
+  from:
+  - 'on'
+  to:
+  - 'off'
+  id: closed
+  alias: Door closed
+  trigger: state
+conditions: []
+actions:
+- alias: Route by door state
+  choose:
+  - conditions:
+    - condition: trigger
+      id:
+      - open
+      alias: Triggered by door open
+    sequence:
+    - alias: Turn on ceiling at 95%
+      action: light.turn_on
+      target:
+        entity_id: light.utility_room_ceiling
+      data:
+        brightness_pct: 95
+    alias: Door opened
+  - conditions:
+    - condition: trigger
+      id:
+      - closed
+      alias: Triggered by door close
+    sequence:
+    - action: light.turn_off
+      target:
+        entity_id: light.utility_room_ceiling
+      alias: Turn off ceiling
+    alias: Door closed
+mode: single
+category: 01KQA4YGXGDK2DH076K5A7H8YH

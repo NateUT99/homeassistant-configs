@@ -1,0 +1,98 @@
+id: '1773758988822'
+alias: 'Office: Camera Lighting'
+description: 'Turns off ceiling lights and activates camera lighting when the Studio
+  Display Camera turns on. Restores monitor light (if Studio Display is active primary)
+  and turns off camera lighting when the camera has been off for 15 seconds.
+
+  '
+triggers:
+- entity_id:
+  - sensor.nate_mac_mini_active_camera
+  - sensor.nates_macbook_pro_active_camera
+  to: Studio Display Camera
+  id: 'on'
+  trigger: state
+- entity_id:
+  - sensor.nate_mac_mini_active_camera
+  - sensor.nates_macbook_pro_active_camera
+  from: Studio Display Camera
+  id: 'off'
+  for:
+    seconds: 15
+  trigger: state
+conditions: []
+actions:
+- choose:
+  - conditions:
+    - condition: trigger
+      id: 'on'
+      alias: Triggered by camera turning on
+    sequence:
+    - alias: Check Litra availability before applying camera preset
+      choose:
+      - alias: Litra unavailable — skip preset and notify
+        conditions:
+        - condition: state
+          entity_id: sensor.litra_glow_status
+          state:
+          - unavailable
+          - unknown
+          alias: Litra Glow is unavailable or disconnected
+        sequence:
+        - alias: Notify Litra unavailable
+          action: notify.mobile_app_nates_macbook_pro
+          data:
+            title: ⚠️ Camera Lighting Unavailable
+            message: Check the USB cable and replug if needed!
+      default:
+      - action: light.turn_off
+        target:
+          entity_id:
+          - light.office_ceiling
+          - light.office_screen_bar
+        alias: Turn off office ceiling and screen bar
+      - action: light.turn_on
+        target:
+          entity_id: light.office_desk_key_light
+        data:
+          brightness_pct: 45
+          color_temp_kelvin: 4500
+        alias: Turn on desk key light for camera
+    alias: Camera turned on
+  - conditions:
+    - condition: trigger
+      id: 'off'
+      alias: Triggered by camera turning off
+    sequence:
+    - action: light.turn_off
+      target:
+        entity_id: light.office_desk_key_light
+      alias: Turn off desk key light
+    - condition: or
+      conditions:
+      - condition: and
+        conditions:
+        - condition: state
+          entity_id: binary_sensor.nate_mac_mini_active
+          state: 'on'
+        - condition: state
+          entity_id: sensor.nate_mac_mini_primary_display_name
+          state: Studio Display
+      - condition: and
+        conditions:
+        - condition: state
+          entity_id: binary_sensor.nates_macbook_pro_active
+          state: 'on'
+        - condition: state
+          entity_id: sensor.nates_macbook_pro_primary_display_name
+          state: Studio Display
+      alias: Either active computer has Studio Display as primary
+    - action: light.turn_on
+      target:
+        entity_id:
+        - light.office_screen_bar
+      data: {}
+      alias: Restore screen bar
+    alias: Camera turned off
+mode: single
+category: 01KQA4YGXGDK2DH076K5A7H8YH

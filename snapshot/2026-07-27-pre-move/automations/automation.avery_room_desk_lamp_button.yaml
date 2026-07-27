@@ -1,0 +1,196 @@
+id: '1778847759108'
+alias: 'Avery''s Room: Desk Lamp Button'
+description: "Controls Avery's Room desk lamp via the Aqara WXKG11LM single button.\n\
+  Gestures:\n  - Single tap, lamp off  → turn on in adaptive lighting mode\n  - Single\
+  \ tap, lamp on, adaptive  → enter color mode at pink\n  - Single tap, lamp on, color\
+  \  → advance to next color in cycle\n  - Double tap, lamp on  → return to adaptive\
+  \ lighting (snap back immediately)\n  - Hold, lamp on  → turn off\n\nMode detection:\
+  \ the lamp's color_mode attribute is the source of truth. color_temp = adaptive/normal\
+  \ mode; anything else (xy, hs) = color mode. This bulb reports xy when given an\
+  \ hs_color, so we check for color_temp to identify normal mode rather than checking\
+  \ for hs to identify color mode.\nAL coordination: color-setting branches call adaptive_lighting.set_manual_control\
+  \ with manual_control: true BEFORE setting hs_color, so AL backs off and doesn't\
+  \ race-override the color.\nState persistence: input_text.avery_room_desk_lamp_last_color\
+  \ stores the current color name across taps so the cycle can advance from the current\
+  \ color. Entering color mode from adaptive always resets to pink."
+triggers:
+- alias: Single tap
+  domain: mqtt
+  device_id: 3fb39f0a5d52e42c13c1dafd0037aa7d
+  type: action
+  subtype: single
+  id: single
+  trigger: device
+- alias: Double tap
+  domain: mqtt
+  device_id: 3fb39f0a5d52e42c13c1dafd0037aa7d
+  type: action
+  subtype: double
+  id: double
+  trigger: device
+- alias: Hold
+  domain: mqtt
+  device_id: 3fb39f0a5d52e42c13c1dafd0037aa7d
+  type: action
+  subtype: hold
+  id: hold
+  trigger: device
+conditions: []
+actions:
+- alias: Define color cycle and hue values
+  variables:
+    cycle:
+    - red
+    - orange
+    - yellow
+    - green
+    - cyan
+    - blue
+    - purple
+    - magenta
+    - pink
+    hues:
+      red: 0
+      orange: 30
+      yellow: 60
+      green: 120
+      cyan: 180
+      blue: 240
+      purple: 270
+      magenta: 300
+      pink: 330
+- alias: Route by gesture and light state
+  choose:
+  - alias: Single tap — lamp off — turn on in adaptive mode
+    conditions:
+    - alias: Single tap trigger
+      condition: trigger
+      id: single
+    - alias: Lamp is off
+      condition: state
+      entity_id: light.avery_room_desk_lamp
+      state: 'off'
+    sequence:
+    - alias: Turn on lamp at 95% brightness
+      action: light.turn_on
+      target:
+        entity_id: light.avery_room_desk_lamp
+      data:
+        brightness_pct: 95
+  - alias: Single tap — lamp on, adaptive mode — enter color mode at pink
+    conditions:
+    - alias: Single tap trigger
+      condition: trigger
+      id: single
+    - alias: Lamp is on
+      condition: state
+      entity_id: light.avery_room_desk_lamp
+      state: 'on'
+    - alias: Lamp is in adaptive (color_temp) mode
+      condition: template
+      value_template: '{{ state_attr(''light.avery_room_desk_lamp'', ''color_mode'')
+        == ''color_temp'' }}'
+    sequence:
+    - alias: Mark lamp as manually controlled so AL backs off
+      action: adaptive_lighting.set_manual_control
+      data:
+        manual_control: true
+        entity_id: switch.adaptive_lighting_color_only
+        lights:
+        - light.avery_room_desk_lamp
+    - alias: Persist pink as current color
+      action: input_text.set_value
+      target:
+        entity_id: input_text.avery_room_desk_lamp_last_color
+      data:
+        value: pink
+    - alias: Turn on lamp at 95% brightness in pink
+      action: light.turn_on
+      target:
+        entity_id: light.avery_room_desk_lamp
+      data:
+        hs_color:
+        - '{{ hues.pink }}'
+        - 100
+        brightness_pct: 95
+  - alias: Single tap — lamp on, color mode — advance to next color
+    conditions:
+    - alias: Single tap trigger
+      condition: trigger
+      id: single
+    - alias: Lamp is on
+      condition: state
+      entity_id: light.avery_room_desk_lamp
+      state: 'on'
+    - alias: Lamp is in a color mode (not adaptive)
+      condition: template
+      value_template: '{{ state_attr(''light.avery_room_desk_lamp'', ''color_mode'')
+        != ''color_temp'' }}'
+    sequence:
+    - alias: Mark lamp as manually controlled so AL backs off
+      action: adaptive_lighting.set_manual_control
+      data:
+        manual_control: true
+        entity_id: switch.adaptive_lighting_color_only
+        lights:
+        - light.avery_room_desk_lamp
+    - alias: Compute next color name (wraps at end of cycle)
+      variables:
+        next_name: '{%- set last = states(''input_text.avery_room_desk_lamp_last_color'')
+          -%} {%- set idx = cycle.index(last) if last in cycle else -1 -%} {%- set
+          next_idx = (idx + 1) % (cycle | length) -%} {{ cycle[next_idx] }}'
+    - alias: Persist new color name
+      action: input_text.set_value
+      target:
+        entity_id: input_text.avery_room_desk_lamp_last_color
+      data:
+        value: '{{ next_name }}'
+    - alias: Turn on lamp at 95% brightness with new color
+      action: light.turn_on
+      target:
+        entity_id: light.avery_room_desk_lamp
+      data:
+        hs_color:
+        - '{{ hues[next_name] }}'
+        - 100
+        brightness_pct: 95
+  - alias: Double tap — lamp on — return to adaptive mode
+    conditions:
+    - alias: Double tap trigger
+      condition: trigger
+      id: double
+    - alias: Lamp is on
+      condition: state
+      entity_id: light.avery_room_desk_lamp
+      state: 'on'
+    sequence:
+    - alias: Release adaptive lighting manual control
+      action: adaptive_lighting.set_manual_control
+      data:
+        manual_control: false
+        entity_id: switch.adaptive_lighting_color_only
+        lights:
+        - light.avery_room_desk_lamp
+    - alias: Apply adaptive lighting values immediately
+      action: adaptive_lighting.apply
+      data:
+        entity_id: switch.adaptive_lighting_color_only
+        lights:
+        - light.avery_room_desk_lamp
+        adapt_color: true
+  - alias: Hold — lamp on — turn off
+    conditions:
+    - alias: Hold trigger
+      condition: trigger
+      id: hold
+    - alias: Lamp is on
+      condition: state
+      entity_id: light.avery_room_desk_lamp
+      state: 'on'
+    sequence:
+    - alias: Turn off lamp
+      action: light.turn_off
+      target:
+        entity_id: light.avery_room_desk_lamp
+mode: restart
+category: 01KQA4YGXGDK2DH076K5A7H8YH

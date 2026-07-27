@@ -1,0 +1,223 @@
+id: '1782912399395'
+alias: 'Household: Bedtime Secure and Report'
+description: Fires when everyone_sleeping turns on. Checks whether all exterior doors
+  and the garage door are closed before arming the alarm in night mode. If the perimeter
+  is clear, arms immediately, then waits for the master bedroom door to close (if
+  open) before delivering a goodnight TTS report — waits up to 10 minutes; if the
+  door never closes, TTS is skipped. Once the door is confirmed closed, waits 15 seconds
+  before speaking (alarm confirmation, open windows if any, tomorrow's weather). If
+  a door is open, does not arm — instead sends an actionable iPhone notification naming
+  the door(s) with Retry and Arm Anyway buttons, and speaks a one-time HomePod warning.
+  Waits up to 10 minutes for the perimeter to clear, then auto-arms regardless. Mode
+  restart lets the Retry button cancel the wait and re-evaluate from the top.
+triggers:
+- alias: Everyone sleeping
+  trigger: state
+  entity_id:
+  - input_boolean.everyone_sleeping
+  from:
+  - 'off'
+  to:
+  - 'on'
+  id: sleep_on
+- alias: Retry arming — re-evaluate perimeter from top
+  trigger: event
+  event_type: mobile_app_notification_action
+  event_data:
+    action: BEDTIME_RETRY_ARM
+  id: retry
+- alias: Arm anyway despite open door
+  trigger: event
+  event_type: mobile_app_notification_action
+  event_data:
+    action: BEDTIME_ARM_ANYWAY
+  id: arm_anyway
+conditions:
+- alias: Everyone is still sleeping — guards stale Retry / Arm Anyway taps
+  condition: state
+  entity_id: input_boolean.everyone_sleeping
+  state: 'on'
+actions:
+- alias: Fetch tomorrow's weather forecast
+  action: weather.get_forecasts
+  target:
+    entity_id: weather.apartment
+  data:
+    type: daily
+  response_variable: fc
+- alias: Build spoken door list, window list, and weather variables
+  variables:
+    v_doors_count: '{% set ns = namespace(n=0) %}{% if is_state(''binary_sensor.entrance_front_door_contact'',
+      ''on'') %}{% set ns.n = ns.n + 1 %}{% endif %}{% if is_state(''binary_sensor.garage_interior_door_contact'',
+      ''on'') %}{% set ns.n = ns.n + 1 %}{% endif %}{% if is_state(''binary_sensor.office_sliding_door_contact'',
+      ''on'') %}{% set ns.n = ns.n + 1 %}{% endif %}{% if not is_state(''cover.garage_door'',
+      ''closed'') %}{% set ns.n = ns.n + 1 %}{% endif %}{{ ns.n }}'
+    v_doors_string: '{% set checks = [(''binary_sensor.entrance_front_door_contact'',
+      ''the front door''), (''binary_sensor.garage_interior_door_contact'', ''the
+      garage interior door''), (''binary_sensor.office_sliding_door_contact'', ''the
+      office sliding door'')] %}{% set ns = namespace(items=[]) %}{% for entity, label
+      in checks %}{% if is_state(entity, ''on'') %}{% set ns.items = ns.items + [label]
+      %}{% endif %}{% endfor %}{% if not is_state(''cover.garage_door'', ''closed'')
+      %}{% set ns.items = ns.items + [''the garage door''] %}{% endif %}{% set n =
+      ns.items | length %}{% if n == 0 %}{% elif n == 1 %}{{ ns.items[0] }}{% elif
+      n == 2 %}{{ ns.items[0] }} and {{ ns.items[1] }}{% else %}{{ ns.items[:-1] |
+      join('', '') }}, and {{ ns.items[-1] }}{% endif %}'
+    v_windows_count: '{% set ns = namespace(n=0) %}{% if is_state(''binary_sensor.master_bedroom_windows'',
+      ''on'') %}{% set ns.n = ns.n + 1 %}{% endif %}{% if is_state(''binary_sensor.avery_room_window'',
+      ''on'') %}{% set ns.n = ns.n + 1 %}{% endif %}{{ ns.n }}'
+    v_windows_string: '{% set checks = [(''binary_sensor.master_bedroom_windows'',
+      ''the master bedroom''), (''binary_sensor.avery_room_window'', "Avery''s Room")]
+      %}{% set ns = namespace(items=[]) %}{% for entity, label in checks %}{% if is_state(entity,
+      ''on'') %}{% set ns.items = ns.items + [label] %}{% endif %}{% endfor %}{% set
+      n = ns.items | length %}{% if n == 0 %}{% elif n == 1 %}{{ ns.items[0] }}{%
+      elif n == 2 %}{{ ns.items[0] }} and {{ ns.items[1] }}{% else %}{{ ns.items[:-1]
+      | join('', '') }}, and {{ ns.items[-1] }}{% endif %}'
+    v_tomorrow_condition: '{% set cond_map = {''clear-night'': ''clear'', ''partlycloudy'':
+      ''partly cloudy'', ''lightning-rainy'': ''stormy'', ''lightning'': ''stormy'',
+      ''snowy-rainy'': ''wintry mix'', ''windy-variant'': ''windy'', ''pouring'':
+      ''rainy''} %}{% set raw = fc[''weather.apartment''].forecast[1].condition %}{{
+      cond_map.get(raw, raw) }}'
+    v_tomorrow_high: '{{ fc[''weather.apartment''].forecast[1].temperature | round(0)
+      | int }}'
+    v_tomorrow_low: '{{ fc[''weather.apartment''].forecast[1].templow | round(0) |
+      int }}'
+- alias: 'Route: arm anyway, door-blocked, or all-clear'
+  choose:
+  - alias: Arm Anyway — user chose to arm despite open door
+    conditions:
+    - condition: trigger
+      id: arm_anyway
+    sequence:
+    - alias: Arm in night mode
+      action: alarm_control_panel.alarm_arm_night
+      target:
+        entity_id: alarm_control_panel.home_alarm
+    - alias: Replace blocked notification with armed confirmation
+      action: notify.mobile_app_nates_iphone
+      data:
+        title: Colony Drive
+        message: '{{ ''✅ Alarm armed for night — perimeter clear.'' if v_doors_count
+          | int == 0 else ''⚠️ Alarm armed for night — '' + v_doors_string + ('' is''
+          if v_doors_count | int == 1 else '' are'') + '' still open.'' }}'
+        data:
+          tag: bedtime_arm_blocked
+  - alias: Door open — cannot arm, alert and wait
+    conditions:
+    - alias: At least one exterior door or garage is open
+      condition: or
+      conditions:
+      - condition: state
+        entity_id: binary_sensor.exterior_door_open
+        state: 'on'
+      - condition: not
+        conditions:
+        - condition: state
+          entity_id: cover.garage_door
+          state: closed
+    sequence:
+    - alias: Send actionable notification naming the open door(s)
+      action: notify.mobile_app_nates_iphone
+      data:
+        title: Colony Drive
+        message: Alarm NOT armed — {{ v_doors_string }} {{ 'is' if v_doors_count |
+          int == 1 else 'are' }} open.
+        data:
+          tag: bedtime_arm_blocked
+          actions:
+          - action: BEDTIME_RETRY_ARM
+            title: Retry Arming
+          - action: BEDTIME_ARM_ANYWAY
+            title: Arm Anyway
+    - alias: Warn via HomePod — only on initial sleep_on trigger, not on retry
+      if:
+      - condition: trigger
+        id: sleep_on
+      then:
+      - alias: Speak warning on master bedroom HomePod
+        action: script.household_tts_announce
+        data:
+          target: master_bedroom
+          notification_title: Alarm Not Armed
+          message: Heads up — I couldn't arm the alarm because {{ v_doors_string }}
+            {{ 'is' if v_doors_count | int == 1 else 'are' }} open.
+    - alias: Wait for perimeter to clear or timeout (10 minutes)
+      wait_for_trigger:
+      - alias: All contact doors closed
+        trigger: state
+        entity_id: binary_sensor.exterior_door_open
+        to: 'off'
+      - alias: Garage door closed
+        trigger: state
+        entity_id: cover.garage_door
+        to: closed
+      timeout: 00:10:00
+      continue_on_timeout: true
+    - alias: Arm and notify — perimeter secured or auto-armed with gap
+      if:
+      - alias: All exterior doors and garage door are now closed
+        condition: and
+        conditions:
+        - condition: state
+          entity_id: binary_sensor.exterior_door_open
+          state: 'off'
+        - condition: state
+          entity_id: cover.garage_door
+          state: closed
+      then:
+      - alias: Arm in night mode — perimeter clear
+        action: alarm_control_panel.alarm_arm_night
+        target:
+          entity_id: alarm_control_panel.home_alarm
+      - alias: Send perimeter-secured confirmation
+        action: notify.mobile_app_nates_iphone
+        data:
+          title: Colony Drive
+          message: ✅ Alarm armed for night — perimeter secured.
+          data:
+            tag: bedtime_arm_blocked
+      else:
+      - alias: Auto-arm despite open door (10-minute timeout reached)
+        action: alarm_control_panel.alarm_arm_night
+        target:
+          entity_id: alarm_control_panel.home_alarm
+      - alias: Send auto-armed-with-gap notification
+        action: notify.mobile_app_nates_iphone
+        data:
+          title: Colony Drive
+          message: ⚠️ Alarm armed for night — check for open doors.
+          data:
+            tag: bedtime_arm_blocked
+  default:
+  - alias: Arm in night mode
+    action: alarm_control_panel.alarm_arm_night
+    target:
+      entity_id: alarm_control_panel.home_alarm
+  - alias: Wait for master bedroom door to close if currently open
+    if:
+    - condition: state
+      entity_id: binary_sensor.master_bedroom_door_contact
+      state: 'on'
+    then:
+    - alias: Wait up to 10 minutes for master bedroom door to close
+      wait_for_trigger:
+      - alias: Master bedroom door closed
+        trigger: state
+        entity_id: binary_sensor.master_bedroom_door_contact
+        to: 'off'
+      timeout: 00:10:00
+      continue_on_timeout: false
+  - alias: Wait 15 seconds after door is confirmed closed
+    delay:
+      seconds: 15
+  - alias: Speak goodnight report on master bedroom HomePod
+    action: script.household_tts_announce
+    data:
+      target: master_bedroom
+      notification_title: Goodnight
+      message: The alarm is armed for night mode.{% if v_windows_count | int > 0 %}
+        The {% if v_windows_count | int == 1 %}window is{% else %}windows are{% endif
+        %} open in {{ v_windows_string }}.{% endif %} Tomorrow's weather will be {{
+        v_tomorrow_condition }} with a high of {{ v_tomorrow_high }} and a low of
+        {{ v_tomorrow_low }}. Goodnight.
+mode: restart
+category: 01KS3AHT8PTYGYCRABF23BFTXH

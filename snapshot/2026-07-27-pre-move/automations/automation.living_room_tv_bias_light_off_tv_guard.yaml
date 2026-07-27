@@ -1,0 +1,31 @@
+id: '1777386347186'
+alias: 'Living Room: TV Bias Light Off-TV Guard'
+description: 'If the bias light turns on while the TV is off (or unavailable), turn
+  it back off. Bias lighting has no off-TV use case, so this catches accidental manual
+  turn-ons (Hue app, voice command, etc.) without involving the main Bias Light Controller.
+
+  LG WebOS TVs report "unavailable" rather than "off" when powered off, so both states
+  count as "TV is off" here.
+
+  This is intentionally a separate automation from the Bias Light Controller so it
+  cannot create a feedback loop with the controller''s own actions. It only acts when
+  the TV is off, so it never fires during TV sessions.'
+triggers:
+- entity_id: light.living_room_tv_lights
+  to: 'on'
+  alias: Bias light turned on
+  trigger: state
+conditions:
+- condition: state
+  entity_id: media_player.living_room_tv
+  state:
+  - 'off'
+  - unavailable
+  alias: TV is off or unavailable
+actions:
+- action: light.turn_off
+  target:
+    entity_id: light.living_room_tv_lights
+  alias: Turn off bias light
+mode: single
+category: 01KR9GEKQ24R9BQ1KXEFJ4YPN7

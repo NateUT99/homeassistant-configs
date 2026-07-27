@@ -1,0 +1,23 @@
+id: '1780336997135'
+alias: 'Office: Litra Glow Disconnected'
+description: Notifies when sensor.litra_glow_status goes unavailable or unknown for
+  30 seconds, indicating the Litra Glow has lost its USB connection or the Mac is
+  unreachable.
+triggers:
+- alias: Litra status sensor unavailable or disconnected
+  entity_id: sensor.litra_glow_status
+  to:
+  - unavailable
+  - unknown
+  for:
+    seconds: 30
+  trigger: state
+conditions: []
+actions:
+- alias: Notify MacBook Pro
+  action: notify.mobile_app_nates_macbook_pro
+  data:
+    title: ⚠️ Litra Glow Disconnected
+    message: Check the USB cable and replug if needed!
+mode: single
+category: 01KS3AHTTAQVWP6HWNE9CJ207W

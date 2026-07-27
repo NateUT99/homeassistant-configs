@@ -1,0 +1,97 @@
+id: '1774223846940'
+alias: When living room bookshelf remote action
+description: ''
+triggers:
+- domain: mqtt
+  device_id: 956fb09c3cfdd6b33c008450e7fbc4b6
+  type: action
+  subtype: 'on'
+  trigger: device
+  id: 'on'
+- domain: mqtt
+  device_id: 956fb09c3cfdd6b33c008450e7fbc4b6
+  type: action
+  subtype: 'off'
+  trigger: device
+  id: 'off'
+- domain: mqtt
+  device_id: 956fb09c3cfdd6b33c008450e7fbc4b6
+  type: action
+  subtype: brightness_move_up
+  trigger: device
+  id: brightness_up
+- domain: mqtt
+  device_id: 956fb09c3cfdd6b33c008450e7fbc4b6
+  type: action
+  subtype: brightness_move_down
+  trigger: device
+  id: brightness_down
+- domain: mqtt
+  device_id: 956fb09c3cfdd6b33c008450e7fbc4b6
+  type: action
+  subtype: brightness_stop
+  trigger: device
+  id: brightness_stop
+conditions: []
+actions:
+- choose:
+  - conditions:
+    - condition: trigger
+      id: 'on'
+    sequence:
+    - action: light.turn_on
+      target:
+        entity_id: light.living_room_fan
+      data: {}
+    - action: adaptive_lighting.set_manual_control
+      metadata: {}
+      data:
+        manual_control: false
+        entity_id: switch.adaptive_lighting_living_room_ceiling_lights
+      alias: Reset adaptive lighting for Living Room fan lights
+      enabled: true
+  - conditions:
+    - condition: trigger
+      id: 'off'
+    sequence:
+    - action: light.turn_off
+      target:
+        entity_id: light.living_room_fan
+  - conditions:
+    - condition: trigger
+      id: brightness_up
+    sequence:
+    - repeat:
+        while:
+        - condition: template
+          value_template: '{{ true }}'
+        sequence:
+        - action: light.turn_on
+          target:
+            entity_id: light.living_room_fan
+          data:
+            brightness_step_pct: 10
+        - delay:
+            milliseconds: 300
+  - conditions:
+    - condition: trigger
+      id: brightness_down
+    sequence:
+    - repeat:
+        while:
+        - condition: template
+          value_template: '{{ true }}'
+        sequence:
+        - action: light.turn_on
+          target:
+            entity_id: light.living_room_fan
+          data:
+            brightness_step_pct: -10
+        - delay:
+            milliseconds: 300
+  - conditions:
+    - condition: trigger
+      id: brightness_stop
+    sequence: []
+mode: restart
+category: 01KQA4YGXGDK2DH076K5A7H8YH

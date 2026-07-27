@@ -1,0 +1,34 @@
+alias: Vacuum Reset Consumable
+description: Presses a Roborock consumable reset button, then force-refreshes all
+  consumable sensors so the UI reflects the cleared state immediately.
+icon: mdi:robot-vacuum
+mode: single
+fields:
+  reset_button:
+    description: The button entity to press to reset the consumable counter
+    example: button.roborock_q8_max_reset_sensor_consumable
+    required: true
+    selector:
+      entity:
+        domain: button
+sequence:
+- alias: Press reset button
+  action: button.press
+  target:
+    entity_id: '{{ reset_button }}'
+- alias: Wait for vacuum to process reset
+  delay:
+    seconds: 2
+- alias: Force-refresh all consumable sensors
+  action: homeassistant.update_entity
+  target:
+    entity_id:
+    - sensor.roborock_q8_max_filter_time_left
+    - sensor.roborock_q8_max_main_brush_time_left
+    - sensor.roborock_q8_max_side_brush_time_left
+    - sensor.roborock_q8_max_sensor_time_left
+    - binary_sensor.roborock_replace_filter
+    - binary_sensor.roborock_replace_main_brush
+    - binary_sensor.roborock_replace_side_brush
+    - binary_sensor.roborock_clean_sensor
+    - binary_sensor.roborock_maintenance_required

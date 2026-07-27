@@ -1,0 +1,50 @@
+id: '1779802853805'
+alias: 'Household: Guest Presence Sync'
+description: Syncs guest mode state to the MQTT guest tracker topic. Fires when input_boolean.guest_mode
+  changes. Publishes home/not_home to presence/guest_tracker with retain=true so tracker
+  state survives HA restarts.
+triggers:
+- alias: Guest mode turned on
+  entity_id: input_boolean.guest_mode
+  from: 'off'
+  to: 'on'
+  id: guest_arrived
+  trigger: state
+- alias: Guest mode turned off
+  entity_id: input_boolean.guest_mode
+  from: 'on'
+  to: 'off'
+  id: guest_departed
+  trigger: state
+conditions: []
+actions:
+- alias: Publish guest presence state to MQTT tracker topic
+  choose:
+  - alias: Publish home state
+    conditions:
+    - alias: Triggered by guest mode on
+      condition: trigger
+      id: guest_arrived
+    sequence:
+    - alias: Publish home to MQTT guest tracker topic
+      action: mqtt.publish
+      data:
+        topic: presence/guest_tracker
+        payload: home
+        retain: true
+        qos: 1
+  - alias: Publish not_home state
+    conditions:
+    - alias: Triggered by guest mode off
+      condition: trigger
+      id: guest_departed
+    sequence:
+    - alias: Publish not_home to MQTT guest tracker topic
+      action: mqtt.publish
+      data:
+        topic: presence/guest_tracker
+        payload: not_home
+        retain: true
+        qos: 1
+mode: single
+category: 01KS3AHT8PTYGYCRABF23BFTXH

@@ -1,0 +1,31 @@
+id: '1778347752399'
+alias: 'Living Room: Hue Sync Stop on PS5 Power Off'
+description: 'When the PS5 powers off while sync is active and PS5 is the selected
+  HDMI input, stop sync. Without this, sync keeps running pointing at a black HDMI
+  signal until the user manually stops it or the TV turns off.
+
+  Conditions ensure this only fires when sync is actually running against the PS5
+  - if the user is on Apple TV with sync on while the PS5 happens to power off in
+  the background, this does nothing.'
+triggers:
+- entity_id: switch.living_room_ps5_power
+  from: 'on'
+  to: 'off'
+  alias: PS5 powered off
+  trigger: state
+conditions:
+- condition: state
+  entity_id: switch.living_room_sync_box_light_sync
+  state: 'on'
+  alias: Light sync is currently active
+- condition: state
+  entity_id: select.living_room_sync_box_hdmi_input
+  state: Playstation 5
+  alias: PS5 is the selected HDMI input
+actions:
+- action: switch.turn_off
+  target:
+    entity_id: switch.living_room_sync_box_light_sync
+  alias: Stop light sync
+mode: single
+category: 01KR9GEKQ24R9BQ1KXEFJ4YPN7

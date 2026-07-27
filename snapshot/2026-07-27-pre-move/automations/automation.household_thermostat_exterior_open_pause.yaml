@@ -1,0 +1,193 @@
+id: '1764705238002'
+alias: 'Household: Thermostat Exterior Open Pause'
+description: 'Turns off the thermostat if an exterior door or window is open for more
+  than 3 minutes, then restores the previous mode once all exterior doors and windows
+  have been closed for 3 minutes. Only restores if this automation was the one that
+  turned the thermostat off.
+
+
+  Prevents heating or cooling the outdoors when a door or window is left open.'
+triggers:
+- entity_id:
+  - binary_sensor.exterior_door_window_open
+  from:
+  - 'off'
+  to:
+  - 'on'
+  for:
+    hours: 0
+    minutes: 3
+    seconds: 0
+  id: opened
+  alias: Exterior door/window open for 3 minutes
+  trigger: state
+- entity_id:
+  - binary_sensor.exterior_door_window_open
+  for:
+    hours: 0
+    minutes: 3
+    seconds: 0
+  id: closed
+  from:
+  - 'on'
+  to:
+  - 'off'
+  alias: Exterior door/window closed for 3 minutes
+  trigger: state
+conditions: []
+actions:
+- alias: Dispatch on trigger
+  choose:
+  - conditions:
+    - condition: trigger
+      id:
+      - opened
+      alias: Triggered by exterior door/window opened
+    - alias: Thermostat mode is not already off
+      condition: not
+      conditions:
+      - condition: state
+        entity_id: climate.living_room_thermostat
+        state: 'off'
+    sequence:
+    - action: climate.set_hvac_mode
+      metadata: {}
+      data:
+        hvac_mode: 'off'
+      target:
+        entity_id: climate.living_room_thermostat
+      alias: Set thermostat mode to "off"
+    - alias: Turn on living room fan if the outside "feels like" temperature is above
+        75
+      if:
+      - condition: numeric_state
+        entity_id: sensor.outside_feels_like_temperature
+        above: 75
+      then:
+      - action: fan.turn_on
+        metadata: {}
+        target:
+          entity_id: fan.living_room_ceiling
+        data: {}
+        alias: Turn on living room ceiling fan
+    - alias: Announce or notify on open
+      if:
+      - condition: state
+        entity_id: input_boolean.everyone_sleeping
+        state: 'off'
+      then:
+      - alias: Announce on kitchen HomePod
+        action: media_player.play_media
+        target:
+          entity_id: media_player.kitchen_homepod
+        data:
+          announce: true
+          extra:
+            volume: 65
+          media:
+            media_content_id: media-source://tts/cloud?message=A door or window has
+              been open for 3 minutes. The thermostat has been paused.{% if is_state('binary_sensor.outdoor_air_quality_index_high',
+              'on') %} Outdoor air quality is also poor right now — consider closing
+              up.{% endif %}
+            media_content_type: music
+        enabled: false
+      - action: notify.reminder_kitchen
+        metadata: {}
+        data:
+          message: A door or window has been open for 3 minutes. The thermostat has
+            been paused.{% if is_state('binary_sensor.outdoor_air_quality_index_high',
+            'on') %} Outdoor air quality is also poor — {% if states('sensor.toledo_ohio_usa_air_quality_index')
+            | int > 150 %}please keep{% else %}consider keeping{% endif %} the exterior
+            doors and windows closed.{% endif %}
+        alias: Send TTS announcement to Kitchen HomePod
+      else:
+      - alias: Send thermostat-disabled notification
+        action: notify.mobile_app_nates_iphone
+        data:
+          title: ❌ Thermostat Disabled
+          message: An exterior door/window has been open for more than 3 minutes.
+            The thermostat has been disabled.{% if is_state('binary_sensor.outdoor_air_quality_index_high',
+            'on') %} Outdoor air quality is also poor — {% if states('sensor.toledo_ohio_usa_air_quality_index')
+            | int > 150 %}please keep{% else %}consider keeping{% endif %} the exterior
+            doors and windows closed.{% endif %}
+          data:
+            tag: thermostat_exterior_pause
+    alias: If triggered by open and thermostat not already "off"
+  - conditions:
+    - condition: trigger
+      id:
+      - closed
+      alias: Triggered by exterior door/window closed
+    - alias: Thermostat is currently off
+      condition: state
+      entity_id: climate.living_room_thermostat
+      state: 'off'
+    - alias: Previous mode was not off
+      condition: not
+      conditions:
+      - condition: state
+        entity_id: input_select.thermostat_previous_mode
+        state: 'off'
+    sequence:
+    - action: climate.set_hvac_mode
+      metadata: {}
+      data:
+        hvac_mode: '{{ states(''input_select.thermostat_previous_mode'') }}'
+      target:
+        entity_id: climate.living_room_thermostat
+      alias: Set thermostat mode to previous value
+    - alias: Announce or notify on close
+      if:
+      - condition: state
+        entity_id: input_boolean.everyone_sleeping
+        state: 'off'
+      then:
+      - alias: Announce on kitchen HomePod
+        action: media_player.play_media
+        target:
+          entity_id: media_player.kitchen_homepod
+        data:
+          announce: true
+          extra:
+            volume: 65
+          media:
+            media_content_id: media-source://tts/cloud?message=All exterior doors
+              and windows are closed. The thermostat has been re-enabled.
+            media_content_type: music
+        enabled: false
+      - alias: Send TTS announcement to Kitchen HomePod
+        action: notify.reminder_kitchen
+        metadata: {}
+        data:
+          message: All exterior doors and windows are closed. The thermostat has been
+            re-enabled.
+      else:
+      - alias: Send thermostat-re-enabled notification
+        action: notify.mobile_app_nates_iphone
+        data:
+          title: ✅ Thermostat Re-Enabled
+          message: All exterior doors/windows have been closed for at least 3 minutes.
+          data:
+            tag: thermostat_exterior_pause
+    - if:
+      - condition: state
+        entity_id: fan.living_room_ceiling
+        state:
+        - 'on'
+      then:
+      - delay:
+          hours: 0
+          minutes: 5
+          seconds: 0
+          milliseconds: 0
+        alias: Wait 5 minutes before turning off fan
+      - action: fan.turn_off
+        metadata: {}
+        target:
+          entity_id: fan.living_room_ceiling
+        data: {}
+        alias: Turn off living room ceiling fan
+      alias: If living room fan is on, turn it off after 5 minutes
+    alias: If triggered by closed and thermostat is "off"
+mode: restart
+category: 01KRKH5XD6FDD72M36FQHAXF6R

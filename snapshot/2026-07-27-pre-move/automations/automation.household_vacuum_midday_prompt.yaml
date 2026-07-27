@@ -1,0 +1,75 @@
+id: '1702743447897'
+alias: 'Household: Vacuum Midday Prompt'
+description: At 12:00pm, if no one is home and the vacuum hasn't run today and isn't
+  currently cleaning, sends an actionable iPhone notification. Starts the Roborock
+  unless "No" is explicitly tapped within 5 minutes — timeout counts as confirmation.
+triggers:
+- alias: 12:00pm daily
+  at: '12:00:00'
+  trigger: time
+conditions:
+- alias: No one is home
+  condition: numeric_state
+  entity_id: sensor.household_people_home
+  below: 1
+- alias: Vacuum has not run today
+  condition: state
+  entity_id: input_select.vacuum_ran_today
+  state: 'No'
+- alias: Vacuum is not currently cleaning
+  condition: not
+  conditions:
+  - condition: state
+    entity_id: vacuum.roborock_q8_max
+    state: cleaning
+- alias: Vacuum routine is not paused
+  condition: state
+  entity_id: input_boolean.vacuum_routine_pause
+  state: 'off'
+actions:
+- alias: Send actionable notification to Nate's iPhone
+  action: notify.mobile_app_nates_iphone
+  data:
+    title: Vacuum Has Not Cleaned Today
+    message: Do you want to start a cleaning cycle?
+    data:
+      tag: vacuum_midday_prompt
+      actions:
+      - action: START_VACUUM
+        title: 'Yes'
+      - action: DISMISS_VACUUM
+        title: 'No'
+- alias: Wait for response or 5-minute timeout
+  wait_for_trigger:
+  - alias: Yes tapped
+    event_type: mobile_app_notification_action
+    event_data:
+      action: START_VACUUM
+    trigger: event
+  - alias: No tapped
+    event_type: mobile_app_notification_action
+    event_data:
+      action: DISMISS_VACUUM
+    trigger: event
+  timeout:
+    minutes: 5
+  continue_on_timeout: true
+- alias: Clear notification
+  action: notify.mobile_app_nates_iphone
+  data:
+    message: clear_notification
+    data:
+      tag: vacuum_midday_prompt
+- alias: Start vacuum unless explicitly dismissed
+  if:
+  - alias: No was not tapped (yes or timeout)
+    condition: template
+    value_template: '{{ wait.trigger is none or wait.trigger.event.data.action ==
+      ''START_VACUUM'' }}'
+  then:
+  - alias: Start Roborock cleaning cycle
+    action: vacuum.start
+    target:
+      entity_id: vacuum.roborock_q8_max
+mode: single
+category: 01J8E2QBF6XVHBZKTQCZ73TK5T

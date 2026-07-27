@@ -1,0 +1,61 @@
+id: '1780273256301'
+alias: 'Household: Trash Pickup Morning Critical'
+description: At 07:00 on pickup day, sends a critical iOS alarm if the pending boolean
+  is still armed. At 09:00, auto-clears the pending boolean and dismisses the notification
+  if not already marked complete.
+triggers:
+- id: critical
+  alias: 7am pickup day alarm
+  trigger: time
+  at: 07:00:00
+- id: cleanup
+  alias: 9am cleanup
+  trigger: time
+  at: 09:00:00
+conditions: []
+actions:
+- alias: Route by trigger
+  choose:
+  - alias: 7am — critical alarm if pickup pending
+    conditions:
+    - condition: trigger
+      id: critical
+    - condition: state
+      entity_id: input_boolean.trash_pickup_pending
+      state: 'on'
+    sequence:
+    - alias: Send critical iOS alarm
+      action: notify.mobile_app_nates_iphone
+      data:
+        title: Pickup TODAY
+        message: '{{ states(''input_text.trash_pickup_pending_label'') }} bin{{ ''s''
+          if ''&'' in states(''input_text.trash_pickup_pending_label'') else ''''
+          }} out NOW'
+        data:
+          push:
+            sound:
+              name: default
+              critical: 1
+              volume: 1
+          tag: pickup
+          actions:
+          - action: PICKUP_MARK_COMPLETE
+            title: Mark Complete
+  - alias: 9am cleanup — clear if still pending
+    conditions:
+    - condition: trigger
+      id: cleanup
+    - condition: state
+      entity_id: input_boolean.trash_pickup_pending
+      state: 'on'
+    sequence:
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.trash_pickup_pending
+    - action: notify.mobile_app_nates_iphone
+      data:
+        message: clear_notification
+        data:
+          tag: pickup
+mode: single
+category: 01J8E2QBF6XVHBZKTQCZ73TK5T

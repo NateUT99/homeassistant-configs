@@ -1,0 +1,210 @@
+input_boolean:
+- id: avery_sleeping
+  name: Avery Sleeping
+  icon: mdi:sleep
+  entity_id: input_boolean.avery_sleeping
+- id: guest_mode
+  name: Guest Mode
+  icon: mdi:hand-wave
+  entity_id: input_boolean.guest_mode
+- id: everyone_sleeping
+  name: Everyone Sleeping
+  icon: mdi:bed-clock
+  entity_id: input_boolean.everyone_sleeping
+- id: movie_mode
+  name: Movie Mode
+  icon: mdi:theater
+  entity_id: input_boolean.movie_mode
+- id: night_mode
+  icon: mdi:moon-waning-crescent
+  name: 'Sonos Night Mode (entity_id: input_boolean.sonos_night_mode)'
+  entity_id: input_boolean.sonos_night_mode
+  note: original_name='Night Mode'; renamed
+- id: holiday_christmas
+  name: Holiday - Christmas
+  icon: mdi:pine-tree
+  entity_id: input_boolean.holiday_christmas
+- id: sleep_mode
+  name: Light Sleep Mode
+  icon: mdi:lightbulb-night
+  entity_id: input_boolean.light_sleep_mode
+- id: nate
+  name: Nate Home
+  icon: mdi:account
+  entity_id: input_boolean.nate_home
+- id: vacuum_routine_pause
+  name: Vacuum Routine Pause
+  icon: mdi:robot-vacuum-off
+  entity_id: input_boolean.vacuum_routine_pause
+- id: trash_pickup_pending
+  name: Trash Pickup Pending
+  icon: mdi:trash-can-outline
+  entity_id: input_boolean.trash_pickup_pending
+input_select:
+- id: vacuum_ran_today
+  name: Vacuum Ran Today
+  icon: mdi:robot-vacuum
+  options:
+  - 'Yes'
+  - 'No'
+  - Skipped
+  entity_id: input_select.vacuum_ran_today
+- id: thermostat_previous_mode
+  name: Thermostat Previous Mode
+  icon: mdi:thermostat
+  options:
+  - 'off'
+  - heat
+  - cool
+  - heat_cool
+  entity_id: input_select.thermostat_previous_mode
+- id: roborock_cleaning_mode_store
+  name: Roborock Cleaning Mode Store
+  options:
+  - vacuum
+  - mop
+  - vacuum_and_mop
+  icon: mdi:robot-vacuum
+  entity_id: input_select.roborock_cleaning_mode_store
+- id: utility_room_washer_status
+  name: Utility Room Washer Status
+  icon: mdi:washing-machine
+  options:
+  - idle
+  - alerting
+  - acknowledged
+  initial: idle
+  entity_id: input_select.utility_room_washer_status
+- id: utility_room_dryer_status
+  name: Utility Room Dryer Status
+  icon: mdi:tumble-dryer
+  options:
+  - idle
+  - alerting
+  - acknowledged
+  initial: idle
+  entity_id: input_select.utility_room_dryer_status
+- id: office_accent_scene
+  name: Office Accent Scene
+  icon: mdi:palette
+  options:
+  - Motown
+  - Chinatown
+  - HAL
+  - Sundown
+  - Fire
+  initial: Motown
+  entity_id: input_select.office_accent_scene
+- id: mobile_dashboard_active_view
+  name: Mobile Dashboard Active View
+  icon: mdi:view-dashboard
+  options:
+  - none
+  - summary
+  - living_room
+  - office
+  - master_bedroom
+  - avery_room
+  - other
+  initial: none
+  entity_id: input_select.mobile_dashboard_active_view
+input_number:
+- id: roborock_daily_max_progress
+  min: 0
+  max: 100
+  icon: mdi:percent
+  unit_of_measurement: '%'
+  mode: box
+  name: Roborock Daily Max Progress
+  step: 1
+  entity_id: input_number.roborock_daily_max_progress
+- id: indoor_temperature
+  min: 0
+  max: 100
+  name: Indoor Temperature
+  icon: mdi:home-thermometer
+  unit_of_measurement: °F
+  mode: box
+  step: 1
+  entity_id: input_number.indoor_temperature
+- id: utility_room_washer_cycles_at_last_cleaning
+  name: Utility Room Washer Cycles At Last Cleaning
+  icon: mdi:washing-machine-alert
+  min: 0
+  max: 99999
+  step: 1
+  mode: box
+  entity_id: input_number.utility_room_washer_cycles_at_last_cleaning
+input_text:
+- id: avery_desk_lamp_last_color
+  name: Avery Room Desk Lamp Last Color
+  icon: mdi:palette
+  max: 100
+  mode: text
+  min: 0
+  entity_id: input_text.avery_room_desk_lamp_last_color
+- id: alarm_trigger_description
+  name: Alarm Trigger Description
+  max: 255
+  mode: text
+  min: 0
+  entity_id: input_text.alarm_trigger_description
+- id: trash_pickup_pending_label
+  name: Trash Pickup Pending Label
+  icon: mdi:label
+  max: 50
+  min: 0
+  mode: text
+  entity_id: input_text.trash_pickup_pending_label
+- id: trash_next_pickup_date
+  name: Trash Next Pickup Date
+  icon: mdi:calendar
+  max: 50
+  min: 0
+  mode: text
+  entity_id: input_text.trash_next_pickup_date
+input_datetime:
+- id: utility_room_washer_cycle_started
+  name: Utility Room Washer Cycle Started
+  icon: mdi:clock-start
+  has_date: true
+  has_time: true
+  entity_id: input_datetime.utility_room_washer_cycle_started
+- id: utility_room_dryer_cycle_ended
+  name: Utility Room Dryer Cycle Ended
+  icon: mdi:clock-end
+  has_date: true
+  has_time: true
+  entity_id: input_datetime.utility_room_dryer_cycle_ended
+- id: utility_room_washer_cycle_ended
+  name: Utility Room Washer Cycle Ended
+  icon: mdi:clock-end
+  has_date: true
+  has_time: true
+  entity_id: input_datetime.utility_room_washer_cycle_ended
+- id: utility_room_dryer_cycle_started
+  name: Utility Room Dryer Cycle Started
+  icon: mdi:clock-start
+  has_date: true
+  has_time: true
+  entity_id: input_datetime.utility_room_dryer_cycle_started
+person:
+- id: nate
+  name: Nate
+  user_id: f43541e698b44a30b836cac907931e4d
+  device_trackers:
+  - device_tracker.nates_iphone
+  - device_tracker.homekit_nate
+  entity_id: person.nate
+- id: guest
+  name: Guest
+  device_trackers:
+  - device_tracker.guest_tracker
+  user_id: null
+  entity_id: person.guest
+input_button: []
+counter: []
+timer: []
+schedule: []
+zone: []
+tag: []

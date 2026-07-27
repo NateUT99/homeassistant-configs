@@ -1,0 +1,75 @@
+id: '1773938543946'
+alias: 'Office: Pinball Remote'
+description: 'Controls office pinball cabinet switches via an Aqara wireless button.
+  Single press: turns on Alice. Double press: turns on Peanuts. Hold: turns off both
+  cabinets.'
+triggers:
+- domain: mqtt
+  device_id: 54f154ca84e390ce7797b0d0fcfaf615
+  type: action
+  subtype: single
+  id: single
+  alias: Button single press
+  trigger: device
+- domain: mqtt
+  device_id: 54f154ca84e390ce7797b0d0fcfaf615
+  type: action
+  subtype: double
+  id: double
+  alias: Button double press
+  trigger: device
+- domain: mqtt
+  device_id: 54f154ca84e390ce7797b0d0fcfaf615
+  type: action
+  subtype: hold
+  id: hold
+  alias: Button hold
+  trigger: device
+- domain: mqtt
+  device_id: 54f154ca84e390ce7797b0d0fcfaf615
+  type: action
+  subtype: release
+  id: release
+  enabled: false
+  alias: Button release
+  trigger: device
+conditions: []
+actions:
+- choose:
+  - conditions:
+    - condition: trigger
+      id: single
+      alias: Triggered by single press
+    sequence:
+    - action: switch.turn_on
+      target:
+        entity_id: switch.office_alice_pinball
+      alias: Turn on Alice pinball cabinet
+    alias: If triggered by single tap, turn on Office Alice Pinball
+  - conditions:
+    - condition: trigger
+      id: double
+      alias: Triggered by double press
+    sequence:
+    - alias: Turn on Peanuts pinball cabinet
+      action: switch.turn_on
+      target:
+        entity_id:
+        - switch.office_peanuts_pinball_peanuts_pinball
+      data: {}
+    alias: If triggered by double tap, turn on Office Peanuts Pinball
+  - conditions:
+    - condition: trigger
+      id: hold
+      alias: Triggered by hold
+    sequence:
+    - alias: Turn off both pinball cabinets
+      action: switch.turn_off
+      target:
+        entity_id:
+        - switch.office_alice_pinball
+        - switch.office_peanuts_pinball_peanuts_pinball
+      data: {}
+    alias: If triggered by hold, turn off both Office Pinball Cabinets
+mode: single
+category: 01KR9GEKQ24R9BQ1KXEFJ4YPN7

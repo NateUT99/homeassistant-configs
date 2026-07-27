@@ -1,0 +1,73 @@
+id: '1773763080497'
+alias: 'Office: Desk Button'
+description: Controls office ceiling lights and bourbon lamp via Aqara wireless button
+triggers:
+- domain: mqtt
+  device_id: 46c7da10f84a3519ebcc6cf4ae0e78f7
+  type: action
+  subtype: single
+  id: single
+  alias: Single press
+  trigger: device
+- domain: mqtt
+  device_id: 46c7da10f84a3519ebcc6cf4ae0e78f7
+  type: action
+  subtype: double
+  id: double
+  alias: Double press
+  trigger: device
+- domain: mqtt
+  device_id: 46c7da10f84a3519ebcc6cf4ae0e78f7
+  type: action
+  subtype: hold
+  id: hold
+  alias: Hold
+  trigger: device
+- domain: mqtt
+  device_id: 46c7da10f84a3519ebcc6cf4ae0e78f7
+  type: action
+  subtype: release
+  id: release
+  enabled: false
+  alias: Release (disabled)
+  trigger: device
+actions:
+- choose:
+  - conditions:
+    - condition: trigger
+      id: single
+      alias: Triggered by single press
+    sequence:
+    - action: light.toggle
+      target:
+        entity_id:
+        - light.office_ceiling
+      alias: Toggle office ceiling
+    alias: Single press
+  - conditions:
+    - condition: trigger
+      id: double
+      alias: Triggered by double press
+    sequence:
+    - action: light.toggle
+      data:
+        brightness_pct: 95
+      target:
+        entity_id: light.office_bourbon_lamp
+      alias: Toggle bourbon lamp at 95%
+    alias: Double press
+  - conditions:
+    - condition: trigger
+      id: hold
+      alias: Triggered by hold
+    sequence:
+    - action: light.turn_off
+      target:
+        entity_id:
+        - light.office_bourbon_lamp
+        - light.office_ceiling
+      alias: Turn off office ceiling and bourbon lamp
+    alias: Hold
+  alias: Route by button action
+mode: restart
+category: 01KQA4YGXGDK2DH076K5A7H8YH

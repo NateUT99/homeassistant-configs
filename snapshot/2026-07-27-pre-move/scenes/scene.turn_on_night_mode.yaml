@@ -1,0 +1,12 @@
+id: '1701117896383'
+name: Turn On Night Mode
+entities:
+  input_boolean.night_mode:
+    editable: true
+    icon: mdi:moon-waning-crescent
+    friendly_name: Night Mode
+    state: 'on'
+icon: mdi:moon-waning-crescent
+metadata:
+  input_boolean.night_mode:
+    entity_only: true

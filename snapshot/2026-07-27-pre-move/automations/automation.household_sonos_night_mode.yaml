@@ -1,0 +1,101 @@
+id: '1694909798780'
+alias: 'Household: Sonos Night Mode'
+description: 'Adjusts Sonos volumes and sound enhancements when Night Mode is toggled.
+
+
+  **On enable:**
+
+  - Living Room volume → 30%, Master Bedroom volume → 25%
+
+  - Master Bedroom speech enhancement and night sound turned on
+
+  - Living Room subwoofer gain reduced to -6
+
+
+  **On disable:**
+
+  - Living Room volume → 40%
+
+  - Living Room subwoofer gain reset to -4
+
+  - Living Room sound enhancements turned off
+
+  - Living Room subwoofer re-enabled
+
+
+  *Subwoofer on/off state is managed separately by the Avery Sleeping automation.*'
+triggers:
+- alias: Night Mode turned on
+  entity_id: input_boolean.sonos_night_mode
+  to: 'on'
+  id: night_mode_on
+  trigger: state
+- alias: Night Mode turned off
+  entity_id: input_boolean.sonos_night_mode
+  to: 'off'
+  id: night_mode_off
+  trigger: state
+conditions: []
+actions:
+- choose:
+  - alias: When Night Mode is enabled
+    conditions:
+    - condition: trigger
+      id: night_mode_on
+    sequence:
+    - alias: Ensure Master Bedroom Sonos enhancements are on
+      action: switch.turn_on
+      target:
+        entity_id:
+        - switch.master_bedroom_sonos_speech_enhancement
+        - switch.master_bedroom_sonos_night_sound
+    - alias: Set Living Room volume to 30%
+      action: media_player.volume_set
+      data:
+        volume_level: 0.3
+      target:
+        entity_id: media_player.living_room_sonos
+    - alias: Set Master Bedroom volume to 25%
+      action: media_player.volume_set
+      data:
+        volume_level: 0.25
+      target:
+        entity_id: media_player.master_bedroom_sonos
+    - alias: Reduce Living Room subwoofer gain to -8
+      action: number.set_value
+      data:
+        value: '-8'
+      target:
+        entity_id: number.living_room_sonos_sub_gain
+  - alias: When Night Mode is disabled
+    conditions:
+    - condition: trigger
+      id: night_mode_off
+    sequence:
+    - alias: Restore Living Room subwoofer and Master Bedroom enhancements
+      action: switch.turn_on
+      target:
+        entity_id:
+        - switch.living_room_sonos_subwoofer_enabled
+        - switch.master_bedroom_sonos_speech_enhancement
+        - switch.master_bedroom_sonos_night_sound
+    - alias: Disable Living Room Sonos sound enhancements
+      action: switch.turn_off
+      target:
+        entity_id:
+        - switch.living_room_sonos_night_sound
+        - switch.living_room_sonos_speech_enhancement
+    - alias: Set Living Room volume to 40%
+      action: media_player.volume_set
+      data:
+        volume_level: 0.4
+      target:
+        entity_id: media_player.living_room_sonos
+    - alias: Reset Living Room subwoofer gain to -5
+      action: number.set_value
+      data:
+        value: '-5'
+      target:
+        entity_id: number.living_room_sonos_sub_gain
+mode: single
+category: 01KR9GEKQ24R9BQ1KXEFJ4YPN7

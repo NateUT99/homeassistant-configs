@@ -1,0 +1,23 @@
+automation:
+- category_id: 01J8E2QBF6XVHBZKTQCZ73TK5T
+  name: Routines
+  icon: mdi:calendar-clock
+- category_id: 01KQA4YGXGDK2DH076K5A7H8YH
+  name: Lighting
+  icon: mdi:ceiling-light-multiple
+- category_id: 01KR9GEKQ24R9BQ1KXEFJ4YPN7
+  name: Entertainment
+  icon: mdi:cast
+- category_id: 01KRKESQARY7R9TR5V88FMZV1K
+  name: Security
+  icon: mdi:security
+- category_id: 01KRKH5XD6FDD72M36FQHAXF6R
+  name: Climate
+  icon: mdi:home-thermometer
+- category_id: 01KS3AHT8PTYGYCRABF23BFTXH
+  name: Person
+  icon: mdi:account-multiple
+- category_id: 01KS3AHTTAQVWP6HWNE9CJ207W
+  name: Maintenance
+  icon: mdi:cog
+script: []

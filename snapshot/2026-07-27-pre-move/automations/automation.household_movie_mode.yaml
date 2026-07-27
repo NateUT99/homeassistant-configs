@@ -1,0 +1,125 @@
+id: '1694915855826'
+alias: 'Household: Movie Mode'
+description: 'Controls household movie mode state driven by input_boolean.movie_mode.
+
+
+  - **Activation:** enables AL sleep mode (standard and color-only), turns off office,
+  kitchen, and living room lights, dims the entrance to 1% if between sunrise and
+  sunset, activates the kitchen cabinet accent nighttime scene, and dims the kitchen
+  counter strip to 1%.
+
+  - **Deactivation:** disables both AL sleep modes, releases manual control on entrance
+  and counter strip, restores the entrance based on sun position (15% if daytime,
+  off otherwise), and restores the kitchen counter strip to 25%.'
+triggers:
+- alias: Movie mode turned on
+  entity_id: input_boolean.movie_mode
+  to: 'on'
+  id: movie_on
+  trigger: state
+- alias: Movie mode turned off
+  entity_id: input_boolean.movie_mode
+  to: 'off'
+  id: movie_off
+  trigger: state
+conditions: []
+actions:
+- choose:
+  - alias: Movie mode ON
+    conditions:
+    - condition: trigger
+      id: movie_on
+      alias: Triggered by movie mode turning on
+    sequence:
+    - alias: Enable Adaptive Lighting sleep mode for kitchen and living room
+      action: switch.turn_on
+      target:
+        entity_id:
+        - switch.adaptive_lighting_sleep_mode_standard
+        - switch.adaptive_lighting_sleep_mode_color_only
+    - alias: Turn off lights in the kitchen, living room, and office
+      action: light.turn_off
+      target:
+        entity_id:
+        - light.office_ceiling
+        - light.living_room_fan
+        - light.kitchen_sink_bulb
+        - light.kitchen_ceiling
+    - alias: Between sunset and sunrise, set entryway light to 1%
+      if:
+      - condition: sun
+        before: sunset
+        after: sunrise
+        before_offset: -00:30:00
+        after_offset:
+          hours: 0
+          minutes: 30
+          seconds: 0
+      then:
+      - action: light.turn_on
+        target:
+          entity_id: light.entrance_ceiling
+        data:
+          brightness_pct: 1
+    - alias: Activate kitchen cabinet accent nighttime scene
+      action: hue.activate_scene
+      target:
+        entity_id: scene.kitchen_cabinet_accent_nighttime
+      data:
+        dynamic: true
+    - alias: Dim kitchen counter strip to 1%
+      action: light.turn_on
+      target:
+        entity_id: light.kitchen_counter_strip
+      data:
+        brightness_pct: 1
+  - alias: Movie mode OFF
+    conditions:
+    - condition: trigger
+      id: movie_off
+      alias: Triggered by movie mode turning off
+    sequence:
+    - alias: Disable Adaptive Lighting sleep mode
+      action: switch.turn_off
+      target:
+        entity_id:
+        - switch.adaptive_lighting_sleep_mode_standard
+        - switch.adaptive_lighting_sleep_mode_color_only
+      data: {}
+    - action: adaptive_lighting.set_manual_control
+      metadata: {}
+      data:
+        manual_control: false
+        entity_id: switch.adaptive_lighting_color_only
+        lights:
+        - light.entrance_ceiling
+        - light.kitchen_counter_strip
+      alias: Release manual control on entrance and kitchen strip
+    - alias: Between sunset and sunrise, set entryway light to 15% (otherwise off)
+      if:
+      - condition: sun
+        before: sunset
+        after: sunrise
+        before_offset: -00:30:00
+        after_offset:
+          hours: 0
+          minutes: 30
+          seconds: 0
+      then:
+      - action: light.turn_on
+        target:
+          entity_id: light.entrance_ceiling
+        data:
+          brightness_pct: 15
+      else:
+      - action: light.turn_off
+        target:
+          entity_id: light.entrance_ceiling
+    - alias: Restore kitchen counter strip to 25%
+      action: light.turn_on
+      target:
+        entity_id: light.kitchen_counter_strip
+      data:
+        brightness_pct: 25
+mode: single
+category: 01KR9GEKQ24R9BQ1KXEFJ4YPN7
