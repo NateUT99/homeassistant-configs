@@ -1,0 +1,140 @@
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+  extra_module_url:
+    - /local/community/custom-brand-icons/custom-brand-icons.js
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+notify:
+  - name: reminder_kitchen
+    platform: chime_tts
+    chime_path: soft
+    entity_id:
+      - media_player.kitchen_homepod
+    tts_platform: cloud
+    volume_level: 0.65
+    cache: true
+    announce: true
+  - name: reminder_master_bedroom
+    platform: chime_tts
+    chime_path: soft
+    entity_id:
+      - media_player.master_bedroom_homepod
+    tts_platform: cloud
+    volume_level: 0.5
+    cache: true
+    announce: true
+
+template:
+  - light:
+      - name: "Office Desk Key Light"
+        unique_id: litra_glow
+        availability: "{{ states('sensor.litra_glow_status') not in ['unavailable', 'unknown'] }}"
+        state: "{{ is_state('sensor.litra_glow_status', 'on') }}"
+        level: >-
+          {% set l = state_attr('sensor.litra_glow_status', 'brightness_in_lumen') %}
+          {{ ((l | int - 20) / 230 * 255) | int if l is not none else none }}
+        temperature: >-
+          {% set k = state_attr('sensor.litra_glow_status', 'temperature_in_kelvin') %}
+          {{ (1000000 / (k | int)) | int if k is not none else none }}
+        turn_on:
+          - alias: Turn on (and apply brightness/temp if supplied)
+            action: shell_command.litra_apply
+            data:
+              args: "state=on{% if brightness is defined %} brightness={{ (brightness / 255 * 100) | int }}{%
+  endif %}{% if color_temp is defined %} temperature={{ (1000000 / (color_temp | int)) | round(-2) | int }}{%
+  endif %}"
+          - alias: Refresh Litra status sensor
+            action: homeassistant.update_entity
+            target:
+              entity_id: sensor.litra_glow_status
+        turn_off:
+          - alias: Turn off
+            action: shell_command.litra_apply
+            data:
+              args: "state=off"
+          - alias: Refresh Litra status sensor
+            action: homeassistant.update_entity
+            target:
+              entity_id: sensor.litra_glow_status
+        set_level:
+          - alias: Brightness adjustment (also ensures light is on)
+            action: shell_command.litra_apply
+            data:
+              args: "state=on brightness={{ (brightness / 255 * 100) | int }}"
+          - alias: Refresh Litra status sensor
+            action: homeassistant.update_entity
+            target:
+              entity_id: sensor.litra_glow_status
+        set_temperature:
+          - alias: Color temp adjustment (also ensures light is on, plus brightness if supplied)
+            action: shell_command.litra_apply
+            data:
+              args: "state=on temperature={{ (1000000 / (color_temp | int)) | round(-2) | int }}{% if brightness
+  is defined %} brightness={{ (brightness / 255 * 100) | int }}{% endif %}"
+          - alias: Refresh Litra status sensor
+            action: homeassistant.update_entity
+            target:
+              entity_id: sensor.litra_glow_status
+
+alarm_control_panel:
+  - platform: manual
+    name: Home Alarm
+    unique_id: home_alarm_system
+    code: !secret alarm_code
+    code_arm_required: false # Don't need code to arm.
+    disarm_after_trigger: false # Leave alarm armed after triggering.
+    arming_time: 30
+    delay_time: 60
+    trigger_time: 300
+    arming_states:
+      - armed_away
+      - armed_night
+    disarmed:
+      trigger_time: 0
+    armed_night:
+      arming_time: 0
+      delay_time: 0
+
+sensor:
+  - platform: zwift
+    username: !secret my_zwift_username
+    password: !secret my_zwift_password
+
+# Used in automation of Logitech Litra Glow key light
+shell_command:
+  litra_apply: >-
+    ssh -i /config/.ssh/id_ed25519_litra
+    -o StrictHostKeyChecking=yes
+    -o UserKnownHostsFile=/config/.ssh/known_hosts
+    -o ConnectTimeout=5
+    homeassistant@10.10.0.13 "litra apply {{ args }}"
+
+command_line:
+    - sensor:
+        name: "Litra Glow Status"
+        unique_id: litra_glow_status
+        command: >-
+          ssh -i /config/.ssh/id_ed25519_litra
+          -o StrictHostKeyChecking=yes
+          -o UserKnownHostsFile=/config/.ssh/known_hosts
+          -o ConnectTimeout=5
+          homeassistant@10.10.0.13 "litra devices --json"
+        command_timeout: 10
+        value_template: "{{ 'on' if value_json[0].is_on else 'off' }}"
+        json_attributes_path: "$[0]"
+        json_attributes:
+          - is_on
+          - brightness_in_lumen
+          - temperature_in_kelvin
+          - minimum_brightness_in_lumen
+          - maximum_brightness_in_lumen
+          - minimum_temperature_in_kelvin
+          - maximum_temperature_in_kelvin
+        scan_interval: 120
