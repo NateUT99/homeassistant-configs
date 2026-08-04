@@ -57,6 +57,28 @@ data:
 
 `notify.notify` (the legacy catch-all) also accepts `data`, but its `target` field routes to legacy service names — not to UI-created group entities — so it does not solve the group-targeting problem either.
 
+### `calendar.get_events` errors with "did not match any entities" when the calendar entity is `unavailable`
+
+`calendar.get_events` is a response-returning service call. When the target entity is `unavailable` — not just missing — HA returns the misleading error "Service call requested response data but did not match any entities", the same error as for a nonexistent entity. The automation errors and exits immediately, sending no notification.
+
+The Remote Calendar integration goes `unavailable` on sync failures. Check the calendar entity state before assuming the automation config is broken. After reloading the integration, manually trigger the reminder automation to recover the missed notification.
+
+### `condition: trigger` with a specific ID does not match manual triggers
+
+`condition: trigger` with `id: "some_id"` only matches when the automation fires via the named trigger. Manual triggers (`automation.trigger` service or Developer Tools → Run) have `trigger.platform: null` and no ID, so all `choose` branches guarded by this pattern fail silently and the automation does nothing.
+
+To allow a branch to also fire on manual triggers, wrap with an `or` condition:
+
+```yaml
+conditions:
+  - condition: or
+    conditions:
+      - condition: trigger
+        id: "evening_check"
+      - condition: template
+        value_template: "{{ trigger.platform is none }}"
+```
+
 ---
 
 ## Dashboards

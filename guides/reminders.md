@@ -301,9 +301,9 @@ The `#reminders` pop-up shows a Bubble Card button for the pickup when `input_bo
 
 **No notification fired Tuesday evening**
 
-1. In HA Developer Tools → Services, call `calendar.get_events` against `calendar.family` for a window covering tomorrow. Confirm the response contains events with summary exactly `Trash Pickup` or `Trash & Recycling Pickup` (case-sensitive). If summaries differ, update the filter in `automation.household_pickup_reminder`.
-2. Check the Remote Calendar integration's last-update timestamp — if `calendar.family` hasn't synced recently, events may not be populated. Trigger a manual reload via **Settings → Devices & Services → Remote Calendar → Reload**.
-3. Check the `automation.household_pickup_reminder` trace to see whether the `choose` branch found any matching events.
+1. Check `calendar.family` state first. If `unavailable`, the `calendar.get_events` call errors with "Service call requested response data but did not match any entities" and the automation exits without notifying. Reload via **Settings → Devices & Services → Remote Calendar → Reload**, wait for `calendar.family` to return a non-`unavailable` state, then manually trigger `automation.household_pickup_reminder` — it handles manual triggers by running the same evening-check branch.
+2. If the calendar is available but no notification fired, call `calendar.get_events` against `calendar.family` for a window covering tomorrow in Developer Tools → Services. Confirm the response contains events with summary exactly `Trash Pickup` or `Trash & Recycling Pickup` (case-sensitive). If summaries differ, update the filter in `automation.household_pickup_reminder`.
+3. Check the `automation.household_pickup_reminder` trace to see whether the `choose` branch found any matching events and what the `has_pickup` variable resolved to.
 
 **07:00 critical alarm didn't sound**
 
