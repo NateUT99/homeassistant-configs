@@ -33,7 +33,7 @@ actions:
             condition: trigger
             id: dark
         sequence:
-          - alias: Turn on night lamp at 35%
+          - alias: Turn on night lamp at 50%
             action: light.turn_on
             target:
               entity_id: light.bathroom_night_lamp
@@ -60,7 +60,7 @@ actions:
             entity_id: sensor.bathroom_night_lamp_illuminance
             below: 5
         sequence:
-          - alias: Turn on night lamp at 35%
+          - alias: Turn on night lamp at 50%
             action: light.turn_on
             target:
               entity_id: light.bathroom_night_lamp
