@@ -1,5 +1,5 @@
 # Home Assistant Device & Entity Naming Standard
-*Version 1.3 — May 2026*
+*Version 2.0 — August 2026*
 
 ---
 
@@ -7,8 +7,9 @@
 
 | Version | Date | Changes |
 |---|---|---|
-| 1.3 | May 2026 | Codify device display name convention (§4.1–4.2): Title Case, location-first, describes physical object; add multi-entity device rule (§4.4) |
-| 1.2 | May 2026 | Display-name hybrid rule (§5.1–5.2): drop area prefix from primary entities; codify entity registry Name field override; update §6 group examples; primary climate sensor rule: designated room temperature/humidity sensor uses bare "Temperature"/"Humidity" |
+| 2.0 | August 2026 | Reframe for ZHA + `has_entity_name` model: area token comes from device Name field, not area registry; add anti-doubling rule (§4.3), area-less import rule (§4.4), and domain-word collision caveat (§4.5); update area registry for new house (§3); remove Z2M/Hue-specific guidance; update special-case sections for current integration stack |
+| 1.3 | May 2026 | Codify device display name convention (§4.1–4.2): Title Case, location-first, describes physical object; add multi-entity device rule |
+| 1.2 | May 2026 | Display-name hybrid rule: drop area prefix from primary entities; codify entity registry Name field override; primary climate sensor rule |
 | 1.1 | May 2026 | Added Reminder Naming section (§9) |
 | 1.0 | March 2026 | Initial release |
 
@@ -16,7 +17,7 @@
 
 ## 1. Purpose & Scope
 
-This document defines the standard naming conventions for all devices and entities in the Home Assistant instance. It applies to all integrations including Zigbee (Z2M), Hue, Sonos, Matter, HomeKit, Meross, and others. Consistent naming enables reliable automations, clean dashboards, and easy voice assistant targeting.
+This document defines the standard naming conventions for all devices and entities in the Home Assistant instance. It applies to all integrations including Zigbee (ZHA), Matter, HomeKit, Sonos, Apple TV, Roborock, LG ThinQ, ESPHome, and others. Consistent naming enables reliable automations, clean dashboards, and easy voice assistant targeting.
 
 > **Automation naming is out of scope here.** Automation entity IDs, friendly names, categories, labels, and area assignment are defined in `standards/automations.md`.
 
@@ -30,34 +31,53 @@ This document defines the standard naming conventions for all devices and entiti
 - Every device must be assigned to an area — no exceptions
 - Friendly names are Title Case; entity IDs are snake_case
 - Abbreviations only for universally understood terms (e.g., `tv`, `led`)
-- Apostrophes are dropped in entity IDs (`avery_room` not `avery_s_room`)
+- Apostrophes are dropped in entity IDs (`averys_room` not `avery_s_room`)
 
 ---
 
 ## 3. Area Registry
 
-Areas represent physical rooms or zones. Area IDs must be lowercase snake_case with no abbreviations.
+Areas represent physical rooms or zones. Area IDs are set at creation time from the display name (snake_case, apostrophes dropped) and are immutable — to change an area_id, the area must be deleted and recreated with all devices reassigned.
 
-| Area ID | Friendly Name | Notes |
-|---|---|---|
-| `avery_room` | Avery's Room | Drop apostrophe in ID |
-| `bathroom` | Bathroom | Hall bathroom |
-| `entrance` | Entrance | Entry/foyer |
-| `garage` | Garage | |
-| `kitchen` | Kitchen | |
-| `living_room` | Living Room | |
-| `master_bedroom` | Master Bedroom | Rename from `bedroom`; includes master bathroom and master closet |
-| `office` | Office | |
-| `outside` | Outside | Exterior/patio/porch |
-| `utility_room` | Utility Room | |
+Two floors: **Main Floor** (level 1) and **Basement** (level 0).
+
+| Area ID | Friendly Name | Floor | Notes |
+|---|---|---|---|
+| `averys_room` | Avery's Room | Main Floor | Apostrophe dropped: `avery's` → `averys` |
+| `bathroom` | Bathroom | Main Floor | Hall bathroom |
+| `entrance` | Entrance | Main Floor | Entry/foyer |
+| `garage` | Garage | Main Floor | |
+| `kitchen` | Kitchen | Main Floor | |
+| `living_room` | Living Room | Main Floor | |
+| `master_bedroom` | Master Bedroom | Main Floor | Includes master bathroom and master closet |
+| `office` | Office | Main Floor | |
+| `utility_room` | Utility Room | Main Floor | |
+| `entertainment_room` | Family Room | Basement | **Known exception:** area_id does not match display name. Entities in this area use the `family_room_` prefix (from device Names). Recreate as `family_room` when the basement is being set up and device reassignment is low-cost. |
+
+Add `outside` when exterior devices are installed. Additional areas (dining area, master bathroom, pantry, arcade) to be added as those rooms are set up.
 
 ---
 
 ## 4. Device Naming
 
-The device name describes the physical object. It is set at the integration level (in Z2M, the Hue app, or the HA device registry) and is the basis for all entity IDs on that device.
+### 4.1 How Entity IDs Are Derived
 
-### 4.1 Format
+Modern HA integrations use the `has_entity_name` model. The entity_id is constructed as:
+
+```
+domain.slug(device Name) + slug(entity Name)
+```
+
+**The area registry does not inject a prefix into the entity_id.** The area token in entity IDs comes solely from the device Name beginning with the area. This is why every device Name must start with the area — HA will not add it automatically.
+
+```
+Device Name "Bathroom Night Lamp" + entity "Motion"  →  binary_sensor.bathroom_night_lamp_motion  ✓
+Device Name "Night Lamp" + entity "Motion" (area: Bathroom)  →  binary_sensor.night_lamp_motion   ✗
+```
+
+For integrations that do not use `has_entity_name` (older integrations, some cloud-only services), entity IDs are auto-generated by the integration and must be renamed manually in the entity registry after pairing.
+
+### 4.2 Format
 
 Device display names use **Title Case**:
 
@@ -69,48 +89,81 @@ Device display names use **Title Case**:
 Entity IDs are the snake_case equivalent, derived automatically:
 
 ```
-"Office Floor Accent Right"  →  light.office_floor_accent_right
-"Kitchen Ceiling Fan"        →  light.kitchen_ceiling_fan_lights
-                                fan.kitchen_ceiling_fan
+"Bathroom Night Lamp"        →  light.bathroom_night_lamp
+"Living Room Thermostat"     →  climate.living_room_thermostat
+                                sensor.living_room_thermostat_temperature
+"Kitchen Ceiling Fan"        →  fan.kitchen_ceiling_fan
+                                light.kitchen_ceiling_fan_lights
 ```
 
-Z2M and Hue derive entity IDs automatically from the device name. For integrations that auto-generate opaque IDs (HomeKit Controller, Meross, etc.), rename entity IDs manually in HA after pairing — the device name and entity IDs are always set to agree.
-
-### 4.2 Rules
-
-- Device display names use Title Case; entity IDs are snake_case derived from the display name
+**Rules:**
 - Use the area name as the prefix — always
 - Describe the physical device, not its function (`ceiling` not `ceiling_lights`)
 - For multi-bulb fixtures, the device is the bulb: `office_ceiling_bulb_1`
-- Use `_left` / `_right` for physically oriented pairs (side-by-side cabinets, windows, nightstands) — perspective is always **facing the object**; position qualifier always comes **after** the object name (`window_left` not `left_window`, `nightstand_lamp_left` not `left_nightstand_lamp`)
-- Use `_1` / `_2` / `_n` when orientation is irrelevant or there are more than two (bulbs in a fixture, accent bars)
-- Plural the group name when grouping left/right or numbered siblings: `office_record_cabinets` groups `office_record_cabinet_left` + `office_record_cabinet_right`
+- Use `_left` / `_right` for physically oriented pairs — perspective is always **facing the object**; position qualifier comes **after** the object name (`window_left` not `left_window`)
+- Use `_1` / `_2` / `_n` when orientation is irrelevant or there are more than two
+- Plural the group name when grouping left/right or numbered siblings
 - When two devices of the same type exist in a room, qualify by location within the room first (`nightstand`, `desk`, `bed`), then by type, then by number as a last resort
 - Fix typos consistently: `humidifier` (not `humidifer`), `turntable` (not `turnable`)
 
-### 4.3 Device Name Examples
+### 4.3 Anti-Doubling Rule
 
-Proposed names are the Title Case display names; entity IDs are the snake_case equivalent.
+Some integrations name their device after the room it occupies (Sonos names speakers after their Sonos app room name). When the device Name and the entity Name both resolve to the same area token, the entity_id doubles it:
 
-| Current Device Name | Proposed Device Name | Reason |
-|---|---|---|
-| Avery's Room Ceiling Bulb 1 | Avery Room Ceiling Bulb 1 | Drop apostrophe |
-| Bathroom Hallway Ceiling Bulb 1 | Bathroom Ceiling Bulb 1 | Remove redundant 'Hallway' |
-| Master Bedroom Humidifer Plug | Master Bedroom Humidifier Plug | Fix typo |
-| Office Turnable Lights Power Switch | Office Turntable Switch | Fix typo + simplify |
-| Living Room Movie Poster Lights | Living Room Movie Poster | Drop 'Lights' — redundant with domain |
-| Master Bedroom Temperature Sensor | Master Bedroom Climate Sensor | Consistent with MQTT device |
-| Avery's Room Door Sensor | Avery Room Door | Drop 'Sensor' suffix |
-| Kitchen Water Leak Sensor | Kitchen Leak Sensor | Drop 'Water' — all leak sensors are water |
-| Avery's Room Climate Sensor (2nd in room) | Avery Room Climate Nightstand | Qualify by location within room |
+```
+Sonos device "Living Room" + entity "Living Room"  →  media_player.living_room_living_room  ✗
+```
 
-### 4.4 Multi-Entity Devices
+**Two cases — the fix depends on whether the entity name is also the room name:**
 
-When a device exposes multiple entities, the device display name describes the physical object. Entity IDs extend the device name slug with a domain-appropriate qualifier only where needed.
+**Case A: Only the device name causes doubling** (entity names are generic: "Power", "Status", "Temperature"). Rename the device Name to add a type qualifier and entity_ids update automatically:
+
+```
+Device: "Living Room" → "Living Room Projector"
+  switch.living_room_living_room_power  →  switch.living_room_projector_power  ✓
+```
+
+**Case B: Both the device name AND the primary entity name equal the room** (Sonos, Apple TV). Renaming the device from "Living Room" to "Living Room Sonos" makes it *worse* — the entity "Living Room" stacked on "Living Room Sonos" produces `media_player.living_room_sonos_living_room`. Do **not** rename the device. Instead, **override entity_ids directly** in the entity registry for each affected entity:
+
+```
+media_player.living_room_living_room       →  media_player.living_room_sonos              ✓
+switch.living_room_living_room_crossfade   →  switch.living_room_sonos_crossfade           ✓
+switch.living_room_living_room_loudness    →  switch.living_room_sonos_loudness            ✓
+```
+
+Entity_id overrides: **Settings → Entities**, pencil icon → Entity ID field. After all entity_id overrides are applied, the device display name can be updated to "Living Room Sonos" as a cosmetic label — but set the entity_ids first.
+
+### 4.4 Area-Less Import Rule
+
+Some integrations pair with a device Name that contains no area token (appliances, energy monitors, some cloud integrations). The result has no area prefix:
+
+```
+switch.washer_power             ✗
+sensor.energy_monitoring_total  ✗
+```
+
+Always rename the device Name to include the area before any other customization:
+
+```
+"Washer"              →  "Utility Room Washer"         →  switch.utility_room_washer_power     ✓
+"Dryer"               →  "Utility Room Dryer"          →  sensor.utility_room_dryer_status      ✓
+"Energy Monitoring"   →  "Household Energy Monitor"    →  sensor.household_energy_monitor_power ✓
+```
+
+### 4.5 Domain-Word Collision Caveat
+
+Generic device Names that match a HA domain produce IDs that look ambiguous — devices named "Climate" produce `sensor.<area>_climate_temperature`, which sits next to `climate.<area>_thermostat`. The entity_id itself is fine; keep it. Apply §5.1 friendly-name rules carefully so the display name is unambiguous:
+
+- Primary room sensor (the designated room temperature/humidity reading): bare "Temperature" / "Humidity"
+- Secondary/utility sensors from the same device: keep the device qualifier ("Climate Battery", "Climate Identify")
+
+### 4.6 Multi-Entity Devices
+
+When a device exposes multiple entities, the device display name describes the physical object. Entity IDs extend the device name slug with a qualifier only where needed.
 
 - **Primary entity** — no additional qualifier beyond the device name slug
 - **Secondary/utility entities** — add a functional qualifier (`_identify`, `_battery`, `_power`, etc.)
-- **Same-domain conflict** — when two entities in the same domain come from one device, qualify by function (e.g., `_lights` on a ceiling fan's light entity to distinguish from the `fan` entity)
+- **Same-domain conflict** — when two entities in the same domain come from one device, qualify by function (e.g., `_lights` on a ceiling fan's light entity)
 
 | Device Name | Entity ID | Notes |
 |---|---|---|
@@ -123,16 +176,16 @@ When a device exposes multiple entities, the device display name describes the p
 
 ## 5. Entity Naming
 
-Entities are auto-generated from device names by HA/Z2M. Override friendly names only when the auto-generated result is wrong or redundant.
+Entities are auto-generated from device names by HA. Override friendly names only when the auto-generated result is wrong or redundant.
 
 ### 5.1 Friendly Name Rules
 
 - Title Case for all friendly names
 - The domain is **never** included in the friendly name (no `Light`, `Switch`, `Sensor` suffix on primary entities)
-- **Default: drop the area prefix** from primary entities. Area context lives in the entity's area assignment, not the name. "Ceiling", not "Office Ceiling"; "Thermostat", not "Living Room Thermostat". Drop only the registered HA area name — sub-location qualifiers within the area ("Hallway", "Closet", "Desk", "Nightstand") are part of the object name and must be kept. `light.bathroom_hallway_ceiling` → "Hallway Ceiling" (not "Ceiling"), because "Hallway" disambiguates from a future fixture elsewhere in the same bathroom area.
-- **Keep a qualifier when bare would be ambiguous** — identical or generic objects that mean nothing alone, or area+object natural-compound phrases. `fan.living_room_ceiling` → "Ceiling Fan" (not "Ceiling", which would collide with a ceiling light entity); `cover.garage_door_garage` → "Garage Door" (natural compound — not just "Door").
-- **Strip concatenation artifacts.** HA prepends the device name for `has_entity_name` entities, producing names like "Garage Door Garage" or "Interior Door Door". Override the Name field to correct them.
-- Secondary entities (temperature, humidity, power) retain a disambiguating qualifier — bare "Temperature" is meaningless in flat contexts like notifications and logbook. "Motion Temperature", not "Temperature". **Exception — primary room climate sensor:** the designated primary temperature/humidity sensor for a room drops the qualifier entirely, regardless of whether the device is a `climate` sensor or a thermostat — it IS the room reading. `sensor.avery_room_climate_temperature` → "Temperature"; `sensor.living_room_thermostat_current_temperature` → "Temperature". Sub-location climate sensors keep the sub-location qualifier but drop the device name: `sensor.master_bathroom_climate_temperature` → "Bathroom Temperature". Non-primary sensors from secondary devices always retain their device qualifier: "Ecobee Temperature", "Motion Temperature".
+- **Default: drop the area prefix** from primary entities. Area context lives in the entity's area assignment, not the name. "Ceiling", not "Office Ceiling"; "Thermostat", not "Living Room Thermostat". Drop only the registered HA area name — sub-location qualifiers within the area ("Hallway", "Closet", "Desk", "Nightstand") are part of the object name and must be kept.
+- **Keep a qualifier when bare would be ambiguous** — identical or generic objects that mean nothing alone, or area+object natural-compound phrases. `fan.living_room_ceiling` → "Ceiling Fan" (not "Ceiling", which would collide with a ceiling light entity); `cover.garage_door_opener_door` → "Garage Door" (natural compound — not just "Door").
+- **Strip concatenation artifacts.** HA prepends the device name for `has_entity_name` entities, producing names like "Garage Door Opener Door" or "Night Lamp Night Lamp". Override the Name field to correct them.
+- Secondary entities (temperature, humidity, power) retain a disambiguating qualifier — bare "Temperature" is meaningless in flat contexts like notifications and logbook. "Night Lamp Temperature", not "Temperature". **Exception — primary room climate sensor:** the designated primary temperature/humidity sensor for a room drops the qualifier entirely — it IS the room reading. `sensor.living_room_thermostat_temperature` → "Temperature"; `sensor.office_climate_temperature` → "Temperature". Non-primary sensors always retain their device qualifier: "Night Lamp Temperature", "Motion Temperature".
 - Set display names via the entity registry **Name** field (**Settings → Entities**, pencil icon). This value overrides the entire `friendly_name` everywhere HA surfaces it — dashboards, voice, notifications, logbook, HomeKit — with no device or area name prepended. Area context is preserved by assigning the entity to its area, not by encoding it in the name.
 - If the Name field is cleared, HA falls back to `original_name`. Blank is acceptable when `original_name` is already correct.
 
@@ -145,13 +198,13 @@ Entities are auto-generated from device names by HA/Z2M. Override friendly names
 | `binary_sensor` (contact) | Door/window state | `[Object]` | `Freezer Door` |
 | `binary_sensor` (motion) | Motion detection | `[Device] Motion` | `Night Lamp Motion` |
 | `binary_sensor` (moisture) | Leak detection | `[Location] Leak` — keep area; omitting creates ambiguous notifications | `Kitchen Leak` |
-| `sensor` (temperature) | Temperature reading | `[Device] Temperature` | `Motion Temperature` |
-| `sensor` (humidity) | Humidity reading | `[Device] Humidity` | `Sensor Humidity` |
-| `sensor` (battery) | Battery level | `[Device] Battery` | `Motion Battery` |
-| `sensor` (power) | Power consumption | `[Device] Power` | `Coke Machine Power` |
+| `sensor` (temperature) | Temperature reading | `[Device] Temperature` | `Night Lamp Temperature` |
+| `sensor` (humidity) | Humidity reading | `[Device] Humidity` | `Night Lamp Humidity` |
+| `sensor` (battery) | Battery level | `[Device] Battery` | `Night Lamp Battery` |
+| `sensor` (power) | Power consumption | `[Device] Power` | `Washer Power` |
 | `media_player` | Speaker/TV/player | Object name | `Sonos` |
 | `climate` | Thermostat | Object name | `Thermostat` |
-| `fan` | Fan | Object name; add qualifier when ambiguous (see §5.1) | `Tower Fan` |
+| `fan` | Fan | Object name; add qualifier when ambiguous (see §5.1) | `Ceiling Fan` |
 | `cover` | Garage door | Natural compound: keep area+object | `Garage Door` |
 
 ### 5.3 What to Suppress / Disable
@@ -163,14 +216,14 @@ Many integrations create diagnostic entities that pollute the entity list. These
 - Start-up behavior / color temperature / current level — set once, then disable
 - Binary input entities on smart plugs (unless actively used)
 - Zigbee controller diagnostic counters (`APS_DATA_*`, `NWK_*`, `MAC_*`, etc.)
-- Meross/manufacturer DnD light entities
-- Signal strength / sensor protocol sensors from Meross
+- Signal strength / sensor protocol sensors from appliance integrations
+- LED indicator entities on smart plugs and switches (unless actively controlled)
 
 ---
 
 ## 6. Light Groups
 
-HA Light Groups replace ZHA groups going forward. The group is the primary entity used in automations and dashboards. Individual bulbs are members only.
+HA Light Groups are the primary entity used in automations and dashboards. Individual bulbs are members only.
 
 ### 6.1 Group Entity ID Format
 
@@ -188,17 +241,14 @@ light.[area]_[fixture]_bulb_[n]
 
 ### 6.3 Numbered Member Examples
 
+The following are illustrative patterns, not a catalog of current groups:
+
 | Group Entity ID | Friendly Name | Members |
 |---|---|---|
-| `light.living_room_fan` | Ceiling | `living_room_fan_bulb_1` through `_4` |
-| `light.master_bedroom_fan` | Ceiling | `master_bedroom_fan_bulb_1` through `_4` |
-| `light.avery_room_ceiling` | Ceiling | `avery_room_ceiling_bulb_1`, `_2` |
-| `light.master_closet_ceiling` | Closet Ceiling | `master_closet_ceiling_bulb_1`, `_2` |
-| `light.outside_porch` | Porch | `outside_porch_bulb_1`, `_2` |
-| `light.bathroom_hallway_ceiling` | Ceiling | `bathroom_hallway_ceiling_bulb_1`, `_2` |
-| `light.garage_ceiling` | Ceiling | `garage_ceiling_bulb_1`, `_2` |
-| `light.utility_room_ceiling` | Ceiling | `utility_room_ceiling_bulb_1`, `_2` |
-| `light.kitchen_cabinet_accent` | Cabinet Accent | `kitchen_cabinet_accent_bar_1` through `_4` |
+| `light.living_room_fan` | Ceiling | `light.living_room_fan_bulb_1` through `_4` |
+| `light.master_bedroom_fan` | Ceiling | `light.master_bedroom_fan_bulb_1` through `_4` |
+| `light.averys_room_ceiling` | Ceiling | `light.averys_room_ceiling_bulb_1`, `_2` |
+| `light.kitchen_cabinet_accent` | Cabinet Accent | `light.kitchen_cabinet_accent_bar_1` through `_4` |
 
 ### 6.4 Left/Right Member Examples
 
@@ -206,8 +256,8 @@ When devices are physically oriented (facing the object), use `_left` / `_right`
 
 | Group Entity ID | Friendly Name | Members |
 |---|---|---|
-| `light.office_record_cabinets` | Record Cabinets | `office_record_cabinet_left`, `office_record_cabinet_right` |
-| `light.master_bedroom_nightstand_lamps` | Nightstand Lamps | `master_bedroom_nightstand_lamp_left`, `master_bedroom_nightstand_lamp_right` |
+| `light.office_record_cabinets` | Record Cabinets | `light.office_record_cabinet_left`, `light.office_record_cabinet_right` |
+| `light.master_bedroom_nightstand_lamps` | Nightstand Lamps | `light.master_bedroom_nightstand_lamp_left`, `light.master_bedroom_nightstand_lamp_right` |
 
 ---
 
@@ -216,43 +266,43 @@ When devices are physically oriented (facing the object), use `_left` / `_right`
 ### 7.1 Devices Without a Fixed Room
 
 - Exterior devices use `outside` as the area prefix: `outside_porch`, `outside_patio`
-- Portable/roaming devices use a functional prefix: `portable_sonos`, `roborock_q8`
+- Portable/roaming devices that genuinely have no fixed location use a functional prefix: `portable_speaker`
+- Household-scoped entities (not tied to a room) use the `household` prefix: `household_energy_monitor`
 
-### 7.2 Manufacturer Entity IDs
+### 7.2 Integration-Generated Entity IDs
 
-Devices that were never renamed before pairing show manufacturer model strings as entity IDs (e.g., `signify_netherlands_b_v_lca003`, `lumi_lumi_sensor_magnet_aq2`). These must be re-paired or renamed in Z2M before migration is considered complete.
+Devices that pair before being renamed can acquire manufacturer model strings or opaque identifiers as entity IDs. These must be renamed before the device is considered properly configured. In ZHA, rename the device in **Settings → Devices** before or immediately after pairing — ZHA derives the entity_id from the device Name at pair time; changing the name later requires also updating entity_ids in the registry.
 
-### 7.3 Non-Zigbee Integrations
+### 7.3 Integration-Specific Notes
 
-For integrations that auto-generate entity IDs (Hue, Sonos, Ecobee, Roborock), rename at the device level within HA via Settings → Devices. Use entity IDs (not friendly names) in automations.
+| Integration | Notes |
+|---|---|
+| ZHA (Zigbee) | Set device Name in ZHA device detail before pairing if possible. Use **Settings → Devices** otherwise. Entity_ids update automatically when device Name is changed. |
+| Matter / HomeKit Controller | Device names auto-populate from the device manufacturer. Rename via **Settings → Devices** after pairing. |
+| Sonos | Device name comes from the Sonos app room name. See §4.3 for anti-doubling — rename in HA via **Settings → Devices** and override entity_ids in registry. |
+| Apple TV | Device name comes from the Apple TV name. Same anti-doubling pattern as Sonos if the TV name matches the room name. |
+| Roborock | Device name comes from the Roborock app. Prefix with area: "Living Room Vacuum". |
+| LG ThinQ | Device name set by LG app. Prefix with area: "Utility Room Washer", "Utility Room Dryer". Apply §4.4 (area-less import rule). |
+| ESPHome | Device name is set in the ESPHome device config. Set it correctly at flash time: `name: garage-door-opener` → friendly name "Garage Door Opener". |
 
-### 7.4 Hue-Managed Devices
-
-Hue lights should be renamed in the Hue app first — HA will sync the name. Use the following rule to decide between a Hue zone and an HA Light Group:
-
-- **Hue zone** — decorative lights where you want Hue-specific effects or entertainment sync (e.g., pinball cabinet accents, TV bias lighting). Hue zones are managed in the Hue app. Hue zones used primarily for scene access are exempt from the left/right split rule — the zone entity can remain as a single named group (e.g., `light.office_record_cabinet`) even if the underlying bulbs are named `_left` / `_right`.
-- **HA Light Group** — functional lighting where you only need on/off/dim/color control (e.g., ceiling bulbs, lamps). HA groups are defined in `configuration.yaml` or via the UI.
-
-### 7.5 Smart Plugs — Name After What's Plugged In
+### 7.4 Smart Plugs — Name After What's Plugged In
 
 Always name a smart plug after the device connected to it, not the plug itself. The plug is infrastructure; the device is what you control.
 
 - `switch.master_bedroom_humidifier` — not `switch.master_bedroom_smart_plug`
-- `switch.avery_room_noise_machine` — not `switch.avery_room_plug_1`
+- `switch.averys_room_noise_machine` — not `switch.averys_room_plug_1`
 
 The only exception is a general-purpose outlet with no fixed device, which can be named by location: `switch.office_desk_outlet`. For multi-outlet devices where each outlet is general-purpose, append `_1` / `_2` / `_n` and pluralize the device name: `switch.outside_porch_outlet_1`, `switch.outside_porch_outlet_2` (device: "Outside Porch Outlets").
 
-### 7.6 Lights on Smart Plugs (switch_as_x)
+### 7.5 Lights on Smart Plugs (switch_as_x)
 
-When a light is connected via a smart plug, use the `switch_as_x` helper to expose it as a `light` entity instead of a `switch`. This ensures correct behavior in the UI, voice assistants, and light-based automations.
+When a light is connected via a smart plug, use the `switch_as_x` helper to expose it as a `light` entity. This ensures correct behavior in the UI, voice assistants, and light-based automations.
 
 **Process:**
 1. Name the device after what's plugged in (e.g., `Living Room Movie Poster`)
-2. Z2M creates `switch.living_room_movie_poster`
+2. The integration creates `switch.living_room_movie_poster`
 3. In HA, create a `switch_as_x` helper to expose it as `light.living_room_movie_poster`
 4. Disable the underlying `switch` entity — use the `light` entity everywhere
-
-The entity ID remains the same, only the domain changes from `switch` to `light`. No special naming required — just follow the standard light naming rules.
 
 ---
 
@@ -271,10 +321,10 @@ The entity ID remains the same, only the domain changes from `switch` to `light`
 | Door sensor | `binary_sensor.[area]_[door_name]` | `binary_sensor.kitchen_freezer_door` |
 | Window sensor | `binary_sensor.[area]_window_[side]` | `binary_sensor.master_bedroom_window_left` |
 | Leak sensor | `binary_sensor.[area]_leak` | `binary_sensor.kitchen_leak` |
-| Climate sensor (temp) | `sensor.[area]_[sensor]_temperature` | `sensor.office_sensor_temperature` |
 | Motion sensor | `binary_sensor.[area]_[device]_motion` | `binary_sensor.bathroom_night_lamp_motion` |
-| Media player | `media_player.[area]_[brand/type]` | `media_player.living_room_sonos` |
-| Vacuum | `vacuum.[model_name]` | `vacuum.roborock_q8_max` |
+| Media player (single per room) | `media_player.[area]_[brand/type]` | `media_player.living_room_sonos` |
+| Vacuum | `vacuum.[area]_vacuum` | `vacuum.living_room_vacuum` |
+| Household entity (no area) | `[domain].household_[purpose]` | `sensor.household_energy_monitor_power` |
 
 ---
 
