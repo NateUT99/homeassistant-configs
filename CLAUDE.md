@@ -8,11 +8,12 @@ This file defines the project context, conventions, and working preferences Clau
 
 This repository is the version-controlled home for documentation, standards, and supporting scripts for a personal Home Assistant instance. It is **not** a complete mirror of HA — see [Source of Truth](#source-of-truth) below.
 
-The repository serves three purposes:
+The repository serves four purposes:
 
 1. **Reference standards** that govern how the HA instance is structured (see `standards/naming.md` for entities, `standards/automations.md` for automations)
 2. **Implementation guides** for custom integrations, written for the author's future reference and for sharing in HA community forums
 3. **Supporting scripts** that aren't UI-editable and live outside HA's entity registry (shell scripts, complex templates)
+4. **Living automation/script mirror** (`ha/`) — version-controlled YAML exports of every automation and script, kept in sync with HA each session
 
 The author has a security engineering background; security controls in any proposed implementation should be thorough, scoped to least privilege, and clearly explained — never glossed over.
 
@@ -22,12 +23,16 @@ The author has a security engineering background; security controls in any propo
 
 **HA is the live runtime.** The entity registry, area registry, device assignments, and operational state all live in HA and are read live via the Home Assistant MCP server.
 
-**The repo is the design and recovery reference.** HA is the authoritative source for automation and script YAML — do not duplicate it in guides. The repo documents enough to understand, audit, and recreate each integration. This means:
+**The repo is the design and recovery reference.** HA is the authoritative source for automation and script YAML. The repo documents enough to understand, audit, and recreate each integration. This means:
 
-- **Implementation guides** explain architecture, design decisions, and the rationale behind non-obvious choices. They reference automations and scripts by entity ID; the live YAML is always retrievable via MCP.
+- **Implementation guides** explain architecture, design decisions, and the rationale behind non-obvious choices. They reference automations and scripts by entity ID; the live YAML is always retrievable via MCP. Guides do **not** embed automation/script YAML — that belongs in `ha/`.
 - **`configuration.yaml` entries** (not stored in HA, not retrievable via MCP) are documented in full in the relevant guide — these are the only YAML blocks that belong in a guide.
 - **Shell scripts** invoked by HA `shell_command` integrations live in `scripts/` as the authoritative source.
 - Changes to HA and the repo happen in the same session and are kept in sync.
+
+**Automation/script mirror (`ha/`):** Every automation and script is also mirrored as YAML in `ha/automations/` and `ha/scripts/`. HA remains authoritative; the mirror is a downstream, human-readable, version-controlled copy used for recovery and diffing. The mirror is updated in the same session as any automation or script change (export via MCP → write file → commit). Updating the mirror is part of "done" for any automation/script work.
+
+**Snapshot (`snapshot/2026-07-27-pre-move/`):** A frozen, read-only point-in-time export from the old apartment captured before the move. It is a rebuild reference — consult it freely when replicating prior functionality. **Never write to it or update it.**
 
 **Sync discipline:** When we make changes together, the repo is updated in the same session. When you make changes in the HA UI between sessions, bring the relevant guide up to date before the end of the next session — architecture notes, org settings, and entity IDs, not YAML.
 
@@ -46,16 +51,15 @@ This gives a human-readable handle while preserving the machine identifier neede
 ## Environment Context
 
 - **HA instance:** Home Assistant OS on Home Assistant Green
-- **Primary Mac:** Mac Mini running macOS (always-on), referenced as `mac-mini`; secondary MacBook Pro
-- **HA Companion App** is installed on Mac Mini, MacBook Pro, and iPhone
-- **Zigbee devices** are managed via Zigbee2MQTT (Sonoff EFR32MG24 coordinator) on channel 11
-- **Hue devices** are managed via the Hue bridge on channel 20 (cleanly separated from Z2M)
-- **Thread network:** A SkyConnect ZBT-1 flashed with Thread firmware acts as the Thread border router, registered in the same Thread fabric as the Apple Thread network (HomePods). Thread and Matter-over-Thread devices are reachable from both HA and Apple Home via this shared fabric.
-- **Matter/HomeKit bridging** via Matter Hub (RiDDiX fork) add-on
-- **Notification targets:** `notify.mobile_app_nates_iphone`, `notify.mobile_app_nate_s_mac_mini`, `notify.mobile_app_nates_macbook_pro`
-- **Media targets:** HomePods in kitchen and master bedroom for TTS announcements
+- **Primary Mac:** Mac Mini running macOS (always-on), referenced as `mac-mini`; secondary MacBook Pro (referenced as `work-laptop` in HA)
+- **HA Companion App** is installed on Mac Mini, work laptop, and iPhone
+- **Zigbee devices** are managed via ZHA (USB coordinator; channel TBD)
+- **Thread network:** OpenThread Border Router (official core add-on) acts as the Thread border router, registered in the same Thread fabric as the Apple Thread network (HomePods). Thread and Matter-over-Thread devices are reachable from both HA and Apple Home via this shared fabric.
+- **Matter support** via the official Matter Server core add-on
+- **Notification targets:** `notify.nates_iphone`, `notify.nates_mac_mini`, `notify.nates_work_laptop`
+- **TTS media targets:** `media_player.kitchen_homepod`, `media_player.master_bedroom_homepod`, `media_player.office_homepod`, `media_player.averys_room_homepod`
 
-For current migration progress, settled areas, and the state of in-flight work, ask the author or read recent commits — this file intentionally does not track state that changes.
+For current rebuild progress, installed integrations, and in-flight work, ask the author or read recent commits — this file intentionally does not track state that changes. Consult `snapshot/2026-07-27-pre-move/` for the full pre-move configuration as a rebuild reference.
 
 ---
 
@@ -152,6 +156,25 @@ Push after each commit unless explicitly working on a sequence of related commit
 
 ---
 
+## Mirror Discipline
+
+The `ha/` directory contains version-controlled YAML mirrors of every automation and script. This is downstream from HA — HA remains authoritative, the mirror is a copy for recovery and diffing.
+
+**What's mirrored:** `ha/automations/` and `ha/scripts/` only. Helpers, scenes, and dashboards are not mirrored (they're either UI-editable in HA or covered by guides).
+
+**File naming:** `automation.<object_id>.yaml` and `script.<object_id>.yaml` — matching the frozen snapshot convention for easy comparison.
+
+**When to update:** Anytime an automation or script is created, modified, or deleted in HA, update the mirror in the same session:
+1. Export from HA via `ha_config_get_automation` or `ha_config_get_script`
+2. Write/update/delete the corresponding file in `ha/automations/` or `ha/scripts/`
+3. Include the mirror update in the same commit as any guide or standards changes for that automation
+
+**What does NOT belong in `ha/`:** Do not write `configuration.yaml` entries, template sensors, or helper definitions here — those belong in the relevant guide or are HA-only artifacts.
+
+**Snapshot boundary:** `snapshot/2026-07-27-pre-move/` is a frozen archive of the old instance. It is a reference, not a mirror. Do not copy snapshot files into `ha/` as-is — the entity IDs and area names are from the old house. When replicating prior functionality, read the snapshot for logic and intent, then build fresh in the new HA and mirror the result.
+
+---
+
 ## Issue Tracking
 
 GitHub Issues are an active part of the workflow for this repo. Use them to capture context that doesn't belong in commit messages or `LESSONS.md` — proposed changes under discussion, deferred work, failed approaches with reasoning, and questions awaiting decisions.
@@ -204,13 +227,15 @@ All entity and device naming follows `standards/naming.md`. All automation namin
 
 Key principles to internalize without re-reading every time:
 
-- **Location first** — entity IDs always start with the area
-- **No platform names** in entity IDs (no `zigbee_`, `hue_`, etc.)
+- **Location first** — entity IDs always start with the area; the area registry does not inject the area prefix automatically — it must be in the device Name
+- **No platform names** in entity IDs (no `zigbee_`, `hue_`, `homekit_`, etc.)
 - **Snake_case for IDs, Title Case for friendly names**
-- **Apostrophes dropped** in IDs (`avery_room` not `avery_s_room`)
+- **Apostrophes dropped** in IDs (`averys_room` not `avery_s_room`)
 - **Position qualifiers after object** (`window_left`, not `left_window`)
 - **`_lamp` reserved for portable lamps**; `_accent` for decorative backlighting
 - **`_sensor` suffix dropped** when implied by the domain
+- **Anti-doubling** — when an integration names its device after the room, add a type qualifier to prevent `area_area_*` stutter (see §4.3)
+- **Area-less imports** — always rename area-free device Names before anything else (see §4.4)
 
 ---
 
@@ -237,8 +262,16 @@ Documentation in this repo falls into two distinct types. They have different sh
 │   └── <topic>.md         ← Reference Standards
 ├── guides/
 │   └── <topic>.md         ← Implementation Guides
-└── scripts/
-    └── <name>.<ext>       ← Shell scripts and non-UI-editable YAML
+├── scripts/
+│   └── <name>.<ext>       ← Shell scripts and non-UI-editable YAML
+├── ha/
+│   ├── README.md          ← Mirror purpose, sync rule, snapshot distinction
+│   ├── automations/
+│   │   └── automation.<object_id>.yaml   ← Living mirror, kept in sync
+│   └── scripts/
+│       └── script.<object_id>.yaml       ← Living mirror, kept in sync
+└── snapshot/
+    └── 2026-07-27-pre-move/  ← Frozen pre-move export (READ-ONLY — never modify)
 ```
 
 **Root-level meta files** (`README.md`, `CLAUDE.md`, `LESSONS.md`) use `ALLCAPS.md`. These are repo metadata, not content.
