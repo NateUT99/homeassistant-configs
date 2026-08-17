@@ -43,7 +43,7 @@ actions:
                 - light.entrance_night_lamp
             data:
               color_temp_kelvin: 2350
-              brightness_pct: 50
+              brightness_pct: 65
           - alias: Ensure garage door is closed
             action: cover.close_cover
             metadata: {}
