@@ -54,7 +54,7 @@ actions:
             action: lock.lock
             metadata: {}
             target:
-              entity_id: lock.entrance_front_door_lock
+              entity_id: lock.entrance_front_door
             data: {}
       - alias: Waking up
         conditions:

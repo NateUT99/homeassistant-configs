@@ -1,0 +1,26 @@
+id: "1787007774696"
+alias: "Household: Last Leaves Home"
+description: >-
+  Closes the garage door and locks the front door when the last person leaves
+  home. Fires when zone.home drops to 0 and holds for 2 minutes 30 seconds.
+triggers:
+  - trigger: state
+    entity_id: zone.home
+    to: "0"
+    for:
+      minutes: 2
+      seconds: 30
+    alias: Last person leaves home for 2 minutes 30 seconds
+conditions: []
+actions:
+  - alias: Close garage door
+    action: cover.close_cover
+    target:
+      entity_id: cover.garage_door_opener_door
+    data: {}
+  - alias: Lock front door
+    action: lock.lock
+    target:
+      entity_id: lock.entrance_front_door
+    data: {}
+mode: single
