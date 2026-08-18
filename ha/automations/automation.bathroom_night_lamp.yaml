@@ -7,16 +7,17 @@ description: >-
   arrives home to a dark bathroom. Turns off when the bathroom gets bright.
 
 
-  The bright threshold is set well above the dark threshold (15 vs 5) rather
-  than matching it, because the lamp's own glow bleeds into its on-device
-  illuminance sensor and reads 1-8 lux while lit — an equal threshold
-  caused a rapid on/off feedback loop as the glow randomly crossed 5 in
-  both directions. Genuine room brightening reads 25+ (dawn) up to 270+
-  (daylight), so 15 leaves comfortable margin on both sides.
+  Dark threshold (10) is set to catch the room while it's still just dim
+  rather than waiting for near-total darkness — this lamp is primarily a
+  nav light for a child at night. Bright threshold (15) stays well above
+  the lamp's own glow (reads 1-8 lux on its own on-device sensor while lit)
+  to avoid the on/off feedback loop an equal threshold previously caused,
+  and well below genuine room brightening from the bathroom's other lights
+  (48+) or daylight (270+).
 triggers:
   - alias: Bathroom illuminance drops below threshold
     entity_id: sensor.bathroom_night_lamp_illuminance
-    below: 5
+    below: 10
     id: dark
     trigger: numeric_state
   - alias: Bathroom illuminance rises above threshold
@@ -66,7 +67,7 @@ actions:
           - alias: Bathroom is dark
             condition: numeric_state
             entity_id: sensor.bathroom_night_lamp_illuminance
-            below: 5
+            below: 10
         sequence:
           - alias: Turn on night lamp at 65%
             action: light.turn_on
