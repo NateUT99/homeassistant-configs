@@ -1,9 +1,9 @@
 id: '1787020051576'
 alias: 'Household: Status Lights Mode'
 description: >-
-  Keeps Status Light–labeled lights in sync with guest mode and sleep state,
-  in priority order: guest mode (green) overrides everyone sleeping (warm
-  white), which overrides off.
+  Keeps the entrance, kitchen, and living room night lamps in sync with
+  guest mode and sleep state, in priority order: guest mode (green)
+  overrides everyone sleeping (warm white), which overrides off.
 
 
   - Guest mode is the visual indicator that a non-household member is
@@ -11,12 +11,19 @@ description: >-
   people are awake and moving through the house.
 
   - Everyone sleeping falls back to the same warm white/low brightness look
-  used for night navigation, so a Status Light-labeled light still works as a
-  nav light overnight even without guest mode active.
+  used for night navigation, so these lights still work as nav lights
+  overnight even without guest mode active.
+
+  - Targets these three lights by literal entity_id (not the former Status
+  Light label) so the color/brightness pickers remain usable in the
+  automation editor's GUI — label/area targets can't be resolved to a fixed
+  entity set at design time, so the editor can't inspect supported color
+  modes and falls back to YAML-only for that action's data. Adding a new
+  status light requires manually adding it to entity_id here.
 
   - Owns light.entrance_night_lamp for this purpose — Household: Configure
   Home for Sleep no longer targets it, so exactly one automation writes to
-  any Status Light-labeled entity.
+  any of these entities.
 triggers:
   - trigger: homeassistant
     event: start
@@ -78,7 +85,10 @@ actions:
           - alias: Set status lights to green (guest mode)
             action: light.turn_on
             target:
-              label_id: status_light
+              entity_id:
+                - light.entrance_night_lamp
+                - light.kitchen_night_lamp
+                - light.living_room_night_lamp
             data:
               rgb_color:
                 - 0
@@ -95,7 +105,10 @@ actions:
           - alias: Set status lights to warm white (sleeping)
             action: light.turn_on
             target:
-              label_id: status_light
+              entity_id:
+                - light.entrance_night_lamp
+                - light.kitchen_night_lamp
+                - light.living_room_night_lamp
             data:
               color_temp_kelvin: 2350
               brightness_pct: 65
@@ -103,6 +116,9 @@ actions:
       - alias: Turn off status lights
         action: light.turn_off
         target:
-          label_id: status_light
+          entity_id:
+            - light.entrance_night_lamp
+            - light.kitchen_night_lamp
+            - light.living_room_night_lamp
 mode: single
 category: 01M08MMBZ719V4GZ2FT10RPTJ2

@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.10 — July 2026*
+*Version 1.11 — August 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.11 | August 2026 | Added §5.9 exception: `light.turn_on` actions with color/brightness/effect data must use literal `entity_id`, not `label_id`/`area_id`, to keep the automation editor's GUI picker usable |
 | 1.10 | July 2026 | Assigned color `green` to functional taxonomy labels (`notification`, `text_to_speech`, `device_tracker`, `presence`); corrected `int_home_alarm` from `indigo` to `purple` |
 | 1.9 | July 2026 | Added `presence` label; updated section 5.10 to reference `sensor.household_people_home` instead of `zone.home` |
 | 1.8 | June 2026 | Added section 5.10: arrival-triggered TTS garage entry grace window |
@@ -297,6 +298,7 @@ Do not wrap actions in `if`/`then` blocks when the action is a no-op if the cond
 
 - Prefer label-targeted actions when broadcasting to a group of devices (e.g., `label.noonehome`).
 - Use `target:` syntax over `data: entity_id:` in service calls — it is the modern form.
+- **Exception — `light.turn_on` actions carrying color/brightness/effect data:** use a literal `entity_id` list, not `label_id`/`area_id`. The automation editor's GUI can only render the visual brightness/color picker when it can resolve the target to a fixed set of light entities and inspect their supported color modes; label and area targets can't be resolved at design time, so the editor falls back to YAML-only for that action's `data`. This trades away auto-following label/area membership — a newly labeled or added light must be added to the entity_id list manually — but GUI editability takes priority per the author's preference. See `automation.household_status_lights_mode` for the pattern.
 
 ### 5.10 Arrival-Triggered TTS: Garage Entry Grace Window
 
