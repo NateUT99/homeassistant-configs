@@ -1,7 +1,7 @@
 id: '1787020051576'
 alias: 'Household: Status Lights Mode'
 description: >-
-  Keeps the entrance, kitchen, and living room night lamps in sync with
+  Keeps the entrance, kitchen, and living room status lamps in sync with
   guest mode and sleep state, in priority order: guest mode (green)
   overrides everyone sleeping (warm white), which overrides off.
 
@@ -21,7 +21,7 @@ description: >-
   modes and falls back to YAML-only for that action's data. Adding a new
   status light requires manually adding it to entity_id here.
 
-  - Owns light.entrance_night_lamp for this purpose — Household: Configure
+  - Owns light.entrance_status_lamp for this purpose — Household: Configure
   Home for Sleep no longer targets it, so exactly one automation writes to
   any of these entities.
 triggers:
@@ -86,9 +86,9 @@ actions:
             action: light.turn_on
             target:
               entity_id:
-                - light.entrance_night_lamp
-                - light.kitchen_night_lamp
-                - light.living_room_night_lamp
+                - light.entrance_status_lamp
+                - light.kitchen_status_lamp
+                - light.living_room_status_lamp
             data:
               rgb_color:
                 - 0
@@ -106,9 +106,9 @@ actions:
             action: light.turn_on
             target:
               entity_id:
-                - light.entrance_night_lamp
-                - light.kitchen_night_lamp
-                - light.living_room_night_lamp
+                - light.entrance_status_lamp
+                - light.kitchen_status_lamp
+                - light.living_room_status_lamp
             data:
               color_temp_kelvin: 2350
               brightness_pct: 65
@@ -117,8 +117,8 @@ actions:
         action: light.turn_off
         target:
           entity_id:
-            - light.entrance_night_lamp
-            - light.kitchen_night_lamp
-            - light.living_room_night_lamp
+            - light.entrance_status_lamp
+            - light.kitchen_status_lamp
+            - light.living_room_status_lamp
 mode: single
 category: 01M08MMBZ719V4GZ2FT10RPTJ2
