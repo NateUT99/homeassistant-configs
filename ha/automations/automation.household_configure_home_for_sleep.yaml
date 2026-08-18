@@ -1,0 +1,39 @@
+id: '1786997164282'
+alias: 'Household: Configure Home for Sleep'
+description: >-
+  Prepares the home for the night when everyone goes to sleep: turns on the
+  bathroom night lamp at warm low brightness, closes the garage door, and
+  locks the front door. Fires only on the sleep-on transition — wake-time
+  light restoration for Status Light-labeled fixtures (including the former
+  entrance night lamp target) is owned by Household: Status Lights Mode, so
+  exactly one automation writes to any shared light.
+triggers:
+  - trigger: switch.turned_on
+    target:
+      entity_id: input_boolean.everyone_sleeping
+    options:
+      behavior: each
+      for: '00:00:00'
+    id: sleep_on
+    alias: Everyone goes to sleep
+conditions: []
+actions:
+  - alias: Turn on bathroom night lamp
+    action: light.turn_on
+    target:
+      entity_id: light.bathroom_night_lamp
+    data:
+      color_temp_kelvin: 2350
+      brightness_pct: 65
+  - alias: Ensure garage door is closed
+    action: cover.close_cover
+    target:
+      entity_id: cover.garage_door_opener_door
+    data: {}
+  - alias: Ensure front door is locked
+    action: lock.lock
+    target:
+      entity_id: lock.entrance_front_door
+    data: {}
+mode: single
+category: 01M08R77W9A83G7DDA33MT8R09

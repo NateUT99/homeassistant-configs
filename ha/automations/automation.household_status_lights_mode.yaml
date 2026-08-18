@@ -1,0 +1,108 @@
+id: '1787020051576'
+alias: 'Household: Status Lights Mode'
+description: >-
+  Keeps Status Light–labeled lights in sync with guest mode and sleep state,
+  in priority order: guest mode (green) overrides everyone sleeping (warm
+  white), which overrides off.
+
+
+  - Guest mode is the visual indicator that a non-household member is
+  present; it takes priority since it's the state most useful to see while
+  people are awake and moving through the house.
+
+  - Everyone sleeping falls back to the same warm white/low brightness look
+  used for night navigation, so a Status Light-labeled light still works as a
+  nav light overnight even without guest mode active.
+
+  - Owns light.entrance_night_lamp for this purpose — Household: Configure
+  Home for Sleep no longer targets it, so exactly one automation writes to
+  any Status Light-labeled entity.
+triggers:
+  - trigger: homeassistant
+    event: start
+    id: ha_started
+    alias: HA started
+  - trigger: switch.turned_on
+    target:
+      entity_id: input_boolean.guest_mode
+    options:
+      behavior: each
+      for: '00:00:00'
+    id: guest_on
+    alias: Guest mode turns on
+  - trigger: switch.turned_off
+    target:
+      entity_id: input_boolean.guest_mode
+    options:
+      behavior: each
+      for: '00:00:00'
+    id: guest_off
+    alias: Guest mode turns off
+  - trigger: switch.turned_on
+    target:
+      entity_id: input_boolean.everyone_sleeping
+    options:
+      behavior: each
+      for: '00:00:00'
+    id: sleep_on
+    alias: Everyone goes to sleep
+  - trigger: switch.turned_off
+    target:
+      entity_id: input_boolean.everyone_sleeping
+    options:
+      behavior: each
+      for: '00:00:00'
+    id: sleep_off
+    alias: Everyone wakes up
+conditions: []
+actions:
+  - alias: Delay on startup to let integrations initialize
+    if:
+      - condition: trigger
+        id:
+          - ha_started
+        alias: Triggered by HA start
+    then:
+      - delay:
+          seconds: 30
+        alias: Wait 30 seconds for integrations to initialize
+  - alias: Determine status light state
+    choose:
+      - alias: Guest mode is on
+        conditions:
+          - condition: state
+            entity_id: input_boolean.guest_mode
+            state: 'on'
+            alias: Guest mode is on
+        sequence:
+          - alias: Set status lights to green (guest mode)
+            action: light.turn_on
+            target:
+              label_id: status_light
+            data:
+              rgb_color:
+                - 0
+                - 249
+                - 0
+              brightness_pct: 65
+      - alias: Everyone is sleeping
+        conditions:
+          - condition: state
+            entity_id: input_boolean.everyone_sleeping
+            state: 'on'
+            alias: Everyone is sleeping
+        sequence:
+          - alias: Set status lights to warm white (sleeping)
+            action: light.turn_on
+            target:
+              label_id: status_light
+            data:
+              color_temp_kelvin: 2350
+              brightness_pct: 65
+    default:
+      - alias: Turn off status lights
+        action: light.turn_off
+        target:
+          label_id: status_light
+mode: single
+category: 01M08MMBZ719V4GZ2FT10RPTJ2
