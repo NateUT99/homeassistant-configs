@@ -2,9 +2,10 @@ id: '1786997164282'
 alias: 'Household: Configure Home for Sleep'
 description: >-
   Prepares the home for the night when everyone goes to sleep: turns on the
-  bathroom night lamp, master bedroom nightstand lamp, and Apple TV, closes
-  the garage door, and locks the front door. Wake-time restoration is
-  handled separately by Household: Status Lights Mode.
+  bathroom night lamp, master bedroom nightstand lamp, and Apple TV, sets
+  the living room thermostat to Sleep preset, closes the garage door, and
+  locks the front door. Wake-time restoration is handled separately by
+  Household: Status Lights Mode.
 triggers:
   - trigger: switch.turned_on
     target:
@@ -16,6 +17,12 @@ triggers:
     alias: Everyone goes to sleep
 conditions: []
 actions:
+  - alias: Set living room thermostat to Sleep preset
+    action: climate.set_preset_mode
+    target:
+      entity_id: climate.living_room_thermostat
+    data:
+      preset_mode: sleep
   - alias: Turn on bathroom night lamp
     action: light.turn_on
     target:
