@@ -25,6 +25,25 @@ Use `condition: template` with `is_state()` or `states()` instead:
   value_template: "{{ is_state('light.' ~ states('input_text.target_light'), 'on') }}"
 ```
 
+### `ha_config_set_automation` slugifies apostrophes as `_s_`, not dropped — violates naming standard
+
+When creating an automation via `ha_config_set_automation` with no `identifier` (fresh create), HA auto-generates the `entity_id` by slugifying the `alias`. For an alias containing an apostrophe — e.g. `"Avery's Room: Sleep Mode"` — the generated ID is `automation.avery_s_room_sleep_mode`, not `automation.averys_room_sleep_mode`. `standards/naming.md` requires apostrophes dropped entirely (`averys_room`), so the auto-generated ID does not match the standard and needs a manual fix.
+
+**Fix:** after creating an automation whose alias contains an apostrophe, check the returned `entity_id`/`automation_id` and rename it with `ha_set_entity(new_entity_id=...)` if it doesn't match the standard's apostrophe-dropped form:
+
+```python
+# Create returns automation.avery_s_room_sleep_mode — wrong per standard
+ha_config_set_automation(config={"alias": "Avery's Room: Sleep Mode", ...})
+
+# Rename to match standards/naming.md
+ha_set_entity(
+    entity_id="automation.avery_s_room_sleep_mode",
+    new_entity_id="automation.averys_room_sleep_mode",
+)
+```
+
+This only affects fresh creates (no `identifier` passed) with an apostrophe in the alias — updates to an existing automation keep the existing entity_id regardless of alias changes.
+
 ### Separate automations beat merged ones when shared triggers cause state capture problems
 
 When two pieces of logic share a trigger and one depends on state captured at trigger time, merging them into one automation can produce unreliable state reads. The trigger fires, both branches start executing, and the second branch sees state that has already been mutated by the first.
