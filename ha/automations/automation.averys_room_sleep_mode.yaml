@@ -1,0 +1,49 @@
+id: '1787016226204'
+alias: 'Avery''s Room: Sleep Mode'
+description: 'Reacts to the Avery Sleeping toggle. Turning it on turns on the desk
+  lamp (used as a nightlight); turning it off turns the desk lamp back off and pauses
+  the HomePod.'
+triggers:
+- trigger: state
+  entity_id: input_boolean.avery_sleeping
+  from: 'off'
+  to: 'on'
+  id: sleep_on
+  alias: Avery Sleeping turned on
+- trigger: state
+  entity_id: input_boolean.avery_sleeping
+  from: 'on'
+  to: 'off'
+  id: sleep_off
+  alias: Avery Sleeping turned off
+conditions: []
+actions:
+- choose:
+  - conditions:
+    - condition: trigger
+      id:
+      - sleep_on
+      alias: Triggered by Avery Sleeping turning on
+    sequence:
+    - action: light.turn_on
+      target:
+        entity_id: light.averys_room_desk_lamp
+      alias: Turn on desk lamp
+    alias: Avery Sleeping turned ON — turn on desk lamp
+  - conditions:
+    - condition: trigger
+      id:
+      - sleep_off
+      alias: Triggered by Avery Sleeping turning off
+    sequence:
+    - action: light.turn_off
+      target:
+        entity_id: light.averys_room_desk_lamp
+      alias: Turn off desk lamp
+    - action: media_player.media_pause
+      target:
+        entity_id: media_player.averys_room_homepod
+      alias: Pause HomePod
+    alias: Avery Sleeping turned OFF — turn off desk lamp and pause HomePod
+mode: single
+category: 01M08R77W9A83G7DDA33MT8R09
