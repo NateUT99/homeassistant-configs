@@ -2,12 +2,12 @@ id: '1786997164282'
 alias: 'Household: Configure Home for Sleep'
 description: >-
   Prepares the home for the night when everyone goes to sleep: turns on the
-  bathroom and master bedroom night lamps at warm low brightness, closes the
-  garage door, locks the front door, and turns on the master bedroom Apple
-  TV. Fires only on the sleep-on transition — wake-time light restoration
-  for Status Light-labeled fixtures (including the former entrance night
-  lamp target) is owned by Household: Status Lights Mode, so exactly one
-  automation writes to any shared light.
+  bathroom night lamp at warm low brightness, closes the garage door, locks
+  the front door, and turns on the master bedroom Apple TV. Fires only on
+  the sleep-on transition — wake-time light restoration for Status
+  Light-labeled fixtures (including the former entrance night lamp target)
+  is owned by Household: Status Lights Mode, so exactly one automation
+  writes to any shared light.
 triggers:
   - trigger: switch.turned_on
     target:
@@ -23,13 +23,6 @@ actions:
     action: light.turn_on
     target:
       entity_id: light.bathroom_night_lamp
-    data:
-      color_temp_kelvin: 2350
-      brightness_pct: 65
-  - alias: Turn on master bedroom night lamp
-    action: light.turn_on
-    target:
-      entity_id: light.master_bedroom_night_lamp
     data:
       color_temp_kelvin: 2350
       brightness_pct: 65
