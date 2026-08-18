@@ -5,6 +5,14 @@ description: >-
   state, and arrivals. Turns on when the bathroom gets dark, when everyone
   goes to sleep (as a fallback in case it's off), or when the first person
   arrives home to a dark bathroom. Turns off when the bathroom gets bright.
+
+
+  The bright threshold is set well above the dark threshold (15 vs 5) rather
+  than matching it, because the lamp's own glow bleeds into its on-device
+  illuminance sensor and reads 1-8 lux while lit — an equal threshold
+  caused a rapid on/off feedback loop as the glow randomly crossed 5 in
+  both directions. Genuine room brightening reads 25+ (dawn) up to 270+
+  (daylight), so 15 leaves comfortable margin on both sides.
 triggers:
   - alias: Bathroom illuminance drops below threshold
     entity_id: sensor.bathroom_night_lamp_illuminance
@@ -13,7 +21,7 @@ triggers:
     trigger: numeric_state
   - alias: Bathroom illuminance rises above threshold
     entity_id: sensor.bathroom_night_lamp_illuminance
-    above: 5
+    above: 15
     for:
       seconds: 15
     id: bright
