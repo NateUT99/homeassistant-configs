@@ -3,27 +3,9 @@ alias: 'Household: Status Lights Mode'
 description: >-
   Keeps the entrance, kitchen, and living room status lamps in sync with
   guest mode and sleep state, in priority order: guest mode (green)
-  overrides everyone sleeping (warm white), which overrides off.
-
-
-  - Guest mode is the visual indicator that a non-household member is
-  present; it takes priority since it's the state most useful to see while
-  people are awake and moving through the house.
-
-  - Everyone sleeping falls back to the same warm white/low brightness look
-  used for night navigation, so these lights still work as nav lights
-  overnight even without guest mode active.
-
-  - Targets these three lights by literal entity_id (not the former Status
-  Light label) so the color/brightness pickers remain usable in the
-  automation editor's GUI — label/area targets can't be resolved to a fixed
-  entity set at design time, so the editor can't inspect supported color
-  modes and falls back to YAML-only for that action's data. Adding a new
-  status light requires manually adding it to entity_id here.
-
-  - Owns light.entrance_status_lamp for this purpose — Household: Configure
-  Home for Sleep no longer targets it, so exactly one automation writes to
-  any of these entities.
+  overrides everyone sleeping (warm white), which overrides off. Guest mode
+  takes priority since it's the most useful indicator to see while people
+  are awake; sleeping mode doubles as a warm-white nav light overnight.
 triggers:
   - trigger: homeassistant
     event: start

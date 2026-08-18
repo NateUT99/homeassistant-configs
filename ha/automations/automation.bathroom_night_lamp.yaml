@@ -5,15 +5,8 @@ description: >-
   state, and arrivals. Turns on when the bathroom gets dark, when everyone
   goes to sleep (as a fallback in case it's off), or when the first person
   arrives home to a dark bathroom. Turns off when the bathroom gets bright.
-
-
-  Dark threshold (10) is set to catch the room while it's still just dim
-  rather than waiting for near-total darkness — this lamp is primarily a
-  nav light for a child at night. Bright threshold (15) stays well above
-  the lamp's own glow (reads 1-8 lux on its own on-device sensor while lit)
-  to avoid the on/off feedback loop an equal threshold previously caused,
-  and well below genuine room brightening from the bathroom's other lights
-  (48+) or daylight (270+).
+  Dark/bright thresholds are asymmetric (10/15 lux) to avoid an on/off
+  feedback loop from the lamp's own glow.
 triggers:
   - alias: Bathroom illuminance drops below threshold
     entity_id: sensor.bathroom_night_lamp_illuminance
