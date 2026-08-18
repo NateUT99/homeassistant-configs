@@ -427,6 +427,20 @@ The clean separation (Hue on channel 20, Z2M on channel 11) prevents interferenc
 
 ---
 
+## Presence & Device Trackers
+
+### Template `device_tracker`'s `in_zones` requires full zone entity_id, not the bare slug — fails silently
+
+The Template Helper `device_tracker` platform's `in_zones` field must be a list of zone **entity_ids** (`zone.home`), not bare zone slugs (`home`). A bare slug is not rejected anywhere — not by config validation, not in logs, and `ha_eval_template` will happily render `{{ ['home'] }}` without complaint since it has no zone-matching semantics to enforce. The only symptom is that the tracker's `in_zones` attribute stays `[]` and its state stays `not_home` forever, regardless of the input the template depends on.
+
+This looked exactly like a startup race condition during initial testing (tracker didn't reflect its source `input_boolean` immediately after a reload, or after a full HA restart) until the zone identifier format was corrected — after which both live toggles and cold-boot restores worked immediately. If a template `device_tracker` won't budge from `not_home`, check the `in_zones` value uses the full `zone.<slug>` form before suspecting a timing issue.
+
+### Zone occupant counts (`zone.<name>` state) come from `person` entities only, not raw `device_tracker` entities
+
+A `device_tracker` in a zone does not, by itself, increment that zone's occupant count — only `person` entities do (the zone's `persons` attribute is the authoritative source). A tracking-only presence source (e.g. a guest) needs its own `person` entity wrapping the `device_tracker`, even with no linked HA user account, or it's invisible to any automation/dashboard that reads zone counts. See `guides/presence_tracking.md`.
+
+---
+
 ## Matter & HomeKit
 
 ### Use Matter Hub (RiDDiX fork) as the sole bridge
