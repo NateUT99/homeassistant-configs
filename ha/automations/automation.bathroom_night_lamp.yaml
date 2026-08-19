@@ -1,12 +1,13 @@
 id: "1786996640211"
 alias: "Bathroom: Night Lamp"
 description: >-
-  Controls the bathroom night lamp based on ambient light, household sleep
-  state, and arrivals. Turns on when the bathroom gets dark, when everyone
-  goes to sleep (as a fallback in case it's off), or when the first person
-  arrives home to a dark bathroom. Turns off when the bathroom gets bright.
-  Dark/bright thresholds are asymmetric (10/15 lux) to avoid an on/off
-  feedback loop from the lamp's own glow.
+  Controls the bathroom night lamp based on ambient light and arrivals. Turns
+  on when the bathroom gets dark (only if someone is home), or when the first
+  person arrives home to a dark bathroom. Turns off when the bathroom gets
+  bright, or when the last person leaves home (see
+  automation.household_last_leaves_home). Dark/bright thresholds are
+  asymmetric (10/15 lux) to avoid an on/off feedback loop from the lamp's own
+  glow.
 triggers:
   - alias: Bathroom illuminance drops below threshold
     entity_id: sensor.bathroom_night_lamp_illuminance
@@ -34,6 +35,10 @@ actions:
           - alias: Dark trigger
             condition: trigger
             id: dark
+          - alias: Someone is home
+            condition: numeric_state
+            entity_id: zone.home
+            above: 0
         sequence:
           - alias: Turn on night lamp at 65%
             action: light.turn_on
