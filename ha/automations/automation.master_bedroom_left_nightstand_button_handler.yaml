@@ -6,25 +6,25 @@ description: >-
   future use.
 triggers:
   - alias: Short press
-    trigger: device
-    device_id: 98d158487446289692f184ddf9b52f6a
-    domain: zha
-    type: remote_button_short_press
-    subtype: remote_button_short_press
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "00:15:8d:00:0a:d8:e7:98"
+      command: single
     id: short_press
   - alias: Double press
-    trigger: device
-    device_id: 98d158487446289692f184ddf9b52f6a
-    domain: zha
-    type: remote_button_double_press
-    subtype: remote_button_double_press
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "00:15:8d:00:0a:d8:e7:98"
+      command: double
     id: double_press
   - alias: Long press
-    trigger: device
-    device_id: 98d158487446289692f184ddf9b52f6a
-    domain: zha
-    type: remote_button_long_press
-    subtype: remote_button_long_press
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "00:15:8d:00:0a:d8:e7:98"
+      command: hold
     id: long_press
 conditions: []
 actions:
