@@ -33,7 +33,8 @@ actions:
           - alias: Turn on garage bulbs at 75%
             action: light.turn_on
             target:
-              entity_id: light.garage_bulbs
+              entity_id:
+                - light.outside_garage_bulbs
             data:
               brightness_pct: 75
       - alias: "Sleeping or 10pm — dim to 25%"
@@ -44,13 +45,14 @@ actions:
               - ten_pm
           - alias: "Skip if bulbs already off — don't override a manual off"
             condition: state
-            entity_id: light.garage_bulbs
+            entity_id: light.outside_garage_bulbs
             state: "on"
         sequence:
           - alias: Dim garage bulbs to 25%
             action: light.turn_on
             target:
-              entity_id: light.garage_bulbs
+              entity_id:
+                - light.outside_garage_bulbs
             data:
               brightness_pct: 25
       - alias: "Sunrise — turn off"
@@ -61,5 +63,7 @@ actions:
           - alias: Turn off garage bulbs
             action: light.turn_off
             target:
-              entity_id: light.garage_bulbs
+              entity_id:
+                - light.outside_garage_bulbs
+            data: {}
 mode: single
