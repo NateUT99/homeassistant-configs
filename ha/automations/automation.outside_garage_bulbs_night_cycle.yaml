@@ -1,0 +1,65 @@
+id: "1787364357549"
+alias: "Outside: Garage Bulbs Night Cycle"
+description: >-
+  Runs the garage bulbs through a nightly brightness cycle: on at 75% at
+  civil dusk, dimmed to 25% when everyone's asleep or by 10pm (whichever
+  comes first), off at sunrise.
+triggers:
+  - alias: Civil dusk
+    trigger: sun.dusk
+    id: dusk
+  - alias: Everyone falls asleep
+    trigger: state
+    entity_id: input_boolean.everyone_sleeping
+    to: "on"
+    id: sleeping
+  - alias: 10pm fallback
+    trigger: time
+    at: "22:00:00"
+    id: ten_pm
+  - alias: Sunrise
+    trigger: sun
+    event: sunrise
+    id: sunrise
+conditions: []
+actions:
+  - alias: Route by trigger
+    choose:
+      - alias: "Dusk — turn on at 75%"
+        conditions:
+          - condition: trigger
+            id: dusk
+        sequence:
+          - alias: Turn on garage bulbs at 75%
+            action: light.turn_on
+            target:
+              entity_id: light.garage_bulbs
+            data:
+              brightness_pct: 75
+      - alias: "Sleeping or 10pm — dim to 25%"
+        conditions:
+          - condition: trigger
+            id:
+              - sleeping
+              - ten_pm
+          - alias: "Skip if bulbs already off — don't override a manual off"
+            condition: state
+            entity_id: light.garage_bulbs
+            state: "on"
+        sequence:
+          - alias: Dim garage bulbs to 25%
+            action: light.turn_on
+            target:
+              entity_id: light.garage_bulbs
+            data:
+              brightness_pct: 25
+      - alias: "Sunrise — turn off"
+        conditions:
+          - condition: trigger
+            id: sunrise
+        sequence:
+          - alias: Turn off garage bulbs
+            action: light.turn_off
+            target:
+              entity_id: light.garage_bulbs
+mode: single
