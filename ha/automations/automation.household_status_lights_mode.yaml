@@ -76,7 +76,7 @@ actions:
                 - 0
                 - 249
                 - 0
-              brightness_pct: 65
+              brightness_pct: 50
       - alias: Everyone is sleeping
         conditions:
           - condition: state
@@ -92,8 +92,8 @@ actions:
                 - light.kitchen_status_lamp
                 - light.living_room_status_lamp
             data:
-              color_temp_kelvin: 2350
-              brightness_pct: 65
+              color_temp_kelvin: 2000
+              brightness_pct: 50
     default:
       - alias: Turn off status lights
         action: light.turn_off

@@ -46,7 +46,7 @@ actions:
               entity_id: light.bathroom_night_lamp
             data:
               brightness_pct: 65
-              color_temp_kelvin: 2350
+              color_temp_kelvin: 2000
       - alias: "Bathroom got bright — turn lamp off"
         conditions:
           - alias: Bright trigger
@@ -73,5 +73,5 @@ actions:
               entity_id: light.bathroom_night_lamp
             data:
               brightness_pct: 65
-              color_temp_kelvin: 2350
+              color_temp_kelvin: 2000
 mode: single
