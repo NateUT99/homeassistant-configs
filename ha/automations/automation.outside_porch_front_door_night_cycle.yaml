@@ -1,0 +1,81 @@
+id: "1787366520938"
+alias: "Outside: Porch & Front Door Night Cycle"
+description: >-
+  Turns porch and front door bulbs on at 50% at civil dusk, skipped if
+  Avery's already asleep. Porch turns off and front door dims to 25% when
+  Avery falls asleep. Both go fully off when everyone's asleep or by 10pm,
+  whichever comes first.
+triggers:
+  - alias: Civil dusk
+    trigger: sun.dusk
+    id: dusk
+  - alias: Avery falls asleep
+    trigger: state
+    entity_id: input_boolean.avery_sleeping
+    to: "on"
+    id: avery_sleeping
+  - alias: Everyone falls asleep
+    trigger: state
+    entity_id: input_boolean.everyone_sleeping
+    to: "on"
+    id: everyone_sleeping
+  - alias: 10pm fallback
+    trigger: time
+    at: "22:00:00"
+    id: ten_pm
+conditions: []
+actions:
+  - alias: Route by trigger
+    choose:
+      - alias: "Dusk — turn on at 50% if Avery isn't already asleep"
+        conditions:
+          - condition: trigger
+            id: dusk
+          - alias: "Skip if Avery's already asleep"
+            condition: state
+            entity_id: input_boolean.avery_sleeping
+            state: "off"
+        sequence:
+          - alias: Turn on porch and front door bulbs at 50%
+            action: light.turn_on
+            target:
+              entity_id:
+                - light.outside_porch_bulbs
+                - light.outside_front_door_bulbs
+            data:
+              brightness_pct: 50
+      - alias: "Avery falls asleep — porch off, front door dims to 25%"
+        conditions:
+          - condition: trigger
+            id: avery_sleeping
+          - alias: "Skip if front door bulbs already off — cutoff already ran"
+            condition: state
+            entity_id: light.outside_front_door_bulbs
+            state: "on"
+        sequence:
+          - alias: Turn off porch bulbs
+            action: light.turn_off
+            target:
+              entity_id:
+                - light.outside_porch_bulbs
+          - alias: Dim front door bulbs to 25%
+            action: light.turn_on
+            target:
+              entity_id:
+                - light.outside_front_door_bulbs
+            data:
+              brightness_pct: 25
+      - alias: "Everyone asleep or 10pm — full off"
+        conditions:
+          - condition: trigger
+            id:
+              - everyone_sleeping
+              - ten_pm
+        sequence:
+          - alias: Turn off porch and front door bulbs
+            action: light.turn_off
+            target:
+              entity_id:
+                - light.outside_porch_bulbs
+                - light.outside_front_door_bulbs
+mode: single
