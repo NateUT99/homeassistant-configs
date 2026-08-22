@@ -1,0 +1,53 @@
+id: "1787368091654"
+alias: "Master Bedroom: Left Nightstand Button Handler"
+description: >-
+  Handles button presses on the left nightstand remote: short press toggles
+  the nightstand lamp, long press turns it off. Double press is reserved for
+  future use.
+triggers:
+  - alias: Short press
+    trigger: device
+    device_id: 98d158487446289692f184ddf9b52f6a
+    domain: zha
+    type: remote_button_short_press
+    subtype: remote_button_short_press
+    id: short_press
+  - alias: Double press
+    trigger: device
+    device_id: 98d158487446289692f184ddf9b52f6a
+    domain: zha
+    type: remote_button_double_press
+    subtype: remote_button_double_press
+    id: double_press
+  - alias: Long press
+    trigger: device
+    device_id: 98d158487446289692f184ddf9b52f6a
+    domain: zha
+    type: remote_button_long_press
+    subtype: remote_button_long_press
+    id: long_press
+conditions: []
+actions:
+  - alias: Handle button press
+    choose:
+      - alias: "Short press: toggle lamp"
+        conditions:
+          - alias: Trigger was short press
+            condition: trigger
+            id: ["short_press"]
+        sequence:
+          - alias: Toggle left nightstand lamp
+            action: light.toggle
+            target:
+              entity_id: light.master_bedroom_left_nightstand_lamp
+      - alias: "Long press: turn off lamp"
+        conditions:
+          - alias: Trigger was long press
+            condition: trigger
+            id: ["long_press"]
+        sequence:
+          - alias: Turn off left nightstand lamp
+            action: light.turn_off
+            target:
+              entity_id: light.master_bedroom_left_nightstand_lamp
+mode: single
