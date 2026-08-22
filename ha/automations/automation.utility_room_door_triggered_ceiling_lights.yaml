@@ -1,0 +1,40 @@
+id: '1787440235668'
+alias: 'Utility Room: Door-Triggered Ceiling Lights'
+description: Turns the utility room ceiling lights on to 90% when the door opens,
+  and off when it closes.
+triggers:
+- trigger: door.opened
+  target:
+    entity_id: binary_sensor.utility_room_door
+  id: door_open
+  note: Fires when the door opens.
+- trigger: door.closed
+  target:
+    entity_id: binary_sensor.utility_room_door
+  id: door_closed
+  note: Fires when the door closes.
+actions:
+- choose:
+  - conditions:
+    - condition: trigger
+      id: door_open
+    sequence:
+    - action: light.turn_on
+      target:
+        entity_id: light.utility_room_ceiling_lights
+      data:
+        brightness_pct: 90
+      alias: Turn on ceiling lights at 90%
+    alias: Door opened
+  - conditions:
+    - condition: trigger
+      id: door_closed
+    sequence:
+    - action: light.turn_off
+      target:
+        entity_id: light.utility_room_ceiling_lights
+      alias: Turn off ceiling lights
+    alias: Door closed
+  alias: Route on door state
+mode: restart
+category: 01M08MMBZ719V4GZ2FT10RPTJ2
