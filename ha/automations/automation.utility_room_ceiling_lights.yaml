@@ -1,5 +1,5 @@
 id: '1787440235668'
-alias: 'Utility Room: Door-Triggered Ceiling Lights'
+alias: 'Utility Room: Ceiling Lights'
 description: Turns the utility room ceiling lights on to 90% when the door opens
   or motion resumes, and off when the door closes with no motion, motion clears
   with the door already closed, or the door is left open with no motion for 2 minutes.
@@ -18,7 +18,7 @@ triggers:
   target:
     entity_id: binary_sensor.utility_room_motion_occupancy
   id: motion_cleared
-  note: Fires when motion clears, respecting the sensor's onboard 30s occupied-to-unoccupied
+  note: Fires when motion clears, respecting the sensor's onboard 15s occupied-to-unoccupied
     delay.
 - trigger: occupancy.cleared
   target:
