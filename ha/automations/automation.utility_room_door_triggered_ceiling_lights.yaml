@@ -8,6 +8,12 @@ triggers:
     entity_id: binary_sensor.utility_room_door
   id: door_open
   note: Fires when the door opens.
+  options:
+    behavior: each
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 5
 - trigger: door.closed
   target:
     entity_id: binary_sensor.utility_room_door
