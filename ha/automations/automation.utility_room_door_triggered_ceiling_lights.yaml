@@ -1,8 +1,8 @@
 id: '1787440235668'
 alias: 'Utility Room: Door-Triggered Ceiling Lights'
-description: Turns the utility room ceiling lights on to 90% when the door opens;
-  turns off once the door has been closed for 5s and no motion is detected, waiting
-  for motion to clear otherwise.
+description: Turns the utility room ceiling lights on to 90% when the door opens
+  or motion resumes, and off when the door closes with no motion, motion clears
+  with the door already closed, or the door is left open with no motion for 2 minutes.
 triggers:
 - trigger: door.opened
   target:
@@ -27,11 +27,28 @@ triggers:
   id: motion_cleared
   note: Fires when motion clears, respecting the sensor's onboard 30s occupied-to-unoccupied
     delay.
+- trigger: occupancy.cleared
+  target:
+    entity_id: binary_sensor.utility_room_motion_occupancy
+  id: door_open_timeout
+  note: Safety net for a door left open with nobody in the room -- fires after 2
+    continuous minutes of no motion; resets automatically if motion resumes.
+  options:
+    for:
+      minutes: 2
+- trigger: occupancy.detected
+  target:
+    entity_id: binary_sensor.utility_room_motion_occupancy
+  id: motion_detected
+  note: Turns lights back on if someone walks in while the door was already open,
+    or recovers from a false motion-clear.
 actions:
 - choose:
   - conditions:
     - condition: trigger
-      id: door_open
+      id:
+      - door_open
+      - motion_detected
     sequence:
     - action: light.turn_on
       target:
@@ -39,7 +56,7 @@ actions:
       data:
         brightness_pct: 90
       alias: Turn on ceiling lights at 90%
-    alias: Door opened
+    alias: Door opened or motion detected
   - conditions:
     - condition: trigger
       id: door_closed
@@ -64,6 +81,18 @@ actions:
         entity_id: light.utility_room_ceiling_lights
       alias: Turn off ceiling lights
     alias: Motion cleared, door already closed
+  - conditions:
+    - condition: trigger
+      id: door_open_timeout
+    - condition: door.is_open
+      target:
+        entity_id: binary_sensor.utility_room_door
+    sequence:
+    - action: light.turn_off
+      target:
+        entity_id: light.utility_room_ceiling_lights
+      alias: Turn off ceiling lights
+    alias: Door left open, no motion for 2 minutes
   alias: Route on door/motion state
 mode: restart
 category: 01M08MMBZ719V4GZ2FT10RPTJ2
