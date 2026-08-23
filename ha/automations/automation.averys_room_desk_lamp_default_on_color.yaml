@@ -1,0 +1,38 @@
+id: "1787523241715"
+alias: "Avery's Room: Desk Lamp Default On Color"
+description: >-
+  Forces Avery's Room desk lamp back to 3000K white any time it turns on by a
+  means other than the button handler's off→on branch — dashboard tap, voice
+  assistant, HomeKit, or a future scene. Prevents the lamp from restoring a
+  leftover color-mode setting from before it was last turned off.
+
+
+  Only color_temp_kelvin is forced; brightness is left as
+  commanded/restored — brightness on turn-on is normal light behavior and
+  isn't being overridden here.
+
+
+  Runs alongside automation.averys_room_desk_lamp_button_handler, whose own
+  off→on branch already sets 3000K — this automation re-fires in that case
+  too, which is a harmless idempotent no-op.
+
+
+  Tradeoff: if a future automation or scene intentionally turns this lamp on
+  in a specific color from off, this automation will immediately override it
+  back to white. Revisit if that need arises.
+triggers:
+  - alias: Desk lamp turns on from off
+    trigger: state
+    entity_id: light.averys_room_desk_lamp
+    from: "off"
+    to: "on"
+conditions: []
+actions:
+  - alias: Force color temperature to 3000K
+    action: light.turn_on
+    target:
+      entity_id: light.averys_room_desk_lamp
+    data:
+      color_temp_kelvin: 3000
+mode: single
+category: 01M08MMBZ719V4GZ2FT10RPTJ2
