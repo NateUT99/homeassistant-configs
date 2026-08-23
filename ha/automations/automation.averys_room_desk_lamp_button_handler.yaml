@@ -11,7 +11,9 @@ description: >-
 
   - Single tap, desk lamp on, white  → enter color mode at pink
 
-  - Single tap, desk lamp on, color  → advance to next color in cycle
+  - Single tap, desk lamp on, color  → advance to next color; after the last
+    color (magenta), the next single tap returns to 3000K white instead of
+    wrapping to red
 
   - Double tap  → toggle dresser lamp
 
@@ -29,7 +31,10 @@ description: >-
 
   State persistence: input_text.averys_room_desk_lamp_last_color stores the
   current color name across taps so the cycle can advance from the current
-  color. Entering color mode from white always resets to pink.
+  color and detect a completed lap (next_idx == 0 with a known prior index)
+  to hand off back to white. Entering color mode from white always resets to
+  pink, which sits outside the 8-color forward cycle so the very first
+  advance goes to red rather than immediately wrapping.
 
 
   No Adaptive Lighting integration is installed for this house yet — 3000K is
@@ -70,7 +75,6 @@ actions:
         - blue
         - purple
         - magenta
-        - pink
       hues:
         red: 0
         orange: 30
@@ -147,28 +151,42 @@ actions:
                 attribute: color_mode
                 state: color_temp
         sequence:
-          - alias: Compute next color name (wraps at end of cycle)
+          - alias: Compute current and next color index
             variables:
-              next_name: >-
-                {%- set last = states('input_text.averys_room_desk_lamp_last_color') -%}
-                {%- set idx = cycle.index(last) if last in cycle else -1 -%}
-                {%- set next_idx = (idx + 1) % (cycle | length) -%}
-                {{ cycle[next_idx] }}
-          - alias: Persist new color name
-            action: input_text.set_value
-            target:
-              entity_id: input_text.averys_room_desk_lamp_last_color
-            data:
-              value: "{{ next_name }}"
-          - alias: Turn on lamp at 90% brightness with new color
-            action: light.turn_on
-            target:
-              entity_id: light.averys_room_desk_lamp
-            data:
-              hs_color:
-                - "{{ hues[next_name] }}"
-                - 100
-              brightness_pct: 90
+              idx: >-
+                {{ cycle.index(states('input_text.averys_room_desk_lamp_last_color'))
+                if states('input_text.averys_room_desk_lamp_last_color') in cycle else -1 }}
+              next_idx: "{{ (idx + 1) % (cycle | length) }}"
+              next_name: "{{ cycle[next_idx] }}"
+          - alias: "Full cycle complete: return to white, otherwise advance to next color"
+            if:
+              - alias: Just completed a full lap of the cycle
+                condition: template
+                value_template: "{{ next_idx == 0 and idx != -1 }}"
+            then:
+              - alias: "Turn on lamp at 90% brightness, 3000K (cycle complete, return to white)"
+                action: light.turn_on
+                target:
+                  entity_id: light.averys_room_desk_lamp
+                data:
+                  brightness_pct: 90
+                  color_temp_kelvin: 3000
+            else:
+              - alias: Persist new color name
+                action: input_text.set_value
+                target:
+                  entity_id: input_text.averys_room_desk_lamp_last_color
+                data:
+                  value: "{{ next_name }}"
+              - alias: Turn on lamp at 90% brightness with new color
+                action: light.turn_on
+                target:
+                  entity_id: light.averys_room_desk_lamp
+                data:
+                  hs_color:
+                    - "{{ hues[next_name] }}"
+                    - 100
+                  brightness_pct: 90
       - alias: "Double tap — toggle dresser lamp"
         conditions:
           - alias: Double tap trigger
