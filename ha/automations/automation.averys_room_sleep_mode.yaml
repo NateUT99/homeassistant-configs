@@ -1,7 +1,7 @@
 id: '1787016226204'
 alias: 'Avery''s Room: Sleep Mode'
-description: 'Reacts to the Avery Sleeping toggle. Turning it on turns on the desk
-  lamp (used as a nightlight); turning it off turns the desk lamp back off and pauses
+description: 'Reacts to the Avery Sleeping toggle. Turning it on turns on the dresser
+  lamp (used as a nightlight); turning it off turns the dresser lamp back off and pauses
   the HomePod.'
 triggers:
 - trigger: state
