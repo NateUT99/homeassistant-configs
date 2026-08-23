@@ -1,0 +1,53 @@
+id: "1787508819081"
+alias: "Kitchen: Sink Button Handler"
+description: >-
+  Handles button presses on the kitchen sink remote: short press toggles
+  the overhead sink light, long press turns it off. Double press is
+  reserved for future use.
+triggers:
+  - alias: Short press
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "00:15:8d:00:0a:f3:89:be"
+      command: single
+    id: short_press
+  - alias: Double press
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "00:15:8d:00:0a:f3:89:be"
+      command: double
+    id: double_press
+  - alias: Long press
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "00:15:8d:00:0a:f3:89:be"
+      command: hold
+    id: long_press
+conditions: []
+actions:
+  - alias: Handle button press
+    choose:
+      - alias: "Short press: toggle light"
+        conditions:
+          - alias: Trigger was short press
+            condition: trigger
+            id: ["short_press"]
+        sequence:
+          - alias: Toggle overhead sink light
+            action: light.toggle
+            target:
+              entity_id: light.kitchen_overhead_sink
+      - alias: "Long press: turn off light"
+        conditions:
+          - alias: Trigger was long press
+            condition: trigger
+            id: ["long_press"]
+        sequence:
+          - alias: Turn off overhead sink light
+            action: light.turn_off
+            target:
+              entity_id: light.kitchen_overhead_sink
+mode: single
