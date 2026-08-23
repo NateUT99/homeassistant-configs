@@ -1,0 +1,203 @@
+id: "1787521982582"
+alias: "Avery's Room: Desk Lamp Button Handler"
+description: >-
+  Controls Avery's Room desk lamp via the Aqara WXKG11LM single button (ZHA).
+
+
+  Gestures:
+
+  - Single tap, lamp off  → turn on at 3000K
+
+  - Single tap, lamp on, white  → enter color mode at pink
+
+  - Single tap, lamp on, color  → advance to next color in cycle
+
+  - Double tap, lamp on  → return to 3000K white
+
+  - Hold, lamp on  → turn off
+
+
+  All branches use 90% brightness.
+
+
+  Mode detection: the lamp's color_mode attribute is the source of truth.
+  color_temp = white/default mode; anything else (xy) = color mode. This bulb
+  reports xy when given an hs_color, so we check for color_temp to identify
+  white mode rather than checking for xy to identify color mode.
+
+
+  State persistence: input_text.averys_room_desk_lamp_last_color stores the
+  current color name across taps so the cycle can advance from the current
+  color. Entering color mode from white always resets to pink.
+
+
+  No Adaptive Lighting integration is installed for this house yet — 3000K is
+  used as a fixed default in place of AL's adaptive white. Revisit if AL is
+  added for this light later.
+triggers:
+  - alias: Single tap
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "00:15:8d:00:0a:dc:1c:c3"
+      command: single
+    id: single
+  - alias: Double tap
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "00:15:8d:00:0a:dc:1c:c3"
+      command: double
+    id: double
+  - alias: Hold
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "00:15:8d:00:0a:dc:1c:c3"
+      command: hold
+    id: hold
+conditions: []
+actions:
+  - alias: Define color cycle and hue values
+    variables:
+      cycle:
+        - red
+        - orange
+        - yellow
+        - green
+        - cyan
+        - blue
+        - purple
+        - magenta
+        - pink
+      hues:
+        red: 0
+        orange: 30
+        yellow: 60
+        green: 120
+        cyan: 180
+        blue: 240
+        purple: 270
+        magenta: 300
+        pink: 330
+  - alias: Route by gesture and light state
+    choose:
+      - alias: "Single tap — lamp off — turn on at 3000K"
+        conditions:
+          - alias: Single tap trigger
+            condition: trigger
+            id: single
+          - alias: Lamp is off
+            condition: state
+            entity_id: light.averys_room_desk_lamp
+            state: "off"
+        sequence:
+          - alias: "Turn on lamp at 90% brightness, 3000K"
+            action: light.turn_on
+            target:
+              entity_id: light.averys_room_desk_lamp
+            data:
+              brightness_pct: 90
+              color_temp_kelvin: 3000
+      - alias: "Single tap — lamp on, white — enter color mode at pink"
+        conditions:
+          - alias: Single tap trigger
+            condition: trigger
+            id: single
+          - alias: Lamp is on
+            condition: state
+            entity_id: light.averys_room_desk_lamp
+            state: "on"
+          - alias: Lamp is in white (color_temp) mode
+            condition: state
+            entity_id: light.averys_room_desk_lamp
+            attribute: color_mode
+            state: color_temp
+        sequence:
+          - alias: Persist pink as current color
+            action: input_text.set_value
+            target:
+              entity_id: input_text.averys_room_desk_lamp_last_color
+            data:
+              value: pink
+          - alias: Turn on lamp at 90% brightness in pink
+            action: light.turn_on
+            target:
+              entity_id: light.averys_room_desk_lamp
+            data:
+              hs_color:
+                - "{{ hues.pink }}"
+                - 100
+              brightness_pct: 90
+      - alias: "Single tap — lamp on, color mode — advance to next color"
+        conditions:
+          - alias: Single tap trigger
+            condition: trigger
+            id: single
+          - alias: Lamp is on
+            condition: state
+            entity_id: light.averys_room_desk_lamp
+            state: "on"
+          - alias: Lamp is in a color mode (not white)
+            condition: not
+            conditions:
+              - condition: state
+                entity_id: light.averys_room_desk_lamp
+                attribute: color_mode
+                state: color_temp
+        sequence:
+          - alias: Compute next color name (wraps at end of cycle)
+            variables:
+              next_name: >-
+                {%- set last = states('input_text.averys_room_desk_lamp_last_color') -%}
+                {%- set idx = cycle.index(last) if last in cycle else -1 -%}
+                {%- set next_idx = (idx + 1) % (cycle | length) -%}
+                {{ cycle[next_idx] }}
+          - alias: Persist new color name
+            action: input_text.set_value
+            target:
+              entity_id: input_text.averys_room_desk_lamp_last_color
+            data:
+              value: "{{ next_name }}"
+          - alias: Turn on lamp at 90% brightness with new color
+            action: light.turn_on
+            target:
+              entity_id: light.averys_room_desk_lamp
+            data:
+              hs_color:
+                - "{{ hues[next_name] }}"
+                - 100
+              brightness_pct: 90
+      - alias: "Double tap — lamp on — return to 3000K white"
+        conditions:
+          - alias: Double tap trigger
+            condition: trigger
+            id: double
+          - alias: Lamp is on
+            condition: state
+            entity_id: light.averys_room_desk_lamp
+            state: "on"
+        sequence:
+          - alias: "Turn on lamp at 90% brightness, 3000K"
+            action: light.turn_on
+            target:
+              entity_id: light.averys_room_desk_lamp
+            data:
+              brightness_pct: 90
+              color_temp_kelvin: 3000
+      - alias: "Hold — lamp on — turn off"
+        conditions:
+          - alias: Hold trigger
+            condition: trigger
+            id: hold
+          - alias: Lamp is on
+            condition: state
+            entity_id: light.averys_room_desk_lamp
+            state: "on"
+        sequence:
+          - alias: Turn off lamp
+            action: light.turn_off
+            target:
+              entity_id: light.averys_room_desk_lamp
+mode: restart
+category: 01M08MMBZ719V4GZ2FT10RPTJ2
