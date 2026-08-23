@@ -13,14 +13,7 @@ triggers:
   target:
     entity_id: binary_sensor.utility_room_door
   id: door_closed
-  note: Fires when the door has been continuously closed for 5s, debouncing momentary
-    jostles.
-  options:
-    behavior: each
-    for:
-      hours: 0
-      minutes: 0
-      seconds: 5
+  note: Fires when the door closes.
 - trigger: occupancy.cleared
   target:
     entity_id: binary_sensor.utility_room_motion_occupancy
