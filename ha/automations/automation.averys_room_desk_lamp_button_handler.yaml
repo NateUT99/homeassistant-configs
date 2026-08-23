@@ -1,23 +1,24 @@
 id: "1787521982582"
 alias: "Avery's Room: Desk Lamp Button Handler"
 description: >-
-  Controls Avery's Room desk lamp via the Aqara WXKG11LM single button (ZHA).
+  Controls Avery's Room desk lamp via the Aqara WXKG11LM single button (ZHA),
+  and coordinates with the dresser lamp.
 
 
   Gestures:
 
-  - Single tap, lamp off  → turn on at 3000K
+  - Single tap, desk lamp off  → turn on desk lamp at 3000K
 
-  - Single tap, lamp on, white  → enter color mode at pink
+  - Single tap, desk lamp on, white  → enter color mode at pink
 
-  - Single tap, lamp on, color  → advance to next color in cycle
+  - Single tap, desk lamp on, color  → advance to next color in cycle
 
-  - Double tap, lamp on  → return to 3000K white
+  - Double tap  → toggle dresser lamp
 
-  - Hold, lamp on  → turn off
+  - Hold  → turn off both lamps
 
 
-  All branches use 90% brightness.
+  Single-tap branches use 90% brightness on the desk lamp.
 
 
   Mode detection: the lamp's color_mode attribute is the source of truth.
@@ -168,36 +169,29 @@ actions:
                 - "{{ hues[next_name] }}"
                 - 100
               brightness_pct: 90
-      - alias: "Double tap — lamp on — return to 3000K white"
+      - alias: "Double tap — toggle dresser lamp"
         conditions:
           - alias: Double tap trigger
             condition: trigger
             id: double
-          - alias: Lamp is on
-            condition: state
-            entity_id: light.averys_room_desk_lamp
-            state: "on"
         sequence:
-          - alias: "Turn on lamp at 90% brightness, 3000K"
-            action: light.turn_on
+          - alias: Toggle dresser lamp
+            action: light.toggle
             target:
-              entity_id: light.averys_room_desk_lamp
-            data:
-              brightness_pct: 90
-              color_temp_kelvin: 3000
-      - alias: "Hold — lamp on — turn off"
+              entity_id: light.averys_room_dresser_lamp
+      - alias: "Hold — turn off both lamps"
         conditions:
           - alias: Hold trigger
             condition: trigger
             id: hold
-          - alias: Lamp is on
-            condition: state
-            entity_id: light.averys_room_desk_lamp
-            state: "on"
         sequence:
-          - alias: Turn off lamp
+          - alias: Turn off desk lamp
             action: light.turn_off
             target:
               entity_id: light.averys_room_desk_lamp
+          - alias: Turn off dresser lamp
+            action: light.turn_off
+            target:
+              entity_id: light.averys_room_dresser_lamp
 mode: restart
 category: 01M08MMBZ719V4GZ2FT10RPTJ2
