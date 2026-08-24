@@ -455,11 +455,13 @@ The default Xiaomi integration exposes pedestal fans as switches, not fans, whic
 
 ## Shell Command Integration
 
-### Optimistic mode for command-line lights
+### Poll for state on command-line lights that can change out-of-band
 
-When an HA `light` entity is backed by a `command_line` shell command (e.g., the Litra Glow via `litra-rs`), prefer **optimistic mode** over polling for state. Polling adds latency to every UI interaction and produces flickering between commanded state and stale poll results.
+The Litra Glow integration (`guides/litra_glow.md`) started in optimistic mode, then moved to a polling `command_line` sensor as the source of truth for `state`/`level`/`temperature`. Optimistic mode looks appealing — no per-interaction latency, no flicker — but it silently diverges from reality whenever the device changes without HA's involvement: the USB cable drops, or the light is adjusted via `litra-rs` directly on the Mac. HA then reports a state that's simply wrong, with no mechanism to notice or correct it.
 
-Optimistic mode assumes the command succeeded and updates HA state immediately. Reconcile with reality only when an error occurs or on manual refresh.
+The polling sensor closes that gap: it's the actual source of truth, refreshed immediately after every command handler (`homeassistant.update_entity`) so the UI updates within about a second rather than waiting out the poll interval, and it naturally surfaces `unavailable`/`unknown` when the Mac or the USB device drops — which optimistic mode has no way to represent at all.
+
+**Rule:** prefer polling over optimistic mode whenever the backing device can change state outside HA's control (manual CLI use, another controller, a flaky USB/network link). Reserve optimistic mode for commands that are the *only* way the device's state ever changes.
 
 ### Principle of least privilege for shell access
 

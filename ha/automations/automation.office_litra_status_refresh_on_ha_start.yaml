@@ -1,0 +1,18 @@
+id: "1787578185951"
+alias: "Office: Litra Status Refresh on HA Start"
+description: >-
+  Forces sensor.office_key_light_status to poll the device immediately when
+  HA starts up, so the template light reflects accurate state before the
+  next scheduled scan_interval.
+triggers:
+  - alias: HA finished starting
+    trigger: homeassistant
+    event: start
+conditions: []
+actions:
+  - alias: Refresh Litra status sensor
+    action: homeassistant.update_entity
+    target:
+      entity_id: sensor.office_key_light_status
+mode: single
+category: 01M0SZBV5BGDGY2BQ2GBB5NA4C

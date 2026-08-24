@@ -1,5 +1,5 @@
 # Logitech Litra Glow — Home Assistant Integration
-*Last updated: May 2026*
+*Last updated: August 2026*
 
 ## Overview
 
@@ -12,7 +12,7 @@ This document describes how to integrate a Logitech Litra Glow key light with Ho
 ```
 Home Assistant
   ├── shell_command.litra_apply (SSH) ── commands (on/off/brightness/temp)
-  └── sensor.litra_glow_status (SSH) ── status query (hourly + after each command)
+  └── sensor.office_key_light_status (SSH) ── status query (every 2 minutes + after each command)
         └── homeassistant@mac-mini
               └── litra_dispatch.sh (whitelist gatekeeper)
                     ├── litra apply [state=] [brightness=] [temperature=]
@@ -28,8 +28,9 @@ Key design decisions:
 - The SSH key is locked to a dispatch script via `restrict,command=` in `authorized_keys`
 - The dispatch script whitelists only specific `litra` commands, rejecting everything else
 - `litra` requires USB HID access, which is only available to the logged-in user (`<your_username>`), so a targeted `sudo` rule allows `homeassistant` to run `litra` as `<your_username>` only
-- A `command_line` sensor (`sensor.litra_glow_status`) polls the device's actual state via `litra devices --json`, serving as the source of truth for the template light's `state`, `level`, and `temperature` templates — the light is no longer in optimistic mode. Each command handler also triggers an immediate sensor refresh so the UI stays in sync without waiting for the hourly poll.
+- A `command_line` sensor (`sensor.office_key_light_status`) polls the device's actual state via `litra devices --json`, serving as the source of truth for the template light's `state`, `level`, and `temperature` templates — the light is no longer in optimistic mode. Each command handler also triggers an immediate sensor refresh so the UI stays in sync without waiting for the scheduled poll. See `LESSONS.md` ("Poll for state on command-line lights that can change out-of-band") for why polling was chosen over optimistic mode.
 - A composite `litra apply` command applies on/off, brightness, and temperature in a single SSH invocation, working around Home Assistant's template light convention where only one of `set_level` / `set_temperature` fires when both parameters are supplied to `light.turn_on`
+- All three HA-side config blocks (`shell_command`, `template`, `command_line`) live in a single package file (`scripts/litra_glow.yaml` in this repo, deployed to `/config/packages/litra_glow.yaml`) rather than inline in `configuration.yaml`, keeping the integration reviewable as one unit
 
 ---
 
@@ -205,8 +206,12 @@ Leave the passphrase empty — HA connects non-interactively.
 Build the known_hosts file:
 
 ```bash
-ssh-keyscan -H <mac-mini-ip> > /config/.ssh/known_hosts
+ssh-keyscan -H <mac-mini-hostname> > /config/.ssh/known_hosts
 ```
+
+> **Prefer the Mac's `.lan` hostname over a static IP** if your router registers DHCP hostnames in local DNS (verify with `ping <mac-mini-hostname>` from the HA host first). It tracks the Mac's current lease automatically, so there's no reservation to maintain. If the LAN has dual-stack IPv6, expect `ssh-keyscan` to occasionally return nothing on the first attempt — retry a few times before concluding the host is unreachable. This is a `ssh-keyscan` quirk, not a real connectivity problem; a plain `ssh` connection to the same hostname works reliably even when `ssh-keyscan` doesn't on the first try.
+
+> **Coordinated change:** the hostname (or IP) appears in three places — `shell_command.litra_apply` and the `command_line` sensor's `command:` in Step 8, plus this `ssh-keyscan` call. If the Mac Mini's address changes, update all three.
 
 ---
 
@@ -233,11 +238,36 @@ sudo chown homeassistant:staff /Users/homeassistant/.ssh/authorized_keys
 
 The `restrict,command=` prefix means this key can only ever invoke the dispatch script. Even if the private key were compromised, an attacker could only toggle the light.
 
+**Verify before moving on** — both directions matter:
+
+```bash
+# Should return the device JSON array:
+ssh -i /config/.ssh/id_ed25519_litra -o StrictHostKeyChecking=yes \
+  -o UserKnownHostsFile=/config/.ssh/known_hosts -o ConnectTimeout=5 \
+  homeassistant@<mac-mini-hostname> "litra devices --json"
+
+# Should print "Unauthorized command" and exit 1:
+ssh -i /config/.ssh/id_ed25519_litra -o StrictHostKeyChecking=yes \
+  -o UserKnownHostsFile=/config/.ssh/known_hosts -o ConnectTimeout=5 \
+  homeassistant@<mac-mini-hostname> "whoami"
+```
+
+If the second command succeeds instead of being rejected, the `restrict,command=` prefix is missing from `authorized_keys` and the key is over-privileged.
+
 ---
 
 ## Step 8: Home Assistant Configuration
 
-### Shell Command (`configuration.yaml`)
+All three blocks below live in one package file, deployed to `/config/packages/litra_glow.yaml` and loaded via:
+
+```yaml
+homeassistant:
+  packages: !include_dir_named packages
+```
+
+in `configuration.yaml`. The package source is version-controlled at `scripts/litra_glow.yaml` in this repo (with `<mac-mini-hostname>` as a placeholder — substitute the real value when deploying).
+
+### Shell Command
 
 A single composite `litra_apply` shell command handles all dispatch. The `{{ args }}` token is substituted with the composite argument string built by the template light handlers below.
 
@@ -248,12 +278,12 @@ shell_command:
     -o StrictHostKeyChecking=yes
     -o UserKnownHostsFile=/config/.ssh/known_hosts
     -o ConnectTimeout=5
-    homeassistant@<mac-mini-ip> "litra apply {{ args }}"
+    homeassistant@<mac-mini-hostname> "litra apply {{ args }}"
 ```
 
-### Template Light (`configuration.yaml`)
+### Template Light
 
-The template light is state-tracked rather than optimistic. A `command_line` sensor (`sensor.litra_glow_status`, defined below) polls the device's actual state and drives the `state`, `level`, and `temperature` templates. After each command handler runs, it triggers an immediate sensor refresh via `homeassistant.update_entity` so the UI reflects the new state within a second rather than waiting for the hourly poll.
+The template light is state-tracked rather than optimistic. A `command_line` sensor (`sensor.office_key_light_status`, defined below) polls the device's actual state and drives the `state`, `level`, and `temperature` templates. After each command handler runs, it triggers an immediate sensor refresh via `homeassistant.update_entity` so the UI reflects the new state within a second rather than waiting for the next scheduled poll.
 
 All four handlers (`turn_on`, `turn_off`, `set_level`, `set_temperature`) are defined for two reasons:
 
@@ -269,13 +299,13 @@ template:
   - light:
       - name: "Office Desk Key Light"
         unique_id: litra_glow
-        availability: "{{ states('sensor.litra_glow_status') not in ['unavailable', 'unknown'] }}"
-        state: "{{ is_state('sensor.litra_glow_status', 'on') }}"
+        availability: "{{ states('sensor.office_key_light_status') not in ['unavailable', 'unknown'] }}"
+        state: "{{ is_state('sensor.office_key_light_status', 'on') }}"
         level: >-
-          {% set l = state_attr('sensor.litra_glow_status', 'brightness_in_lumen') %}
+          {% set l = state_attr('sensor.office_key_light_status', 'brightness_in_lumen') %}
           {{ ((l | int - 20) / 230 * 255) | int if l is not none else none }}
         temperature: >-
-          {% set k = state_attr('sensor.litra_glow_status', 'temperature_in_kelvin') %}
+          {% set k = state_attr('sensor.office_key_light_status', 'temperature_in_kelvin') %}
           {{ (1000000 / (k | int)) | int if k is not none else none }}
         turn_on:
           - alias: Turn on (and apply brightness/temp if supplied)
@@ -285,7 +315,7 @@ template:
           - alias: Refresh Litra status sensor
             action: homeassistant.update_entity
             target:
-              entity_id: sensor.litra_glow_status
+              entity_id: sensor.office_key_light_status
         turn_off:
           - alias: Turn off
             action: shell_command.litra_apply
@@ -294,7 +324,7 @@ template:
           - alias: Refresh Litra status sensor
             action: homeassistant.update_entity
             target:
-              entity_id: sensor.litra_glow_status
+              entity_id: sensor.office_key_light_status
         set_level:
           - alias: Brightness adjustment (also ensures light is on)
             action: shell_command.litra_apply
@@ -303,7 +333,7 @@ template:
           - alias: Refresh Litra status sensor
             action: homeassistant.update_entity
             target:
-              entity_id: sensor.litra_glow_status
+              entity_id: sensor.office_key_light_status
         set_temperature:
           - alias: Color temp adjustment (also ensures light is on, plus brightness if supplied)
             action: shell_command.litra_apply
@@ -312,28 +342,30 @@ template:
           - alias: Refresh Litra status sensor
             action: homeassistant.update_entity
             target:
-              entity_id: sensor.litra_glow_status
+              entity_id: sensor.office_key_light_status
 ```
 
 The `availability` template excludes both `unavailable` (Mac unreachable via SSH) and `unknown` (Mac reachable but Litra not found — typically a USB disconnect). Either state means commands will fail, so the light is hidden from the UI until the sensor reports a real state. The `level` and `temperature` templates return `none` when their source attributes are absent during initial sensor load, which tells HA to leave those values unset rather than silently writing a wrong value.
 
-### Command-line Status Sensor (`configuration.yaml`)
+At the top of the Litra's temperature range, expect the round-trip through mireds to display a few kelvin off from what was requested (e.g. commanding 6500K reads back as 6535K) — `color_temp | int` truncates rather than rounds when converting to mireds, and HA re-expands that truncated mired value back to kelvin for display. This is a cosmetic display artifact, not a control error; the device itself receives the exact requested value.
 
-This sensor polls the device state via SSH once per hour as a safety net, and is also refreshed immediately after every command handler runs. It is the source of truth for the template light's `state`, `level`, and `temperature` templates.
+### Command-line Status Sensor
+
+This sensor polls the device state via SSH every 2 minutes as a safety net, and is also refreshed immediately after every command handler runs. It is the source of truth for the template light's `state`, `level`, and `temperature` templates.
 
 `litra devices --json` returns a JSON array. The first element contains the Litra Glow's state. `value_template` normalizes the boolean `is_on` field to the HA-idiomatic `'on'`/`'off'` string so downstream templates can use `is_state()`. `json_attributes_path: "$[0]"` extracts all attributes from the first device object.
 
 ```yaml
 command_line:
   - sensor:
-      name: "Litra Glow Status"
-      unique_id: litra_glow_status
+      name: "Office Key Light Status"
+      unique_id: office_key_light_status
       command: >-
         ssh -i /config/.ssh/id_ed25519_litra
         -o StrictHostKeyChecking=yes
         -o UserKnownHostsFile=/config/.ssh/known_hosts
         -o ConnectTimeout=5
-        homeassistant@<mac-mini-ip> "litra devices --json"
+        homeassistant@<mac-mini-hostname> "litra devices --json"
       command_timeout: 10
       value_template: "{{ 'on' if value_json[0].is_on else 'off' }}"
       json_attributes_path: "$[0]"
@@ -350,16 +382,16 @@ command_line:
 
 `ConnectTimeout=5` and `command_timeout: 10` prevent the sensor from hanging when the Mac is unreachable — a 75-second default SSH connect timeout would freeze HA's command_line integration worker thread for each failed poll. If the Mac is unreachable, the sensor goes `unavailable`. If the Mac is reachable but the Litra is physically disconnected from USB, `litra devices --json` returns an empty array, which causes the `value_template` to fail and the sensor to go `unknown`. Both states propagate to the template light via the `availability` template.
 
-`scan_interval: 120` polls every 2 minutes, so a USB disconnect surfaces in HA within 2 minutes. Handler-side `update_entity` covers normal post-command latency.
+`scan_interval: 120` polls every 2 minutes, so a USB disconnect surfaces in HA within 2 minutes even without a command in flight. Handler-side `update_entity` covers normal post-command latency.
 
 ### Startup Recovery Automation
 
-On every HA restart, the command_line sensor would otherwise sit idle until its next scheduled poll (up to an hour away). This automation fires on `homeassistant.start` to refresh the sensor immediately, so state is accurate before the first user interaction.
+On every HA restart, the command_line sensor would otherwise sit idle until its next scheduled poll (up to 2 minutes away). This automation fires on `homeassistant.start` to refresh the sensor immediately, so state is accurate before the first user interaction.
 
 ```yaml
 alias: "Office: Litra Status Refresh on HA Start"
 description: >
-  Forces sensor.litra_glow_status to poll the device immediately when HA starts up,
+  Forces sensor.office_key_light_status to poll the device immediately when HA starts up,
   so the template light reflects accurate state before the next scheduled scan_interval.
 triggers:
   - alias: HA finished starting
@@ -370,39 +402,11 @@ actions:
   - alias: Refresh Litra status sensor
     action: homeassistant.update_entity
     target:
-      entity_id: sensor.litra_glow_status
+      entity_id: sensor.office_key_light_status
 mode: single
 ```
 
-### Disconnect Alert Automation
-
-Fires when `sensor.litra_glow_status` stays in `unavailable` or `unknown` for 30 seconds, sending a push notification to the MacBook Pro. The 30-second `for:` absorbs brief transient states during HA startup before the startup recovery automation has had a chance to poll the sensor.
-
-```yaml
-alias: "Office: Litra Glow Disconnected"
-description: >
-  Notifies when sensor.litra_glow_status goes unavailable or unknown for 30 seconds,
-  indicating the Litra Glow has lost its USB connection or the Mac is unreachable.
-triggers:
-  - alias: Litra status sensor unavailable or disconnected
-    trigger: state
-    entity_id: sensor.litra_glow_status
-    to:
-      - unavailable
-      - unknown
-    for:
-      seconds: 30
-conditions: []
-actions:
-  - alias: Notify MacBook Pro
-    action: notify.mobile_app_nates_macbook_pro  # service name, not entity_id
-    data:
-      title: "⚠️ Litra Glow Disconnected"
-      message: "Check the USB cable and replug if needed!"
-mode: single
-```
-
-> **Known limitation:** Auto-dismissing this notification when the Litra reconnects is not currently possible. The macOS companion app does not support `clear_notification` (the tagged-notification dismissal feature available on iOS and Android). The MacBook Pro notification must be dismissed manually.
+> HA generates the automation's `entity_id` by slugifying the full `alias`, so this one lands as `automation.office_litra_status_refresh_on_ha_start` (not `..._on_start`) — the alias's "HA Start" carries all the way through.
 
 ### Why every command-sending handler asserts `state=on`
 
@@ -435,8 +439,6 @@ HA accepts `brightness_pct: 50` as an alternative to `brightness: 128` in servic
 
 The temperature conversions use the standard mireds formula (`1,000,000 / mireds = kelvin`). The Litra Glow's usable range is 2700–6500K (370–153 mireds). HA's default mired range extends beyond this, so the device silently clamps values outside its supported range — the conversion formulas are the only guard. Neither `min_mireds` nor `min_color_temp_kelvin` are valid properties in the template light YAML schema.
 
-The forward conversions (HA → litra) live in the template light handlers. The reverse conversions (litra → HA) live in the `level` and `temperature` templates that read from the status sensor.
-
 > **Coordinated change:** the forward and reverse conversion formulas must move together. If the Litra's brightness or temperature range changes (e.g., a device firmware update or a different model), update both the forward conversion in the template light handlers and the reverse conversion in the `level` / `temperature` templates simultaneously, or HA's reported and commanded values will drift apart.
 
 The lumens-to-HA-brightness reverse conversion introduces a rounding asymmetry of up to ±1 out of 255 (< 0.4% of range) because `litra brightness --percentage` operates in percent while `litra devices --json` reports back in lumens. The drift is imperceptible and self-corrects on the next user adjustment.
@@ -445,31 +447,35 @@ The lumens-to-HA-brightness reverse conversion introduces a rounding asymmetry o
 
 ## Step 9: Camera Automation
 
-Automatically controls office lighting when the active camera on either Mac becomes the Studio Display Camera. When that camera turns on, ceiling lights and the screen bar are turned off and the Litra key light is enabled at a video-call preset (45% brightness, 4500K). When the camera has been off for 15 seconds, the key light is turned off and the screen bar is restored — but only if the user is currently active on a Mac with the Studio Display as their primary display.
+Automatically controls office lighting when the active camera on either Mac becomes the Studio Display Camera. When that camera turns on, the monitor light bar is turned off and the Litra key light is enabled at a video-call preset (45% brightness, 4500K). When the camera has been off for 15 seconds, the key light is turned off and the monitor light bar is restored — but only if at least one Mac is currently active, so the light doesn't come back on after you've walked away mid-call.
 
-Triggers fire on the camera-name sensors (`sensor.*_active_camera`), which report the active camera's display name as a string. This matches only Studio Display Camera sessions and ignores the built-in MacBook Pro FaceTime camera, since the goal is to optimize lighting specifically for the desk-mounted Studio Display setup.
+Triggers fire on the camera-name sensors (`sensor.*_active_camera`), which report the active camera's display name as a string. This matches only Studio Display Camera sessions and ignores the built-in laptop FaceTime camera, since the goal is to optimize lighting specifically for the desk-mounted Studio Display setup.
+
+An earlier version of this automation also required the active Mac's primary display to report `Studio Display` before restoring the light bar. That check was dropped: a Mac's primary-display sensor reads unreliably while the Mac is being controlled via Screen Sharing (it can report an empty name and a generic virtual resolution instead of the real attached display), which would make the restore silently fail to fire depending on how the Mac happened to be accessed at the time. The simpler "at least one Mac active" guard covers the original intent — don't restore desk lighting to an empty room — without depending on display detection that isn't reliable in every access mode.
+
+> Turning off an office ceiling light alongside the light bar was part of the original design but is not included here — this instance has no HA-controllable ceiling light yet. Add a `light.turn_off` / `light.turn_on` pair for it in both branches once one exists.
 
 ### Automation
 
 ```yaml
 alias: "Office: Camera Lighting"
 description: >
-  Turns off ceiling lights and activates camera lighting when the Studio Display
-  Camera turns on. Restores monitor light (if Studio Display is active primary)
-  and turns off camera lighting when the camera has been off for 15 seconds.
+  Turns off the monitor light bar and activates the desk key light at a video-call
+  preset when the Studio Display Camera turns on. Restores the monitor light bar
+  and turns off the key light when the camera has been off for 15 seconds.
 triggers:
   - alias: "Studio Display Camera becomes active on either Mac"
     trigger: state
     entity_id:
-      - sensor.nate_mac_mini_active_camera
-      - sensor.nates_macbook_pro_active_camera
+      - sensor.nates_mac_mini_active_camera
+      - sensor.nates_work_laptop_active_camera
     to: Studio Display Camera
     id: "on"
   - alias: "Studio Display Camera inactive for 15 seconds on either Mac"
     trigger: state
     entity_id:
-      - sensor.nate_mac_mini_active_camera
-      - sensor.nates_macbook_pro_active_camera
+      - sensor.nates_mac_mini_active_camera
+      - sensor.nates_work_laptop_active_camera
     from: Studio Display Camera
     id: "off"
     for:
@@ -487,25 +493,23 @@ actions:
             choose:
               - alias: Litra unavailable — skip preset and notify
                 conditions:
-                  - alias: Litra Glow is unavailable or disconnected
+                  - alias: Litra Glow status sensor is unavailable or disconnected
                     condition: state
-                    entity_id: sensor.litra_glow_status
+                    entity_id: sensor.office_key_light_status
                     state:
                       - unavailable
                       - unknown
                 sequence:
                   - alias: Notify Litra unavailable
-                    action: notify.mobile_app_nates_macbook_pro  # service name, not entity_id
+                    action: notify.mobile_app_nates_iphone  # service name, not entity_id
                     data:
                       title: "⚠️ Camera Lighting Unavailable"
-                      message: "Check the USB cable and replug if needed!"
+                      message: "Litra Glow status sensor is unavailable — check the Mac Mini's SSH connection or the light's USB cable."
             default:
-              - alias: "Turn off office ceiling and screen bar"
+              - alias: "Turn off monitor light bar"
                 action: light.turn_off
                 target:
-                  entity_id:
-                    - light.office_ceiling
-                    - light.office_screen_bar
+                  entity_id: light.office_monitor_light_bar
               - alias: "Turn on desk key light for camera"
                 action: light.turn_on
                 target:
@@ -523,29 +527,19 @@ actions:
             action: light.turn_off
             target:
               entity_id: light.office_desk_key_light
-          - alias: "Either active computer has Studio Display as primary"
+          - alias: "At least one Mac is currently active"
             condition: or
             conditions:
-              - condition: and
-                conditions:
-                  - condition: state
-                    entity_id: binary_sensor.nate_mac_mini_active
-                    state: "on"
-                  - condition: state
-                    entity_id: sensor.nate_mac_mini_primary_display_name
-                    state: Studio Display
-              - condition: and
-                conditions:
-                  - condition: state
-                    entity_id: binary_sensor.nates_macbook_pro_active
-                    state: "on"
-                  - condition: state
-                    entity_id: sensor.nates_macbook_pro_primary_display_name
-                    state: Studio Display
-          - alias: "Restore screen bar"
+              - condition: state
+                entity_id: binary_sensor.nates_mac_mini_active
+                state: "on"
+              - condition: state
+                entity_id: binary_sensor.nates_work_laptop_active
+                state: "on"
+          - alias: "Restore monitor light bar"
             action: light.turn_on
             target:
-              entity_id: light.office_screen_bar
+              entity_id: light.office_monitor_light_bar
 mode: single
 ```
 
@@ -572,11 +566,10 @@ The `light.turn_on` call uses `brightness_pct` and `color_temp_kelvin`. HA norma
 
 | Artifact | Entity ID | Type |
 | --- | --- | --- |
-| Office Desk Key Light | `light.office_desk_key_light` | Template light (`configuration.yaml`) |
-| Litra Glow Status | `sensor.litra_glow_status` | Command-line sensor (`configuration.yaml`) |
+| Office Desk Key Light | `light.office_desk_key_light` | Template light (package: `scripts/litra_glow.yaml`) |
+| Office Key Light Status | `sensor.office_key_light_status` | Command-line sensor (package: `scripts/litra_glow.yaml`) |
 | Office: Camera Lighting | `automation.office_camera_lighting` | Automation |
-| Office: Litra Status Refresh on HA Start | `automation.office_litra_status_refresh_on_start` | Automation |
-| Office: Litra Glow Disconnected | `automation.office_litra_glow_disconnected` | Automation |
+| Office: Litra Status Refresh on HA Start | `automation.office_litra_status_refresh_on_ha_start` | Automation |
 
 ---
 
@@ -584,10 +577,11 @@ The `light.turn_on` call uses `brightness_pct` and `color_temp_kelvin`. HA norma
 
 | File | Location | Purpose |
 | --- | --- | --- |
+| Package config | `scripts/litra_glow.yaml` in this repo; deployed to `/config/packages/litra_glow.yaml` on HA | `shell_command`, template light, and status sensor definitions |
 | Dispatch script | `scripts/litra_dispatch.sh` in this repo; deployed to `/usr/local/bin/litra_dispatch.sh` on Mac Mini | Command whitelist gatekeeper; includes composite `apply_composite` handler |
 | sudoers rule | `/etc/sudoers.d/homeassistant-litra` | Allows `homeassistant` to run `litra` as `<your_username>` |
 | SSH private key | `/config/.ssh/id_ed25519_litra` | HA's private key for authenticating to Mac Mini |
 | SSH public key | `/config/.ssh/id_ed25519_litra.pub` | Corresponding public key |
 | known_hosts | `/config/.ssh/known_hosts` | Mac Mini host key fingerprint |
 | authorized_keys | `/Users/homeassistant/.ssh/authorized_keys` | HA public key, locked to dispatch script |
-| HA config | `/config/configuration.yaml` | Shell command and template light definition |
+| HA config | `/config/configuration.yaml` | `homeassistant: packages: !include_dir_named packages` — the only line this integration adds here |

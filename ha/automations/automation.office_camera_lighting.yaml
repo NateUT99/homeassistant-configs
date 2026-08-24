@@ -1,0 +1,88 @@
+id: "1787578256156"
+alias: "Office: Camera Lighting"
+description: >-
+  Turns off the monitor light bar and activates the desk key light at a
+  video-call preset when the Studio Display Camera turns on. Restores the
+  monitor light bar and turns off the key light when the camera has been
+  off for 15 seconds.
+triggers:
+  - alias: Studio Display Camera becomes active on either Mac
+    trigger: state
+    entity_id:
+      - sensor.nates_mac_mini_active_camera
+      - sensor.nates_work_laptop_active_camera
+    to: Studio Display Camera
+    id: "on"
+  - alias: Studio Display Camera inactive for 15 seconds on either Mac
+    trigger: state
+    entity_id:
+      - sensor.nates_mac_mini_active_camera
+      - sensor.nates_work_laptop_active_camera
+    from: Studio Display Camera
+    id: "off"
+    for:
+      seconds: 15
+conditions: []
+actions:
+  - choose:
+      - alias: Camera turned on
+        conditions:
+          - alias: Triggered by camera turning on
+            condition: trigger
+            id: "on"
+        sequence:
+          - alias: Check Litra availability before applying camera preset
+            choose:
+              - alias: Litra unavailable, skip preset and notify
+                conditions:
+                  - alias: Litra Glow status sensor is unavailable or disconnected
+                    condition: state
+                    entity_id: sensor.office_key_light_status
+                    state:
+                      - unavailable
+                      - unknown
+                sequence:
+                  - alias: Notify Litra unavailable
+                    action: notify.mobile_app_nates_iphone
+                    data:
+                      title: Camera Lighting Unavailable
+                      message: >-
+                        Litra Glow status sensor is unavailable - check the
+                        Mac Mini's SSH connection or the light's USB cable.
+            default:
+              - alias: Turn off monitor light bar
+                action: light.turn_off
+                target:
+                  entity_id: light.office_monitor_light_bar
+              - alias: Turn on desk key light for camera
+                action: light.turn_on
+                target:
+                  entity_id: light.office_desk_key_light
+                data:
+                  brightness_pct: 45
+                  color_temp_kelvin: 4500
+      - alias: Camera turned off
+        conditions:
+          - alias: Triggered by camera turning off
+            condition: trigger
+            id: "off"
+        sequence:
+          - alias: Turn off desk key light
+            action: light.turn_off
+            target:
+              entity_id: light.office_desk_key_light
+          - alias: At least one Mac is currently active
+            condition: or
+            conditions:
+              - condition: state
+                entity_id: binary_sensor.nates_mac_mini_active
+                state: "on"
+              - condition: state
+                entity_id: binary_sensor.nates_work_laptop_active
+                state: "on"
+          - alias: Restore monitor light bar
+            action: light.turn_on
+            target:
+              entity_id: light.office_monitor_light_bar
+mode: single
+category: 01M08MMBZ719V4GZ2FT10RPTJ2

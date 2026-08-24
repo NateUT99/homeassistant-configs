@@ -1,0 +1,87 @@
+# Logitech Litra Glow key light integration.
+# SSH dispatch to litra-rs on the Mac Mini. Security model and
+# architecture documented in guides/litra_glow.md.
+#
+# Deployed as a package: /config/packages/litra_glow.yaml on HA,
+# loaded via `homeassistant: packages: !include_dir_named packages`
+# in configuration.yaml. Replace <mac-mini-hostname> before deploying.
+
+shell_command:
+  litra_apply: >-
+    ssh -i /config/.ssh/id_ed25519_litra
+    -o StrictHostKeyChecking=yes
+    -o UserKnownHostsFile=/config/.ssh/known_hosts
+    -o ConnectTimeout=5
+    homeassistant@<mac-mini-hostname> "litra apply {{ args }}"
+
+template:
+  - light:
+      - name: "Office Desk Key Light"
+        unique_id: litra_glow
+        availability: "{{ states('sensor.office_key_light_status') not in ['unavailable', 'unknown'] }}"
+        state: "{{ is_state('sensor.office_key_light_status', 'on') }}"
+        level: >-
+          {% set l = state_attr('sensor.office_key_light_status', 'brightness_in_lumen') %}
+          {{ ((l | int - 20) / 230 * 255) | int if l is not none else none }}
+        temperature: >-
+          {% set k = state_attr('sensor.office_key_light_status', 'temperature_in_kelvin') %}
+          {{ (1000000 / (k | int)) | int if k is not none else none }}
+        turn_on:
+          - alias: Turn on (and apply brightness/temp if supplied)
+            action: shell_command.litra_apply
+            data:
+              args: "state=on{% if brightness is defined %} brightness={{ (brightness / 255 * 100) | int }}{% endif %}{% if color_temp is defined %} temperature={{ (1000000 / (color_temp | int)) | round(-2) | int }}{% endif %}"
+          - alias: Refresh Litra status sensor
+            action: homeassistant.update_entity
+            target:
+              entity_id: sensor.office_key_light_status
+        turn_off:
+          - alias: Turn off
+            action: shell_command.litra_apply
+            data:
+              args: "state=off"
+          - alias: Refresh Litra status sensor
+            action: homeassistant.update_entity
+            target:
+              entity_id: sensor.office_key_light_status
+        set_level:
+          - alias: Brightness adjustment (also ensures light is on)
+            action: shell_command.litra_apply
+            data:
+              args: "state=on brightness={{ (brightness / 255 * 100) | int }}"
+          - alias: Refresh Litra status sensor
+            action: homeassistant.update_entity
+            target:
+              entity_id: sensor.office_key_light_status
+        set_temperature:
+          - alias: Color temp adjustment (also ensures light is on, plus brightness if supplied)
+            action: shell_command.litra_apply
+            data:
+              args: "state=on temperature={{ (1000000 / (color_temp | int)) | round(-2) | int }}{% if brightness is defined %} brightness={{ (brightness / 255 * 100) | int }}{% endif %}"
+          - alias: Refresh Litra status sensor
+            action: homeassistant.update_entity
+            target:
+              entity_id: sensor.office_key_light_status
+
+command_line:
+  - sensor:
+      name: "Office Key Light Status"
+      unique_id: office_key_light_status
+      command: >-
+        ssh -i /config/.ssh/id_ed25519_litra
+        -o StrictHostKeyChecking=yes
+        -o UserKnownHostsFile=/config/.ssh/known_hosts
+        -o ConnectTimeout=5
+        homeassistant@<mac-mini-hostname> "litra devices --json"
+      command_timeout: 10
+      value_template: "{{ 'on' if value_json[0].is_on else 'off' }}"
+      json_attributes_path: "$[0]"
+      json_attributes:
+        - is_on
+        - brightness_in_lumen
+        - temperature_in_kelvin
+        - minimum_brightness_in_lumen
+        - maximum_brightness_in_lumen
+        - minimum_temperature_in_kelvin
+        - maximum_temperature_in_kelvin
+      scan_interval: 120
