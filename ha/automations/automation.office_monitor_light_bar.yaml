@@ -1,0 +1,167 @@
+id: "1787579767396"
+alias: "Office: Monitor Light Bar"
+description: >-
+  Controls light.office_monitor_light_bar based on computer activity and Mac
+  Mini TV app state.
+
+
+  Turns on when either Mac becomes active — unless Studio Display Camera is in
+  use on either computer, or Mac Mini has the TV app in the foreground. Turns
+  off when neither active computer has Studio Display as its primary display.
+
+
+  The TV app override turns off the light bar immediately when Mac Mini opens
+  TV, and restores it when TV closes (provided Mac Mini is still active and
+  camera is not in use). This prevents the computer-active logic from
+  incorrectly restoring the light bar while TV is still playing — a gap in a
+  prior two-automation design.
+triggers:
+  - alias: Either Mac becomes active
+    trigger: state
+    entity_id:
+      - binary_sensor.nates_mac_mini_active
+      - binary_sensor.nates_work_laptop_active
+    from:
+      - "off"
+    to:
+      - "on"
+    id: computer_active
+  - alias: Either Mac becomes inactive
+    trigger: state
+    entity_id:
+      - binary_sensor.nates_mac_mini_active
+      - binary_sensor.nates_work_laptop_active
+    to:
+      - "off"
+    id: computer_inactive
+  - alias: TV app opens on Mac Mini
+    trigger: state
+    entity_id:
+      - sensor.nates_mac_mini_frontmost_app
+    to:
+      - TV
+    id: tv_opened
+  - alias: TV app closes on Mac Mini
+    trigger: state
+    entity_id:
+      - sensor.nates_mac_mini_frontmost_app
+    from:
+      - TV
+    id: tv_closed
+conditions: []
+actions:
+  - choose:
+      - alias: "Turn off: TV app opened on active Mac Mini"
+        conditions:
+          - alias: Triggered by TV app opening
+            condition: trigger
+            id: tv_opened
+          - alias: Mac Mini is active
+            condition: state
+            entity_id: binary_sensor.nates_mac_mini_active
+            state: "on"
+        sequence:
+          - alias: Turn off light bar
+            action: light.turn_off
+            target:
+              entity_id: light.office_monitor_light_bar
+      - alias: "Turn on: TV app closed, Mac Mini still active"
+        conditions:
+          - alias: Triggered by TV app closing
+            condition: trigger
+            id: tv_closed
+          - alias: Mac Mini is still active
+            condition: state
+            entity_id: binary_sensor.nates_mac_mini_active
+            state: "on"
+          - alias: Studio Display Camera is not active on either computer
+            condition: not
+            conditions:
+              - condition: or
+                conditions:
+                  - alias: Mac Mini using Studio Display Camera
+                    condition: state
+                    entity_id: sensor.nates_mac_mini_active_camera
+                    state: Studio Display Camera
+                  - alias: Work Laptop using Studio Display Camera
+                    condition: state
+                    entity_id: sensor.nates_work_laptop_active_camera
+                    state: Studio Display Camera
+        sequence:
+          - alias: Turn on light bar
+            action: light.turn_on
+            target:
+              entity_id: light.office_monitor_light_bar
+      - alias: "Turn on: computer became active"
+        conditions:
+          - alias: Triggered by computer becoming active
+            condition: trigger
+            id: computer_active
+          - alias: Studio Display Camera is not active on either computer
+            condition: not
+            conditions:
+              - condition: or
+                conditions:
+                  - alias: Mac Mini using Studio Display Camera
+                    condition: state
+                    entity_id: sensor.nates_mac_mini_active_camera
+                    state: Studio Display Camera
+                  - alias: Work Laptop using Studio Display Camera
+                    condition: state
+                    entity_id: sensor.nates_work_laptop_active_camera
+                    state: Studio Display Camera
+          - alias: Mac Mini is not actively watching TV
+            condition: not
+            conditions:
+              - condition: and
+                conditions:
+                  - alias: Mac Mini is active
+                    condition: state
+                    entity_id: binary_sensor.nates_mac_mini_active
+                    state: "on"
+                  - alias: TV app is frontmost on Mac Mini
+                    condition: state
+                    entity_id: sensor.nates_mac_mini_frontmost_app
+                    state: TV
+        sequence:
+          - alias: Turn on light bar
+            action: light.turn_on
+            target:
+              entity_id: light.office_monitor_light_bar
+      - alias: "Turn off: computer became inactive, Studio Display no longer in use"
+        conditions:
+          - alias: Triggered by computer becoming inactive
+            condition: trigger
+            id: computer_inactive
+          - alias: Neither active computer is using Studio Display as primary
+            condition: not
+            conditions:
+              - condition: or
+                conditions:
+                  - condition: and
+                    conditions:
+                      - alias: Mac Mini is active
+                        condition: state
+                        entity_id: binary_sensor.nates_mac_mini_active
+                        state:
+                          - "on"
+                      - alias: Mac Mini primary display is Studio Display
+                        condition: state
+                        entity_id: sensor.nates_mac_mini_primary_display_name
+                        state: Studio Display
+                  - condition: and
+                    conditions:
+                      - alias: Work Laptop is active
+                        condition: state
+                        entity_id: binary_sensor.nates_work_laptop_active
+                        state: "on"
+                      - alias: Work Laptop primary display is Studio Display
+                        condition: state
+                        entity_id: sensor.nates_work_laptop_primary_display_name
+                        state: Studio Display
+        sequence:
+          - alias: Turn off light bar
+            action: light.turn_off
+            target:
+              entity_id: light.office_monitor_light_bar
+mode: single
