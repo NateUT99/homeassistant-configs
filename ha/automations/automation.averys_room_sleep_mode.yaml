@@ -1,8 +1,8 @@
 id: '1787016226204'
 alias: 'Avery''s Room: Sleep Mode'
 description: 'Reacts to the Avery Sleeping toggle. Turning it on turns on the dresser
-  lamp (used as a nightlight); turning it off turns the dresser lamp back off and pauses
-  the HomePod.'
+  lamp (used as a nightlight); turning it off turns the dresser lamp back off, pauses
+  the HomePod, and turns on the Living Room Apple TV.'
 triggers:
 - trigger: state
   entity_id: input_boolean.avery_sleeping
@@ -27,9 +27,9 @@ actions:
     sequence:
     - action: light.turn_on
       target:
-        entity_id: light.averys_room_desk_lamp
-      alias: Turn on desk lamp
-    alias: Avery Sleeping turned ON — turn on desk lamp
+        entity_id: light.averys_room_dresser_lamp
+      alias: Turn on dresser lamp
+    alias: Avery Sleeping turned ON — turn on dresser lamp
   - conditions:
     - condition: trigger
       id:
@@ -38,12 +38,16 @@ actions:
     sequence:
     - action: light.turn_off
       target:
-        entity_id: light.averys_room_desk_lamp
-      alias: Turn off desk lamp
+        entity_id: light.averys_room_dresser_lamp
+      alias: Turn off dresser lamp
     - action: media_player.media_pause
       target:
         entity_id: media_player.averys_room_homepod
       alias: Pause HomePod
-    alias: Avery Sleeping turned OFF — turn off desk lamp and pause HomePod
+    - action: media_player.turn_on
+      target:
+        entity_id: media_player.living_room_appletv
+      alias: Turn on Living Room Apple TV
+    alias: Avery Sleeping turned OFF — turn off dresser lamp, pause HomePod, and turn on Living Room Apple TV
 mode: single
 category: 01M08R77W9A83G7DDA33MT8R09
