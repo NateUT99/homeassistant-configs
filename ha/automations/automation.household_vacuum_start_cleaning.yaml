@@ -2,10 +2,11 @@ id: "1787695541380"
 alias: "Household: Vacuum Start Cleaning"
 description: >-
   Starts the Roborock in one of two fixed, non-overlapping zones. Common
-  Areas (Office, Dining room, Living room, Entrance, Kitchen) clean
-  overnight once everyone has been asleep for an hour, adults-only.
+  Areas (Office, Dining room, Living room, Entrance, Kitchen) clean in
+  the evening once everyone has been asleep for an hour, adults-only.
   Remaining Rooms (Bedroom, Bathroom, Master bedroom, Master Bathroom,
-  Utility Room, Pantry) clean when the last person leaves for the day.
+  Utility Room, Pantry) clean in the daytime when the last person leaves
+  for the day.
 
   The two zones are fixed and never reference each other's progress or
   completion state -- a commanded dock always cancels the active job on
@@ -18,7 +19,7 @@ triggers:
     to: "on"
     for:
       hours: 1
-    id: night_sleeping
+    id: evening_sleeping
     alias: Everyone has been asleep for 1 hour
   - trigger: state
     entity_id: zone.home
@@ -26,25 +27,20 @@ triggers:
     for:
       minutes: 2
       seconds: 30
-    id: day_departure
+    id: daytime_departure
     alias: Last person leaves home for 2 minutes 30 seconds
-  - trigger: state
-    entity_id: input_boolean.vacuum_simulate_away
-    to: "on"
-    id: day_simulate
-    alias: Simulated departure (testing)
 conditions: []
 actions:
   - alias: Route to the correct zone based on which trigger fired
     choose:
-      - alias: "Night: clean common areas"
+      - alias: "Evening: clean common areas"
         conditions:
           - condition: trigger
-            id: night_sleeping
+            id: evening_sleeping
           - condition: state
-            entity_id: input_boolean.vacuum_common_areas_ran_today
+            entity_id: input_boolean.vacuum_ran_evening
             state: "off"
-            alias: Common areas have not run today
+            alias: Evening zone has not run today
           - condition: state
             entity_id: input_boolean.vacuum_routine_pause
             state: "off"
@@ -60,19 +56,19 @@ actions:
                 state: cleaning
             alias: Vacuum is not currently cleaning
         sequence:
-          - alias: Set active zone to common areas
+          - alias: Set active zone to evening
             action: input_select.select_option
             target:
               entity_id: input_select.vacuum_active_zone
             data:
-              option: common
-          - alias: Set quiet fan speed for overnight cleaning
+              option: evening
+          - alias: Set quiet fan speed for evening cleaning
             action: vacuum.set_fan_speed
             target:
               entity_id: vacuum.living_room_vacuum
             data:
               fan_speed: quiet
-          - alias: Disable mopping overnight to avoid loud dock wash and dry
+          - alias: Disable mopping in the evening to avoid loud dock wash and dry
             action: select.select_option
             target:
               entity_id: select.living_room_vacuum_mop_intensity
@@ -87,21 +83,21 @@ actions:
               params:
                 - segments: [18, 22, 25, 26, 27]
                   repeat: 1
-          - alias: Notify that overnight cleaning started
+          - alias: Notify that evening cleaning started
             action: notify.send_message
             target:
               entity_id: notify.nates_iphone
             data:
               title: Vacuum
-              message: Started cleaning common areas overnight.
-      - alias: "Day: clean remaining rooms"
+              message: Started cleaning common areas this evening.
+      - alias: "Daytime: clean remaining rooms"
         conditions:
           - condition: trigger
-            id: [day_departure, day_simulate]
+            id: daytime_departure
           - condition: state
-            entity_id: input_boolean.vacuum_ran_today
+            entity_id: input_boolean.vacuum_ran_daytime
             state: "off"
-            alias: Remaining rooms have not run today
+            alias: Daytime zone has not run today
           - condition: state
             entity_id: input_boolean.vacuum_routine_pause
             state: "off"
@@ -117,12 +113,12 @@ actions:
                 state: cleaning
             alias: Vacuum is not currently cleaning
         sequence:
-          - alias: Set active zone to remaining rooms
+          - alias: Set active zone to daytime
             action: input_select.select_option
             target:
               entity_id: input_select.vacuum_active_zone
             data:
-              option: remaining
+              option: daytime
           - alias: Set max fan speed for daytime cleaning
             action: vacuum.set_fan_speed
             target:

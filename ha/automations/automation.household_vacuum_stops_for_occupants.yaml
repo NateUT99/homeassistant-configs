@@ -2,12 +2,12 @@ id: "1787695593220"
 alias: "Household: Vacuum Stops For Occupants"
 description: >-
   Docks the vacuum whenever someone is around to be disturbed by it: the
-  first person arrives home, someone wakes up mid-overnight-run, or a
-  simulated arrival for testing. Zone-agnostic -- works the same
-  regardless of which zone (Common Areas or Remaining Rooms) is currently
-  running. Also clears the routine-pause flag on arrival, since that flag
-  means "I'm stepping out briefly, don't start" and should never survive
-  to block a later real departure.
+  first person arrives home, or someone wakes up mid-evening-run.
+  Zone-agnostic -- works the same regardless of which zone (Common Areas
+  or Remaining Rooms) is currently running. Also clears the
+  routine-pause flag on arrival, since that flag means "I'm stepping out
+  briefly, don't start" and should never survive to block a later real
+  departure.
 triggers:
   - trigger: state
     entity_id: zone.home
@@ -15,15 +15,10 @@ triggers:
     id: arrival
     alias: First person arrives home
   - trigger: state
-    entity_id: input_boolean.vacuum_simulate_away
-    to: "off"
-    id: simulate_arrival
-    alias: Simulated arrival (testing)
-  - trigger: state
     entity_id: input_boolean.everyone_sleeping
     to: "off"
     id: someone_woke
-    alias: Someone woke up during an overnight run
+    alias: Someone woke up during an evening run
 conditions: []
 actions:
   - alias: If vacuum is currently cleaning, dock it

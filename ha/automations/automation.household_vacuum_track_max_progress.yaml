@@ -5,9 +5,9 @@ description: >-
   today. A commanded dock resets the live progress sensor to 0, but this
   running maximum survives, so "best coverage achieved in that zone
   today" stays knowable even after an interruption. Split by
-  input_select.vacuum_active_zone so a small Common Areas job can never
-  be mistaken for a completed Remaining Rooms job or vice versa --
-  progress is relative to job size, not house size.
+  input_select.vacuum_active_zone so a small Evening job can never be
+  mistaken for a completed Daytime job or vice versa -- progress is
+  relative to job size, not house size.
 triggers:
   - trigger: state
     entity_id: sensor.living_room_vacuum_cleaning_progress
@@ -15,34 +15,34 @@ triggers:
 conditions: []
 actions:
   - choose:
-      - alias: Common areas job active -- update its max if progress increased
+      - alias: Evening zone active -- update its max if progress increased
         conditions:
           - condition: state
             entity_id: input_select.vacuum_active_zone
-            state: common
+            state: evening
           - condition: numeric_state
             entity_id: sensor.living_room_vacuum_cleaning_progress
-            above: input_number.vacuum_common_areas_max_progress
+            above: input_number.vacuum_evening_max_progress
         sequence:
-          - alias: Update stored common areas max progress
+          - alias: Update stored evening max progress
             action: input_number.set_value
             target:
-              entity_id: input_number.vacuum_common_areas_max_progress
+              entity_id: input_number.vacuum_evening_max_progress
             data:
               value: "{{ states('sensor.living_room_vacuum_cleaning_progress') | float(0) }}"
-      - alias: Remaining rooms job active -- update its max if progress increased
+      - alias: Daytime zone active -- update its max if progress increased
         conditions:
           - condition: state
             entity_id: input_select.vacuum_active_zone
-            state: remaining
+            state: daytime
           - condition: numeric_state
             entity_id: sensor.living_room_vacuum_cleaning_progress
-            above: input_number.vacuum_remaining_rooms_max_progress
+            above: input_number.vacuum_daytime_max_progress
         sequence:
-          - alias: Update stored remaining rooms max progress
+          - alias: Update stored daytime max progress
             action: input_number.set_value
             target:
-              entity_id: input_number.vacuum_remaining_rooms_max_progress
+              entity_id: input_number.vacuum_daytime_max_progress
             data:
               value: "{{ states('sensor.living_room_vacuum_cleaning_progress') | float(0) }}"
 mode: single

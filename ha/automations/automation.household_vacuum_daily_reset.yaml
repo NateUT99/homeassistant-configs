@@ -2,38 +2,38 @@ id: "1787695608938"
 alias: "Household: Vacuum Daily Reset"
 description: >-
   Resets both zones' daily-state helpers at 8am, not midnight -- an
-  overnight run just after midnight must still evaluate against
-  yesterday's flags, and this boundary keeps that intact. Also clears the
-  routine-pause flag as a backstop for the rare case where it was set but
-  no arrival followed to clear it naturally.
+  evening run just after midnight must still evaluate against
+  yesterday's flags, and this boundary keeps that intact. Also clears
+  the routine-pause flag as a backstop for the rare case where it was
+  set but no arrival followed to clear it naturally.
 triggers:
   - trigger: time
     at: "08:00:00"
     alias: 8am daily
 conditions: []
 actions:
-  - alias: Reset remaining rooms ran-today flag
+  - alias: Reset daytime zone ran-today flag
     action: input_boolean.turn_off
     target:
-      entity_id: input_boolean.vacuum_ran_today
-  - alias: Reset common areas ran-today flag
+      entity_id: input_boolean.vacuum_ran_daytime
+  - alias: Reset evening zone ran-today flag
     action: input_boolean.turn_off
     target:
-      entity_id: input_boolean.vacuum_common_areas_ran_today
+      entity_id: input_boolean.vacuum_ran_evening
   - alias: Clear routine pause flag as a backstop
     action: input_boolean.turn_off
     target:
       entity_id: input_boolean.vacuum_routine_pause
-  - alias: Reset remaining rooms max progress to 0
+  - alias: Reset daytime max progress to 0
     action: input_number.set_value
     target:
-      entity_id: input_number.vacuum_remaining_rooms_max_progress
+      entity_id: input_number.vacuum_daytime_max_progress
     data:
       value: 0
-  - alias: Reset common areas max progress to 0
+  - alias: Reset evening max progress to 0
     action: input_number.set_value
     target:
-      entity_id: input_number.vacuum_common_areas_max_progress
+      entity_id: input_number.vacuum_evening_max_progress
     data:
       value: 0
 mode: single
