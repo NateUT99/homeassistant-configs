@@ -1,0 +1,83 @@
+id: "1787696240763"
+alias: "Household: Sleep Mode"
+description: >-
+  Prepares the home when everyone goes to sleep and restores it when
+  everyone wakes. Sleep: sets the living room thermostat to Sleep preset,
+  turns on the bathroom night lamp and master bedroom nightstand lamp,
+  turns on the master bedroom Apple TV, closes the garage door, and locks
+  the front door. Wake: sets the thermostat back to Home preset. Merged
+  from the previously separate Configure Home for Sleep / Configure Home
+  for Wake automations, matching the pattern already used by Avery's
+  Room: Sleep Mode.
+triggers:
+  - trigger: switch.turned_on
+    target:
+      entity_id: input_boolean.everyone_sleeping
+    options:
+      behavior: each
+      for: "00:00:00"
+    id: sleep_on
+    alias: Everyone goes to sleep
+  - trigger: switch.turned_off
+    target:
+      entity_id: input_boolean.everyone_sleeping
+    options:
+      behavior: each
+      for: "00:00:00"
+    id: sleep_off
+    alias: Everyone wakes up
+conditions: []
+actions:
+  - choose:
+      - alias: Everyone Sleeping turned ON -- prepare the home for night
+        conditions:
+          - condition: trigger
+            id: sleep_on
+        sequence:
+          - alias: Set living room thermostat to Sleep preset
+            action: climate.set_preset_mode
+            target:
+              entity_id: climate.living_room_thermostat
+            data:
+              preset_mode: sleep
+          - alias: Turn on bathroom night lamp
+            action: light.turn_on
+            target:
+              entity_id: light.bathroom_night_lamp
+            data:
+              color_temp_kelvin: 2350
+              brightness_pct: 65
+          - alias: Ensure garage door is closed
+            action: cover.close_cover
+            target:
+              entity_id: cover.garage_door_opener_door
+            data: {}
+          - alias: Ensure front door is locked
+            action: lock.lock
+            target:
+              entity_id: lock.entrance_front_door
+            data: {}
+          - alias: Turn on master bedroom Apple TV
+            action: media_player.turn_on
+            target:
+              entity_id: media_player.master_bedroom_appletv
+          - alias: Turn on master bedroom nightstand lamp
+            action: light.turn_on
+            target:
+              entity_id: light.master_bedroom_left_nightstand_lamp
+            data:
+              brightness_pct: 50
+              color_temp_kelvin: 2000
+      - alias: Everyone Sleeping turned OFF -- restore the home for day
+        conditions:
+          - condition: trigger
+            id: sleep_off
+        sequence:
+          - alias: Set living room thermostat to Home preset
+            action: climate.set_preset_mode
+            target:
+              entity_id: climate.living_room_thermostat
+            data:
+              preset_mode: home
+mode: single
+category: 01M08R77W9A83G7DDA33MT8R09
