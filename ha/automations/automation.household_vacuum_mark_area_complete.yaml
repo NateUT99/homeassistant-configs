@@ -1,0 +1,49 @@
+id: "1787695604769"
+alias: "Household: Vacuum Mark Area Complete"
+description: >-
+  Marks a zone as cleaned for the day once its max progress clears that
+  zone's threshold, when the vacuum starts returning to dock. Covers both
+  natural completion (progress at or near 100, then returning) and an
+  arrival-cancelled run that had already cleared the threshold -- status
+  passes through returning before progress resets to 0, so the max helper
+  is already correct when this fires. Remaining Rooms uses a lower
+  threshold (50%) than Common Areas (95%) since several of those rooms
+  have doors that may be closed, capping achievable progress in a way
+  retrying won't fix; Common Areas is open-plan and should reliably
+  finish end-to-end.
+triggers:
+  - trigger: state
+    entity_id: vacuum.living_room_vacuum
+    to: returning
+    alias: Vacuum starts returning to dock
+conditions: []
+actions:
+  - choose:
+      - alias: Common areas job returning and cleared its threshold
+        conditions:
+          - condition: state
+            entity_id: input_select.vacuum_active_zone
+            state: common
+          - condition: numeric_state
+            entity_id: input_number.vacuum_common_areas_max_progress
+            above: 95
+        sequence:
+          - alias: Mark common areas ran today
+            action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.vacuum_common_areas_ran_today
+      - alias: Remaining rooms job returning and cleared its threshold
+        conditions:
+          - condition: state
+            entity_id: input_select.vacuum_active_zone
+            state: remaining
+          - condition: numeric_state
+            entity_id: input_number.vacuum_remaining_rooms_max_progress
+            above: 50
+        sequence:
+          - alias: Mark remaining rooms ran today
+            action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.vacuum_ran_today
+mode: single
+category: 01M0SZBV5BGDGY2BQ2GBB5NA4C

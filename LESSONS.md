@@ -374,6 +374,40 @@ Binary sensors derived from analog values (power above threshold = device on) ca
 
 ---
 
+## Vacuum & Roborock
+
+### A commanded dock always cancels the active cleaning job — pause-then-resume is not possible
+
+On the Roborock Q8 Max Plus (via the official HA Roborock integration), any manually issued dock command ends the current cleaning job, regardless of how the job was started or whether it was paused first. This was confirmed with three separate live tests on 2026-08-25:
+
+| Test | Result |
+|---|---|
+| Whole-house clean → `vacuum.pause` → `vacuum.return_to_base` | `binary_sensor.*_cleaning` → off, progress reset to 0 |
+| Whole-house clean → `vacuum.return_to_base` (no pause first) | Same — job cancelled |
+| Segment clean → `vacuum.pause` → `vacuum.return_to_base` | Same — job cancelled |
+
+This matches Roborock's own documentation: "placing a paused robot on the dock manually will end the current cleanup." The only thing that preserves an in-progress job is the robot's *autonomous* low-battery return-and-resume — which cannot be triggered or replicated via HA service calls. Design around this rather than fighting it: see `guides/vacuum_cleaning_routine.md` for the fixed-zone approach this instance uses instead of resume.
+
+### `binary_sensor.<vacuum>_cleaning` reflects Roborock's `status.in_cleaning`, and survives autonomous recharge
+
+The Roborock integration's `binary_sensor.*_cleaning` (device class `running`) is `on` for the entire duration of an in-progress job, including while the robot is docked and charging mid-job due to low battery — it only turns `off` when the job is actually cancelled or completed. Confirmed via history: the sensor stayed `on` continuously through a 3h15m autonomous dock-and-recharge cycle, with the robot resuming cleaning on its own once charged. Use this sensor, not the vacuum's `state`, to answer "is there an unfinished job right now."
+
+### `vacuum.start` sends a dock command instead of starting when the robot is returning home
+
+From the integration's `async_start()`: if `status.in_returning == 1` (robot is en route to the dock), `vacuum.start` translates to `APP_CHARGE`, not a resume or new-clean command. Calling `vacuum.start` while `sensor.<vacuum>_status` reads `returning_home` silently does the opposite of what's intended. Wait for the robot to actually reach `charging` status first.
+
+### Cleaning progress is relative to job size, not house size, and is non-monotonic
+
+`sensor.<vacuum>_cleaning_progress` resets to 0 at the start of every new job and climbs toward 100 as *that job's* commanded area is covered — a 5-room segment clean reads 100% at full coverage of those 5 rooms, identical to how a full-house clean reads 100% at full-house coverage. Never compare progress values across differently-scoped jobs (e.g., a "day zone" job vs. a "night zone" job) without an explicit discriminator recording which job produced the reading — `input_select.vacuum_active_zone` in this instance's automations.
+
+Progress also dips slightly rather than climbing strictly monotonically (observed: 35→34→30→29, 79→78→79 in the same run). A `numeric_state: above` threshold tolerates this; a `state: to: "100"` trigger does not.
+
+### `sensor.<vacuum>_current_room` cannot be used to infer "this room is finished"
+
+For a house with open-plan adjacent rooms, `current_room` flips back and forth between the two rooms every 30 seconds to a couple of minutes as the robot works the shared boundary, rather than settling on one room, finishing it, and moving to the next. A rule like "mark the room the robot just left as done" produces false completions almost immediately. There is no per-room completion signal exposed by the integration — only whole-job progress. If per-room granularity is needed, it has to come from a fixed, hand-defined zone (a specific list of vendor room IDs sent to `app_segment_clean`), not from watching robot position.
+
+---
+
 ## Zigbee & Lighting Groups
 
 ### Z2M reports `light.turn_off transition` state optimistically — breaks `wait_for_trigger`
