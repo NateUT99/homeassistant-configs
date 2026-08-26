@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.11 — August 2026*
+*Version 1.12 — August 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.12 | August 2026 | Reverted presence guidance in §3.2 and §5.10 from `sensor.household_people_home` back to `zone.home` — the HA-core startup race condition that motivated the workaround sensor (§3.2, v1.9) was fixed upstream; the new-house rebuild reads `zone.home` directly throughout and the workaround sensor was not recreated |
 | 1.11 | August 2026 | Added §5.9 exception: `light.turn_on` actions with color/brightness/effect data must use literal `entity_id`, not `label_id`/`area_id`, to keep the automation editor's GUI picker usable |
 | 1.10 | July 2026 | Assigned color `green` to functional taxonomy labels (`notification`, `text_to_speech`, `device_tracker`, `presence`); corrected `int_home_alarm` from `indigo` to `purple` |
 | 1.9 | July 2026 | Added `presence` label; updated section 5.10 to reference `sensor.household_people_home` instead of `zone.home` |
@@ -110,7 +111,7 @@ Applied to every automation that updates device tracker state, regardless of its
 
 Applied to every automation that gates on or reacts to household presence state — who is home, whether anyone is home, and arrival/departure events. Use this to find all automations that would be affected by changes to the presence sensing architecture.
 
-Presence state is read from `sensor.household_people_home`, a template sensor that counts people home via `person.state == "home"` directly. This sensor is immune to the `zone.home` startup race condition introduced in HA 2024.x, where `zone.home` derived its count from `person.in_zones` (populated late after MQTT reconnects) rather than `person.state` (restored immediately from the entity registry).
+Presence state is read from `zone.home`. A startup race condition introduced in HA 2024.x — `zone.home` derived its occupant count from `person.in_zones` (populated late after MQTT reconnects) rather than `person.state` (restored immediately from the entity registry) — briefly required a workaround: `sensor.household_people_home`, a template sensor counting `person.state == "home"` directly, used at the old apartment. HA core fixed the underlying bug in a later release, so `zone.home` is safe to read directly again. The new-house rebuild uses `zone.home` throughout; the workaround sensor was not recreated.
 
 | Label ID | Friendly Name | When to apply |
 |---|---|---|
@@ -302,7 +303,7 @@ Do not wrap actions in `if`/`then` blocks when the action is a no-op if the cond
 
 ### 5.10 Arrival-Triggered TTS: Garage Entry Grace Window
 
-When an automation fires on `sensor.household_people_home` crossing above 0 (first person arrives) and its action includes a TTS announcement, apply a garage entry grace window before announcing. The person is likely still in the garage and will miss audio delivered to interior HomePods.
+When an automation fires on `zone.home` crossing above 0 (first person arrives) and its action includes a TTS announcement, apply a garage entry grace window before announcing. The person is likely still in the garage and will miss audio delivered to interior HomePods.
 
 Place this block before the main action or repeat block, gated on the arrival trigger ID and the current state of the garage interior door:
 
@@ -333,7 +334,7 @@ The `condition: state` gate on the door handles entry through the front door —
 
 **When to skip this pattern:**
 - The automation only sends push notifications, not TTS — push delivers to the phone regardless of physical location.
-- There is no `sensor.household_people_home` arrival trigger — the `condition: trigger` gate already handles multi-trigger automations where only one trigger is an arrival.
+- There is no `zone.home` arrival trigger — the `condition: trigger` gate already handles multi-trigger automations where only one trigger is an arrival.
 
 ---
 
