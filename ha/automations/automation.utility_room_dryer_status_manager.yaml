@@ -3,8 +3,8 @@ alias: "Utility Room: Dryer Status Manager"
 description: >-
   Tracks the dryer's alerting/idle/acknowledged state. Sets alerting when a
   cycle ends (state or event trigger, whichever arrives first), idle when a
-  new cycle starts, and idle when the dryer is retrieved (sustained utility
-  room occupancy or a door left open past the pass-through window). Triggers
+  new cycle starts, and idle when the dryer is retrieved (utility room
+  occupancy detected, or a door left open a full minute as backup). Triggers
   alerting only on the 'end' status, not 'cooling' — clothes are still hot
   and time is still counting down through cooling and wrinkle_care.
 triggers:
@@ -31,12 +31,19 @@ triggers:
     target:
       entity_id: binary_sensor.utility_room_motion_occupancy
     options:
-      for: "00:00:45"
+      for: "00:00:15"
     id: retrieved
     alias: "Sustained occupancy (retrieved)"
     note: >-
-      45s clears the 13-24s pass-through cluster seen in four days of history
-      while still catching genuine laundry visits (43s+).
+      15s filters PIR noise (pet, glitch, HVAC draft) without the gap a
+      stricter door-open+occupancy AND would have: this door gets left open
+      for hours at a stretch in this house, so requiring a fresh door-open
+      edge to pair with occupancy would miss a retrieval where the door was
+      already open when someone walked in. Kept as an independent OR with
+      the door-open backup below, not combined with it. Also clears an
+      unrelated appliance's alert if only one is alerting and someone tends
+      the other, since both status managers watch the same door/occupancy
+      sensors — see guides/laundry_automation.md.
   - trigger: door.opened
     target:
       entity_id: binary_sensor.utility_room_door
