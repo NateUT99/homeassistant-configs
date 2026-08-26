@@ -439,6 +439,18 @@ Progress also dips slightly rather than climbing strictly monotonically (observe
 
 For a house with open-plan adjacent rooms, `current_room` flips back and forth between the two rooms every 30 seconds to a couple of minutes as the robot works the shared boundary, rather than settling on one room, finishing it, and moving to the next. A rule like "mark the room the robot just left as done" produces false completions almost immediately. There is no per-room completion signal exposed by the integration — only whole-job progress. If per-room granularity is needed, it has to come from a fixed, hand-defined zone (a specific list of vendor room IDs sent to `app_segment_clean`), not from watching robot position.
 
+### `app_segment_clean`'s segment order does not determine cleaning route
+
+Confirmed via a real automation trace on 2026-08-26: a job commanded as `segments: [16,17,19,21,23,24]` was actually visited in the order 19 → 21 → 17 → 16 (with 23 and 24 skipped — closed doors, see below). The robot path-plans from its own current position rather than walking the array in order. No need to sort or "logicalize" a segment list for routing purposes — it has no effect.
+
+### `sensor.<vacuum>_current_room`'s `options` enum is fixed at integration setup and can't represent renamed/newly-recognized rooms
+
+The entity's `options` attribute (a fixed enum list) only contains the room names known when the integration last built its room list. Renaming a room in the Roborock app (or Roborock recognizing a previously-generic "Room" as a new named room) doesn't retroactively add it to this list — confirmed by sending the robot to segment 20 (renamed "Master Closet" in-app) and watching `current_room` hold on "Living room" the entire time, unable to report a state outside its enum. `roborock.get_maps` also did not surface the app-side rename. Don't trust this sensor (or `get_maps`' room-name dict) to confirm a room rename or split took effect — verify with a direct segment-clean test and visual confirmation instead.
+
+### Closed doors cap achievable progress by single-digit percentages per small room, not proportionally to room count
+
+A real daytime run (2026-08-26) that skipped 2 of 6 commanded rooms (Utility Room + Pantry, both door-closed) still reached 91% cleaning progress — confirming progress is area-weighted, not room-count-weighted. Small rooms (closets, utility rooms) missing to a closed door cost only a few percentage points each, not `1/room_count`. Relevant when setting a "zone cleaned today" threshold: don't assume N inaccessible rooms out of M total caps progress at `(M-N)/M`.
+
 ---
 
 ## Zigbee & Lighting Groups

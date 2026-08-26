@@ -7,7 +7,7 @@ description: >-
   an arrival-cancelled run that had already cleared the threshold --
   status passes through returning before progress resets to 0, so the
   max helper is already correct when this fires. Daytime uses a lower
-  threshold (50%) than Evening (95%) since several of those rooms have
+  threshold (65%) than Evening (95%) since several of those rooms have
   doors that may be closed, capping achievable progress in a way
   retrying won't fix; Evening (common areas) is open-plan and should
   reliably finish end-to-end.
@@ -39,7 +39,7 @@ actions:
             state: daytime
           - condition: numeric_state
             entity_id: input_number.vacuum_daytime_max_progress
-            above: 50
+            above: 65
         sequence:
           - alias: Mark daytime zone ran today
             action: input_boolean.turn_on

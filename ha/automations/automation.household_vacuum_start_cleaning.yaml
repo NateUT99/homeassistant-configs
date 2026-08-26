@@ -5,8 +5,8 @@ description: >-
   Areas (Office, Dining room, Living room, Entrance, Kitchen) clean in
   the evening once everyone has been asleep for an hour, adults-only.
   Remaining Rooms (Bedroom, Bathroom, Master bedroom, Master Bathroom,
-  Utility Room, Pantry) clean in the daytime when the last person leaves
-  for the day.
+  Master Closet, Utility Room, Pantry) clean in the daytime when the
+  last person leaves for the day.
 
   The two zones are fixed and never reference each other's progress or
   completion state -- a commanded dock always cancels the active job on
@@ -138,7 +138,7 @@ actions:
             data:
               command: app_segment_clean
               params:
-                - segments: [16, 17, 19, 21, 23, 24]
+                - segments: [16, 17, 19, 20, 21, 23, 24]
                   repeat: 1
           - alias: Notify that daytime cleaning started
             action: notify.send_message
