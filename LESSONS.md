@@ -451,6 +451,12 @@ The entity's `options` attribute (a fixed enum list) only contains the room name
 
 A real daytime run (2026-08-26) that skipped 2 of 6 commanded rooms (Utility Room + Pantry, both door-closed) still reached 91% cleaning progress — confirming progress is area-weighted, not room-count-weighted. Small rooms (closets, utility rooms) missing to a closed door cost only a few percentage points each, not `1/room_count`. Relevant when setting a "zone cleaned today" threshold: don't assume N inaccessible rooms out of M total caps progress at `(M-N)/M`.
 
+### Merging/renaming rooms in the app: `get_maps` can lag reality by hours, and a merge retires one ID rather than aliasing it
+
+When two rooms are merged in the Roborock app (tested 2026-08-26, Kitchen + Dining room), the merge lands on one of the two original segment IDs and the other is retired outright — not kept as a working alias. `roborock.get_maps`' cached room-name dict took hours to catch up, and returned a stale, self-consistent-looking picture the whole time (both old rooms still listed separately, both looking plausible) rather than erroring or flagging staleness. A `get_maps` snapshot taken mid-lag is not trustworthy for deciding which ID survived.
+
+The reliable check is functional, not observational: send `app_segment_clean` targeting a candidate ID and watch `vacuum.<x>` state. A live ID flips to `cleaning` within seconds; a retired one silently no-ops (no error, no state change) — same signature as any other dead segment ID. Confirm this immediately before editing an automation's segment list, and re-confirm if significant time passed since the last check, since the answer can change again as the sync continues to converge (a "27 still works" result checked once may not hold an hour later).
+
 ---
 
 ## Zigbee & Lighting Groups

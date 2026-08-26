@@ -2,8 +2,9 @@ id: "1787695541380"
 alias: "Household: Vacuum Start Cleaning"
 description: >-
   Starts the Roborock in one of two fixed, non-overlapping zones. Common
-  Areas (Office, Dining room, Living room, Entrance, Kitchen) clean in
-  the evening once everyone has been asleep for an hour, adults-only.
+  Areas (Office, Living room, Entrance, Kitchen -- Kitchen now includes
+  the former Dining room, merged in the Roborock app) clean in the
+  evening once everyone has been asleep for an hour, adults-only.
   Remaining Rooms (Bedroom, Bathroom, Master bedroom, Master Bathroom,
   Master Closet, Utility Room, Pantry) clean in the daytime when the
   last person leaves for the day.
@@ -81,7 +82,7 @@ actions:
             data:
               command: app_segment_clean
               params:
-                - segments: [18, 22, 25, 26, 27]
+                - segments: [18, 22, 25, 26]
                   repeat: 1
           - alias: Notify that evening cleaning started
             action: notify.send_message

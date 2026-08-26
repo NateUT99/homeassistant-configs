@@ -85,10 +85,12 @@ Room segment IDs are read from the Roborock app's map, not derived from anything
 
 | Zone | Rooms | Segment IDs |
 |---|---|---|
-| Evening (common areas) | Office, Dining room, Living room, Entrance, Kitchen | 18, 22, 25, 26, 27 |
+| Evening (common areas) | Office, Living room, Entrance, Kitchen (Kitchen absorbed the former Dining room) | 18, 22, 25, 26 |
 | Daytime (remaining rooms) | Bedroom, Bathroom, Master bedroom, Master Bathroom, Master Closet, Utility Room, Pantry | 16, 17, 19, 20, 21, 23, 24 |
 
 Segment 20 (Master Closet) was originally believed to be a gap in the ID sequence — it was actually an already-mapped room the Roborock app had generically labeled "Room," not surfaced by `roborock.get_maps`' named-room dict until renamed. Confirmed by sending a single-segment test clean (`app_segment_clean`, `segments: [20]`) and visually observing the robot enter the closet — `sensor.living_room_vacuum_current_room` could not confirm it directly; see `LESSONS.md` → *Vacuum & Roborock*.
+
+On 2026-08-26, Kitchen and Dining room were merged into one room in the Roborock app. The merge landed on segment ID **22** (absorbing the old Dining room's footprint) and retired the old Kitchen ID, **27**, entirely rather than renaming it — `roborock.get_maps` briefly showed 22 still as "Dining room" and 27 still as "Kitchen" for hours after the app-side edit, and a functional test against 27 during that lag window actually worked (it was still valid at that moment). Don't trust a single `get_maps` snapshot as final during a pending merge/rename — confirm the *current* segment ID by testing whether `app_segment_clean` targeting it actually starts a job (`state` → `cleaning`); a retired ID silently no-ops instead of erroring. The same map sync also surfaced a new, previously-unmapped segment **28 ("Stairs")**, not currently assigned to either zone.
 
 > **Coordinated change:** if the map is rebuilt or rooms are re-split in the Roborock app, segment IDs can change. Re-run `roborock.get_maps` and update the `segments:` list in both branches of *Household: Vacuum Start Cleaning* — a stale ID silently cleans the wrong room or nothing at all.
 
