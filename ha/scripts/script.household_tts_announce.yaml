@@ -1,0 +1,175 @@
+alias: "Household: TTS Announce"
+description: >-
+  Shared entry point for every HomePod (and the family room Sonos) TTS
+  announcement. Resolves the target room (or auto-picks based on
+  everyone_sleeping), checks for an active video call on Nate's Mac Mini or
+  work laptop, and either speaks via Chime TTS or falls back to a push
+  notification if a call is in progress. The family room target additionally
+  checks Sonos playback state so TTS never interrupts a movie or game.
+fields:
+  message:
+    name: Message
+    description: Text to speak. Templates are supported.
+    required: true
+    selector:
+      text: {}
+  target:
+    name: Target
+    description: Which speaker to announce to, or auto to pick based on sleep state.
+    required: false
+    default: auto
+    selector:
+      select:
+        options:
+          - kitchen
+          - master_bedroom
+          - office
+          - averys_room
+          - family_room
+          - auto
+  notification_title:
+    name: Notification Title
+    description: >-
+      Title for the push notification sent when TTS is suppressed by an
+      active video call or busy family room Sonos.
+    required: false
+    default: Missed Announcement
+    selector:
+      text: {}
+variables:
+  resolved_target: >-
+    {{ ('master_bedroom' if is_state('input_boolean.everyone_sleeping', 'on')
+    else 'kitchen') if (target | default('auto')) == 'auto' else target }}
+  notification_title_resolved: "{{ notification_title | default('Missed Announcement') }}"
+sequence:
+  - alias: "Suppress TTS during a video call, else speak to the resolved room"
+    choose:
+      - alias: "Video call active on Mac Mini or work laptop"
+        conditions:
+          - condition: or
+            conditions:
+              - condition: not
+                conditions:
+                  - condition: state
+                    entity_id: sensor.nates_mac_mini_active_camera
+                    state: Inactive
+              - condition: not
+                conditions:
+                  - condition: state
+                    entity_id: sensor.nates_work_laptop_active_camera
+                    state: Inactive
+        sequence:
+          - alias: "Push fallback (video call active)"
+            note: >-
+              TTS would interrupt a work call, so suppress it and push
+              instead. Checked before the room is resolved because the
+              suppression applies regardless of which speaker would have
+              been used.
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: "{{ notification_title_resolved }}"
+              message: "{{ message }}"
+      - alias: "Target: kitchen"
+        conditions:
+          - "{{ resolved_target == 'kitchen' }}"
+        sequence:
+          - alias: "Speak via Chime TTS (kitchen)"
+            action: chime_tts.say
+            target:
+              entity_id: media_player.kitchen_homepod
+            data:
+              message: "{{ message }}"
+              chime_path: soft
+              tts_platform: cloud
+              volume_level: 0.65
+              cache: true
+              announce: true
+      - alias: "Target: master bedroom"
+        conditions:
+          - "{{ resolved_target == 'master_bedroom' }}"
+        sequence:
+          - alias: "Speak via Chime TTS (master bedroom)"
+            action: chime_tts.say
+            target:
+              entity_id: media_player.master_bedroom_homepod
+            data:
+              message: "{{ message }}"
+              chime_path: soft
+              tts_platform: cloud
+              volume_level: 0.5
+              cache: true
+              announce: true
+      - alias: "Target: office"
+        conditions:
+          - "{{ resolved_target == 'office' }}"
+        sequence:
+          - alias: "Speak via Chime TTS (office)"
+            action: chime_tts.say
+            target:
+              entity_id: media_player.office_homepod
+            data:
+              message: "{{ message }}"
+              chime_path: soft
+              tts_platform: cloud
+              volume_level: 0.5
+              cache: true
+              announce: true
+      - alias: "Target: Avery's room"
+        conditions:
+          - "{{ resolved_target == 'averys_room' }}"
+        sequence:
+          - alias: "Speak via Chime TTS (Avery's room)"
+            action: chime_tts.say
+            target:
+              entity_id: media_player.averys_room_homepod
+            data:
+              message: "{{ message }}"
+              chime_path: soft
+              tts_platform: cloud
+              volume_level: 0.4
+              cache: true
+              announce: true
+      - alias: "Target: family room, Sonos idle"
+        conditions:
+          - "{{ resolved_target == 'family_room' }}"
+          - condition: not
+            conditions:
+              - condition: state
+                entity_id: media_player.family_room_theater
+                state: playing
+        sequence:
+          - alias: "Speak via Chime TTS (family room)"
+            action: chime_tts.say
+            target:
+              entity_id: media_player.family_room_theater
+            data:
+              message: "{{ message }}"
+              chime_path: soft
+              tts_platform: cloud
+              volume_level: 0.5
+              cache: true
+              announce: true
+      - alias: "Target: family room, Sonos busy — push fallback"
+        conditions:
+          - "{{ resolved_target == 'family_room' }}"
+          - condition: state
+            entity_id: media_player.family_room_theater
+            state: playing
+        sequence:
+          - alias: "Push fallback (family room Sonos playing)"
+            note: >-
+              Sonos is mid-movie/game — speaking over it would interrupt
+              playback, so suppress TTS there and push instead rather than
+              drop the announcement silently.
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: "{{ notification_title_resolved }}"
+              message: "{{ message }}"
+    default:
+      - alias: "Unknown target — stop"
+        note: >-
+          Reachable only if `target` is called with a value outside the
+          documented field selector options.
+        stop: Unrecognized TTS target
+mode: queued
+max: 10

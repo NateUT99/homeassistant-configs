@@ -1,10 +1,12 @@
 # Chime TTS Integration
 
-*Last updated: June 2026*
+*Last updated: August 2026*
 
 ## Overview
 
-Chime TTS is a HACS integration that wraps Home Assistant's cloud TTS service with a configurable chime sound prefix. Announcements open with a brief soft chime before the spoken message, making them instantly recognizable as home automation alerts rather than unexpected audio playback. Two `notify.*` services are configured — one per HomePod target room — and are the standard delivery mechanism for all TTS announcements in this instance.
+Chime TTS is a HACS integration that wraps Home Assistant's cloud TTS service with a configurable chime sound prefix. Announcements open with a brief soft chime before the spoken message, making them instantly recognizable as home automation alerts rather than unexpected audio playback. This instance runs `derekcentrico/chime_tts`, a maintained fork of the (no-longer-updated) original — installed via HACS as a custom repository.
+
+`script.household_tts_announce` calls `chime_tts.say` directly, targeting the resolved speaker per call. There is no `notify:` platform configuration — see the design decision below for why.
 
 ---
 
@@ -17,37 +19,48 @@ automations
 script.household_tts_announce
   │  (checks camera sensors for active video call)
   ├─ on call → notify.mobile_app_nates_iphone  (push fallback)
-  └─ routing  (target: kitchen / master_bedroom / auto)
+  └─ routing (target: kitchen / master_bedroom / office / averys_room / family_room / auto)
           │
-          ├──────────────────────────────────────────────┐
-          ▼                                              ▼
-  notify.reminder_kitchen          notify.reminder_master_bedroom
-  (kitchen HomePod, vol 0.6)       (master bedroom HomePod, vol 0.4)
-          │                                              │
-          └────────────────┬──────────────────────────────┘
-                           ▼
-                 Chime TTS (HACS)
-                   ├── chime prefix  (chime_path: soft)
-                   └── spoken message  (tts_platform: cloud, Nabu Casa)
-                           │
-                           ▼
-              HA announce pipeline
-                           │
-                           ▼
-  media_player.kitchen_homepod / media_player.master_bedroom_homepod
+          ├── kitchen / master_bedroom / office / averys_room ──┐
+          │                                                     │
+          └── family_room ─┬─ Sonos idle ────────────────────────┤
+                            └─ Sonos playing → push fallback     │
+                                (never interrupts a movie/game)  │
+                                                                  ▼
+                                                        chime_tts.say
+                                                   ├── chime prefix  (chime_path: soft)
+                                                   └── spoken message  (tts_platform: cloud, Nabu Casa)
+                                                                  │
+                                                                  ▼
+                                                       HA announce pipeline
+                                                                  │
+                                                                  ▼
+                              media_player.kitchen_homepod / master_bedroom_homepod /
+                              office_homepod / averys_room_homepod / family_room_theater
 ```
 
-The `announce: true` flag routes playback through HA's announce pipeline, which interrupts current audio and restores it after the announcement. Chime TTS provides its own chime prefix via `chime_path`; this replaces rather than duplicates the HomePod's native announcement bell. `cache: true` caches the TTS audio on disk so repeated identical messages skip the Nabu Casa API call.
+The `announce: true` flag routes playback through HA's announce pipeline, which interrupts current audio and restores it after the announcement. `cache: true` caches the TTS audio on disk so repeated identical messages skip the Nabu Casa API call.
 
-Volume levels differ intentionally — 0.6 for the kitchen (ambient noise) and 0.4 for the master bedroom (nighttime/quiet context).
+Volume levels differ per room — 0.65 kitchen (ambient noise), 0.5 master bedroom / office / family room, 0.4 Avery's room (nighttime/quiet context). Kitchen and master bedroom values come from the pre-move `configuration.yaml` baseline in `snapshot/2026-07-27-pre-move/`; office, Avery's room, and family room have no prior baseline and may need tuning after first use.
+
+> **Coordinated change:** Room volumes live inside `script.household_tts_announce`'s `choose` branches (one literal `volume_level` per target), not in a shared table. Adjusting a room's volume means editing that branch directly — see `guides/reminders.md` and any other guide referencing this script for the current field contract.
+
+---
+
+## Design Decisions
+
+- **`chime_tts.say` directly, not a `notify:` platform.** The pre-move instance configured room-specific `notify.reminder_*` services via a `notify:` block in `configuration.yaml`. The fork's `notify.py` is a thin wrapper that calls the same `chime_tts.say` service internally — nothing is gained by the extra layer. Calling `say` directly means: no `configuration.yaml` entry, no full-restart-to-change-a-volume, and the whole delivery mechanism lives in an MCP-retrievable script that mirrors into `ha/scripts/`. The only historically documented rationale for Chime TTS at all was "use it instead of bare `media_player.play_media`/`tts.speak`, because of the chime prefix" — that reasoning is unaffected by which service dispatches it.
+- **Config entry over YAML.** The custom integration is enabled via a config entry (**Settings → Devices & Services → Add Integration → Chime TTS**), not a `configuration.yaml` block. HA discovers the custom component automatically once its files exist in `custom_components/`; the config entry is what triggers service registration. No restart is required — confirmed live.
+- **Family room Sonos gated on playback state.** Unlike the four HomePods, `media_player.family_room_theater` (a Sonos device, confirmed by its `group_members` attribute) is checked for `state == playing` before speaking. If the Sonos is mid-movie or mid-game, `script.household_tts_announce` suppresses TTS there and pushes to `notify.mobile_app_nates_iphone` instead — the same fallback pattern used for the video-call suppression. This keeps a laundry or reminder announcement from talking over a Sonos-connected TV.
 
 ---
 
 ## Prerequisites
 
-- HACS installed and active
+- HACS installed and active, with `derekcentrico/chime_tts` added as a custom repository
 - Nabu Casa subscription active (cloud TTS)
-- `media_player.kitchen_homepod` and `media_player.master_bedroom_homepod` — HomePods managed via the Apple TV integration
+- `media_player.kitchen_homepod`, `media_player.master_bedroom_homepod`, `media_player.office_homepod`, `media_player.averys_room_homepod` — HomePods via the Apple TV integration
+- `media_player.family_room_theater` — Sonos device, via the Sonos integration
 
 ---
 
@@ -55,94 +68,57 @@ Volume levels differ intentionally — 0.6 for the kitchen (ambient noise) and 0
 
 ### 1. Install Chime TTS via HACS
 
-In the HA UI: **Settings → HACS → Integrations → Explore & Download Repositories**. Search for **Chime TTS** and download it. Restart HA after installation.
+Add `derekcentrico/chime_tts` as a custom repository (category: Integration) in **HACS → Integrations**, then download it. No restart needed for the files to be discovered — HA logs a "custom integration not tested" warning on next load, which is expected for any HACS custom component.
 
-### 2. Add configuration to `configuration.yaml`
+### 2. Add the config entry
 
-Add the following under the top-level `notify:` key. If a `notify:` block already exists, append to the existing list.
+**Settings → Devices & Services → Add Integration → Chime TTS.** This has no configuration fields of its own — adding the entry is what registers `chime_tts.say`, `chime_tts.say_url`, `chime_tts.replay`, and `chime_tts.clear_cache` as callable services.
 
-```yaml
-notify:
-  - name: reminder_kitchen
-    platform: chime_tts
-    chime_path: soft
-    entity_id:
-      - media_player.kitchen_homepod
-    tts_platform: cloud
-    volume_level: 0.6
-    cache: true
-    announce: true
-  - name: reminder_master_bedroom
-    platform: chime_tts
-    chime_path: soft
-    entity_id:
-      - media_player.master_bedroom_homepod
-    tts_platform: cloud
-    volume_level: 0.4
-    cache: true
-    announce: true
-```
+### 3. Verify
 
-### 3. Restart HA
-
-`notify:` platform entries require a full restart — a configuration reload is not sufficient. After restart, `notify.reminder_kitchen` and `notify.reminder_master_bedroom` appear in **Developer Tools → Services**.
-
-### 4. Verify
-
-Call the service from **Developer Tools → Services**:
+Call `chime_tts.say` from **Developer Tools → Actions**:
 
 ```yaml
-service: notify.reminder_kitchen
+action: chime_tts.say
+target:
+  entity_id: media_player.kitchen_homepod
 data:
   message: "Test announcement."
+  chime_path: soft
+  tts_platform: cloud
+  volume_level: 0.65
+  announce: true
 ```
 
 The kitchen HomePod should play the soft chime followed by the spoken message.
 
 ---
 
-## Usage
-
-Call a service with a `message` key. Templates are supported:
-
-```yaml
-action: notify.reminder_kitchen
-data:
-  message: >-
-    Your message here. {{ states('sensor.some_sensor') }}.
-```
-
-No volume, target, or chime configuration is needed at call time — all of that is baked into the `configuration.yaml` service definition.
-
----
-
 ## TTS Announce Script
 
-All TTS automations in this instance call `script.household_tts_announce` rather than the notify services directly. The script is the standard entry point — it checks for an active video call before routing to the appropriate HomePod.
+All TTS automations in this instance call `script.household_tts_announce` rather than `chime_tts.say` directly — it is the standard entry point.
 
 ```yaml
 action: script.household_tts_announce
 data:
   message: "Your message here."
-  target: auto                    # optional: 'kitchen', 'master_bedroom', or 'auto'
+  target: auto                    # optional: kitchen / master_bedroom / office / averys_room / family_room / auto
   notification_title: "My Alert"  # optional: push title when TTS is suppressed
 ```
 
 | Field | Required | Default | Description |
 |---|---|---|---|
 | `message` | Yes | — | Text to speak. Templates are supported. |
-| `target` | No | `auto` | `kitchen` → kitchen HomePod; `master_bedroom` → master bedroom HomePod; `auto` → picks master bedroom when `everyone_sleeping` is on, kitchen otherwise |
+| `target` | No | `auto` | `kitchen`, `master_bedroom`, `office`, `averys_room`, `family_room`, or `auto` — picks master bedroom when `everyone_sleeping` is on, kitchen otherwise |
 | `notification_title` | No | `Missed Announcement` | Title for the push notification sent when TTS is suppressed |
 
-**Video call check:** Before routing to a HomePod, the script checks `sensor.nate_mac_mini_active_camera` and `sensor.nates_macbook_pro_active_camera`. If either is not `Inactive`, the announcement is suppressed and a push notification is sent to `notify.mobile_app_nates_iphone` instead. This keeps TTS from interrupting work calls.
+**Video call check:** Before routing to a speaker, the script checks `sensor.nates_mac_mini_active_camera` and `sensor.nates_work_laptop_active_camera`. If either is not `Inactive`, the announcement is suppressed and a push notification is sent to `notify.mobile_app_nates_iphone` instead. This keeps TTS from interrupting work calls.
 
-Do not call `notify.reminder_kitchen` or `notify.reminder_master_bedroom` directly from automations — use the script so the video call check and routing logic stay in one place.
+**Family room busy check:** When `target` resolves to `family_room`, the script additionally checks `media_player.family_room_theater`'s playback state. If it's `playing`, the same push-fallback path fires instead of speaking. `auto` never resolves to `family_room` — it must be requested explicitly.
 
----
+Do not call `chime_tts.say` directly from automations — use the script so the video call check, family room busy check, and per-room volume all stay in one place.
 
-## Integration Label
-
-Chime TTS is a delivery mechanism rather than a feature integration, so no `int_chime_tts` label is created. The `text_to_speech` label (see `standards/automations.md`) serves as the cross-cutting identifier for all automations that use these services.
+> **Known issue — family room Sonos TTS not confirmed working.** Live testing (August 2026) showed the script correctly detects platform (`sonos`), builds the Sonos-specific public playback URL required for that platform, and calls `media_player.play_media` with `announce: true` — but the Sonos entity's state never transitioned to `playing` and no audio was confirmed heard, despite HA's control channel to the speaker working correctly (state polling, i.e. `idle`, was accurate; the speaker was confirmed powered on and idle in the Sonos app). No error surfaced at any HA log level. This isolates the failure to the playback command itself — most likely the Nabu Casa cloud remote-UI URL Chime TTS builds for Sonos isn't reachable/playable by the speaker (network segmentation, or a Nabu Casa proxy quirk), not a fault in this script or in HA's Sonos integration. See `LESSONS.md` → TTS & Media for the full diagnostic trail. Until resolved, treat `target: family_room` as unverified — the kitchen/master_bedroom/office/averys_room branches are all individually confirmed working.
 
 ---
 
@@ -151,23 +127,17 @@ Chime TTS is a delivery mechanism rather than a feature integration, so no `int_
 | Friendly Name | Entity / Service | Type |
 |---|---|---|
 | TTS Announce | `script.household_tts_announce` | Script — standard entry point for all TTS announcements |
-| Reminder — Kitchen | `notify.reminder_kitchen` | Notify service (Chime TTS) |
-| Reminder — Master Bedroom | `notify.reminder_master_bedroom` | Notify service (Chime TTS) |
+| Chime TTS: Say | `chime_tts.say` | Service (Chime TTS config entry) |
 | Kitchen HomePod | `media_player.kitchen_homepod` | Media player (Apple TV integration) |
 | Master Bedroom HomePod | `media_player.master_bedroom_homepod` | Media player (Apple TV integration) |
-
----
-
-## Related Files
-
-| File | Deployed location | Purpose |
-|---|---|---|
-| `configuration.yaml` (managed in HA) | HA config root | Declares both `notify:` platform entries |
+| Office HomePod | `media_player.office_homepod` | Media player (Apple TV integration) |
+| Avery's Room HomePod | `media_player.averys_room_homepod` | Media player (Apple TV integration) |
+| Family Room Theater | `media_player.family_room_theater` | Media player (Sonos integration) |
 
 ---
 
 ## Related Documents
 
-- `standards/automations.md` — defines the `text_to_speech` label applied to automations that use these services
-- `guides/outdoor_air_quality_alerting.md` — uses both services for AQI alert announcements
-- `LESSONS.md` → TTS & Media — explains why `notify.reminder_*` is preferred over bare `media_player.play_media`
+- `standards/automations.md` — defines the `text_to_speech` label applied to automations that use `script.household_tts_announce`
+- `guides/laundry_automation.md` — first consumer of the script, kitchen/master_bedroom targets only
+- `LESSONS.md` → TTS & Media — Sonos playback diagnostic trail; why `media_player.play_media`/`tts.speak` are avoided in favor of Chime TTS on HomePods
