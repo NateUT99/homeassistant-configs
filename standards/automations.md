@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.12 — August 2026*
+*Version 1.13 — August 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.13 | August 2026 | Rewrote §5.10 — the door-state gate never engaged because `zone.home` fires at the GPS geofence, before the person reaches the garage door, so the wait was always skipped; replaced with a bounded wait on evidence of entry (garage door closing behind them, or the front door lock releasing). Added §5.11 (semantic triggers and conditions). Amended §5.3 — `note:` is now a recognized, optional field alongside `alias:` for longer explanations. Updated §3.2 `text_to_speech` label description to remove the retired `notify.reminder_*` Chime TTS platform in favor of calling `chime_tts.say` directly from `script.household_tts_announce`. |
 | 1.12 | August 2026 | Reverted presence guidance in §3.2 and §5.10 from `sensor.household_people_home` back to `zone.home` — the HA-core startup race condition that motivated the workaround sensor (§3.2, v1.9) was fixed upstream; the new-house rebuild reads `zone.home` directly throughout and the workaround sensor was not recreated |
 | 1.11 | August 2026 | Added §5.9 exception: `light.turn_on` actions with color/brightness/effect data must use literal `entity_id`, not `label_id`/`area_id`, to keep the automation editor's GUI picker usable |
 | 1.10 | July 2026 | Assigned color `green` to functional taxonomy labels (`notification`, `text_to_speech`, `device_tracker`, `presence`); corrected `int_home_alarm` from `indigo` to `purple` |
@@ -93,7 +94,7 @@ Applied to every automation that sends a push notification or TTS announcement, 
 
 Applied to every automation that delivers a spoken TTS announcement, regardless of its primary category. Carries alongside `notification` — TTS automations should have both labels. Use `text_to_speech` to filter specifically for automations that speak, as distinct from those that only push silent notifications.
 
-TTS announcements in this instance are delivered via `script.household_tts_announce`, which performs a video call check before routing to the appropriate Chime TTS service (`notify.reminder_kitchen` or `notify.reminder_master_bedroom`). Automations should call the script rather than the notify services directly. See `guides/chime_tts.md` for the script's fields and behavior.
+TTS announcements in this instance are delivered via `script.household_tts_announce`, which performs a video call check before routing to `chime_tts.say` at the resolved HomePod. Automations should call the script rather than `chime_tts.say` directly — the script is what applies the video call check and the per-room volume table. See `guides/chime_tts.md` for the script's fields and behavior.
 
 | Label ID | Friendly Name | When to apply |
 |---|---|---|
@@ -262,6 +263,21 @@ action:
       entity_id: light.office_key_light
 ```
 
+**`alias` vs. `note`:** `alias` is a brief label — a few words summarizing the step. It's what renders in the trace view and the editor's step list, so it must stay scannable; do not extend it into a paragraph. When a step has rationale, threshold justification, an edge case, or a timing caveat worth recording, put it in the optional `note` field instead of stretching the alias. `note` is not required on every step — add it only where there's something non-obvious to explain.
+
+```yaml
+trigger:
+  - trigger: door.opened
+    target:
+      entity_id: binary_sensor.utility_room_door
+    alias: "Door opened"
+    note: >-
+      Fires immediately on the door contact. Paired with a sustained
+      occupancy trigger elsewhere in this automation because a bare
+      door edge misses cycles that finish while the door happens to
+      already be open.
+```
+
 ### 5.4 Parallel vs. Sequential Actions
 
 - Use **parallel blocks** for independent actions where ordering doesn't matter and concurrent execution is faster.
@@ -301,40 +317,68 @@ Do not wrap actions in `if`/`then` blocks when the action is a no-op if the cond
 - Use `target:` syntax over `data: entity_id:` in service calls — it is the modern form.
 - **Exception — `light.turn_on` actions carrying color/brightness/effect data:** use a literal `entity_id` list, not `label_id`/`area_id`. The automation editor's GUI can only render the visual brightness/color picker when it can resolve the target to a fixed set of light entities and inspect their supported color modes; label and area targets can't be resolved at design time, so the editor falls back to YAML-only for that action's `data`. This trades away auto-following label/area membership — a newly labeled or added light must be added to the entity_id list manually — but GUI editability takes priority per the author's preference. See `automation.household_status_lights_mode` for the pattern.
 
-### 5.10 Arrival-Triggered TTS: Garage Entry Grace Window
+### 5.10 Arrival-Triggered TTS: Entry Grace Window
 
-When an automation fires on `zone.home` crossing above 0 (first person arrives) and its action includes a TTS announcement, apply a garage entry grace window before announcing. The person is likely still in the garage and will miss audio delivered to interior HomePods.
+When an automation fires on `zone.home` crossing above 0 (first person arrives) and its action includes a TTS announcement, wait for evidence the person is actually inside before announcing.
 
-Place this block before the main action or repeat block, gated on the arrival trigger ID and the current state of the garage interior door:
+`zone.home` crosses at the GPS geofence — roughly the end of the street, still in the car — not at the front door. A gate that checks whether the garage door is *currently* open at that instant will almost always find it closed (nobody has reached it yet) and skip straight to announcing outside, before anyone can hear it. There is also no reliable way to tell in advance which door someone will use, so the wait has to cover both paths at once rather than pick one based on current state.
+
+Place this block before the main action or repeat block, gated on the arrival trigger ID only — no door-state precondition:
 
 ```yaml
-- alias: "If arrival triggered: wait for garage door to close first"
+- alias: "Wait for arrival to get inside"
   if:
     - condition: trigger
       id: someone_arrived          # match the arrival trigger's id
-    - condition: state
-      entity_id: binary_sensor.garage_interior_door_contact
-      state: "on"                  # door is open — person likely still in garage
   then:
-    - alias: "Wait for interior garage door to close"
+    - alias: "Wait for entry via garage or front door"
+      note: >-
+        Garage path: door opens then closes behind them. Front door
+        path: no contact sensor exists on this house, so the lock
+        unlocking is the signal instead.
       wait_for_trigger:
         - trigger: state
-          entity_id: binary_sensor.garage_interior_door_contact
+          entity_id: binary_sensor.garage_interior_door
           from: "on"
           to: "off"
+        - trigger: state
+          entity_id: lock.entrance_front_door
+          to: "unlocked"
       timeout:
-        minutes: 5
+        minutes: 10
       continue_on_timeout: true
     - alias: "Buffer after entry"
       delay:
-        seconds: 15
+        seconds: 30
 ```
 
-The `condition: state` gate on the door handles entry through the front door — if the garage door is already closed when arrival is detected, the wait block is skipped entirely and the announcement proceeds immediately. The 5-minute timeout with `continue_on_timeout: true` ensures the automation never hangs if the door doesn't close.
+`continue_on_timeout: true` ensures the automation never hangs if neither trigger fires (e.g., a garage-remote departure with no matching return, or a side-door entry this pattern doesn't cover). Adjust the entity IDs to the house's actual interior garage door and front door lock.
 
 **When to skip this pattern:**
 - The automation only sends push notifications, not TTS — push delivers to the phone regardless of physical location.
 - There is no `zone.home` arrival trigger — the `condition: trigger` gate already handles multi-trigger automations where only one trigger is an arrival.
+
+### 5.11 Semantic Triggers and Conditions
+
+HA 2026.x provides semantic trigger and condition platforms for common device classes — `door.opened`, `door.is_closed`, `occupancy.detected`, `occupancy.cleared`, and similar — that read more clearly than the equivalent raw `state` form and require less boilerplate (no `to:`/`from:` state-string matching).
+
+**Prefer the semantic form wherever one exists for the entity's device class.** Fall back to raw `state` triggers/conditions only where no semantic equivalent exists — which is most non-binary-sensor domains: `input_select` transitions, `zone.home`, `event` entities, `lock` state, and similar.
+
+```yaml
+# Preferred — semantic
+- trigger: door.opened
+  target:
+    entity_id: binary_sensor.utility_room_door
+  alias: "Door opened"
+
+# Only when no semantic form exists
+- trigger: state
+  entity_id: input_select.utility_room_washer_status
+  to: alerting
+  alias: "Washer status: alerting"
+```
+
+Semantic triggers still take `alias` and `note` per §5.3 — the semantic form changes the trigger platform, not the documentation requirements.
 
 ---
 
@@ -362,5 +406,6 @@ The `condition: state` gate on the door handles entry through the front door —
 | Field | Required | Notes |
 |---|---|---|
 | `alias` | Yes, on every step | Triggers, conditions, actions, choose branches, repeat blocks |
+| `note` | No | Optional longer explanation on a step; use when there's non-obvious rationale — don't stretch `alias` instead |
 | `description` | Yes | What it does, when it fires, why it exists |
 | `mode` | Yes | Never omit; always explicit |

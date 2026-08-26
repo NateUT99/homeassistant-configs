@@ -325,19 +325,50 @@ data:
 
 Templates work inside `media_content_id`.
 
-### Use Chime TTS `notify.reminder_*` services for all HomePod announcements
+### Use Chime TTS for all HomePod/Sonos announcements — call `chime_tts.say` directly, not a `notify:` platform
 
-Even though `media_player.play_media` with `announce: true` works on HomePods (see above), the preferred pattern for all TTS announcements in this instance is the **Chime TTS** HACS integration. Chime TTS prepends a configurable chime sound before the spoken message, making announcements less jarring and easier to recognize as home automation alerts rather than random audio playback.
+Even though `media_player.play_media` with `announce: true` works on HomePods (see above), the preferred pattern for all TTS announcements in this instance is the **Chime TTS** HACS integration (`derekcentrico/chime_tts` fork). Chime TTS prepends a configurable chime sound before the spoken message, making announcements less jarring and easier to recognize as home automation alerts rather than random audio playback.
 
-The integration creates room-specific `notify.*` services (e.g., `notify.reminder_kitchen`, `notify.reminder_master_bedroom`). Call them with a `message` key only — Chime TTS handles volume and the chime prefix internally:
+The pre-move apartment configured this via a `notify:` platform block in `configuration.yaml` (`notify.reminder_kitchen`, `notify.reminder_master_bedroom`), requiring a full HA restart to add or change a room. The new-house rebuild calls `chime_tts.say` directly from `script.household_tts_announce` instead — the fork's `notify.py` is a thin wrapper around the same service, so nothing is lost, and the whole delivery mechanism now lives in one MCP-retrievable script instead of `configuration.yaml` plus a script. Enabling Chime TTS itself is a config entry (**Settings → Devices & Services → Add Integration → Chime TTS**), not YAML — no restart required, confirmed live in this instance.
 
 ```yaml
-action: notify.reminder_kitchen
+action: chime_tts.say
+target:
+  entity_id: media_player.kitchen_homepod
 data:
   message: "Your message here."
+  chime_path: soft
+  tts_platform: cloud
+  volume_level: 0.65
+  announce: true
 ```
 
-Templates work inside `message`. Do not use `media_player.play_media` directly for new TTS announcements — the chime prefix is the reason both the `notification` and `text_to_speech` labels exist on automations that speak.
+Templates work inside `message`. Do not call `chime_tts.say` (or `media_player.play_media`) directly from automations — call `script.household_tts_announce`, which applies the video-call suppression and per-room volume. See `guides/chime_tts.md`.
+
+### ThinQ `current_status` sensor sits in `end` for only ~30–45 seconds
+
+`sensor.<appliance>_current_status` (via `lg_thinq`) transitions `... → end → power_off`, but measured across three real cycles the `end` state lasted only 31–44 seconds before moving on. A state trigger on `to: end` alone is a narrow target — an HA restart or a momentarily missed state-change event during that window loses the transition entirely. Pair it with a second, independent signal (in this instance, the appliance's `event.*_notification` entity, whose `event_type` attribute carries the same information) rather than relying on the state trigger alone. See `guides/laundry_automation.md` for the full pattern, including the recency guard the event-trigger path needs (below).
+
+### `event` entities re-fire their trigger on every HA restart, with a stale value
+
+An `event` entity's `state` is the ISO timestamp of the last real event it saw. On HA restart, that value is restored — but the restore itself is a `state_changed` event (from `None` to the restored value), which fires any `state` trigger with no `to`/`from` filter, exactly as if a new event had just happened. A trigger built naively on such an entity will re-fire on every restart with the last event it ever saw, however old.
+
+Guard against this with a recency check comparing the entity's own state (parsed as a datetime) to `now()`:
+
+```yaml
+condition: template
+value_template: >-
+  {{ (now() - (states('event.utility_room_washer_notification') |
+  as_datetime)).total_seconds() < 300 }}
+```
+
+This is a case where the template condition shorthand is the right tool — there's no native condition primitive for "this event's own timestamp value is recent." Caught live in this house: the Aug 22 `washing_is_complete` event re-surfaced with a fresh `last_changed` after an unrelated HA restart on Aug 26, which would have fired a four-day-stale laundry alert without the guard.
+
+### Sonos TTS via Chime TTS: state polling works, playback silently doesn't (unresolved)
+
+On this instance, `chime_tts.say` targeting a Sonos entity (`media_player.family_room_theater`) produces no observable effect — no state change, no error at any HA log level (including `debug`), across repeated tests. HA's control channel to the speaker is confirmed healthy (state polling correctly reports `idle`; the physical speaker is powered on and idle in the Sonos app). Debug logging on `custom_components.chime_tts` shows the integration correctly detects the Sonos platform, builds the Sonos-specific public playback URL (as opposed to the generic `media-source://` URL used for HomePod/AirPlay), calls `media_player.play_media` with `announce: true` — then explicitly polls for the entity to report `playing` and times out after the full audio duration without it ever doing so.
+
+Ruled out: HA's `internal_url` being unset (it was fixed mid-session; no change in behavior). Likely candidate, unconfirmed: the Nabu Casa cloud remote-UI URL Chime TTS builds for Sonos playback isn't reachable or playable by the physical speaker (network segmentation between the Sonos and Nabu Casa's proxy, or a Nabu Casa-side quirk specific to that content type) — HomePod/AirPlay doesn't share this dependency since it streams through HA's own process rather than handing the speaker a URL to fetch. Treat `chime_tts.say` (and by extension `script.household_tts_announce` with `target: family_room`) as unverified for Sonos until this is resolved. The automation-side logic (busy-Sonos suppression, push fallback) is correct and independently testable via the Sonos entity's `state` attribute regardless of whether playback itself works.
 
 ---
 
