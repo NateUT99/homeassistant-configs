@@ -6,7 +6,7 @@
 
 ## Overview
 
-Two LG appliances — a washer and dryer — are managed via the `lg_thinq` integration and surface as entity sets in HA. This integration adds a state machine helper per appliance, four template sensors for progress computation, three automations for state management and TTS announcements, and (deferred — see [Future Improvements](#future-improvements)) a dashboard section. When a cycle completes, the system announces on the kitchen HomePod and family room Sonos (or master bedroom if Avery is sleeping) every 30 minutes until the laundry is retrieved, and re-announces immediately when the household re-engages after sleep or an absence.
+Two LG appliances — a washer and dryer — are managed via the `lg_thinq` integration and surface as entity sets in HA. This integration adds a state machine helper per appliance, four template sensors for progress computation, three automations for state management and TTS announcements, and (deferred — see [Future Improvements](#future-improvements)) a dashboard section. When a cycle completes, the system announces on the kitchen HomePod (or master bedroom if Avery is sleeping) every 30 minutes until the laundry is retrieved, and re-announces immediately when the household re-engages after sleep or an absence. If the family room Sonos is playing at announcement time, a push notification also goes to Nate's phone — a busy Sonos there likely means a movie or game loud enough to miss the kitchen announcement over.
 
 This is a new-house rebuild of the pattern documented for the old apartment. Every entity ID below reflects the live `sensor.utility_room_*` naming this house's ThinQ registration produced — the old guide used bare `sensor.washer_*` IDs that do not exist here.
 
@@ -40,8 +40,9 @@ LG ThinQ (lg_thinq integration)
          └─► TTS Announcement Automation
              automation.utility_room_laundry_done_announcement
              ├── combined message when both appliances alerting
-             ├── kitchen HomePod + family room Sonos (default, in parallel)
-             └── master bedroom HomePod only (avery_sleeping = on)
+             ├── kitchen HomePod (default)
+             ├── + push to phone if family_room_theater is playing (busy Sonos, unconditional)
+             └── master bedroom HomePod only (avery_sleeping = on) — no kitchen, no push check
 
 State machine inputs (per status manager):
   current_status → end                                    ──► idle → alerting  (state trigger)
@@ -72,9 +73,9 @@ TTS inputs:
 
 - **TTS re-triggers on re-engagement.** The announcement automation uses `mode: restart` and fires on three triggers: `input_select → alerting`, `everyone_sleeping → off`, and `zone.home` crossing 0→1. Sleep and away stop TTS but leave the visual (`input_select`) at `alerting`. When the household re-engages, the automation restarts and fires immediately rather than waiting up to 30 minutes for the next loop iteration.
 
-- **Arrival entry-grace, and family room push fallback, both live in the shared script layer, not this guide.** The garage/front-door wait before an arrival-triggered announcement is `standards/automations.md` §5.10 — any TTS-and-arrival automation gets it the same way. The family room Sonos's busy-playback suppression is inside `script.household_tts_announce`, not this automation — see `guides/chime_tts.md`. This automation's own job is only: decide *whether* to announce and *what* to say; the script decides *how* and *where*.
+- **Arrival entry-grace lives in the shared script's caller, not the script itself.** The garage/front-door wait before an arrival-triggered announcement is `standards/automations.md` §5.10, applied directly in this automation (not inside `script.household_tts_announce`) — any TTS-and-arrival automation gets the same block. The script's own job is only "speak this message at this target"; deciding *whether* and *when* to speak stays in the calling automation.
 
-- **Kitchen and family room announce in parallel; master bedroom is exclusive.** When Avery isn't sleeping, the loop calls the TTS script for `kitchen` and `family_room` concurrently via a `parallel:` action block — both rooms get the same treatment a lone kitchen announcement used to get. When Avery is sleeping, only `master_bedroom` fires; family room and kitchen are skipped entirely regardless of whether anyone's actually in either room, matching the pre-move instance's single-target-at-night behavior.
+- **Family room awareness is a push notification, not a TTS target.** An earlier version of this build added `media_player.family_room_theater` as a full `script.household_tts_announce` target, mirroring the Sonos-idle/Sonos-busy pattern. Live testing showed the Sonos playback command silently produced no audio despite HA's control channel to the speaker working correctly (see `LESSONS.md` → TTS & Media) — pursuing that further was out of scope for what was actually asked. The requirement was simpler than the implementation: push a notification if the family room Sonos is busy, in addition to the kitchen announcement, not route TTS there. The current design does exactly that — one `script.household_tts_announce` call to `kitchen`, then an unconditional check of `media_player.family_room_theater`'s `state` (no script involvement) that pushes to `notify.mobile_app_nates_iphone` if `playing`. This check is not part of the Avery-sleeping branch — when Avery's asleep, only master bedroom fires and the family room check is skipped entirely, matching the pre-move instance's single-target-at-night behavior.
 
 - **Template helpers, not `configuration.yaml`.** Progress and remaining-time sensors are created as HA template helpers (config-flow API, equivalent to Settings → Helpers → Add Helper → Template), stored in HA storage and retrievable via MCP. Formula: `progress = (total_time − minutes_remaining) / total_time × 100`, clamped 0–100; `minutes_remaining = max(0, (remaining_time_timestamp − now()) / 60)`. Both guard against `unknown`/`unavailable` source states.
 
@@ -114,7 +115,7 @@ TTS inputs:
 
 ### 3. `script.household_tts_announce`
 
-Built as a prerequisite for this guide — it did not exist in the new house. See `guides/chime_tts.md` for the full script contract; this guide only uses `target: kitchen`, `target: family_room`, and `target: master_bedroom`.
+Built as a prerequisite for this guide — it did not exist in the new house. See `guides/chime_tts.md` for the full script contract; this guide only uses `target: kitchen` and `target: master_bedroom`. The family room Sonos is not a script target — see the design decision above.
 
 ### 4. Helpers
 
@@ -171,12 +172,13 @@ When dashboard work starts, `sensor.utility_room_washer_cycles`, `sensor.utility
 | Laundry integration label | `int_laundry` | Label |
 | Utility room door | `binary_sensor.utility_room_door` | Entity |
 | Utility room occupancy | `binary_sensor.utility_room_motion_occupancy` | Entity |
+| Family room Sonos (busy check only, not a TTS target) | `media_player.family_room_theater` | Entity |
 
 ---
 
 ## Related Documents
 
-- `guides/chime_tts.md` — `script.household_tts_announce` field contract, per-room volumes, family room Sonos busy-suppression, and the known Sonos playback issue
+- `guides/chime_tts.md` — `script.household_tts_announce` field contract, per-room volumes, and why family room isn't a script target
 - `guides/mobile_dashboard.md` — future home of the laundry chips and `#laundry` pop-up (not yet built)
 - `guides/reminders.md` — why `ha-chore-calendar` isn't installed in this instance, blocking cycles-since-cleaned
 - `standards/automations.md` — §5.10 (arrival entry-grace, used by the announcement automation), §5.11 (semantic triggers, used by both status managers), category/label/alias requirements

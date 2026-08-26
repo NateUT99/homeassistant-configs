@@ -19,29 +19,26 @@ automations
 script.household_tts_announce
   │  (checks camera sensors for active video call)
   ├─ on call → notify.mobile_app_nates_iphone  (push fallback)
-  └─ routing (target: kitchen / master_bedroom / office / averys_room / family_room / auto)
+  └─ routing (target: kitchen / master_bedroom / office / averys_room / auto)
           │
-          ├── kitchen / master_bedroom / office / averys_room ──┐
-          │                                                     │
-          └── family_room ─┬─ Sonos idle ────────────────────────┤
-                            └─ Sonos playing → push fallback     │
-                                (never interrupts a movie/game)  │
-                                                                  ▼
-                                                        chime_tts.say
-                                                   ├── chime prefix  (chime_path: soft)
-                                                   └── spoken message  (tts_platform: cloud, Nabu Casa)
-                                                                  │
-                                                                  ▼
-                                                       HA announce pipeline
-                                                                  │
-                                                                  ▼
-                              media_player.kitchen_homepod / master_bedroom_homepod /
-                              office_homepod / averys_room_homepod / family_room_theater
+          ▼
+chime_tts.say
+  ├── chime prefix  (chime_path: soft)
+  └── spoken message  (tts_platform: cloud, Nabu Casa)
+          │
+          ▼
+HA announce pipeline
+          │
+          ▼
+media_player.kitchen_homepod / master_bedroom_homepod /
+office_homepod / averys_room_homepod
 ```
 
 The `announce: true` flag routes playback through HA's announce pipeline, which interrupts current audio and restores it after the announcement. `cache: true` caches the TTS audio on disk so repeated identical messages skip the Nabu Casa API call.
 
-Volume levels differ per room — 0.65 kitchen (ambient noise), 0.5 master bedroom / office / family room, 0.4 Avery's room (nighttime/quiet context). Kitchen and master bedroom values come from the pre-move `configuration.yaml` baseline in `snapshot/2026-07-27-pre-move/`; office, Avery's room, and family room have no prior baseline and may need tuning after first use.
+Volume levels differ per room — 0.65 kitchen (ambient noise), 0.5 master bedroom / office, 0.4 Avery's room (nighttime/quiet context). Kitchen and master bedroom values come from the pre-move `configuration.yaml` baseline in `snapshot/2026-07-27-pre-move/`; office and Avery's room have no prior baseline and may need tuning after first use.
+
+> **Family room Sonos is not a script target.** A Sonos-aware branch was tried and pulled — see `LESSONS.md` → TTS & Media for why. `guides/laundry_automation.md` instead pushes a plain notification when the family room Sonos is busy, handled entirely in that automation, not in this script.
 
 > **Coordinated change:** Room volumes live inside `script.household_tts_announce`'s `choose` branches (one literal `volume_level` per target), not in a shared table. Adjusting a room's volume means editing that branch directly — see `guides/reminders.md` and any other guide referencing this script for the current field contract.
 
@@ -51,7 +48,7 @@ Volume levels differ per room — 0.65 kitchen (ambient noise), 0.5 master bedro
 
 - **`chime_tts.say` directly, not a `notify:` platform.** The pre-move instance configured room-specific `notify.reminder_*` services via a `notify:` block in `configuration.yaml`. The fork's `notify.py` is a thin wrapper that calls the same `chime_tts.say` service internally — nothing is gained by the extra layer. Calling `say` directly means: no `configuration.yaml` entry, no full-restart-to-change-a-volume, and the whole delivery mechanism lives in an MCP-retrievable script that mirrors into `ha/scripts/`. The only historically documented rationale for Chime TTS at all was "use it instead of bare `media_player.play_media`/`tts.speak`, because of the chime prefix" — that reasoning is unaffected by which service dispatches it.
 - **Config entry over YAML.** The custom integration is enabled via a config entry (**Settings → Devices & Services → Add Integration → Chime TTS**), not a `configuration.yaml` block. HA discovers the custom component automatically once its files exist in `custom_components/`; the config entry is what triggers service registration. No restart is required — confirmed live.
-- **Family room Sonos gated on playback state.** Unlike the four HomePods, `media_player.family_room_theater` (a Sonos device, confirmed by its `group_members` attribute) is checked for `state == playing` before speaking. If the Sonos is mid-movie or mid-game, `script.household_tts_announce` suppresses TTS there and pushes to `notify.mobile_app_nates_iphone` instead — the same fallback pattern used for the video-call suppression. This keeps a laundry or reminder announcement from talking over a Sonos-connected TV.
+- **Family room Sonos is deliberately not a script target.** A `chime_tts.say` call against the family room Sonos (`media_player.family_room_theater`) was tested and produced no audio and no error at any log level, despite HA's control channel to the speaker working correctly — see `LESSONS.md` → TTS & Media for the full diagnostic trail. Rather than ship an unverified target, the script stays HomePod-only; `guides/laundry_automation.md` covers family-room awareness with a plain push notification when the Sonos is busy, entirely outside this script.
 
 ---
 
@@ -60,7 +57,6 @@ Volume levels differ per room — 0.65 kitchen (ambient noise), 0.5 master bedro
 - HACS installed and active, with `derekcentrico/chime_tts` added as a custom repository
 - Nabu Casa subscription active (cloud TTS)
 - `media_player.kitchen_homepod`, `media_player.master_bedroom_homepod`, `media_player.office_homepod`, `media_player.averys_room_homepod` — HomePods via the Apple TV integration
-- `media_player.family_room_theater` — Sonos device, via the Sonos integration
 
 ---
 
@@ -102,23 +98,19 @@ All TTS automations in this instance call `script.household_tts_announce` rather
 action: script.household_tts_announce
 data:
   message: "Your message here."
-  target: auto                    # optional: kitchen / master_bedroom / office / averys_room / family_room / auto
+  target: auto                    # optional: kitchen / master_bedroom / office / averys_room / auto
   notification_title: "My Alert"  # optional: push title when TTS is suppressed
 ```
 
 | Field | Required | Default | Description |
 |---|---|---|---|
 | `message` | Yes | — | Text to speak. Templates are supported. |
-| `target` | No | `auto` | `kitchen`, `master_bedroom`, `office`, `averys_room`, `family_room`, or `auto` — picks master bedroom when `everyone_sleeping` is on, kitchen otherwise |
+| `target` | No | `auto` | `kitchen`, `master_bedroom`, `office`, `averys_room`, or `auto` — picks master bedroom when `everyone_sleeping` is on, kitchen otherwise |
 | `notification_title` | No | `Missed Announcement` | Title for the push notification sent when TTS is suppressed |
 
 **Video call check:** Before routing to a speaker, the script checks `sensor.nates_mac_mini_active_camera` and `sensor.nates_work_laptop_active_camera`. If either is not `Inactive`, the announcement is suppressed and a push notification is sent to `notify.mobile_app_nates_iphone` instead. This keeps TTS from interrupting work calls.
 
-**Family room busy check:** When `target` resolves to `family_room`, the script additionally checks `media_player.family_room_theater`'s playback state. If it's `playing`, the same push-fallback path fires instead of speaking. `auto` never resolves to `family_room` — it must be requested explicitly.
-
-Do not call `chime_tts.say` directly from automations — use the script so the video call check, family room busy check, and per-room volume all stay in one place.
-
-> **Known issue — family room Sonos TTS not confirmed working.** Live testing (August 2026) showed the script correctly detects platform (`sonos`), builds the Sonos-specific public playback URL required for that platform, and calls `media_player.play_media` with `announce: true` — but the Sonos entity's state never transitioned to `playing` and no audio was confirmed heard, despite HA's control channel to the speaker working correctly (state polling, i.e. `idle`, was accurate; the speaker was confirmed powered on and idle in the Sonos app). No error surfaced at any HA log level. This isolates the failure to the playback command itself — most likely the Nabu Casa cloud remote-UI URL Chime TTS builds for Sonos isn't reachable/playable by the speaker (network segmentation, or a Nabu Casa proxy quirk), not a fault in this script or in HA's Sonos integration. See `LESSONS.md` → TTS & Media for the full diagnostic trail. Until resolved, treat `target: family_room` as unverified — the kitchen/master_bedroom/office/averys_room branches are all individually confirmed working.
+Do not call `chime_tts.say` directly from automations — use the script so the video call check and per-room volume stay in one place. All four targets (kitchen, master bedroom, office, Avery's room) are individually confirmed working end-to-end.
 
 ---
 
@@ -132,12 +124,11 @@ Do not call `chime_tts.say` directly from automations — use the script so the 
 | Master Bedroom HomePod | `media_player.master_bedroom_homepod` | Media player (Apple TV integration) |
 | Office HomePod | `media_player.office_homepod` | Media player (Apple TV integration) |
 | Avery's Room HomePod | `media_player.averys_room_homepod` | Media player (Apple TV integration) |
-| Family Room Theater | `media_player.family_room_theater` | Media player (Sonos integration) |
 
 ---
 
 ## Related Documents
 
 - `standards/automations.md` — defines the `text_to_speech` label applied to automations that use `script.household_tts_announce`
-- `guides/laundry_automation.md` — first consumer of the script, kitchen/master_bedroom targets only
-- `LESSONS.md` → TTS & Media — Sonos playback diagnostic trail; why `media_player.play_media`/`tts.speak` are avoided in favor of Chime TTS on HomePods
+- `guides/laundry_automation.md` — first consumer of the script (kitchen/master_bedroom targets); also owns the family-room-busy push notification, handled independently of this script
+- `LESSONS.md` → TTS & Media — Sonos playback diagnostic trail (why family room isn't a script target); why `media_player.play_media`/`tts.speak` are avoided in favor of Chime TTS on HomePods

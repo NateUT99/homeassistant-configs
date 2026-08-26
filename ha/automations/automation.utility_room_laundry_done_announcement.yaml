@@ -1,13 +1,13 @@
 id: "1787749891308"
 alias: "Utility Room: Laundry Done Announcement"
 description: >-
-  Announces on the kitchen HomePod and family room Sonos (or master bedroom
-  only if Avery is sleeping) every 30 minutes while the washer or dryer is
-  alerting. Re-triggers immediately on waking or arriving home so the loop
-  doesn't wait out its delay. Stops when both appliances are idle/acknowledged,
-  the household is sleeping, or nobody is home. The family room announcement
-  suppresses itself and pushes a notification instead if the Sonos is
-  mid-movie or mid-game.
+  Announces on the kitchen HomePod (or master bedroom if Avery is sleeping)
+  every 30 minutes while the washer or dryer is alerting. Also pushes a
+  notification to Nate's phone if the family room Sonos is currently playing
+  — a signal he's watching a movie or playing a game and might miss the
+  kitchen announcement. Re-triggers immediately on waking or arriving home
+  so the loop doesn't wait out its delay. Stops when both appliances are
+  idle/acknowledged, the household is sleeping, or nobody is home.
 triggers:
   - trigger: state
     entity_id: input_select.utility_room_washer_status
@@ -135,20 +135,27 @@ actions:
                     notification_title: "{{ tts_title }}"
                     target: master_bedroom
           default:
-            - alias: "Announce to kitchen and family room in parallel"
-              parallel:
-                - alias: "Announce to kitchen"
-                  action: script.household_tts_announce
+            - alias: "Announce to kitchen"
+              action: script.household_tts_announce
+              data:
+                message: "{{ tts_message }}"
+                notification_title: "{{ tts_title }}"
+                target: kitchen
+            - alias: "If family room Sonos is playing, also push a notification"
+              note: >-
+                A busy Sonos in the family room likely means a movie or
+                game — push so the alert isn't missed if the kitchen
+                announcement isn't heard.
+              if:
+                - condition: state
+                  entity_id: media_player.family_room_theater
+                  state: playing
+              then:
+                - alias: "Push laundry alert (family room busy)"
+                  action: notify.mobile_app_nates_iphone
                   data:
+                    title: "{{ tts_title }}"
                     message: "{{ tts_message }}"
-                    notification_title: "{{ tts_title }}"
-                    target: kitchen
-                - alias: "Announce to family room"
-                  action: script.household_tts_announce
-                  data:
-                    message: "{{ tts_message }}"
-                    notification_title: "{{ tts_title }}"
-                    target: family_room
         - alias: "Wait 30 minutes before the next announcement"
           delay:
             minutes: 30
