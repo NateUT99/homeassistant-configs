@@ -1,12 +1,14 @@
 # Laundry Automation
 
-*Last updated: July 2026*
+*Last updated: August 2026*
 
 ---
 
 ## Overview
 
-Two LG appliances — a washer and dryer — are managed via the `lg_thinq` integration and surface as entity sets in HA. This integration adds a state machine helper per appliance, four template sensors for progress computation, three automations for state management and TTS announcements, and a condition-triggered Laundry section on the `mobile-home` dashboard. When a cycle completes, the system announces on the kitchen HomePod (or master bedroom if Avery is sleeping) every 30 minutes until the laundry is retrieved or explicitly acknowledged, and re-announces immediately when the household re-engages after sleep or an absence.
+Two LG appliances — a washer and dryer — are managed via the `lg_thinq` integration and surface as entity sets in HA. This integration adds a state machine helper per appliance, four template sensors for progress computation, three automations for state management and TTS announcements, and (deferred — see [Future Improvements](#future-improvements)) a dashboard section. When a cycle completes, the system announces on the kitchen HomePod and family room Sonos (or master bedroom if Avery is sleeping) every 30 minutes until the laundry is retrieved, and re-announces immediately when the household re-engages after sleep or an absence.
+
+This is a new-house rebuild of the pattern documented for the old apartment. Every entity ID below reflects the live `sensor.utility_room_*` naming this house's ThinQ registration produced — the old guide used bare `sensor.washer_*` IDs that do not exist here.
 
 ---
 
@@ -14,14 +16,15 @@ Two LG appliances — a washer and dryer — are managed via the `lg_thinq` inte
 
 ```
 LG ThinQ (lg_thinq integration)
-  sensor.washer_current_status (running → ... → end → power_off)
-  sensor.washer_remaining_time (ISO 8601 timestamp when cycle ends)
-  sensor.washer_total_time (integer minutes, total cycle length)
+  sensor.utility_room_washer_current_status   (running → ... → end → power_off)
+  sensor.utility_room_washer_remaining_time   (ISO 8601 timestamp when cycle ends)
+  sensor.utility_room_washer_total_time       (integer minutes, total cycle length)
+  event.utility_room_washer_notification      (event entity; event_type: washing_is_complete)
   [mirror: dryer entities]
          │
          ├─► Template Helpers (HA storage)
-         │   sensor.utility_room_washer_progress     (0–100 %)
-         │   sensor.utility_room_washer_minutes_remaining (int min)
+         │   sensor.utility_room_washer_progress
+         │   sensor.utility_room_washer_minutes_remaining
          │   [mirror for dryer]
          │
          └─► Status Manager Automations
@@ -34,54 +37,48 @@ LG ThinQ (lg_thinq integration)
   input_select.utility_room_washer_status
   options: idle │ alerting │ acknowledged
          │
-         ├─► TTS Announcement Automation
-         │   automation.utility_room_laundry_done_announcement
-         │   ├── combined message when both appliances alerting
-         │   ├── kitchen HomePod (default)
-         │   └── master bedroom HomePod (avery_sleeping = on)
-         │
-         ├─► Dashboard Chips (mobile-home, chip strip row 2)
-         │   Running: orange + progress % · tap → #laundry pop-up
-         │   Alerting: bright green · tap → #laundry · hold → acknowledged
-         │   Acknowledged: muted (disabled) color · hidden only when door opens
-         │
-         └─► #laundry Pop-up (modal overlay, both appliances)
-             Status row · cycle info (started / ETA or actual end / elapsed)
-             Acknowledge button (alerting only) · stats (cycles, energy, power)
+         └─► TTS Announcement Automation
+             automation.utility_room_laundry_done_announcement
+             ├── combined message when both appliances alerting
+             ├── kitchen HomePod + family room Sonos (default, in parallel)
+             └── master bedroom HomePod only (avery_sleeping = on)
 
-State machine inputs:
-  sensor.washer_current_status → end         ──► idle → alerting
-  sensor.washer_current_status → running     ──► any → idle (new cycle)
-  binary_sensor.utility_room_door_contact    ──► any → idle (retrieved)
-  chip hold (green) / pop-up ack button      ──► alerting → acknowledged
+State machine inputs (per status manager):
+  current_status → end                                    ──► idle → alerting  (state trigger)
+  notification event fires, event_type matches, < 5 min old ──► idle → alerting  (event trigger, backup)
+  current_status → running                                ──► any → idle (new cycle)
+  utility_room_motion_occupancy sustained 45s              ──► any → idle (retrieved)
+  utility_room_door held open 60s                          ──► any → idle (retrieved, PIR backup)
 
 TTS inputs:
   input_select → alerting                   ──► start repeat loop
   input_boolean.everyone_sleeping → off     ──► re-trigger if alerting
-  zone.home (0 → above 0)                   ──► re-trigger if alerting
-                                                (waits for garage door to close first)
-  → stop: acknowledged │ door open │ everyone_sleeping │ away
+  zone.home (0 → 1)                         ──► re-trigger if alerting
+                                                (waits for garage/front-door entry first)
+  → stop: neither alerting │ everyone_sleeping on │ nobody home
 ```
 
 **Design decisions:**
 
-- **`input_select` state machine over booleans.** A single helper with three options (`idle`/`alerting`/`acknowledged`) gives the dashboard, TTS automation, and acknowledge tap a single source of truth. Two separate booleans (`done_pending` + `acknowledged`) would require template logic everywhere to avoid `pending=on` + `acknowledged=on` desync.
+- **`input_select` state machine over booleans.** A single helper with three options (`idle`/`alerting`/`acknowledged`) gives the TTS automation and any future dashboard control a single source of truth. Two separate booleans would require template logic everywhere to avoid desync. `acknowledged` is reserved for the dashboard hold-to-acknowledge action documented under Future Improvements — nothing in the current build writes it.
 
-- **Status sensor trigger, not notification event.** `sensor.washer_current_status → end` is a persisted state change that survives HA restarts and doesn't depend on the LG cloud push delivery that drives `event.washer_notification`. The event entity (`washing_is_complete`) was confirmed working during setup but is not used as a trigger — state change is more reliable.
+- **Both the status sensor and the notification event trigger the alerting transition.** Live history shows `sensor.utility_room_*_current_status` sits in `end` for only ~30–45 seconds before moving to `power_off` — a narrow window for a state trigger alone to depend on. The `event.utility_room_*_notification` entity (event_type `washing_is_complete` / `drying_is_complete`) is a redundant second path; the `idle`-status precondition on both branches makes them idempotent, so whichever arrives first wins.
 
-- **Dryer triggers on `end` only, not `cooling`.** Although clothes can technically be removed once cooling starts, triggering at `cooling` shows a "Done" card while time remaining is still counting down — which is confusing. The running card stays visible through cooling and wrinkle-care phases; the done card appears only when the cycle fully completes.
+  > **Coordinated change:** event entities restore their last event value on every HA restart, re-firing this trigger with a value that may be hours or days old. The event-trigger branch is guarded by a template condition requiring the event's own timestamp (its `state` *is* the ISO timestamp of the last real event) to be within 5 minutes of `now()`. Without this guard, every HA restart after a completed cycle would fire a fresh laundry alert. This was caught in testing on this build — the Aug 22 wash cycle's event re-surfaced with a fresh `last_changed` after an unrelated restart on Aug 26.
 
-- **TTS re-triggers on re-engagement.** The announcement automation uses `mode: restart` and fires on three triggers: `input_select → alerting`, `everyone_sleeping → off`, and `zone.home` crossing above 0. Sleep and away stop TTS but leave the visual (`input_select`) at `alerting`. When the household re-engages, the automation restarts and fires immediately rather than waiting up to 30 minutes for the next loop iteration.
+- **Dryer triggers on `end` only, not `cooling`.** Although clothes can technically be removed once cooling starts, triggering at `cooling` shows a "done" state while time remaining is still counting down — confusing. The done state appears only when the cycle fully completes.
 
-- **Garage entry grace window on arrival.** When the `someone_arrived` trigger fires, the announcement always waits for the full interior garage door entry sequence before TTS fires: if the door is currently closed, wait up to 10 minutes for it to open (the person parking and walking to the door), then wait up to 5 minutes for it to close (the person stepping inside), then a 30-second buffer. If the door is already open when the trigger fires, the open-wait is skipped. Both waits use `continue_on_timeout: true` so TTS still fires if the person enters a different way. Without this sequence, TTS fires the moment zone.home registers the GPS arrival — before the person is inside to hear the HomePod. This follows the standard pattern in `standards/automations.md` section 5.10, established in `automation.outdoor_air_quality_index_alert`.
+- **Retrieval clears on sustained occupancy, not a bare door edge.** The pre-move design cleared status on `binary_sensor.utility_room_door_contact` transitioning to `on`. Four days of live history in this house show two problems with that: (1) casual door opens (checking on something, walking through) last 3–24 seconds — indistinguishable from a real visit on a bare edge; (2) the door gets left open for hours at a stretch (one window ran 6h37m), during which a cycle finishing produces no edge at all, so the alert would never clear. The current design uses `occupancy.detected` on `binary_sensor.utility_room_motion_occupancy` with `for: 45s` as the primary retrieval signal — the three real laundry visits in the same history window held sustained occupancy for 43s+, well clear of the pass-through cluster. `door.opened` with `for: 60s` is kept as a backup for PIR unavailability, not the primary signal.
 
-- **Chip over conditional section.** The original design used a condition-triggered dashboard section that auto-appeared above the chip strip. This was replaced with two conditional chips in the chip strip itself. Visual weight is lower — chips are compact and sit alongside vacuum/reminders rather than expanding the home view. A tap on either chip navigates to the shared `#laundry` pop-up rather than surfacing cards inline.
+- **TTS re-triggers on re-engagement.** The announcement automation uses `mode: restart` and fires on three triggers: `input_select → alerting`, `everyone_sleeping → off`, and `zone.home` crossing 0→1. Sleep and away stop TTS but leave the visual (`input_select`) at `alerting`. When the household re-engages, the automation restarts and fires immediately rather than waiting up to 30 minutes for the next loop iteration.
 
-- **Door-only chip clear; acknowledged icon variant.** The chip disappears only when the utility room door opens — not on sleep, away, or acknowledge. Acknowledging silences TTS but leaves the chip visible (still green) and swaps the icon to the alert variant (`mdi:washing-machine-alert` / `mdi:tumble-dryer-alert`), signalling that the cycle is done but the load still needs to be dealt with. Sleep and away are TTS pause conditions only.
+- **Arrival entry-grace, and family room push fallback, both live in the shared script layer, not this guide.** The garage/front-door wait before an arrival-triggered announcement is `standards/automations.md` §5.10 — any TTS-and-arrival automation gets it the same way. The family room Sonos's busy-playback suppression is inside `script.household_tts_announce`, not this automation — see `guides/chime_tts.md`. This automation's own job is only: decide *whether* to announce and *what* to say; the script decides *how* and *where*.
 
-- **Cycle timestamps via `input_datetime` helpers.** The `#laundry` pop-up surfaces "started at," "estimated/actual end," and "finished X ago" data. ThinQ does not persist these wall-clock times — they are captured by the status manager automations at the moment the `running` and `end` state transitions happen. Four `input_datetime` helpers (one per appliance per event) store these values. Because they survive restarts and are not derived from live sensor state, the pop-up shows accurate history even when the machine is idle.
+- **Kitchen and family room announce in parallel; master bedroom is exclusive.** When Avery isn't sleeping, the loop calls the TTS script for `kitchen` and `family_room` concurrently via a `parallel:` action block — both rooms get the same treatment a lone kitchen announcement used to get. When Avery is sleeping, only `master_bedroom` fires; family room and kitchen are skipped entirely regardless of whether anyone's actually in either room, matching the pre-move instance's single-target-at-night behavior.
 
-- **Template helpers, not `configuration.yaml`.** Progress and remaining-time sensors are created as HA template helpers (Settings → Helpers → Add Helper → Template) stored in HA storage, not `configuration.yaml`. They are retrievable via MCP. The formula: `progress = (total_time − minutes_remaining) / total_time × 100`, clamped 0–100; `minutes_remaining = max(0, (remaining_time_timestamp − now()) / 60)`. Both guard against `unknown`/`unavailable` source states.
+- **Template helpers, not `configuration.yaml`.** Progress and remaining-time sensors are created as HA template helpers (config-flow API, equivalent to Settings → Helpers → Add Helper → Template), stored in HA storage and retrievable via MCP. Formula: `progress = (total_time − minutes_remaining) / total_time × 100`, clamped 0–100; `minutes_remaining = max(0, (remaining_time_timestamp − now()) / 60)`. Both guard against `unknown`/`unavailable` source states.
+
+- **Cycle timestamps via `input_datetime` helpers.** ThinQ does not persist wall-clock start/end times — the status managers capture them at the moment the `running`/alerting transitions happen, into four `input_datetime` helpers (one per appliance per event). Built now even though their only consumer (a deferred dashboard pop-up) doesn't exist yet, since they can only ever be captured live at the transition — building later means losing history in between.
 
 ---
 
@@ -89,179 +86,69 @@ TTS inputs:
 
 - LG ThinQ integration (`lg_thinq`) installed and authenticated
 - `script.household_tts_announce` configured and active (see `guides/chime_tts.md`)
-- `binary_sensor.utility_room_door_contact` — utility room door sensor (Zigbee, via Z2M)
-- `input_boolean.everyone_sleeping` and `input_boolean.avery_sleeping` — sleep state helpers (see `guides/reminders.md`)
+- `binary_sensor.utility_room_door` and `binary_sensor.utility_room_motion_occupancy` — Zigbee (ZHA)
+- `input_boolean.everyone_sleeping` and `input_boolean.avery_sleeping` — sleep state helpers
+- `binary_sensor.garage_interior_door` and `lock.entrance_front_door` — entry-detection for the §5.10 arrival grace window
 - `zone.home` — default HA home zone
-- Bubble Card and `lovelace-card-mod` installed in HACS frontend resources (for dashboard section)
+- `int_laundry` and `text_to_speech` labels (created as part of this build; see `standards/automations.md` §3.2 for the two-step label creation procedure)
 
 ---
 
-## Build Steps
+## Built
 
-### 1. Confirm ThinQ entity set
-
-After registering appliances in the `lg_thinq` integration, verify the following entities exist:
+### 1. ThinQ entity set (confirmed live)
 
 | Entity | Purpose |
 |---|---|
-| `sensor.washer_current_status` | Cycle state machine (running → spinning → rinsing → end → power_off) |
-| `sensor.washer_remaining_time` | ISO 8601 timestamp when cycle ends; `unknown` when idle |
-| `sensor.washer_total_time` | Total cycle duration in minutes; `unknown` when idle |
-| `sensor.dryer_current_status` | Cycle state machine (running → cooling → wrinkle_care → end → power_off) |
-| `sensor.dryer_remaining_time` | Same semantics as washer |
-| `sensor.dryer_total_time` | Same semantics as washer |
+| `sensor.utility_room_washer_current_status` | Cycle state machine |
+| `sensor.utility_room_washer_remaining_time` | ISO 8601 timestamp when cycle ends; `unknown` when idle |
+| `sensor.utility_room_washer_total_time` | Total cycle duration in minutes; `unknown` when idle |
+| `event.utility_room_washer_notification` | Event entity; `event_type` attribute: `washing_is_complete` / `error_during_washing` |
+| `sensor.utility_room_dryer_current_status` | Cycle state machine (running → cooling → wrinkle_care → end → power_off) |
+| `sensor.utility_room_dryer_remaining_time` / `_total_time` | Same semantics as washer |
+| `event.utility_room_dryer_notification` | `event_type`: `drying_is_complete` / `drying_failed` |
 
-### 2. Create the `int_laundry` label
+### 2. `int_laundry` and `text_to_speech` labels
 
-In HA: **Settings → Labels → Add Label**.
+`int_laundry` (purple, `mdi:washing-machine`) is applied to every helper, automation, and template sensor built in this guide. `text_to_speech` (green) is applied to the announcement automation alongside `notification`, per `standards/automations.md` §3.2.
 
-| Field | Value |
-|---|---|
-| Name | Laundry |
-| Label ID | `int_laundry` |
-| Color | Purple |
-| Icon | `mdi:washing-machine` |
+### 3. `script.household_tts_announce`
 
-Apply this label to all automations created below. The label marks entities documented in this guide.
+Built as a prerequisite for this guide — it did not exist in the new house. See `guides/chime_tts.md` for the full script contract; this guide only uses `target: kitchen`, `target: family_room`, and `target: master_bedroom`.
 
-### 3. Create input_select helpers
+### 4. Helpers
 
-In HA: **Settings → Helpers → Add Helper → Dropdown**.
-
-Create two helpers with identical configuration:
-
-| Field | Washer | Dryer |
+| Entity | Type | Notes |
 |---|---|---|
-| Name | Utility Room Washer Status | Utility Room Dryer Status |
-| Entity ID | `input_select.utility_room_washer_status` | `input_select.utility_room_dryer_status` |
-| Options | `idle`, `alerting`, `acknowledged` | `idle`, `alerting`, `acknowledged` |
-| Initial value | `idle` | `idle` |
-| Icon | `mdi:washing-machine` | `mdi:tumble-dryer` |
-| Area | Utility Room | Utility Room |
+| `input_select.utility_room_washer_status` | Dropdown | Options: `idle`, `alerting`, `acknowledged` |
+| `input_select.utility_room_dryer_status` | Dropdown | Same options |
+| `input_datetime.utility_room_washer_cycle_started` / `_ended` | Date + time | Captured live by the status manager |
+| `input_datetime.utility_room_dryer_cycle_started` / `_ended` | Date + time | Same |
+| `sensor.utility_room_washer_progress` / `_minutes_remaining` | Template sensor | See formula above |
+| `sensor.utility_room_dryer_progress` / `_minutes_remaining` | Template sensor | Same |
 
-### 4. Create template sensor helpers
+All ten are assigned to the Utility Room area with the `int_laundry` label.
 
-In HA: **Settings → Helpers → Add Helper → Template → Sensor**. Create four sensors.
+### 5. Status manager automations
 
-**Washer Minutes Remaining** (`sensor.utility_room_washer_minutes_remaining`):
+`automation.utility_room_washer_status_manager` and `automation.utility_room_dryer_status_manager` — Maintenance category, Utility Room area, `int_laundry` label, `mode: single`. See [Design decisions](#architecture) above for the trigger rationale. Full trigger/condition/action detail lives in the automation itself — retrieve via MCP (`ha_config_get_automation`) or read `ha/automations/automation.utility_room_washer_status_manager.yaml`.
 
-```jinja2
-{% set ts = states('sensor.washer_remaining_time') %}
-{% if ts in ['unknown', 'unavailable', 'none'] %}
-  0
-{% else %}
-  {% set remaining = ((as_timestamp(ts) - as_timestamp(now())) / 60) | int %}
-  {{ [remaining, 0] | max }}
-{% endif %}
-```
+### 6. TTS announcement automation
 
-Unit: `min` · State class: Measurement · Icon: `mdi:timer-outline`
+`automation.utility_room_laundry_done_announcement` — Maintenance category, Utility Room area, labels `int_laundry` + `notification` + `text_to_speech`, `mode: restart`. See `ha/automations/automation.utility_room_laundry_done_announcement.yaml` for the full config.
 
-**Washer Progress** (`sensor.utility_room_washer_progress`):
+---
 
-```jinja2
-{% set total = states('sensor.washer_total_time') | int(0) %}
-{% set ts = states('sensor.washer_remaining_time') %}
-{% if total == 0 or ts in ['unknown', 'unavailable', 'none'] %}
-  0
-{% else %}
-  {% set remaining = ((as_timestamp(ts) - as_timestamp(now())) / 60) | float %}
-  {% set remaining = [remaining, 0] | max %}
-  {% set elapsed = total - remaining %}
-  {% set pct = (elapsed / total * 100) | round(0) | int %}
-  {{ [[pct, 0] | max, 100] | min }}
-{% endif %}
-```
+## Not built — deferred
 
-Unit: `%` · State class: Measurement · Icon: `mdi:progress-clock`
+The dashboard was explicitly out of scope for this build pass. Nothing below exists yet:
 
-**Dryer Minutes Remaining** (`sensor.utility_room_dryer_minutes_remaining`): same formula referencing `sensor.dryer_remaining_time`.
+- **Chip strip chips** — per-appliance running/alerting/acknowledged chips in the `mobile-home` chip strip, navigating to a `#laundry` pop-up.
+- **`#laundry` pop-up** — status row, cycle info card, acknowledge action, washer stats tiles (cycles since cleaned, energy this/last month).
+- **`input_select` → `acknowledged` transition** — nothing currently writes this value. It's reserved for the dashboard hold-to-acknowledge action; the option exists on the helper today so it doesn't require a schema change later.
+- **Washer cycles-since-cleaned** — blocked, not just deferred. The pre-move pattern used `ha-chore-calendar`'s `input_datetime.washer_cleaned` to snapshot `sensor.washer_cycles` at cleaning time. `ha-chore-calendar` is not installed in this instance (see `guides/reminders.md`), so there's no upstream signal for "washer was just cleaned." Needs either the integration installed or a standalone `input_datetime` + manual-trigger button before this stat can exist.
 
-**Dryer Progress** (`sensor.utility_room_dryer_progress`): same formula referencing `sensor.dryer_remaining_time` and `sensor.dryer_total_time`.
-
-### 5. Create status manager automations
-
-Two automations — one per appliance — drive the `input_select` state machine. Both are in the **Maintenance** category, assigned to the **Utility Room** area, with the `int_laundry` label.
-
-**Washer status manager** (`automation.utility_room_washer_status_manager`):
-
-| Trigger | Condition | Action |
-|---|---|---|
-| `washer_current_status` → `end` | `washer_status == idle` | `washer_status` → `alerting` |
-| `washer_current_status` → `running` | — | `washer_status` → `idle` |
-| `utility_room_door_contact` → `on` | — | `washer_status` → `idle` |
-
-Mode: `single`. The condition on the `end` trigger prevents re-alerting if the helper was manually set to `acknowledged` or `alerting` by a prior cycle that wasn't cleared before a new one started.
-
-**Dryer status manager** (`automation.utility_room_dryer_status_manager`): mirror of the above, triggering only on `end` for the alerting transition (not `cooling` — see design decision above).
-
-### 6. Create TTS announcement automation
-
-One automation — `automation.utility_room_laundry_done_announcement` — handles the repeating TTS loop for both appliances. **Maintenance** category, **Utility Room** area, labels `int_laundry`, `notification`, and `text_to_speech`.
-
-*Triggers:*
-- `input_select.utility_room_washer_status` → `alerting` (primary, id: `status_alerting`)
-- `input_select.utility_room_dryer_status` → `alerting` (primary, id: `status_alerting`)
-- `input_boolean.everyone_sleeping` → `off` (re-trigger after sleep, id: `everyone_woke`)
-- `zone.home` numeric state crosses above 0 (re-trigger after absence, id: `someone_arrived`)
-
-*Start conditions (all must pass):*
-- `washer_status == alerting` OR `dryer_status == alerting`
-- `everyone_sleeping == off`
-- `zone.home > 0`
-
-*Pre-loop action (arrival only):*
-- If `trigger.id == someone_arrived`: wait for the interior garage door entry sequence — if door is currently closed, wait up to 10 minutes for it to open, then wait up to 5 minutes for it to close, then pause 30 seconds. If the door is already open when arrival fires, the open-wait is skipped. Both waits use `continue_on_timeout: true`. See `standards/automations.md` section 5.10.
-
-*Action — repeat (count: 20):*
-1. Stop if neither `washer_status` nor `dryer_status` is `alerting`
-2. Stop if `everyone_sleeping == on`
-3. Stop if `zone.home < 1`
-4. Evaluate message and title: `"The washer and dryer cycles have both completed."` / `"Laundry Done"` when both alerting; `"The washer cycle has completed."` / `"Washer Done"` for washer only; `"The dryer cycle has completed."` / `"Dryer Done"` for dryer only.
-5. Call `script.household_tts_announce` with the computed message and title, `target: master_bedroom` (when `avery_sleeping == on`) or `target: kitchen` (otherwise). The script handles camera-aware suppression and mobile push fallback — see `guides/chime_tts.md`.
-6. If `utility_room_door_contact == on` → set both `washer_status` and `dryer_status` to `idle` and stop. Idempotent — setting an already-idle status to idle is a no-op.
-7. Delay 30 minutes
-
-Mode: `restart` — ensures re-triggers (wake up / arrive home / second appliance finishing) cancel the mid-loop delay and fire TTS immediately with an updated message.
-
-### 7. Add laundry chips and pop-up to mobile-home dashboard
-
-The laundry integration surfaces two conditional chips in the existing chip strip and a `#laundry` Bubble Card pop-up. There is no inline Laundry section on the home view — the chips provide ambient status at a glance and navigate directly to the pop-up on tap.
-
-#### 7a. Chip strip chips (two per appliance, added to chip strip row 2)
-
-Each appliance gets one sub-button in the chip strip's feature row (alongside thermostat, vacuum, reminders). The chip is hidden when the appliance is idle and no cycle is active. Visibility is driven by the chip strip card's global CSS-in-JS `styles` expression.
-
-| State | Icon | Color | Content |
-|---|---|---|---|
-| Running (status `idle`, appliance not `power_off` / `initial`) | `mdi:washing-machine` / `mdi:tumble-dryer` | Warning (orange) | Progress % |
-| Done unacknowledged (`status == alerting`) | `mdi:washing-machine` / `mdi:tumble-dryer` | Success (green) | (icon only) |
-| Done acknowledged (`status == acknowledged`) | `mdi:washing-machine-alert` / `mdi:tumble-dryer-alert` | Success (green) | (icon only) |
-| Idle (no cycle active) | — | Hidden | — |
-
-**Tap:** navigate to `#laundry` pop-up.  
-**Hold:** calls `script.utility_room_acknowledge_laundry` with the appropriate appliance. No-op while running (script conditions on `status == alerting`).
-
-#### 7b. `#laundry` pop-up
-
-Bubble Card `pop-up`, `hash: "#laundry"`, `popup_mode: adaptive-dialog`. Per-appliance layout repeated twice (Washer then Dryer):
-
-1. **Bubble Card separator** — appliance name heading
-2. **Bubble Card button — status row** (`button_type: slider`, entity: `sensor.utility_room_<appliance>_progress`):
-   - Slider fill tracks cycle completion (0–100 %); `state_display` Jinja shows phase name ("Off" / "Standby" / "Running" / "Done")
-   - Icon color via `styles` block: orange (running), green (alerting), grey (acknowledged or off)
-   - **Acknowledge sub-button** (`mdi:check-bold`, `perform-action: script.turn_on` with `appliance` field): hidden via `styles` unless `status == alerting`
-   - **Progress % sub-button** (entity: `sensor.utility_room_<appliance>_progress`, `show_state: true`): hidden unless running
-3. **Markdown card — cycle info** (state-adaptive):
-   - *Running*: **Started:** HH:MM AM (N min ago) / *__End:__ HH:MM AM (N min remaining)* (whole line italic — estimated)
-   - *Done*: **Started:** HH:MM AM / **End:** HH:MM AM (finished X ago)
-   - *Idle + history*: **Last cycle:** HH:MM AM → HH:MM AM (X ago) — requires cycle duration > 0 to filter uninitialized helpers
-   - *Idle, no history*: card emits blank
-4. **Washer stats** (no separator; flows directly below the status card):
-   - Full-width Bubble Card button: `state_display` = cycles since cleaned (`sensor.washer_cycles` − snapshot) + last cleaning date; `name` = "Since cleaned"
-   - 2-column energy grid: This Month (`sensor.washer_energy_this_month`) | Last Month (`sensor.washer_energy_last_month`)
-   - Conditional last error tile (`event.washer_error`, hidden when `unknown`)
-5. **Dryer** has no stats tiles; conditional last error tile only (`event.dryer_error`)
+When dashboard work starts, `sensor.utility_room_washer_cycles`, `sensor.utility_room_washer_energy_this_month` / `_last_month`, and `event.utility_room_washer_error` / `event.utility_room_dryer_error` are already live and ready to wire in.
 
 ---
 
@@ -269,63 +156,42 @@ Bubble Card `pop-up`, `hash: "#laundry"`, `popup_mode: adaptive-dialog`. Per-app
 
 | Artifact | Entity / ID | Type |
 |---|---|---|
-| Washer | `sensor.washer_current_status` | Entity (lg_thinq) |
-| Washer remaining time | `sensor.washer_remaining_time` | Entity (lg_thinq) |
-| Washer total time | `sensor.washer_total_time` | Entity (lg_thinq) |
-| Dryer | `sensor.dryer_current_status` | Entity (lg_thinq) |
-| Dryer remaining time | `sensor.dryer_remaining_time` | Entity (lg_thinq) |
-| Dryer total time | `sensor.dryer_total_time` | Entity (lg_thinq) |
 | Washer status | `input_select.utility_room_washer_status` | Helper (input_select) |
 | Dryer status | `input_select.utility_room_dryer_status` | Helper (input_select) |
 | Washer progress | `sensor.utility_room_washer_progress` | Helper (template sensor) |
 | Washer minutes remaining | `sensor.utility_room_washer_minutes_remaining` | Helper (template sensor) |
 | Dryer progress | `sensor.utility_room_dryer_progress` | Helper (template sensor) |
 | Dryer minutes remaining | `sensor.utility_room_dryer_minutes_remaining` | Helper (template sensor) |
-| Washer cycle started | `input_datetime.utility_room_washer_cycle_started` | Helper (input_datetime) |
-| Washer cycle ended | `input_datetime.utility_room_washer_cycle_ended` | Helper (input_datetime) |
-| Dryer cycle started | `input_datetime.utility_room_dryer_cycle_started` | Helper (input_datetime) |
-| Dryer cycle ended | `input_datetime.utility_room_dryer_cycle_ended` | Helper (input_datetime) |
-| Washer energy this month | `sensor.washer_energy_this_month` | Entity (lg_thinq) |
-| Washer energy last month | `sensor.washer_energy_last_month` | Entity (lg_thinq) |
-| Washer cycles at last cleaning | `input_number.utility_room_washer_cycles_at_last_cleaning` | Helper (input_number) |
+| Washer cycle started / ended | `input_datetime.utility_room_washer_cycle_started` / `_ended` | Helper (input_datetime) |
+| Dryer cycle started / ended | `input_datetime.utility_room_dryer_cycle_started` / `_ended` | Helper (input_datetime) |
 | Washer status manager | `automation.utility_room_washer_status_manager` | Automation |
 | Dryer status manager | `automation.utility_room_dryer_status_manager` | Automation |
 | Laundry done announcement | `automation.utility_room_laundry_done_announcement` | Automation |
-| Washer cycles snapshot | `automation.utility_room_washer_cycles_snapshot_on_clean` | Automation |
-| Acknowledge laundry | `script.utility_room_acknowledge_laundry` | Script |
 | TTS dispatch | `script.household_tts_announce` | Script |
 | Laundry integration label | `int_laundry` | Label |
-| Utility room door | `binary_sensor.utility_room_door_contact` | Entity |
+| Utility room door | `binary_sensor.utility_room_door` | Entity |
+| Utility room occupancy | `binary_sensor.utility_room_motion_occupancy` | Entity |
 
 ---
 
 ## Related Documents
 
-- `guides/chime_tts.md` — `notify.reminder_kitchen` and `notify.reminder_master_bedroom` configuration and call conventions
-- `guides/mobile_dashboard.md` — `mobile-home` build guide; laundry chips and `#laundry` pop-up are documented there
-- `guides/reminders.md` — Reminder system architecture; `input_datetime.washer_cleaned` is watched by `automation.utility_room_washer_cycles_snapshot_on_clean` to update the cycles-since-cleaned snapshot
-- `standards/automations.md` — Category, label, and alias requirements applied to all automations
-- `standards/dashboards.md` — Chip strip pattern; Bubble Card pop-up conventions
-
----
-
-## Future Improvements
-
-**Per-appliance door sensors.** The current design uses `binary_sensor.utility_room_door_contact` as a proxy for "someone retrieved the laundry." If door sensors are added directly to the washer and dryer lids, replace the utility room door entity in two places per appliance:
-
-1. The status manager's `door_opened` trigger — currently clears both appliances when anyone enters the utility room; per-appliance sensors would clear each independently
-2. The announcement loop's post-announcement door check — same scoping improvement
-
-No structural changes needed; it's a two-entity swap in each status manager and a one-entity swap in the announcement automation.
+- `guides/chime_tts.md` — `script.household_tts_announce` field contract, per-room volumes, family room Sonos busy-suppression, and the known Sonos playback issue
+- `guides/mobile_dashboard.md` — future home of the laundry chips and `#laundry` pop-up (not yet built)
+- `guides/reminders.md` — why `ha-chore-calendar` isn't installed in this instance, blocking cycles-since-cleaned
+- `standards/automations.md` — §5.10 (arrival entry-grace, used by the announcement automation), §5.11 (semantic triggers, used by both status managers), category/label/alias requirements
+- `standards/dashboards.md` — chip strip pattern and Bubble Card pop-up conventions, for whenever the dashboard section is built
 
 ---
 
 ## Troubleshooting
 
-**TTS fired while machine was still running.** The cycle completed while the chip was still showing the running (orange) state. Check whether the washer briefly entered `end` before transitioning — this is normal, the status manager should have set `input_select → alerting` within milliseconds of the `end` state appearing.
+**TTS fired while a machine was still running.** Check whether the status sensor briefly entered `end` before transitioning further — this is normal ThinQ behavior; the status manager should set `alerting` within the same second the sensor reports `end`.
 
-**Progress bar not updating.** The template sensors update on a 30-second polling interval by default. If the bar appears frozen mid-cycle, navigate away and back to force a re-render, or check the template sensor's state in **Developer Tools → States**.
+**Progress bar not updating.** The template sensors update on ThinQ's own polling interval. If frozen mid-cycle, check the template sensor's state in **Developer Tools → States** before assuming the automation is broken.
 
-**TTS not re-firing after returning home.** Confirm `zone.home` count actually dropped to 0 before your return — if you only stepped out briefly and the count stayed at 1 (someone else home), the re-trigger condition doesn't apply. Also verify `automation.utility_room_laundry_done_announcement` is enabled in **Settings → Automations**.
+**TTS not re-firing after returning home.** Confirm `zone.home` actually dropped to `0` before your return — if someone else stayed home, the count never hit zero and the re-trigger condition doesn't apply. Also confirm `automation.utility_room_laundry_done_announcement` is enabled.
 
-**Dryer chip appeared during cooling but machine was still hot.** The dryer status manager only triggers on `end`, not `cooling`. If the chip appeared before the cycle actually finished, check the dryer status manager automation trace — `sensor.dryer_current_status` may have briefly hit `end` before transitioning to `cooling` or `wrinkle_care`. This is normal ThinQ state machine behavior; the chip should clear correctly when the door opens.
+**Status never clears after retrieving laundry.** Check `binary_sensor.utility_room_motion_occupancy` state in **Developer Tools → States** — if it shows `unavailable`, the primary retrieval trigger can't fire and you're relying on the door-open backup (60s continuous). Both sensors have shown occasional `unavailable` gaps in this house; see `LESSONS.md` for the pattern.
+
+**Restart triggered a stale laundry alert.** This should not happen — the event-trigger branch has a 5-minute recency guard specifically for this. If it does, check `automation.utility_room_washer_status_manager`'s trace for which branch fired and whether the recency condition template evaluated correctly.

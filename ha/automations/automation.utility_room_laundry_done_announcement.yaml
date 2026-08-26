@@ -1,0 +1,156 @@
+id: "1787749891308"
+alias: "Utility Room: Laundry Done Announcement"
+description: >-
+  Announces on the kitchen HomePod and family room Sonos (or master bedroom
+  only if Avery is sleeping) every 30 minutes while the washer or dryer is
+  alerting. Re-triggers immediately on waking or arriving home so the loop
+  doesn't wait out its delay. Stops when both appliances are idle/acknowledged,
+  the household is sleeping, or nobody is home. The family room announcement
+  suppresses itself and pushes a notification instead if the Sonos is
+  mid-movie or mid-game.
+triggers:
+  - trigger: state
+    entity_id: input_select.utility_room_washer_status
+    to: alerting
+    id: status_alerting
+    alias: "Washer status: alerting"
+  - trigger: state
+    entity_id: input_select.utility_room_dryer_status
+    to: alerting
+    id: status_alerting
+    alias: "Dryer status: alerting"
+  - trigger: state
+    entity_id: input_boolean.everyone_sleeping
+    to: "off"
+    id: everyone_woke
+    alias: "Household woke up"
+  - trigger: state
+    entity_id: zone.home
+    from: "0"
+    to: "1"
+    id: someone_arrived
+    alias: "First person arrives home"
+conditions:
+  - condition: or
+    conditions:
+      - condition: state
+        entity_id: input_select.utility_room_washer_status
+        state: alerting
+      - condition: state
+        entity_id: input_select.utility_room_dryer_status
+        state: alerting
+    alias: "Washer or dryer is alerting"
+  - condition: state
+    entity_id: input_boolean.everyone_sleeping
+    state: "off"
+    alias: "Household is not sleeping"
+  - condition: numeric_state
+    entity_id: zone.home
+    above: 0
+    alias: "Someone is home"
+actions:
+  - alias: "If arrival triggered: wait for the person to get inside"
+    if:
+      - condition: trigger
+        id: someone_arrived
+    then:
+      - alias: "Wait for entry via garage or front door"
+        note: >-
+          Garage path: door opens then closes behind them. Front door path:
+          no contact sensor exists on this house, so the lock unlocking is
+          the signal instead.
+        wait_for_trigger:
+          - trigger: state
+            entity_id: binary_sensor.garage_interior_door
+            from: "on"
+            to: "off"
+          - trigger: state
+            entity_id: lock.entrance_front_door
+            to: unlocked
+        timeout:
+          minutes: 10
+        continue_on_timeout: true
+      - alias: "Buffer after entry"
+        delay:
+          seconds: 30
+  - alias: "Repeat until cleared, acknowledged, sleeping, or away"
+    repeat:
+      count: 20
+      sequence:
+        - alias: "Stop if neither appliance is alerting"
+          if:
+            - condition: not
+              conditions:
+                - condition: or
+                  conditions:
+                    - condition: state
+                      entity_id: input_select.utility_room_washer_status
+                      state: alerting
+                    - condition: state
+                      entity_id: input_select.utility_room_dryer_status
+                      state: alerting
+          then:
+            - alias: "Stop — nothing left to announce"
+              stop: "Neither appliance is alerting"
+        - alias: "Stop if household is sleeping"
+          if:
+            - condition: state
+              entity_id: input_boolean.everyone_sleeping
+              state: "on"
+          then:
+            - alias: "Stop — household sleeping"
+              stop: "Household is sleeping"
+        - alias: "Stop if nobody is home"
+          if:
+            - condition: numeric_state
+              entity_id: zone.home
+              below: 1
+          then:
+            - alias: "Stop — nobody home"
+              stop: "Nobody is home"
+        - alias: "Resolve announcement message and title"
+          variables:
+            washer_alerting: "{{ is_state('input_select.utility_room_washer_status', 'alerting') }}"
+            dryer_alerting: "{{ is_state('input_select.utility_room_dryer_status', 'alerting') }}"
+            tts_message: >-
+              {% if washer_alerting and dryer_alerting %}The washer and dryer
+              cycles have both completed.{% elif washer_alerting %}The washer
+              cycle has completed.{% else %}The dryer cycle has completed.{%
+              endif %}
+            tts_title: >-
+              {% if washer_alerting and dryer_alerting %}Laundry Done{% elif
+              washer_alerting %}Washer Done{% else %}Dryer Done{% endif %}
+        - alias: "Announce via TTS dispatch script"
+          choose:
+            - alias: "Avery sleeping — master bedroom only"
+              conditions:
+                - condition: state
+                  entity_id: input_boolean.avery_sleeping
+                  state: "on"
+              sequence:
+                - alias: "Announce to master bedroom"
+                  action: script.household_tts_announce
+                  data:
+                    message: "{{ tts_message }}"
+                    notification_title: "{{ tts_title }}"
+                    target: master_bedroom
+          default:
+            - alias: "Announce to kitchen and family room in parallel"
+              parallel:
+                - alias: "Announce to kitchen"
+                  action: script.household_tts_announce
+                  data:
+                    message: "{{ tts_message }}"
+                    notification_title: "{{ tts_title }}"
+                    target: kitchen
+                - alias: "Announce to family room"
+                  action: script.household_tts_announce
+                  data:
+                    message: "{{ tts_message }}"
+                    notification_title: "{{ tts_title }}"
+                    target: family_room
+        - alias: "Wait 30 minutes before the next announcement"
+          delay:
+            minutes: 30
+mode: restart
+category: 01M0SZBV5BGDGY2BQ2GBB5NA4C

@@ -1,0 +1,133 @@
+id: "1787749833832"
+alias: "Utility Room: Dryer Status Manager"
+description: >-
+  Tracks the dryer's alerting/idle/acknowledged state. Sets alerting when a
+  cycle ends (state or event trigger, whichever arrives first), idle when a
+  new cycle starts, and idle when the dryer is retrieved (sustained utility
+  room occupancy or a door left open past the pass-through window). Triggers
+  alerting only on the 'end' status, not 'cooling' — clothes are still hot
+  and time is still counting down through cooling and wrinkle_care.
+triggers:
+  - trigger: state
+    entity_id: sensor.utility_room_dryer_current_status
+    to: "end"
+    id: cycle_end_state
+    alias: "Cycle ended (status sensor)"
+  - trigger: state
+    entity_id: event.utility_room_dryer_notification
+    id: cycle_end_event
+    alias: "Dryer notification event fired"
+    note: >-
+      Backup for the state trigger — the status sensor sits in 'end' only
+      briefly before moving on. Guarded by a recency condition below since
+      event entities re-fire this trigger on every HA restart with their
+      last (possibly stale) value.
+  - trigger: state
+    entity_id: sensor.utility_room_dryer_current_status
+    to: running
+    id: cycle_start
+    alias: "New cycle started"
+  - trigger: occupancy.detected
+    target:
+      entity_id: binary_sensor.utility_room_motion_occupancy
+    options:
+      for: "00:00:45"
+    id: retrieved
+    alias: "Sustained occupancy (retrieved)"
+    note: >-
+      45s clears the 13-24s pass-through cluster seen in four days of history
+      while still catching genuine laundry visits (43s+).
+  - trigger: door.opened
+    target:
+      entity_id: binary_sensor.utility_room_door
+    options:
+      for: "00:01:00"
+    id: retrieved
+    alias: "Door left open a full minute (retrieved)"
+    note: >-
+      Backup for when the PIR is unavailable. Also closes a gap the old
+      door-edge design missed: a cycle finishing while the door happens to
+      already be open never produced an edge.
+conditions: []
+actions:
+  - alias: "Route on trigger and current status"
+    choose:
+      - alias: "Cycle ended (state), currently idle"
+        conditions:
+          - condition: trigger
+            id: cycle_end_state
+          - condition: state
+            entity_id: input_select.utility_room_dryer_status
+            state: idle
+        sequence:
+          - alias: "Set status to alerting"
+            action: input_select.select_option
+            target:
+              entity_id: input_select.utility_room_dryer_status
+            data:
+              option: alerting
+          - alias: "Stamp cycle ended time"
+            action: input_datetime.set_datetime
+            target:
+              entity_id: input_datetime.utility_room_dryer_cycle_ended
+            data:
+              datetime: "{{ now() }}"
+      - alias: "Cycle ended (event), currently idle, event is recent"
+        conditions:
+          - condition: trigger
+            id: cycle_end_event
+          - condition: state
+            entity_id: event.utility_room_dryer_notification
+            attribute: event_type
+            state: drying_is_complete
+          - condition: state
+            entity_id: input_select.utility_room_dryer_status
+            state: idle
+          - condition: template
+            value_template: >-
+              {{ (now() - (states('event.utility_room_dryer_notification') |
+              as_datetime)).total_seconds() < 300 }}
+            alias: "Event happened within the last 5 minutes, not a restart-restore"
+        sequence:
+          - alias: "Set status to alerting"
+            action: input_select.select_option
+            target:
+              entity_id: input_select.utility_room_dryer_status
+            data:
+              option: alerting
+          - alias: "Stamp cycle ended time"
+            action: input_datetime.set_datetime
+            target:
+              entity_id: input_datetime.utility_room_dryer_cycle_ended
+            data:
+              datetime: "{{ now() }}"
+      - alias: "New cycle started"
+        conditions:
+          - condition: trigger
+            id: cycle_start
+        sequence:
+          - alias: "Set status to idle"
+            action: input_select.select_option
+            target:
+              entity_id: input_select.utility_room_dryer_status
+            data:
+              option: idle
+          - alias: "Stamp cycle started time"
+            action: input_datetime.set_datetime
+            target:
+              entity_id: input_datetime.utility_room_dryer_cycle_started
+            data:
+              datetime: "{{ now() }}"
+      - alias: "Dryer retrieved"
+        conditions:
+          - condition: trigger
+            id: retrieved
+        sequence:
+          - alias: "Set status to idle"
+            action: input_select.select_option
+            target:
+              entity_id: input_select.utility_room_dryer_status
+            data:
+              option: idle
+mode: single
+category: 01M0SZBV5BGDGY2BQ2GBB5NA4C
