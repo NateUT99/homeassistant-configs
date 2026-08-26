@@ -6,7 +6,7 @@
 
 Automates the Roborock Q8 Max Plus (`vacuum.living_room_vacuum`) to clean the house on two independent schedules: a quiet pass over shared common areas in the evening, and a full-speed pass over the remaining rooms during the day when the house empties out. Each schedule targets a fixed set of rooms, tracks its own daily completion state, and never references the other's progress.
 
-This design replaces the old apartment's "start on last-leaves, dock on first-arrives, resume where it left off" pattern. That pattern is not achievable on this hardware — see [Why resume isn't used](#why-resume-isnt-used) below — so the routine instead guarantees the whole house gets covered across two scheduled windows rather than one continuous job.
+The old apartment's version of this automation started the vacuum when the last person left and docked it when the first person arrived, then simply restarted the whole-house clean from scratch on every subsequent departure — using a "best single attempt cleared 50% progress" threshold to decide the day was done, never actually resuming an interrupted job. This rebuild set out to improve on that with genuine resume, which testing then proved isn't possible on this hardware (see [Why resume isn't used](#why-resume-isnt-used)); the two-zone schedule below is what replaced that goal.
 
 ## Architecture
 
@@ -60,7 +60,7 @@ The two zones were originally named for the rooms they cover (Common Areas / Rem
 
 ### Why resume isn't used
 
-The original design goal was "pick up where it left off after an interruption," matching the old apartment. Live testing on this unit (2026-08-25) ruled that out conclusively: **any manually issued dock command cancels the active cleaning job**, whether it was paused first or not, and whether the job was a whole-house clean or a room-scoped segment clean. Three separate tests confirmed this — see `LESSONS.md` → *Vacuum & Roborock* for the details and Roborock's own documentation, which states the same thing.
+This rebuild's original goal was for an interrupted job to pick up where it left off, rather than restarting from scratch as the old apartment did. Live testing on this unit (2026-08-25) ruled that out conclusively: **any manually issued dock command cancels the active cleaning job**, whether it was paused first or not, and whether the job was a whole-house clean or a room-scoped segment clean. Three separate tests confirmed this — see `LESSONS.md` → *Vacuum & Roborock* for the details and Roborock's own documentation, which states the same thing.
 
 A follow-up design tracked which rooms a segment clean had *already* finished, so an interrupted job could resume at room granularity next time. That also broke down: `sensor.<vacuum>_current_room` flips back and forth between adjacent open-plan rooms every 30–120 seconds within a single run, so "the robot just left this room" is not a reliable signal that the room is done.
 
