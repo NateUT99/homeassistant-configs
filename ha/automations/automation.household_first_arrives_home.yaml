@@ -1,15 +1,16 @@
 id: "1787348678512"
 alias: "Household: First Arrives Home"
 description: >-
-  Sets the living room thermostat to Home preset when the first person
-  arrives home. Fires when zone.home rises from 0 to 1. Additional arrival
-  actions will be added to this automation over time.
+  Sets the living room thermostat to Home preset on a confirmed arrival
+  -- not just the zone.home geofence, which fires ~100m out and can't
+  distinguish a drive home from a walk around the block (see
+  automation.household_confirm_arrival). Additional arrival actions
+  will be added to this automation over time.
 triggers:
   - trigger: state
-    entity_id: zone.home
-    from: "0"
-    to: "1"
-    alias: First person arrives home
+    entity_id: input_boolean.arrival_confirmed
+    to: "on"
+    alias: Arrival confirmed
 conditions: []
 actions:
   - alias: Set living room thermostat to Home preset
@@ -19,3 +20,4 @@ actions:
     data:
       preset_mode: home
 mode: single
+category: 01M08R77W9A83G7DDA33MT8R09

@@ -1,0 +1,91 @@
+id: "1787852609369"
+alias: "Household: Confirm Arrival"
+description: >-
+  Distinguishes "inside the zone.home geofence" from "actually inside the
+  house." zone.home fires at ~100m, well before anyone reaches a door, so
+  a walk around the block can look identical to a drive home. Confirms
+  arrival immediately when activity reads Automotive (real drive-home,
+  no need to wait), or when door/lock evidence appears while a tracked
+  person is already home. See standards/automations.md §5.12 -- this
+  helper is convenience-only and must never gate a security decision.
+triggers:
+  - trigger: state
+    entity_id: zone.home
+    from: "0"
+    id: geofence_arrival
+    alias: "Geofence: first person enters zone.home"
+  - trigger: state
+    entity_id: lock.entrance_front_door
+    to: unlocked
+    id: entry_evidence
+    alias: Front door unlocked
+  - trigger: door.opened
+    target:
+      entity_id: binary_sensor.garage_interior_door
+    id: entry_evidence
+    alias: Garage interior door opened
+  - trigger: door.opened
+    target:
+      entity_id: binary_sensor.kitchen_patio_door
+    id: entry_evidence
+    alias: Patio door opened
+  - trigger: state
+    entity_id: cover.garage_door_opener_door
+    to: open
+    id: entry_evidence
+    alias: Garage door opened
+  - trigger: state
+    entity_id: zone.home
+    to: "0"
+    id: everyone_left
+    alias: Last person leaves home
+conditions: []
+actions:
+  - alias: Route by which trigger fired
+    choose:
+      - alias: Everyone left
+        conditions:
+          - condition: trigger
+            id: [everyone_left]
+            alias: Triggered by everyone leaving
+        sequence:
+          - alias: Clear arrival confirmation
+            action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.arrival_confirmed
+      - alias: Entry evidence while someone is home
+        conditions:
+          - condition: trigger
+            id: [entry_evidence]
+            alias: Triggered by door/lock entry evidence
+          - condition: numeric_state
+            entity_id: zone.home
+            above: 0
+            alias: A tracked person is already home
+            note: >-
+              Security gate, do not remove as redundant with the trigger:
+              a door/lock event proves entry occurred, not that it was
+              authorized. This condition ensures evidence can only
+              CONFIRM an arrival the geofence already suspects, never
+              ORIGINATE one from an unattended door.
+        sequence:
+          - alias: Confirm arrival via entry evidence
+            action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.arrival_confirmed
+      - alias: Geofence arrival while driving
+        conditions:
+          - condition: trigger
+            id: [geofence_arrival]
+            alias: Triggered by geofence arrival
+          - condition: state
+            entity_id: sensor.nates_iphone_activity
+            state: Automotive
+            alias: Activity is Automotive
+        sequence:
+          - alias: Confirm arrival immediately
+            action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.arrival_confirmed
+mode: single
+category: 01M08R77W9A83G7DDA33MT8R09
