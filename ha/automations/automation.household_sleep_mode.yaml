@@ -4,11 +4,11 @@ description: >-
   Prepares the home when everyone goes to sleep and restores it when
   everyone wakes. Sleep: sets the living room thermostat to Sleep preset,
   turns on the bathroom night lamp and master bedroom nightstand lamp,
-  turns on the master bedroom Apple TV, closes the garage door, and locks
-  the front door. Wake: sets the thermostat back to Home preset. Merged
-  from the previously separate Configure Home for Sleep / Configure Home
-  for Wake automations, matching the pattern already used by Avery's
-  Room: Sleep Mode.
+  turns off lights labeled "Sleeping", turns on the master bedroom Apple
+  TV, closes the garage door, and locks the front door. Wake: sets the
+  thermostat back to Home preset. Merged from the previously separate
+  Configure Home for Sleep / Configure Home for Wake automations,
+  matching the pattern already used by Avery's Room: Sleep Mode.
 triggers:
   - trigger: switch.turned_on
     target:
@@ -47,6 +47,11 @@ actions:
             data:
               color_temp_kelvin: 2350
               brightness_pct: 65
+          - alias: Turn off lights labeled "Sleeping"
+            action: light.turn_off
+            target:
+              label_id: sleeping
+            data: {}
           - alias: Ensure garage door is closed
             action: cover.close_cover
             target:
