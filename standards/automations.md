@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.13 — August 2026*
+*Version 1.14 — August 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.14 | August 2026 | Amended §5.4 — added a blast-radius check before parallelizing actions (broad label/area targets or dynamic `for_each` counts warrant more care than a handful of literal-entity calls) |
 | 1.13 | August 2026 | Rewrote §5.10 — the door-state gate never engaged because `zone.home` fires at the GPS geofence, before the person reaches the garage door, so the wait was always skipped; replaced with a bounded wait on evidence of entry (garage door closing behind them, or the front door lock releasing). Added §5.11 (semantic triggers and conditions). Amended §5.3 — `note:` is now a recognized, optional field alongside `alias:` for longer explanations. Updated §3.2 `text_to_speech` label description to remove the retired `notify.reminder_*` Chime TTS platform in favor of calling `chime_tts.say` directly from `script.household_tts_announce`. |
 | 1.12 | August 2026 | Reverted presence guidance in §3.2 and §5.10 from `sensor.household_people_home` back to `zone.home` — the HA-core startup race condition that motivated the workaround sensor (§3.2, v1.9) was fixed upstream; the new-house rebuild reads `zone.home` directly throughout and the workaround sensor was not recreated |
 | 1.11 | August 2026 | Added §5.9 exception: `light.turn_on` actions with color/brightness/effect data must use literal `entity_id`, not `label_id`/`area_id`, to keep the automation editor's GUI picker usable |
@@ -282,6 +283,7 @@ trigger:
 
 - Use **parallel blocks** for independent actions where ordering doesn't matter and concurrent execution is faster.
 - Use **sequential ordering** when actions depend on each other, or when perceptible-impact actions should fire first and background housekeeping should fire last.
+- **Check the blast radius before parallelizing.** A `parallel:` block with a handful of literal-entity or single-label service calls (the common case) has no meaningful impact on HA Green. Be more deliberate before parallelizing a block where a target resolves broadly (a label or area covering dozens of entities) or where the action count is itself dynamic (e.g. `repeat.for_each` nested in `parallel`) — that's where concurrent execution can turn into a real burst of simultaneous service calls and device traffic instead of a handful. When in doubt, note the reasoning (entity/action count considered, no adverse impact expected) in the block's `note` field.
 
 ### 5.5 Choose Blocks
 

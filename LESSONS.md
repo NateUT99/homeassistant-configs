@@ -158,6 +158,17 @@ Combined with how `automation.household_alarm_perimeter_trigger` works — it on
 
 `automation.household_bedtime_secure_and_report` implements this pattern for night arming. See `guides/home_alarm.md` for the full design.
 
+### `parallel:` action blocks are safe for small, fixed action counts — check blast radius before assuming so generally
+
+Converting a sequential list of independent actions to a `parallel:` block (e.g. `automation.household_sleep_mode`'s night-prep sequence — thermostat, two lights, a label turn-off, garage, lock, media player) reduces wall-clock time to the slowest single action instead of the sum, with no adverse HA Green load: seven simple service calls firing concurrently is a non-event for both the automation engine and Z2M/Zigbee traffic.
+
+The risk isn't `parallel:` itself, it's what it's applied to. A block becomes a real burst of concurrent device commands, not a handful, when either:
+
+- **A target resolves broadly** — a `label_id`/`area_id` target covering dozens of entities, fired inside a parallel arm
+- **The action count is dynamic** — `repeat.for_each` nested inside `parallel`, where the list length isn't visible in the YAML
+
+Neither condition applied here (fixed 7 actions, only one broad target — `label_id: sleeping` — and that target is a single service call, not one call per matched entity). See `standards/automations.md` §5.4 for the check to apply before parallelizing a less obviously-small block.
+
 ### Restoration branches need guard conditions
 
 An automation that restores a prior state (turning a thermostat back on after a door closes, restoring lights after a guest mode ends) must verify the current state of the target before restoring. Don't assume that because the automation turned something off, it can blindly turn it back on — the user or another automation may have changed it in the interim.

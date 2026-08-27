@@ -5,10 +5,13 @@ description: >-
   everyone wakes. Sleep: sets the living room thermostat to Sleep preset,
   turns on the bathroom night lamp and master bedroom nightstand lamp,
   turns off lights labeled "Sleeping", turns on the master bedroom Apple
-  TV, closes the garage door, and locks the front door. Wake: sets the
-  thermostat back to Home preset. Merged from the previously separate
-  Configure Home for Sleep / Configure Home for Wake automations,
-  matching the pattern already used by Avery's Room: Sleep Mode.
+  TV, closes the garage door, and locks the front door -- these seven
+  actions are independent of each other and run in parallel so the
+  bedroom is ready without waiting on the garage/lock actuation time.
+  Wake: sets the thermostat back to Home preset. Merged from the
+  previously separate Configure Home for Sleep / Configure Home for
+  Wake automations, matching the pattern already used by Avery's Room:
+  Sleep Mode.
 triggers:
   - trigger: switch.turned_on
     target:
@@ -34,45 +37,53 @@ actions:
           - condition: trigger
             id: sleep_on
         sequence:
-          - alias: Set living room thermostat to Sleep preset
-            action: climate.set_preset_mode
-            target:
-              entity_id: climate.living_room_thermostat
-            data:
-              preset_mode: sleep
-          - alias: Turn on bathroom night lamp
-            action: light.turn_on
-            target:
-              entity_id: light.bathroom_night_lamp
-            data:
-              color_temp_kelvin: 2350
-              brightness_pct: 65
-          - alias: Turn off lights labeled "Sleeping"
-            action: light.turn_off
-            target:
-              label_id: sleeping
-            data: {}
-          - alias: Ensure garage door is closed
-            action: cover.close_cover
-            target:
-              entity_id: cover.garage_door_opener_door
-            data: {}
-          - alias: Ensure front door is locked
-            action: lock.lock
-            target:
-              entity_id: lock.entrance_front_door
-            data: {}
-          - alias: Turn on master bedroom Apple TV
-            action: media_player.turn_on
-            target:
-              entity_id: media_player.master_bedroom_appletv
-          - alias: Turn on master bedroom nightstand lamp
-            action: light.turn_on
-            target:
-              entity_id: light.master_bedroom_left_nightstand_lamp
-            data:
-              brightness_pct: 50
-              color_temp_kelvin: 2000
+          - alias: Run night-prep actions in parallel
+            note: >-
+              Seven independent actions (thermostat, 2 lights, label
+              turn-off, garage, lock, media player) with no ordering
+              dependency -- parallel avoids serializing the garage/lock
+              actuation time ahead of the bedroom actions. Small, fixed
+              action count; no meaningful HA Green load.
+            parallel:
+              - alias: Set living room thermostat to Sleep preset
+                action: climate.set_preset_mode
+                target:
+                  entity_id: climate.living_room_thermostat
+                data:
+                  preset_mode: sleep
+              - alias: Turn on bathroom night lamp
+                action: light.turn_on
+                target:
+                  entity_id: light.bathroom_night_lamp
+                data:
+                  color_temp_kelvin: 2350
+                  brightness_pct: 65
+              - alias: Turn off lights labeled "Sleeping"
+                action: light.turn_off
+                target:
+                  label_id: sleeping
+                data: {}
+              - alias: Ensure garage door is closed
+                action: cover.close_cover
+                target:
+                  entity_id: cover.garage_door_opener_door
+                data: {}
+              - alias: Ensure front door is locked
+                action: lock.lock
+                target:
+                  entity_id: lock.entrance_front_door
+                data: {}
+              - alias: Turn on master bedroom Apple TV
+                action: media_player.turn_on
+                target:
+                  entity_id: media_player.master_bedroom_appletv
+              - alias: Turn on master bedroom nightstand lamp
+                action: light.turn_on
+                target:
+                  entity_id: light.master_bedroom_left_nightstand_lamp
+                data:
+                  brightness_pct: 50
+                  color_temp_kelvin: 2000
       - alias: Everyone Sleeping turned OFF -- restore the home for day
         conditions:
           - condition: trigger
