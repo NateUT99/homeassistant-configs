@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.14 — August 2026*
+*Version 1.15 — August 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.15 | August 2026 | Added §5.12 (Confirmed Arrival) — generalizes §5.10's entry-evidence insight into a shared `input_boolean.arrival_confirmed`, set by `automation.household_confirm_arrival`, that any arrival-triggered automation consumes instead of `zone.home` directly |
 | 1.14 | August 2026 | Amended §5.4 — added a blast-radius check before parallelizing actions (broad label/area targets or dynamic `for_each` counts warrant more care than a handful of literal-entity calls) |
 | 1.13 | August 2026 | Rewrote §5.10 — the door-state gate never engaged because `zone.home` fires at the GPS geofence, before the person reaches the garage door, so the wait was always skipped; replaced with a bounded wait on evidence of entry (garage door closing behind them, or the front door lock releasing). Added §5.11 (semantic triggers and conditions). Amended §5.3 — `note:` is now a recognized, optional field alongside `alias:` for longer explanations. Updated §3.2 `text_to_speech` label description to remove the retired `notify.reminder_*` Chime TTS platform in favor of calling `chime_tts.say` directly from `script.household_tts_announce`. |
 | 1.12 | August 2026 | Reverted presence guidance in §3.2 and §5.10 from `sensor.household_people_home` back to `zone.home` — the HA-core startup race condition that motivated the workaround sensor (§3.2, v1.9) was fixed upstream; the new-house rebuild reads `zone.home` directly throughout and the workaround sensor was not recreated |
@@ -381,6 +382,45 @@ HA 2026.x provides semantic trigger and condition platforms for common device cl
 ```
 
 Semantic triggers still take `alias` and `note` per §5.3 — the semantic form changes the trigger platform, not the documentation requirements.
+
+### 5.12 Confirmed Arrival
+
+`zone.home` fires at the GPS geofence radius (~100m on this instance) — well before anyone reaches
+a door. Walking or cycling around the block re-enters the geofence and looks identical, at that
+instant, to a genuine drive home. §5.10 first identified this for arrival TTS and worked around it
+inline with a `wait_for_trigger` on entry evidence. This section generalizes that pattern into a
+shared signal every arrival-triggered automation should consume.
+
+**Any automation that acts on a first-person arrival triggers on `input_boolean.arrival_confirmed`
+going `on`, not on `zone.home` directly** — with one exception: an automation whose action *is* the
+means of entry (e.g. opening the garage) cannot wait on entry evidence without being circular, and
+should use the activity gate directly instead (see `automation.household_nate_presence`).
+
+`input_boolean.arrival_confirmed` is maintained by `automation.household_confirm_arrival`, which
+confirms via two independent paths:
+
+- **Fast path:** `zone.home` rises from 0 while the arriving person's activity sensor reads
+  `Automotive`. Covers a genuine drive-home immediately, without waiting for a door.
+- **Evidence path:** a door or lock signals entry (front door unlocked, garage interior door or
+  patio door opened, garage cover opened) while a tracked person is already inside `zone.home`.
+
+Anything that isn't clearly a car — walking, cycling, running, stationary, or the sensor's idle
+`Unknown` state — defers to the evidence path rather than being enumerated. Entry evidence always
+eventually arrives, so deferring costs latency, never correctness. Do not extend the fast path's
+activity list to `Unknown` or `Unavailable` the way `household_nate_presence` does for opening the
+garage — a spurious garage open is cheap, a spurious dock or preset change on a shared arrival
+signal is not, and `Unknown` is the sensor's common idle state.
+
+> **`arrival_confirmed` is not an authorization signal.** It answers "is someone physically
+> inside," not "is this entry authorized." Its evidence inputs are door and lock sensors, which
+> prove entry occurred, not that the person entering is permitted to. It must never gate alarm
+> disarm, lock release, credential access, or any other security decision — those keep their own
+> authenticated paths. Consumers are limited to convenience actions (climate, vacuum, lighting).
+
+This is also why the evidence path's `numeric_state: zone.home above 0` condition exists and must
+not be removed as "redundant" with its own trigger: a door or lock event proves entry occurred, not
+that a tracked person triggered it. The condition ensures evidence can only *confirm* an arrival
+the geofence already suspects, never *originate* one from an unattended door.
 
 ---
 

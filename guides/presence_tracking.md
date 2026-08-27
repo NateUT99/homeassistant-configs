@@ -1,6 +1,6 @@
 # Presence Tracking
 
-*Last updated: August 2026*
+*Last updated: August 2026 (Confirmed Arrival added)*
 
 ## Overview
 
@@ -101,11 +101,79 @@ Update the `person` entity's `device_trackers` list to include `device_tracker.h
 
 If the person entity doesn't exist yet, create it with `action: create`.
 
+### Step 6: Extend the arrival fast path (optional)
+
+The new person is automatically covered by [Confirmed Arrival](#confirmed-arrival)'s evidence path
+as soon as `zone.home`'s occupant count includes them — no config change needed, just a later
+confirmation (on the next door/lock event) instead of an immediate one. If the person also uses
+the HA Companion App, `sensor.<name>_iphone_activity` will exist and can be added to
+`automation.household_confirm_arrival`'s `geofence_arrival` branch as an additional
+`condition: state … Automotive` (combined with `or`) to give them the same immediate confirmation
+on a drive-home. This is an optimization, not a requirement.
+
 ## Guest Tracking
 
 `input_boolean.guest_mode` (already exists) → `device_tracker.guest_tracker` (Template Helper, same `in_zones` pattern) → `person.guest` (created with **no** `user_id` — tracking-only, unlinked to any HA user account).
 
 Whatever toggles `guest_mode` on/off is outside the scope of this guide — the chain downstream of that boolean is what matters here. Follow Steps 4–5 above using `guest_mode` as the source boolean and skipping the person-creation Companion-App-tracker merge (a guest has no Companion App trackers to preserve).
+
+## Confirmed Arrival
+
+`zone.home` answers "is a tracked person's phone within the geofence radius" (~100m on this
+instance), which is a different question from "is someone actually inside the house." A walk or
+bike ride around the block re-enters the geofence and, for that instant, looks identical to a
+genuine drive home. On 2026-08-27 this cut a daytime vacuum run short: the geofence re-entered
+mid-walk, docking the robot 26 minutes into the job — 12 minutes before anyone actually reached a
+door.
+
+`input_boolean.arrival_confirmed` closes that gap. Automations that act on a first arrival —
+docking the vacuum, setting the thermostat preset — trigger on this helper going `on`, not on
+`zone.home` directly.
+
+```
+  zone.home rises above 0 ──── AND activity = Automotive ───┐   (fast path: real drive-home)
+                                                            │
+  lock.entrance_front_door → unlocked ───────────┐          │
+  binary_sensor.garage_interior_door opened ─────┤          │   (evidence path — CONFIRMS only,
+  binary_sensor.kitchen_patio_door opened ───────┼── AND ───┤    never originates: requires a
+  cover.garage_door_opener_door → open ──────────┘ zone.home│    tracked person already home)
+                                                     > 0    │
+                                                            ▼
+                                Household: Confirm Arrival (automation)
+                                          │
+                          input_boolean.arrival_confirmed → on
+                                          │
+  zone.home → 0 ────────────────────────────────────────────┴──► off
+                                          │
+              ┌────────────────────────────┼──────────────────────┐
+              ▼                            ▼                      ▼
+  Vacuum Stops For Occupants   First Arrives Home        (future arrival actions)
+        (dock the robot)      (thermostat → Home)
+```
+
+**Why two paths.** The fast path buys a couple of minutes on a genuine drive-home, docking the
+vacuum before anyone walks in. The evidence path is the correctness backstop and needs no
+per-person activity sensor — anything that isn't clearly a car (walking, cycling, running,
+stationary, or the sensor's idle `Unknown`) defers to it rather than being enumerated, since
+evidence always eventually arrives.
+
+**Why the evidence path requires `zone.home > 0`.** A door or lock event proves entry occurred, not
+that it was authorized — `binary_sensor.kitchen_patio_door` in particular carries no authorization
+story at all. Gating on a tracked person already being in `zone.home` means evidence can only ever
+*confirm* an arrival the geofence already suspects, never *originate* one from an unattended door.
+
+> **`arrival_confirmed` is not an authorization signal.** See `standards/automations.md` §5.12 for
+> the full statement of this boundary. It must never gate alarm disarm, lock release, or any other
+> security decision — only convenience actions (climate, vacuum, lighting).
+
+**Exception: automations whose action *is* the entry.** `automation.household_nate_presence` opens
+the garage door on arrival, so it cannot wait on entry evidence without being circular — it reads
+`sensor.nates_iphone_activity` directly instead, gated on `Automotive`, `Unknown`, or
+`unavailable`. That automation's cost matrix is inverted from the vacuum's: a spurious garage open
+is cheap, so it can afford the looser gate that `Confirm Arrival`'s fast path deliberately avoids.
+
+See [Adding a New Household Member's Tracker](#adding-a-new-household-member's-tracker), Step 6,
+for how a new person is picked up by this design.
 
 ## Related HA Config
 
@@ -117,10 +185,14 @@ Whatever toggles `guest_mode` on/off is outside the scope of this guide — the 
 | Guest | `person.guest` | Person (no linked user — tracking-only) |
 | Nate Home | `input_boolean.nate_home` | Helper |
 | Guest Mode | `input_boolean.guest_mode` | Helper |
+| Household: Confirm Arrival | `automation.household_confirm_arrival` | Automation |
+| Arrival Confirmed | `input_boolean.arrival_confirmed` | Helper |
 
 ## Related Documents
 
 - `LESSONS.md` — `in_zones` entity-ID gotcha
+- `standards/automations.md` §5.10, §5.12 — arrival-evidence pattern and its generalization into
+  `arrival_confirmed`
 
 ## Troubleshooting
 
