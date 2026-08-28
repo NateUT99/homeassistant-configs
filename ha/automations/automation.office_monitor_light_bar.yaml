@@ -34,6 +34,7 @@ triggers:
     to:
       - "off"
     id: computer_inactive
+    for: "00:01:00"
   - alias: TV app opens on Mac Mini
     trigger: state
     entity_id:
@@ -165,3 +166,4 @@ actions:
             target:
               entity_id: light.office_monitor_light_bar
 mode: single
+category: 01M08MMBZ719V4GZ2FT10RPTJ2
