@@ -3,15 +3,15 @@ alias: "Household: Sleep Mode"
 description: >-
   Prepares the home when everyone goes to sleep and restores it when
   everyone wakes. Sleep: sets the living room thermostat to Sleep preset,
-  turns on the bathroom night lamp and master bedroom nightstand lamp,
-  turns off lights labeled "Sleeping", turns on the master bedroom Apple
-  TV, closes the garage door, and locks the front door -- these seven
-  actions are independent of each other and run in parallel so the
-  bedroom is ready without waiting on the garage/lock actuation time.
-  Wake: sets the thermostat back to Home preset. Merged from the
-  previously separate Configure Home for Sleep / Configure Home for
-  Wake automations, matching the pattern already used by Avery's Room:
-  Sleep Mode.
+  turns on the bathroom night lamp, master bedroom nightstand lamp, and
+  kitchen sink light (dim nav light), turns off lights labeled "Sleeping",
+  turns on the master bedroom Apple TV, closes the garage door, and locks
+  the front door -- these actions are independent of each other and run in
+  parallel so the bedroom is ready without waiting on the garage/lock
+  actuation time. Wake: sets the thermostat back to Home preset and turns
+  off the kitchen sink light. Merged from the previously separate Configure
+  Home for Sleep / Configure Home for Wake automations, matching the
+  pattern already used by Avery's Room: Sleep Mode.
 triggers:
   - trigger: switch.turned_on
     target:
@@ -39,7 +39,7 @@ actions:
         sequence:
           - alias: Run night-prep actions in parallel
             note: >-
-              Seven independent actions (thermostat, 2 lights, label
+              Eight independent actions (thermostat, 3 lights, label
               turn-off, garage, lock, media player) with no ordering
               dependency -- parallel avoids serializing the garage/lock
               actuation time ahead of the bedroom actions. Small, fixed
@@ -84,16 +84,32 @@ actions:
                 data:
                   brightness_pct: 50
                   color_temp_kelvin: 2000
+              - alias: Turn on kitchen sink light as dim nav light
+                action: light.turn_on
+                target:
+                  entity_id: light.kitchen_overhead_sink
+                data:
+                  color_temp_kelvin: 2000
+                  brightness_pct: 5
       - alias: Everyone Sleeping turned OFF -- restore the home for day
         conditions:
           - condition: trigger
             id: sleep_off
         sequence:
-          - alias: Set living room thermostat to Home preset
-            action: climate.set_preset_mode
-            target:
-              entity_id: climate.living_room_thermostat
-            data:
-              preset_mode: home
+          - alias: Run wake-restore actions in parallel
+            note: >-
+              Two independent actions (thermostat, kitchen nav light) with
+              no ordering dependency.
+            parallel:
+              - alias: Set living room thermostat to Home preset
+                action: climate.set_preset_mode
+                target:
+                  entity_id: climate.living_room_thermostat
+                data:
+                  preset_mode: home
+              - alias: Turn off kitchen sink nav light
+                action: light.turn_off
+                target:
+                  entity_id: light.kitchen_overhead_sink
 mode: single
 category: 01M08R77W9A83G7DDA33MT8R09
