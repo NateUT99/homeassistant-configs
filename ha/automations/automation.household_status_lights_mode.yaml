@@ -1,11 +1,11 @@
 id: '1787020051576'
 alias: 'Household: Status Lights Mode'
 description: >-
-  Keeps the entrance and both living room status lamps in sync with guest
-  mode and sleep state, in priority order: guest mode (green) overrides
-  everyone sleeping (warm white), which overrides off. Guest mode takes
-  priority since it's the most useful indicator to see while people are
-  awake; sleeping mode doubles as a warm-white nav light overnight.
+  Keeps the entrance and all three living room status lamps in sync with
+  guest mode and sleep state, in priority order: guest mode (green)
+  overrides everyone sleeping (warm white), which overrides off. Guest mode
+  takes priority since it's the most useful indicator to see while people
+  are awake; sleeping mode doubles as a warm-white nav light overnight.
 triggers:
   - trigger: homeassistant
     event: start
@@ -71,6 +71,7 @@ actions:
                 - light.entrance_status_lamp
                 - light.living_room_status_lamp_2
                 - light.living_room_status_lamp_1
+                - light.living_room_mantle_status_light
             data:
               rgb_color:
                 - 0
@@ -91,6 +92,7 @@ actions:
                 - light.entrance_status_lamp
                 - light.living_room_status_lamp_2
                 - light.living_room_status_lamp_1
+                - light.living_room_mantle_status_light
             data:
               color_temp_kelvin: 2000
               brightness_pct: 50
@@ -102,5 +104,6 @@ actions:
             - light.entrance_status_lamp
             - light.living_room_status_lamp_2
             - light.living_room_status_lamp_1
+            - light.living_room_mantle_status_light
 mode: single
 category: 01M08MMBZ719V4GZ2FT10RPTJ2
