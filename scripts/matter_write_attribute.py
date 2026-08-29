@@ -194,44 +194,61 @@ def read_attr(ws: WS, node: int, path: str):
 
 
 MODE_SELECT_CLUSTER = 80  # 0x0050
+# Mode Select attributes: 0 Description, 1 StandardNamespace, 2 SupportedModes, 3 CurrentMode
+
+
+def _get_node_attrs(ws: WS, node: int) -> dict:
+    node_data = send_command(ws, "get_node", {"node_id": node})
+    if isinstance(node_data, dict):
+        return node_data.get("attributes", node_data)
+    return {}
+
 
 def dump_mode_selects(ws: WS, node: int) -> None:
-    """Print every Mode Select cluster on the node: endpoint, current mode, options.
-
-    Inovelli exposes each VTM36 config parameter (min dim, max dim, dimming
-    speed, ...) as its own Mode Select cluster. HA only turns a few into
-    entities; this shows them all so you can pick the endpoint + mode number to
-    write.
-    """
-    node_data = send_command(ws, "get_node", {"node_id": node})
-    attrs = node_data.get("attributes", node_data) if isinstance(node_data, dict) else {}
-    by_ep: dict[str, dict[str, object]] = {}
+    attrs = _get_node_attrs(ws, node)
+    by_ep: dict[str, dict[int, object]] = {}
     for key, value in attrs.items():
         parts = key.split("/")
         if len(parts) != 3 or int(parts[1]) != MODE_SELECT_CLUSTER:
             continue
-        ep, attr = parts[0], int(parts[2])
-        slot = by_ep.setdefault(ep, {})
-        if attr == 0:
-            slot["supported"] = value      # SupportedModes
-        elif attr == 1:
-            slot["description"] = value     # Description
-        elif attr == 3:
-            slot["current"] = value         # CurrentMode
+        by_ep.setdefault(parts[0], {})[int(parts[2])] = value
 
     if not by_ep:
-        print("No Mode Select clusters found on this node.")
+        print("No Mode Select clusters on this node.")
         return
     for ep in sorted(by_ep, key=int):
         slot = by_ep[ep]
-        print(f"\nendpoint {ep}  ({slot.get('description', '?')})  "
-              f"CurrentMode = {slot.get('current')}")
-        for opt in slot.get("supported", []) or []:
-            # ModeOptionStruct: {label, mode, semanticTags} or numeric-keyed
-            label = opt.get("label", opt.get("0")) if isinstance(opt, dict) else opt
-            mode = opt.get("mode", opt.get("1")) if isinstance(opt, dict) else "?"
-            print(f"    mode {mode:<4} = {label}")
-    print(f"\nTo set one:  --path <endpoint>/80/3 --value <mode number>")
+        print(f"\nendpoint {ep}  \"{slot.get(0, '?')}\"  CurrentMode = {slot.get(3)}")
+        for opt in slot.get(2, []) or []:
+            if isinstance(opt, dict):
+                label = opt.get("label", opt.get("0"))
+                mode = opt.get("mode", opt.get("1"))
+                print(f"    mode {mode!s:<4} = {label}")
+            else:
+                print(f"    {opt!r}")
+    print("\nTo set one:  --path <endpoint>/80/3 --value <mode number>")
+
+
+def dump_node(ws: WS, node: int) -> None:
+    """Print every attribute on the node, grouped by endpoint/cluster."""
+    attrs = _get_node_attrs(ws, node)
+    tree: dict[int, dict[int, dict[int, object]]] = {}
+    for key, value in attrs.items():
+        parts = key.split("/")
+        if len(parts) != 3:
+            continue
+        ep, cl, at = (int(x) for x in parts)
+        tree.setdefault(ep, {}).setdefault(cl, {})[at] = value
+    for ep in sorted(tree):
+        print(f"\n=== endpoint {ep} ===")
+        for cl in sorted(tree[ep]):
+            print(f"  cluster {cl} (0x{cl:04X})")
+            for at in sorted(tree[ep][cl]):
+                v = tree[ep][cl][at]
+                s = repr(v)
+                if len(s) > 200:
+                    s = s[:200] + "…"
+                print(f"    attr {at} (0x{at:04X}) = {s}")
 
 
 def build_path(args) -> str:
@@ -271,11 +288,13 @@ def main() -> int:
     p.add_argument("--read-only", action="store_true", help="Read and print, do not write")
     p.add_argument("--dump-modes", action="store_true",
                    help="List every Mode Select cluster on the node and exit")
+    p.add_argument("--dump-node", action="store_true",
+                   help="Print every attribute on the node, grouped by endpoint/cluster")
     p.add_argument("--timeout", type=float, default=10.0)
     args = p.parse_args()
 
-    if not (args.read_only or args.dump_modes) and args.value is None:
-        sys.exit("Give --value to write, --read-only to read, or --dump-modes.")
+    if not (args.read_only or args.dump_modes or args.dump_node) and args.value is None:
+        sys.exit("Give --value to write, --read-only to read, or --dump-modes / --dump-node.")
 
     url = args.url or f"ws://{args.host}:5580/ws"
 
@@ -287,6 +306,9 @@ def main() -> int:
 
         if args.dump_modes:
             dump_mode_selects(ws, args.node)
+            return 0
+        if args.dump_node:
+            dump_node(ws, args.node)
             return 0
 
         path = build_path(args)
