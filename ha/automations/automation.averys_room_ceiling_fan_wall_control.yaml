@@ -6,10 +6,10 @@ description: >-
   binding. Config button: single tap resumes the last speed (fan off) or advances
   low->medium->high->low (fan on); double tap turns it off; holds are unmapped (a
   config hold opens the switch's local menu). Fan speed changes repaint the
-  switch LED bar (hue by speed) and store the running speed in
-  input_select.averys_room_ceiling_fan_last_speed. input_boolean.avery_sleeping
-  changes re-dim the bar. None of this works while HA is down; paddle -> light
-  on/off is a Matter binding and is independent.
+  switch LED bar (hue by speed, off when the fan is off) and store the running
+  speed in input_select.averys_room_ceiling_fan_last_speed.
+  input_boolean.avery_sleeping changes re-dim the bar. None of this works while HA
+  is down; paddle -> light on/off is a Matter binding and is independent.
 triggers:
   - alias: Config button gesture
     trigger: state
@@ -116,16 +116,30 @@ actions:
                   entity_id: input_select.averys_room_ceiling_fan_last_speed
                 data:
                   option: "{{ speed }}"
-          - alias: Paint the LED bar - colour by speed, dimmer when Avery is sleeping
-            note: "Matter exposes the bar as one RGB light (no per-segment control): hue off/medium blue 220, low teal 175, high violet 265; brightness sleeping 5/20, awake 12/55 for off/on."
-            action: light.turn_on
-            target:
-              entity_id: light.averys_room_ceiling_fan_switch_led
-            data:
-              brightness_pct: "{% if speed == 'off' %}{{ 5 if is_state('input_boolean.avery_sleeping', 'on') else 12 }}{% else %}{{ 20 if is_state('input_boolean.avery_sleeping', 'on') else 55 }}{% endif %}"
-              hs_color:
-                - "{{ {'off': 220, 'low': 175, 'medium': 220, 'high': 265}.get(speed, 220) }}"
-                - 100
+          - alias: Sync the LED bar to the fan
+            choose:
+              - alias: Fan off - LED bar dark
+                conditions:
+                  - condition: state
+                    entity_id: fan.averys_room_ceiling_fan
+                    state: "off"
+                    alias: Fan off
+                sequence:
+                  - alias: Turn the LED bar off
+                    action: light.turn_off
+                    target:
+                      entity_id: light.averys_room_ceiling_fan_switch_led
+            default:
+              - alias: Fan on - colour by speed, dimmer when Avery is sleeping
+                note: "Matter exposes the bar as one RGB light (no per-segment control): hue low teal 175, medium blue 220, high violet 265; brightness 55 awake, 20 sleeping."
+                action: light.turn_on
+                target:
+                  entity_id: light.averys_room_ceiling_fan_switch_led
+                data:
+                  brightness_pct: "{{ 20 if is_state('input_boolean.avery_sleeping', 'on') else 55 }}"
+                  hs_color:
+                    - "{{ {'low': 175, 'medium': 220, 'high': 265}.get(speed, 220) }}"
+                    - 100
 mode: queued
 max: 10
 category: 01M0BFFGNX30MJNVWS58ZKEH3H

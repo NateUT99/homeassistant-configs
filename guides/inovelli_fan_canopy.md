@@ -99,13 +99,14 @@ Three mechanisms connect the wall switch to the fan/light:
   This keeps every room a single reviewable unit and the behaviour identical
   across rooms. `mode: queued` (max 10) so fan-change repaints process in order
   and last wins.
-- **Speed is shown by colour, not a segment fill.** Over Matter the bar is one
-  RGB light — no per-segment / level-meter control (unlike the Zigbee White
-  series). So speed is encoded as hue (teal low / blue medium/off / violet high)
-  and brightness carries only the day-vs-night level: full when awake, dim when
-  the room's sleep boolean is on. A true segment fill would require putting the
-  switch in Dimmer mode and driving an internal level — not worth the mode
-  change for a cosmetic gain.
+- **Bar off when the fan is off; colour by speed when it's running.** Over Matter
+  the bar is one RGB light — no per-segment / level-meter control (unlike the
+  Zigbee White series). Running speed is encoded as hue (teal low / blue medium /
+  violet high); brightness carries only day-vs-night (full awake, dim when the
+  room's sleep boolean is on). Fan off → `light.turn_off` plus `LED Intensity(Off)`
+  = 0 so the resting state is dark in every path. A true segment fill would
+  require putting the switch in Dimmer mode and driving an internal level — not
+  worth the mode change for a cosmetic gain.
 - **The config button emits its event twice per physical tap** (~8 ms apart, on
   this VTM30-SN firmware / matter.js server). Because `mode: queued` can't drop
   the duplicate, the config branch carries a guard condition: skip the run when
@@ -205,6 +206,7 @@ Set physically during the install (paddle + config taps) and confirmed in HA:
 | Switch mode | Single-pole | No traveler; single-location install. (HA's `Switch Mode` select may read `unavailable` — a stale entity from a prior firmware. The physical setting stands.) |
 | Smart Bulb Mode | Enabled | Keeps the switch from chasing its empty local relay — the paddle emits Matter commands (events / bindings) instead. Required for the binding to fire. `select.*_smart_bulb_mode` reads `Smart Bulb Enable`; the duplicate `_2` select is on the other endpoint and can be ignored. |
 | LED bar color | Blue | Bedroom indicator. The wall-control automation drives it via the light entity; the `LED Color` parameter is the fallback if the light-entity route ever stops holding. |
+| `LED Intensity(Off)` | `0` | The switch's load is always "off" (Smart Bulb Mode, empty load), so this is the bar's resting brightness. `0` keeps it dark whenever the fan is off, matching the automation. |
 
 ## Step 4 — Matter binding: paddle → light
 
@@ -251,8 +253,8 @@ duplicate event (see design decisions), then branches on `event_type`:
    (`off`/`low`/`medium`/`high`).
 2. If the fan is on, write `speed` to `input_select.*_ceiling_fan_last_speed`
    (skipped when off, so the memory survives an off/on cycle).
-3. Paint `light.*_ceiling_fan_switch_led`: hue by speed, brightness by time of
-   day (see Scale reference).
+3. Sync `light.*_ceiling_fan_switch_led`: fan off → `light.turn_off`; fan
+   running → hue by speed, brightness by time of day (see Scale reference).
 
 `mode: queued`, `max: 10` — repaints process in order, last wins.
 
@@ -262,20 +264,19 @@ Fan speed (VTM36 3-speed): `1–33% = low`, `34–66% = medium`, `67–100% = hi
 The automations use 33 / 66 / 100, with `< 45` / `< 78` band edges to absorb the
 Matter fan's percentage rounding.
 
-LED bar — hue carries the speed, brightness carries day vs. night (starting
-points, tune against the dark room):
+LED bar — **off entirely when the fan is off**; when the fan is running, hue
+carries the speed and brightness carries day vs. night:
 
-| Fan speed | Hue (`hs_color`) |
-|---|---|
-| off | 220 (blue) |
-| low | 175 (teal) |
-| medium | 220 (blue) |
-| high | 265 (violet) |
-
-| `input_boolean.avery_sleeping` | Fan off | Fan on |
+| Fan | Hue (`hs_color`) | Brightness (awake / sleeping) |
 |---|---|---|
-| off (awake) | 12% | 55% |
-| on (sleeping) | 5% | 20% |
+| off | — (bar off) | — |
+| low | 175 (teal) | 55% / 20% |
+| medium | 220 (blue) | 55% / 20% |
+| high | 265 (violet) | 55% / 20% |
+
+"Bar off when fan off" needs two things: the automation's fan-off branch does
+`light.turn_off`, **and** the switch's `LED Intensity(Off)` param is set to `0`
+so the native fallback (HA down, or notification cleared) is also dark.
 
 ## Replicating for another room
 
@@ -300,13 +301,14 @@ value the same.
 - Canopy: `Light Mode` = `Dimmer+Trailing`; `Fan Mode` = `Ceiling (3 Speed)`;
   `On level` (light endpoint) = `254`; power-on behaviour = `previous`
   (minimum dim / param 24 is not settable — see above)
-- Switch: Single-pole; Smart Bulb Mode enabled; LED colour Blue
+- Switch: Single-pole; Smart Bulb Mode enabled; LED colour Blue;
+  `LED Intensity(Off)` = `0`
 - Binding: switch Binding endpoint → canopy light endpoint, cluster **6 only**
   (no cluster 8 — paddle-hold dimming is left out until it works)
 - Automation: one `automation.<prefix>_ceiling_fan_wall_control`, category
   Climate, label `int_inovelli_fan_canopy`, `mode: queued` max 10
-- Speed bands 33 / 66 / 100 with `< 45` / `< 78` edges; LED hues 175 / 220 / 265;
-  brightness 12/55 awake, 5/20 sleeping
+- Speed bands 33 / 66 / 100 with `< 45` / `< 78` edges; LED off when the fan is
+  off; running hues 175 / 220 / 265 at 55% awake / 20% sleeping
 
 Each room gets its own helper (`input_select.<prefix>_ceiling_fan_last_speed`)
 and its own copy of the wall-control automation with the prefix and sleep
