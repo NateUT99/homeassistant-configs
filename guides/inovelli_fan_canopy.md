@@ -177,7 +177,13 @@ The VTM36 exposes its configuration parameters on a vendor cluster,
 `InovelliCluster 0x122FFC31`, endpoint 1. Attribute ID `0x122F00NN` maps to
 Inovelli parameter `NN` (hex) — e.g. `0x122F0018` = parameter 24. The Matter
 Server Web UI shows these values but cannot write them (unknown data types), so
-use `scripts/matter_write_attribute.py` from a machine on the LAN:
+use `scripts/matter_write_attribute.py` from a machine on the LAN.
+
+This needs the Matter Server add-on's **WebSocket port (5580) exposed** on the
+host network — it is not published by default. Enable it in the add-on's
+Network configuration, then point the script at the HA host IP (`--host`, or
+edit the default in the script). `read_attribute` returns `{'<path>': value}`;
+the script unwraps it.
 
 ```bash
 # Read parameter 24 first (note the value so you can restore it):

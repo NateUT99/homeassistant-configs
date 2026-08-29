@@ -177,6 +177,17 @@ def send_command(ws: WS, command: str, args: dict):
         return msg.get("result")
 
 
+def read_attr(ws: WS, node: int, path: str):
+    """read_attribute returns {'<path>': value}; unwrap to the bare value."""
+    res = send_command(ws, "read_attribute", {"node_id": node, "attribute_path": path})
+    if isinstance(res, dict):
+        if path in res:
+            return res[path]
+        if len(res) == 1:
+            return next(iter(res.values()))
+    return res
+
+
 def build_path(args) -> str:
     if args.path:
         return args.path
@@ -201,8 +212,9 @@ def main() -> int:
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    p.add_argument("--host", default="homeassistant.lan",
-                   help="Matter Server host (default: homeassistant.lan)")
+    p.add_argument("--host", default="10.10.0.4",
+                   help="Matter Server host / HA host IP (default: 10.10.0.4). "
+                        "Requires the Matter Server add-on's WebSocket port (5580) exposed.")
     p.add_argument("--url", help="Full ws:// URL, overrides --host")
     p.add_argument("--node", type=int, required=True, help="Matter node id")
     p.add_argument("--path", help="endpoint/cluster/attribute, all decimal")
@@ -226,8 +238,7 @@ def main() -> int:
         print(f"connected: {url}  schema={info.get('schema_version')} "
               f"sdk={info.get('sdk_version')} fabric={info.get('fabric_id')}")
 
-        before = send_command(ws, "read_attribute",
-                              {"node_id": args.node, "attribute_path": path})
+        before = read_attr(ws, args.node, path)
         print(f"node {args.node}  {path}  before: {before}")
 
         if args.read_only:
@@ -236,8 +247,7 @@ def main() -> int:
         value = parse_value(args.value)
         send_command(ws, "write_attribute",
                      {"node_id": args.node, "attribute_path": path, "value": value})
-        after = send_command(ws, "read_attribute",
-                             {"node_id": args.node, "attribute_path": path})
+        after = read_attr(ws, args.node, path)
         print(f"node {args.node}  {path}  after:  {after}  (wrote {value!r})")
 
         ok = after == value or (isinstance(value, bool) and after in (0, 1, True, False))
