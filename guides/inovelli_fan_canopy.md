@@ -46,16 +46,14 @@ Three mechanisms connect the wall switch to the fan/light:
     wall paddle  ──────► VTM30-SN switch (node 11)  │
     config button ─────► endpoint 2: Binding cluster│
                        │  event.*_button_up/down    │──► (HA sees paddle events too, unused)
-                       │  event.*_button_config     │──► automation: Ceiling Fan Speed Control
-                       │  light.*_switch_led        │◄── automation: Ceiling Fan Speed Indicator
+                       │  event.*_button_config     │──► automation: Ceiling Fan Wall Control
+                       │  light.*_switch_led        │◄── automation: Ceiling Fan Wall Control
                        └────────────────────────────┘
 
-  automation.averys_room_ceiling_fan_speed_control
-      event.*_button_config  ──►  fan.set_percentage / fan.turn_off
-
-  automation.averys_room_ceiling_fan_speed_indicator
-      fan.averys_room_ceiling_fan changes  ──►  input_select.averys_room_ceiling_fan_last_speed
-                                           └─►  light.averys_room_ceiling_fan_switch_led
+  automation.averys_room_ceiling_fan_wall_control   (one automation, three triggers)
+      event.*_button_config           ──►  fan.set_percentage / fan.turn_off
+      fan.averys_room_ceiling_fan     ──►  input_select.averys_room_ceiling_fan_last_speed
+      input_boolean.avery_sleeping    └─►  light.averys_room_ceiling_fan_switch_led
 ```
 
 **Key design decisions:**
@@ -95,26 +93,30 @@ Three mechanisms connect the wall switch to the fan/light:
   This was verified before relying on it. If a future firmware changes that, the
   fallback is the native `LED Intensity(Off)` select plus the `LED Color`
   parameter.
+- **One automation per room, not two.** `automation.<prefix>_ceiling_fan_wall_control`
+  carries all three non-binding links (config button, fan → LED/memory, sleep →
+  LED) on three triggers with a top-level `choose` on `condition: trigger id`.
+  This keeps every room a single reviewable unit and the behaviour identical
+  across rooms. `mode: queued` (max 10) so fan-change repaints process in order
+  and last wins.
 - **Speed is shown by colour, not a segment fill.** Over Matter the bar is one
   RGB light — no per-segment / level-meter control (unlike the Zigbee White
-  series). So the Speed Indicator automation encodes speed as hue (teal low /
-  blue medium/off / violet high) and uses brightness only for the day-vs-night
-  level: full when awake, dim when `input_boolean.avery_sleeping` is on. A true
-  segment fill would require putting the switch in Dimmer mode and driving an
-  internal level — not worth the mode change for a cosmetic gain.
+  series). So speed is encoded as hue (teal low / blue medium/off / violet high)
+  and brightness carries only the day-vs-night level: full when awake, dim when
+  the room's sleep boolean is on. A true segment fill would require putting the
+  switch in Dimmer mode and driving an internal level — not worth the mode
+  change for a cosmetic gain.
 - **The config button emits its event twice per physical tap** (~8 ms apart, on
-  this VTM30-SN firmware / matter.js server). `automation.averys_room_ceiling_fan_speed_control`
-  runs `mode: single` with `max_exceeded: silent` so the duplicate is dropped —
-  otherwise one tap would advance two speed steps. Genuine separate taps are
-  gated by the switch's button-press-delay window and land far enough apart to
-  each get their own run.
+  this VTM30-SN firmware / matter.js server). Because `mode: queued` can't drop
+  the duplicate, the config branch carries a guard condition: skip the run when
+  less than 0.3 s separates this config-event state from the previous one.
+  Genuine separate taps are gated by the switch's button-press-delay window and
+  land far enough apart to each get their own run.
 - **The Matter fan reports `state: on` before `percentage` populates.** On the
-  off → on edge, `fan.averys_room_ceiling_fan` briefly reads `percentage: 0` /
-  `preset_mode: null`. `automation.averys_room_ceiling_fan_speed_indicator`
-  therefore waits 1 s before reading speed, and runs `mode: restart` so only the
-  settled value is stored and painted. Speed bands are widened (`< 45` = low,
-  `< 78` = medium, else high) to absorb the fan's percentage rounding around
-  33 / 66 / 100.
+  off → on edge, the `fan` entity briefly reads `percentage: 0` /
+  `preset_mode: null`. The fan/sleep branch waits 1 s before resolving the speed
+  band. Bands are widened (`< 45` = low, `< 78` = medium, else high) to absorb
+  the fan's percentage rounding around 33 / 66 / 100.
 
 ## Prerequisites
 
@@ -202,7 +204,7 @@ Set physically during the install (paddle + config taps) and confirmed in HA:
 |---|---|---|
 | Switch mode | Single-pole | No traveler; single-location install. (HA's `Switch Mode` select may read `unavailable` — a stale entity from a prior firmware. The physical setting stands.) |
 | Smart Bulb Mode | Enabled | Keeps the switch from chasing its empty local relay — the paddle emits Matter commands (events / bindings) instead. Required for the binding to fire. `select.*_smart_bulb_mode` reads `Smart Bulb Enable`; the duplicate `_2` select is on the other endpoint and can be ignored. |
-| LED bar color | Blue | Bedroom indicator. The Speed Indicator automation drives it via the light entity; the `LED Color` parameter is the fallback if the light-entity route ever stops holding. |
+| LED bar color | Blue | Bedroom indicator. The wall-control automation drives it via the light entity; the `LED Color` parameter is the fallback if the light-entity route ever stops holding. |
 
 ## Step 4 — Matter binding: paddle → light
 
@@ -227,16 +229,14 @@ toggling it does not touch the light (which responds to the paddle via the
 binding, or to `light.averys_room_ceiling_fan_light` directly). Hide it from the
 dashboards so nobody taps it and concludes the install is broken.
 
-## Step 6 — HA automations
+## Step 6 — HA automation
 
-Two automations, both category Climate, both labelled `int_inovelli_fan_canopy`.
-YAML lives in the `ha/` mirror; behaviour summary:
+One automation per room — `automation.averys_room_ceiling_fan_wall_control`
+(category Climate, label `int_inovelli_fan_canopy`). YAML lives in the `ha/`
+mirror. Three triggers, top-level `choose` on which one fired:
 
-### Ceiling Fan Speed Control (`automation.averys_room_ceiling_fan_speed_control`)
-
-Trigger: any change on `event.averys_room_ceiling_fan_switch_button_config`
-(guarded against `unavailable`/`unknown`). Branches on the `event_type`
-attribute:
+**Config button** (`event.*_button_config`) — guarded to skip the ~8 ms
+duplicate event (see design decisions), then branches on `event_type`:
 
 | Config gesture | Fan state | Result |
 |---|---|---|
@@ -244,25 +244,17 @@ attribute:
 | Single tap (`multi_press_1`) | on | Advance low → medium → high → low |
 | Double tap (`multi_press_2`) | any | Off |
 
-`mode: single`, `max_exceeded: silent` — drops the duplicate event the config
-button emits per tap (see design decisions).
-
-### Ceiling Fan Speed Indicator (`automation.averys_room_ceiling_fan_speed_indicator`)
-
-Triggers: any change on `fan.averys_room_ceiling_fan`, or on
-`input_boolean.avery_sleeping` (so the bar re-dims at bedtime). Actions:
+**Fan change or sleep toggle** (`fan.*` / the room's sleep boolean):
 
 0. Wait 1 s for the Matter fan to settle (`percentage` lags `state`).
 1. Resolve the current speed band into a `speed` variable
    (`off`/`low`/`medium`/`high`).
-2. If the fan is on, write `speed` to
-   `input_select.averys_room_ceiling_fan_last_speed`. Skipped when off, so the
-   memory survives an off/on cycle.
-3. Paint `light.averys_room_ceiling_fan_switch_led`: hue by speed, brightness by
-   time of day (see Scale reference).
+2. If the fan is on, write `speed` to `input_select.*_ceiling_fan_last_speed`
+   (skipped when off, so the memory survives an off/on cycle).
+3. Paint `light.*_ceiling_fan_switch_led`: hue by speed, brightness by time of
+   day (see Scale reference).
 
-`mode: restart` — a rapid sequence of changes resets the settle wait and only
-the final value is stored and painted.
+`mode: queued`, `max: 10` — repaints process in order, last wins.
 
 ## Scale reference
 
@@ -311,14 +303,16 @@ value the same.
 - Switch: Single-pole; Smart Bulb Mode enabled; LED colour Blue
 - Binding: switch Binding endpoint → canopy light endpoint, cluster **6 only**
   (no cluster 8 — paddle-hold dimming is left out until it works)
-- Both automations: category Climate, label `int_inovelli_fan_canopy`,
-  `mode: single` (Speed Control) / `mode: restart` (Speed Indicator)
+- Automation: one `automation.<prefix>_ceiling_fan_wall_control`, category
+  Climate, label `int_inovelli_fan_canopy`, `mode: queued` max 10
 - Speed bands 33 / 66 / 100 with `< 45` / `< 78` edges; LED hues 175 / 220 / 265;
   brightness 12/55 awake, 5/20 sleeping
 
 Each room gets its own helper (`input_select.<prefix>_ceiling_fan_last_speed`)
-and its own copy of both automations with the prefix substituted. The
-`int_inovelli_fan_canopy` label and this guide are shared.
+and its own copy of the wall-control automation with the prefix and sleep
+boolean substituted. The `int_inovelli_fan_canopy` label and this guide are
+shared. (Rooms 3+: revisit whether to turn this into a blueprint — see the
+`standards/automations.md` gap note if so.)
 
 ## Security summary
 
@@ -333,9 +327,10 @@ and its own copy of both automations with the prefix substituted. The
 
 | Friendly name | Entity ID | Type |
 |---|---|---|
-| Avery's Room: Ceiling Fan Speed Control | `automation.averys_room_ceiling_fan_speed_control` | Automation (Climate, `int_inovelli_fan_canopy`) |
-| Avery's Room: Ceiling Fan Speed Indicator | `automation.averys_room_ceiling_fan_speed_indicator` | Automation (Climate, `int_inovelli_fan_canopy`) |
+| Avery's Room: Ceiling Fan Wall Control | `automation.averys_room_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy`) |
+| Master Bedroom: Ceiling Fan Wall Control | `automation.master_bedroom_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy`) |
 | Avery's Room Ceiling Fan Last Speed | `input_select.averys_room_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
+| Master Bedroom Ceiling Fan Last Speed | `input_select.master_bedroom_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
 | Ceiling Fan | `fan.averys_room_ceiling_fan` / `light.averys_room_ceiling_fan_light` | Matter device (VTM36) |
 | Ceiling Fan Switch | `event.averys_room_ceiling_fan_switch_button_config` et al. | Matter device (VTM30-SN) |
 
@@ -343,9 +338,9 @@ and its own copy of both automations with the prefix substituted. The
 
 | Repo path | Deployed location | Purpose |
 |---|---|---|
-| `ha/automations/automation.averys_room_ceiling_fan_speed_control.yaml` | HA automation registry | Mirror of the config-button automation |
-| `ha/automations/automation.averys_room_ceiling_fan_speed_indicator.yaml` | HA automation registry | Mirror of the LED / speed-memory automation |
-| `scripts/matter_write_attribute.py` | run from a LAN machine (Mac Mini) | Writes vendor-cluster attributes HA doesn't expose — used for the canopy minimum-dim parameter |
+| `ha/automations/automation.averys_room_ceiling_fan_wall_control.yaml` | HA automation registry | Mirror — Avery's Room wall-control automation |
+| `ha/automations/automation.master_bedroom_ceiling_fan_wall_control.yaml` | HA automation registry | Mirror — Master Bedroom wall-control automation |
+| `scripts/matter_write_attribute.py` | run from a LAN machine (Mac Mini) | Reads vendor-cluster attributes HA doesn't expose; `--dump-node` / `--dump-modes` for discovery |
 
 ## Related documents
 
@@ -368,11 +363,11 @@ not writable — see [Inovelli parameter clusters](#inovelli-parameter-clusters-
 ~10% is the working floor.
 
 **One config tap advances two speeds, or the resumed speed is wrong.** The
-config button emits its event twice per tap. `automation.averys_room_ceiling_fan_speed_control`
-must be `mode: single` (not `queued`) so the duplicate is dropped. Separately,
-if the resumed speed lands one step low, the Speed Indicator automation read
-`percentage` before the fan settled and stored a stale band — confirm its 1 s
-settle delay is present.
+config button emits its event twice per tap; the config branch's guard condition
+(`< 0.3 s since the previous config event → skip`) must be present to drop the
+duplicate. Separately, if the resumed speed lands one step low, the fan/sleep
+branch read `percentage` before the fan settled — confirm its 1 s settle delay
+is present.
 
 **Config-button double-tap doesn't turn the fan off.** Check the
 `event.*_button_config` entity's `event_type` attribute in Developer Tools while
