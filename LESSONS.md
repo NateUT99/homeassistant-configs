@@ -535,6 +535,24 @@ This looked exactly like a startup race condition during initial testing (tracke
 
 A `device_tracker` in a zone does not, by itself, increment that zone's occupant count — only `person` entities do (the zone's `persons` attribute is the authoritative source). A tracking-only presence source (e.g. a guest) needs its own `person` entity wrapping the `device_tracker`, even with no linked HA user account, or it's invisible to any automation/dashboard that reads zone counts. See `guides/presence_tracking.md`.
 
+### `is_state('calendar.<x>', 'on')` only detects *any* active event — useless for a calendar with back-to-back blocks
+
+A calendar entity's state is `on` whenever *some* event is currently active; it says nothing about *which* event. This is a trap for custody/shared-schedule calendars that are, by design, always covered by one block or another (e.g. `calendar.avery` alternates "Avery @ Nate's" and "Avery @ Cheryl's" all-day blocks with no gaps). A template like `{{ is_state('calendar.avery', 'on') }}` intended to mean "Avery is home today" is permanently stuck `on`, because there's always an event — it can never observe the one case (a gap) it was written to detect.
+
+Caught 2026-08-29: `binary_sensor.avery_home_today` used exactly this pattern and had been unconditionally `on` since at least 2026-08-26, silently blocking `automation.household_vacuum_start_cleaning`'s adults-only evening branch (gated on this sensor being `off`) every single night regardless of where Avery actually was.
+
+**Fix:** inspect the active event's summary/message, not just whether the calendar is occupied:
+
+```jinja2
+{# Wrong — always on for a calendar with continuous coverage #}
+{{ is_state('calendar.avery', 'on') }}
+
+{# Right — checks which event is active #}
+{{ is_state('calendar.avery', 'on') and state_attr('calendar.avery', 'message') == "Avery @ Nate's" }}
+```
+
+This is a template-helper gotcha, not an automation-YAML one — it will not surface as a load-time or trace error. The automation traces cleanly every time; the condition just never evaluates the way its name implies. If a presence-style binary sensor derived from a calendar has held one value for suspiciously long, check whether the calendar has continuous coverage before assuming the sensor is fine.
+
 ---
 
 ## Matter & HomeKit
