@@ -113,11 +113,14 @@ Three mechanisms connect the wall switch to the fan/light:
   less than 0.3 s separates this config-event state from the previous one.
   Genuine separate taps are gated by the switch's button-press-delay window and
   land far enough apart to each get their own run.
-- **The Matter fan reports `state: on` before `percentage` populates.** On the
-  off → on edge, the `fan` entity briefly reads `percentage: 0` /
-  `preset_mode: null`. The fan/sleep branch waits 1 s before resolving the speed
-  band. Bands are widened (`< 45` = low, `< 78` = medium, else high) to absorb
-  the fan's percentage rounding around 33 / 66 / 100.
+- **The Matter fan reports `state: on` before `percentage` populates**, so the
+  fan trigger is a `state` trigger on the **`percentage` attribute** — it only
+  fires once the value is real, no settle delay needed. (An earlier version used
+  a bare `state` trigger plus a 1 s delay; under `mode: queued` those delayed
+  runs piled up and every LED repaint read the *final* speed, so the bar stuck
+  on one colour. Triggering on the attribute drains the queue fast and each
+  repaint reads its own speed.) Bands are widened (`< 45` = low, `< 78` =
+  medium, else high) to absorb the fan's percentage rounding around 33 / 66 / 100.
 
 ## Prerequisites
 
@@ -246,9 +249,9 @@ duplicate event (see design decisions), then branches on `event_type`:
 | Single tap (`multi_press_1`) | on | Advance low → medium → high → low |
 | Double tap (`multi_press_2`) | any | Off |
 
-**Fan change or sleep toggle** (`fan.*` / the room's sleep boolean):
+**Fan `percentage` attribute change or sleep toggle** (triggering on the
+attribute means the value is already settled — no delay):
 
-0. Wait 1 s for the Matter fan to settle (`percentage` lags `state`).
 1. Resolve the current speed band into a `speed` variable
    (`off`/`low`/`medium`/`high`).
 2. If the fan is on, write `speed` to `input_select.*_ceiling_fan_last_speed`
@@ -368,8 +371,8 @@ not writable — see [Inovelli parameter clusters](#inovelli-parameter-clusters-
 config button emits its event twice per tap; the config branch's guard condition
 (`< 0.3 s since the previous config event → skip`) must be present to drop the
 duplicate. Separately, if the resumed speed lands one step low, the fan/sleep
-branch read `percentage` before the fan settled — confirm its 1 s settle delay
-is present.
+branch read `percentage` before the fan settled — confirm the fan trigger is on
+the `percentage` **attribute** (not a bare `state` trigger).
 
 **Config-button double-tap doesn't turn the fan off.** Check the
 `event.*_button_config` entity's `event_type` attribute in Developer Tools while

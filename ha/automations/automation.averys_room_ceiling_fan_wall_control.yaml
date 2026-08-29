@@ -4,9 +4,9 @@ description: >-
   Single wall-control automation for the Avery's Room ceiling fan (VTM36 canopy +
   VTM30-SN switch), covering the three links that don't run over the Matter
   binding. Config button: single tap resumes the last speed (fan off) or advances
-  low->medium->high->low (fan on); double tap turns it off; holds are unmapped (a
-  config hold opens the switch's local menu). Fan speed changes repaint the
-  switch LED bar (hue by speed, off when the fan is off) and store the running
+  low->medium->high->low (fan on); double tap turns it off; holds are unmapped.
+  Fan speed changes (the percentage attribute, so the value is settled) repaint
+  the switch LED bar (hue by speed, off when the fan is off) and store the running
   speed in input_select.averys_room_ceiling_fan_last_speed.
   input_boolean.avery_sleeping changes re-dim the bar. None of this works while HA
   is down; paddle -> light on/off is a Matter binding and is independent.
@@ -18,12 +18,10 @@ triggers:
       - unavailable
       - unknown
     id: config
-  - alias: Ceiling fan changed
+  - alias: Fan speed settled (percentage attribute changed)
     trigger: state
     entity_id: fan.averys_room_ceiling_fan
-    not_to:
-      - unavailable
-      - unknown
+    attribute: percentage
     id: fan
   - alias: Avery Sleeping changed
     trigger: state
@@ -96,10 +94,6 @@ actions:
               - sleep
             alias: Triggered by the fan or the sleep toggle
         sequence:
-          - alias: Let the Matter fan settle
-            note: "The VTM36 reports state 'on' before 'percentage' populates; reading on the off->on edge sees percentage 0."
-            delay:
-              seconds: 1
           - alias: Resolve the current speed band
             variables:
               speed: "{% if is_state('fan.averys_room_ceiling_fan', 'off') %}off{% else %}{% set p = state_attr('fan.averys_room_ceiling_fan', 'percentage') | int(0) %}{% if p < 45 %}low{% elif p < 78 %}medium{% else %}high{% endif %}{% endif %}"
