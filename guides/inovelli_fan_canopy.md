@@ -206,7 +206,7 @@ Set physically during the install (paddle + config taps) and confirmed in HA:
 | Switch mode | Single-pole | No traveler; single-location install. (HA's `Switch Mode` select may read `unavailable` — a stale entity from a prior firmware. The physical setting stands.) |
 | Smart Bulb Mode | Enabled | Keeps the switch from chasing its empty local relay — the paddle emits Matter commands (events / bindings) instead. Required for the binding to fire. `select.*_smart_bulb_mode` reads `Smart Bulb Enable`; the duplicate `_2` select is on the other endpoint and can be ignored. |
 | LED bar color | Blue | Bedroom indicator. The wall-control automation drives it via the light entity; the `LED Color` parameter is the fallback if the light-entity route ever stops holding. |
-| `LED Intensity(Off)` | `0` | The switch's load is always "off" (Smart Bulb Mode, empty load), so this is the bar's resting brightness. `0` keeps it dark whenever the fan is off, matching the automation. |
+| `LED Intensity(Off)` | `0` | The switch's load is always "off" (Smart Bulb Mode, empty load), so this is the bar's resting brightness. `0` keeps it dark whenever the fan is off, matching the automation. The firmware exposes this twice — the `LED Intensity(Off)` **select** *and* the `LED off intensity (Load Control)` **number**; set **both** to 0 or a residual glow remains. |
 
 ## Step 4 — Matter binding: paddle → light
 
@@ -302,7 +302,7 @@ value the same.
   `On level` (light endpoint) = `254`; power-on behaviour = `previous`
   (minimum dim / param 24 is not settable — see above)
 - Switch: Single-pole; Smart Bulb Mode enabled; LED colour Blue;
-  `LED Intensity(Off)` = `0`
+  `LED Intensity(Off)` = `0` (set **both** the select and the number entity)
 - Binding: switch Binding endpoint → canopy light endpoint, cluster **6 only**
   (no cluster 8 — paddle-hold dimming is left out until it works)
 - Automation: one `automation.<prefix>_ceiling_fan_wall_control`, category
