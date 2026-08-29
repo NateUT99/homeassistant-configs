@@ -1,0 +1,98 @@
+id: "1788023973185"
+alias: "Avery's Room: Ceiling Fan Speed Indicator"
+description: >-
+  Mirrors the Avery's Room ceiling fan's speed onto the Ceiling Fan Switch LED
+  bar (dim blue when off, brighter with speed) and records the running speed in
+  input_select.averys_room_ceiling_fan_last_speed so the config-button 'resume
+  last speed' tap works. Triggered on the fan entity so it reflects changes from
+  the wall button, the app, or anywhere else.
+triggers:
+  - alias: Ceiling fan changed
+    trigger: state
+    entity_id: fan.averys_room_ceiling_fan
+    not_to:
+      - unavailable
+      - unknown
+conditions: []
+actions:
+  - alias: Let the Matter fan settle
+    note: "The VTM36 reports state 'on' before 'percentage' populates - reading immediately on the off->on edge sees percentage 0. mode restart means only the final settled change paints."
+    delay:
+      seconds: 1
+  - alias: Record the running speed for resume-last-speed
+    if:
+      - alias: Fan is on
+        condition: state
+        entity_id: fan.averys_room_ceiling_fan
+        state: "on"
+    then:
+      - alias: Store speed name
+        action: input_select.select_option
+        target:
+          entity_id: input_select.averys_room_ceiling_fan_last_speed
+        data:
+          option: "{% set p = state_attr('fan.averys_room_ceiling_fan', 'percentage') | int(0) %}{{ 'low' if p < 45 else ('medium' if p < 78 else 'high') }}"
+  - alias: Paint the LED bar to match speed
+    choose:
+      - alias: Off - dim blue locator
+        conditions:
+          - alias: Fan off
+            condition: state
+            entity_id: fan.averys_room_ceiling_fan
+            state: "off"
+        sequence:
+          - alias: LED bar dim blue
+            action: light.turn_on
+            target:
+              entity_id: light.averys_room_ceiling_fan_switch_led
+            data:
+              brightness_pct: 10
+              hs_color:
+                - 240
+                - 100
+      - alias: Low
+        conditions:
+          - alias: Speed in low band
+            condition: numeric_state
+            entity_id: fan.averys_room_ceiling_fan
+            attribute: percentage
+            below: 45
+        sequence:
+          - alias: LED bar low
+            action: light.turn_on
+            target:
+              entity_id: light.averys_room_ceiling_fan_switch_led
+            data:
+              brightness_pct: 25
+              hs_color:
+                - 240
+                - 100
+      - alias: Medium
+        conditions:
+          - alias: Speed in medium band
+            condition: numeric_state
+            entity_id: fan.averys_room_ceiling_fan
+            attribute: percentage
+            below: 78
+        sequence:
+          - alias: LED bar medium
+            action: light.turn_on
+            target:
+              entity_id: light.averys_room_ceiling_fan_switch_led
+            data:
+              brightness_pct: 50
+              hs_color:
+                - 240
+                - 100
+    default:
+      - alias: LED bar high
+        action: light.turn_on
+        target:
+          entity_id: light.averys_room_ceiling_fan_switch_led
+        data:
+          brightness_pct: 90
+          hs_color:
+            - 240
+            - 100
+mode: restart
+category: 01M0BFFGNX30MJNVWS58ZKEH3H
