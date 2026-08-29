@@ -4,10 +4,15 @@
 
 ## Overview
 
-Avery's Room ceiling fan is driven by an Inovelli White Series **VTM36 LightFan
-canopy module** in the fan housing, paired with an Inovelli White Series
-**VTM30-SN on/off switch** at the wall. Both are Matter-over-Thread devices
-commissioned to Home Assistant.
+A ceiling fan is driven by an Inovelli White Series **VTM36 LightFan canopy
+module** in the fan housing, paired with an Inovelli White Series **VTM30-SN
+on/off switch** at the wall. Both are Matter-over-Thread devices commissioned to
+Home Assistant.
+
+This is a per-room pattern. Avery's Room is the first instance and is used as the
+worked example throughout; the Master Bedroom is the second. See
+[Replicating for another room](#replicating-for-another-room) for what stays
+identical and what changes per room.
 
 The ceiling is wired permanently hot — line and load are bonded in the wall box
 and the switch's Load terminal is empty. The wall switch therefore controls
@@ -90,6 +95,13 @@ Three mechanisms connect the wall switch to the fan/light:
   This was verified before relying on it. If a future firmware changes that, the
   fallback is the native `LED Intensity(Off)` select plus the `LED Color`
   parameter.
+- **Speed is shown by colour, not a segment fill.** Over Matter the bar is one
+  RGB light — no per-segment / level-meter control (unlike the Zigbee White
+  series). So the Speed Indicator automation encodes speed as hue (teal low /
+  blue medium/off / violet high) and uses brightness only for the day-vs-night
+  level: full when awake, dim when `input_boolean.avery_sleeping` is on. A true
+  segment fill would require putting the switch in Dimmer mode and driving an
+  internal level — not worth the mode change for a cosmetic gain.
 - **The config button emits its event twice per physical tap** (~8 ms apart, on
   this VTM30-SN firmware / matter.js server). `automation.averys_room_ceiling_fan_speed_control`
   runs `mode: single` with `max_exceeded: silent` so the duplicate is dropped —
@@ -213,32 +225,75 @@ button emits per tap (see design decisions).
 
 ### Ceiling Fan Speed Indicator (`automation.averys_room_ceiling_fan_speed_indicator`)
 
-Trigger: any change on `fan.averys_room_ceiling_fan` (so it reflects speed
-changes from the wall button, the app, or anywhere). Two actions:
+Triggers: any change on `fan.averys_room_ceiling_fan`, or on
+`input_boolean.avery_sleeping` (so the bar re-dims at bedtime). Actions:
 
 0. Wait 1 s for the Matter fan to settle (`percentage` lags `state`).
-1. If the fan is on, write the current speed band (`low`/`medium`/`high`) to
+1. Resolve the current speed band into a `speed` variable
+   (`off`/`low`/`medium`/`high`).
+2. If the fan is on, write `speed` to
    `input_select.averys_room_ceiling_fan_last_speed`. Skipped when off, so the
    memory survives an off/on cycle.
-2. Paint `light.averys_room_ceiling_fan_switch_led` blue at a brightness that
-   tracks speed.
+3. Paint `light.averys_room_ceiling_fan_switch_led`: hue by speed, brightness by
+   time of day (see Scale reference).
 
-`mode: restart` — a rapid sequence of speed changes resets the settle wait and
-only the final value is stored and painted.
+`mode: restart` — a rapid sequence of changes resets the settle wait and only
+the final value is stored and painted.
 
 ## Scale reference
 
 Fan speed (VTM36 3-speed): `1–33% = low`, `34–66% = medium`, `67–100% = high`.
-The automations use 33 / 66 / 100.
+The automations use 33 / 66 / 100, with `< 45` / `< 78` band edges to absorb the
+Matter fan's percentage rounding.
 
-LED bar brightness by fan state (starting points, tune against the dark room):
+LED bar — hue carries the speed, brightness carries day vs. night (starting
+points, tune against the dark room):
 
-| Fan | LED bar |
+| Fan speed | Hue (`hs_color`) |
 |---|---|
-| off | 10%, blue |
-| low | 25%, blue |
-| medium | 50%, blue |
-| high | 90%, blue |
+| off | 220 (blue) |
+| low | 175 (teal) |
+| medium | 220 (blue) |
+| high | 265 (violet) |
+
+| `input_boolean.avery_sleeping` | Fan off | Fan on |
+|---|---|---|
+| off (awake) | 12% | 55% |
+| on (sleeping) | 5% | 20% |
+
+## Replicating for another room
+
+This setup is a per-room pattern. Avery's Room is the first instance; the Master
+Bedroom is the second, and both are meant to be configured identically. To add a
+room, work through Steps 1–6 with these substitutions and keep every parameter
+value the same.
+
+**Per-room substitutions:**
+
+| Placeholder | Avery's Room | Master Bedroom |
+|---|---|---|
+| Area / entity prefix | `averys_room` | `master_bedroom` |
+| Canopy device name | `Ceiling Fan` | `Ceiling Fan` |
+| Switch device name | `Ceiling Fan Switch` | `Ceiling Fan Switch` |
+| Canopy Matter node | 10 | *(read from device page)* |
+| Switch Matter node | 11 | *(read from device page)* |
+| Sleep boolean (Indicator trigger + night dim) | `input_boolean.avery_sleeping` | *(the room's sleep toggle, or omit the night-dim trigger if none)* |
+
+**Identical across every room — do not vary:**
+
+- Canopy: `Light Mode` = `Dimmer+Trailing`; `Fan Mode` = `Ceiling (3 Speed)`;
+  `On level` (light endpoint) = `254`; power-on behaviour = `previous`
+- Switch: Single-pole; Smart Bulb Mode enabled; LED colour Blue
+- Binding: switch Binding endpoint → canopy light endpoint, cluster **6 only**
+  (no cluster 8 — paddle-hold dimming is left out until it works)
+- Both automations: category Climate, label `int_inovelli_fan_canopy`,
+  `mode: single` (Speed Control) / `mode: restart` (Speed Indicator)
+- Speed bands 33 / 66 / 100 with `< 45` / `< 78` edges; LED hues 175 / 220 / 265;
+  brightness 12/55 awake, 5/20 sleeping
+
+Each room gets its own helper (`input_select.<prefix>_ceiling_fan_last_speed`)
+and its own copy of both automations with the prefix substituted. The
+`int_inovelli_fan_canopy` label and this guide are shared.
 
 ## Security summary
 
