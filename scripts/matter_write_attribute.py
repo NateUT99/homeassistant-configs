@@ -193,6 +193,47 @@ def read_attr(ws: WS, node: int, path: str):
     return res
 
 
+MODE_SELECT_CLUSTER = 80  # 0x0050
+
+def dump_mode_selects(ws: WS, node: int) -> None:
+    """Print every Mode Select cluster on the node: endpoint, current mode, options.
+
+    Inovelli exposes each VTM36 config parameter (min dim, max dim, dimming
+    speed, ...) as its own Mode Select cluster. HA only turns a few into
+    entities; this shows them all so you can pick the endpoint + mode number to
+    write.
+    """
+    node_data = send_command(ws, "get_node", {"node_id": node})
+    attrs = node_data.get("attributes", node_data) if isinstance(node_data, dict) else {}
+    by_ep: dict[str, dict[str, object]] = {}
+    for key, value in attrs.items():
+        parts = key.split("/")
+        if len(parts) != 3 or int(parts[1]) != MODE_SELECT_CLUSTER:
+            continue
+        ep, attr = parts[0], int(parts[2])
+        slot = by_ep.setdefault(ep, {})
+        if attr == 0:
+            slot["supported"] = value      # SupportedModes
+        elif attr == 1:
+            slot["description"] = value     # Description
+        elif attr == 3:
+            slot["current"] = value         # CurrentMode
+
+    if not by_ep:
+        print("No Mode Select clusters found on this node.")
+        return
+    for ep in sorted(by_ep, key=int):
+        slot = by_ep[ep]
+        print(f"\nendpoint {ep}  ({slot.get('description', '?')})  "
+              f"CurrentMode = {slot.get('current')}")
+        for opt in slot.get("supported", []) or []:
+            # ModeOptionStruct: {label, mode, semanticTags} or numeric-keyed
+            label = opt.get("label", opt.get("0")) if isinstance(opt, dict) else opt
+            mode = opt.get("mode", opt.get("1")) if isinstance(opt, dict) else "?"
+            print(f"    mode {mode:<4} = {label}")
+    print(f"\nTo set one:  --path <endpoint>/80/3 --value <mode number>")
+
+
 def build_path(args) -> str:
     if args.path:
         return args.path
@@ -228,14 +269,15 @@ def main() -> int:
     p.add_argument("--attribute", type=int, help="Attribute id, decimal")
     p.add_argument("--value", help="Value to write (int, 0x hex, or true/false)")
     p.add_argument("--read-only", action="store_true", help="Read and print, do not write")
+    p.add_argument("--dump-modes", action="store_true",
+                   help="List every Mode Select cluster on the node and exit")
     p.add_argument("--timeout", type=float, default=10.0)
     args = p.parse_args()
 
-    if not args.read_only and args.value is None:
-        sys.exit("Give --value to write, or --read-only to just read.")
+    if not (args.read_only or args.dump_modes) and args.value is None:
+        sys.exit("Give --value to write, --read-only to read, or --dump-modes.")
 
     url = args.url or f"ws://{args.host}:5580/ws"
-    path = build_path(args)
 
     ws = WS(url, timeout=args.timeout)
     try:
@@ -243,6 +285,11 @@ def main() -> int:
         print(f"connected: {url}  schema={info.get('schema_version')} "
               f"sdk={info.get('sdk_version')} fabric={info.get('fabric_id')}")
 
+        if args.dump_modes:
+            dump_mode_selects(ws, args.node)
+            return 0
+
+        path = build_path(args)
         before = read_attr(ws, args.node, path)
         print(f"node {args.node}  {path}  before: {before}")
 
