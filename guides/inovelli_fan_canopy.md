@@ -173,24 +173,26 @@ Set on the canopy device page:
 
 ### Inovelli parameter clusters — what's reachable
 
-Parameters Inovelli has moved to standard Matter **Mode Select** clusters appear
-in HA as `select` entities and are set normally — that covers `Light Mode`
-(param 27), `Fan Mode`, and `Power-on behavior`.
+Only two config parameters are set as standard Matter **Mode Select** clusters
+(`0x0050`), and HA surfaces both as `select` entities: `Light Mode` (endpoint 1)
+and `Fan Mode` (endpoint 2). `Power-on behavior` comes from `StartUpOnOff`.
+Everything else the KB lists as "Mode Select configuration options" is not
+actually a Mode Select cluster on this firmware.
 
-The rest still live only on Inovelli's **legacy vendor cluster**
-`InovelliCluster 0x122FFC31`, endpoint 1, where attribute `0x122F00NN` maps to
-parameter `NN` (hex) — e.g. `0x122F0018` = parameter 24 (minimum dim).
-`scripts/matter_write_attribute.py` can **read** these over the Matter Server
-WebSocket API (port 5580 — expose it in the add-on's Network config first), but
-**writes fail**: `write_attribute` needs a cluster schema to encode the value
-and matter.js has none for this vendor cluster (`error_code 8, attribute …
-unknown`). Inovelli considers the custom cluster deprecated for exactly this
-lack of support.
+**Minimum dim (param 24) cannot be set.** All three reachable surfaces were
+tried against the VTM36 (matter-server 1.4.0 / matter.js 0.17.9):
 
-Net effect: **minimum dim stays at the ~10% floor.** Revisit if a firmware or HA
-release exposes param 24 as a Mode Select / entity. The script is kept for
-reading vendor-cluster values and for any parameter Inovelli later makes
-writable through a standard cluster.
+| Surface | Path | Result |
+|---|---|---|
+| Legacy vendor cluster | `1/305134641/0x122F0018` | `write_attribute` → `error_code 8, attribute … unknown` — matter.js has no schema to encode it |
+| Standard Level Control `MinLevel` | `1/8/2` | write accepted but silently ignored — read-back stays `1`; `MinLevel` is read-only per spec |
+| Mode Select | `1/80/*`, `2/80/*` | only Light Mode / Fan Mode; no minimum-dim option |
+
+`scripts/matter_write_attribute.py` can still **read** the vendor cluster
+(`--dump-node`), and it's kept for node discovery and any parameter Inovelli
+later exposes through a standard writable cluster. For now the light rides the
+LED driver's **~10% hardware floor** — `Dimmer+Trailing` already lowered it from
+~20%. Same on every canopy; not a per-room step.
 
 ## Step 3 — Switch (VTM30-SN) parameters
 
