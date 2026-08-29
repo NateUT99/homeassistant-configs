@@ -299,8 +299,8 @@ value the same.
 | Area / entity prefix | `averys_room` | `master_bedroom` |
 | Canopy device name | `Ceiling Fan` | `Ceiling Fan` |
 | Switch device name | `Ceiling Fan Switch` | `Ceiling Fan Switch` |
-| Canopy Matter node | 10 | *(read from device page)* |
-| Switch Matter node | 11 | *(read from device page)* |
+| Canopy Matter node | 10 | 12 |
+| Switch Matter node | 11 | 13 |
 | Sleep boolean (Indicator trigger + night dim) | `input_boolean.avery_sleeping` | `input_boolean.everyone_sleeping` (no MBR-specific toggle; household sleep ≈ parents in bed) |
 
 **Identical across every room — do not vary:**
