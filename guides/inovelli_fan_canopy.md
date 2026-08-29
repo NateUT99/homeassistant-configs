@@ -169,36 +169,28 @@ Set on the canopy device page:
 | Fan Mode | `select.averys_room_ceiling_fan_fan_mode` | `Ceiling (3 Speed)` | Matches the fan; gives HA a 3-speed `fan` entity (low 33 / medium 66 / high 100). |
 | On level (endpoint 1, light) | `number.averys_room_ceiling_fan_on_level_1` | `254` | `255` is the "restore previous brightness" sentinel — an On command (paddle *or* HA) returns to the last level. `254` forces every On to 100%. The binding sends a plain On, so this is what makes paddle-up give full brightness. Trade-off: all On commands go to 100%; an explicit brightness from HA is not remembered as the on-level. |
 | Power-on behavior (both endpoints) | `select.averys_room_ceiling_fan_power_on_behavior_1` / `_2` | `previous` (default) | After a breaker/mains restore, fan and light return to their prior state. The breaker is now the only disconnect for the ceiling, so this is worth setting deliberately. |
-| Minimum dim level (Inovelli param 24) | *no HA entity* — write via `scripts/matter_write_attribute.py` | `33` | Raises the software floor so the light stops cutting out at the driver's ~10% hardware minimum. HA's Matter integration doesn't expose Inovelli's parameter cluster, so this is written directly on the Matter Server. See [Setting Inovelli parameters](#setting-inovelli-parameters) below. |
+| Minimum dim level (Inovelli param 24) | *not settable on current firmware* | — | The light rides the LED driver's ~10% hardware floor. Param 24 would raise the software floor but there's no way to write it (below). |
 
-### Setting Inovelli parameters
+### Inovelli parameter clusters — what's reachable
 
-The VTM36 exposes its configuration parameters on a vendor cluster,
-`InovelliCluster 0x122FFC31`, endpoint 1. Attribute ID `0x122F00NN` maps to
-Inovelli parameter `NN` (hex) — e.g. `0x122F0018` = parameter 24. The Matter
-Server Web UI shows these values but cannot write them (unknown data types), so
-use `scripts/matter_write_attribute.py` from a machine on the LAN.
+Parameters Inovelli has moved to standard Matter **Mode Select** clusters appear
+in HA as `select` entities and are set normally — that covers `Light Mode`
+(param 27), `Fan Mode`, and `Power-on behavior`.
 
-This needs the Matter Server add-on's **WebSocket port (5580) exposed** on the
-host network — it is not published by default. Enable it in the add-on's
-Network configuration, then point the script at the HA host IP (`--host`, or
-edit the default in the script). `read_attribute` returns `{'<path>': value}`;
-the script unwraps it.
+The rest still live only on Inovelli's **legacy vendor cluster**
+`InovelliCluster 0x122FFC31`, endpoint 1, where attribute `0x122F00NN` maps to
+parameter `NN` (hex) — e.g. `0x122F0018` = parameter 24 (minimum dim).
+`scripts/matter_write_attribute.py` can **read** these over the Matter Server
+WebSocket API (port 5580 — expose it in the add-on's Network config first), but
+**writes fail**: `write_attribute` needs a cluster schema to encode the value
+and matter.js has none for this vendor cluster (`error_code 8, attribute …
+unknown`). Inovelli considers the custom cluster deprecated for exactly this
+lack of support.
 
-```bash
-# Read parameter 24 first (note the value so you can restore it):
-python3 scripts/matter_write_attribute.py --node <canopy-node> \
-    --cluster 305134641 --attribute 305070104 --read-only
-
-# Write parameter 24 = 33:
-python3 scripts/matter_write_attribute.py --node <canopy-node> --endpoint 1 \
-    --cluster 305134641 --attribute 305070104 --value 33
-```
-
-The default `254` is "no software floor". `33` is ~13% on the 0–254 level
-scale, one notch above the ~10% dropout. Re-test dimming from the HA slider
-afterward; if it still flickers low, step up to `40`, and if the light won't
-turn on at all, write `254` back.
+Net effect: **minimum dim stays at the ~10% floor.** Revisit if a firmware or HA
+release exposes param 24 as a Mode Select / entity. The script is kept for
+reading vendor-cluster values and for any parameter Inovelli later makes
+writable through a standard cluster.
 
 ## Step 3 — Switch (VTM30-SN) parameters
 
@@ -312,9 +304,8 @@ value the same.
 **Identical across every room — do not vary:**
 
 - Canopy: `Light Mode` = `Dimmer+Trailing`; `Fan Mode` = `Ceiling (3 Speed)`;
-  `On level` (light endpoint) = `254`; power-on behaviour = `previous`;
-  Inovelli param 24 (min dim) = `33` via `scripts/matter_write_attribute.py`
-  (`--cluster 305134641 --attribute 305070104`)
+  `On level` (light endpoint) = `254`; power-on behaviour = `previous`
+  (minimum dim / param 24 is not settable — see above)
 - Switch: Single-pole; Smart Bulb Mode enabled; LED colour Blue
 - Binding: switch Binding endpoint → canopy light endpoint, cluster **6 only**
   (no cluster 8 — paddle-hold dimming is left out until it works)
@@ -370,10 +361,9 @@ sentinel). Set it to `254`. The change takes effect on the next off → on cycle
 
 **Light still cuts out at low brightness.** Expected below ~10% — the integrated
 LED driver's minimum conduction level. `Dimmer+Trailing` already lowered it from
-~20%. The remaining lever is Inovelli parameter 24 (minimum dim), written via
-`scripts/matter_write_attribute.py` — see [Setting Inovelli parameters](#setting-inovelli-parameters).
-Community reports on how much it helps are mixed; it depends on the specific
-driver.
+~20%. Inovelli parameter 24 (minimum dim) would raise the floor further but is
+not writable — see [Inovelli parameter clusters](#inovelli-parameter-clusters--whats-reachable).
+~10% is the working floor.
 
 **One config tap advances two speeds, or the resumed speed is wrong.** The
 config button emits its event twice per tap. `automation.averys_room_ceiling_fan_speed_control`

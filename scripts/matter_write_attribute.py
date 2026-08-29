@@ -5,13 +5,18 @@ WebSocket API. Standard library only - no pip installs.
 
 WHAT IT IS FOR
     Home Assistant's Matter integration only surfaces the device attributes it
-    has explicit support for. Vendor-specific configuration - notably Inovelli's
-    parameter cluster on the VTM36 / VTM30-SN (cluster 0x122FFC31, attribute
-    0x122F00NN == Inovelli parameter NN) - has no HA entity, so it must be
-    written directly on the Matter Server.
+    has explicit support for. This talks to the Matter Server WebSocket API
+    directly to read (and, for standard clusters, write) attributes HA doesn't
+    expose.
 
-    See guides/inovelli_fan_canopy.md ("identical across every room") for the
-    exact attribute/value each canopy needs.
+    NOTE: writes to a vendor/custom cluster that matter.js has no schema for are
+    REJECTED ("error_code 8, attribute ... unknown") - it can't encode the
+    value. Inovelli's legacy parameter cluster (0x122FFC31 on the VTM36 /
+    VTM30-SN, attribute 0x122F00NN == parameter NN) is read-only in practice for
+    this reason; only reads work. Settable Inovelli params now live on standard
+    Mode Select clusters and show up as HA `select` entities instead.
+
+    See guides/inovelli_fan_canopy.md for details.
 
 WHO CALLS IT
     An operator, by hand, from a machine on the LAN (typically the Mac Mini).
@@ -35,13 +40,13 @@ EXAMPLES
     python3 scripts/matter_write_attribute.py --node 10 \
         --cluster 305134641 --attribute 305070104 --read-only
 
-    # Set it to 33 (~13% floor):
+    # Write a standard-cluster attribute (works where matter.js has a schema):
     python3 scripts/matter_write_attribute.py --node 10 --endpoint 1 \
-        --cluster 305134641 --attribute 305070104 --value 33
+        --cluster <cluster> --attribute <attr> --value 33
 
     # Full path form instead of --endpoint/--cluster/--attribute:
     python3 scripts/matter_write_attribute.py --node 10 \
-        --path 1/305134641/305070104 --value 33
+        --path 1/<cluster>/<attr> --value 33
 """
 
 import argparse
