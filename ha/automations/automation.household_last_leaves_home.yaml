@@ -2,9 +2,9 @@ id: "1787007774696"
 alias: "Household: Last Leaves Home"
 description: >-
   Closes the garage door, locks the front door, sets the living room
-  thermostat to Away preset, and turns off lights labeled "No One Is Home"
-  when the last person leaves home. Fires when zone.home drops to 0 and holds
-  for 2 minutes 30 seconds.
+  thermostat to Away preset, and turns off lights, fans, and switches labeled
+  "No One Is Home" when the last person leaves home. Fires when zone.home drops
+  to 0 and holds for 2 minutes 30 seconds.
 triggers:
   - trigger: state
     entity_id: zone.home
@@ -33,6 +33,16 @@ actions:
     data: {}
   - alias: Turn off lights labeled "No One Is Home"
     action: light.turn_off
+    target:
+      label_id: no_one_home
+    data: {}
+  - alias: Turn off fans labeled "No One Is Home"
+    action: fan.turn_off
+    target:
+      label_id: no_one_home
+    data: {}
+  - alias: Turn off switches labeled "No One Is Home"
+    action: switch.turn_off
     target:
       label_id: no_one_home
     data: {}
