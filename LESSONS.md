@@ -565,6 +565,21 @@ Multiple Matter/HomeKit bridges fighting over the same devices produces unreliab
 
 The default Xiaomi integration exposes pedestal fans as switches, not fans, which breaks HomeKit fan controls (oscillate, speed). The `hass-xiaomi-miot` HACS integration exposes proper `fan` entities. When a device's primary entity type seems wrong, check HACS for a better integration before working around it.
 
+### HA's Matter light integration drops `transition` on `light.turn_off`
+
+`matter` light `async_turn_off()` sends a bare `OnOff.Off()` command with no transition parameter — the `transition:` value passed to `light.turn_off` is silently ignored (HA `dev` as of Aug 2026; tracked open as [core #160066](https://github.com/home-assistant/core/issues/160066)). The device then applies whatever its own configured off-ramp is. `light.turn_on` *does* pass transition through, as `MoveToLevelWithOnOff` with `transitionTime` in 0.1 s units.
+
+This is a different failure mode from the Z2M one under "Zigbee & Lighting Groups" (Z2M *does* send the transition but reports `OFF` optimistically). Same fix, though: fade-to-off must be a `light.turn_on` ramp to minimum, a fixed `delay`, then a plain `light.turn_off` to cut the residual. `automation.averys_room_sleep_mode` uses this pattern for the Inovelli canopy light.
+
+### Inovelli White Series LightFan canopy (Matter/Thread) — transition behavior
+
+Live-tested 2026-08-30 on `light.averys_room_ceiling_fan_light` (model "White Series LightFan Module", fw 1.0.1r1):
+
+- **`light.turn_on` + `transition` is honored precisely.** A commanded 20 s fade produced a clean linear ramp (13→78→142→207→255) hitting the target at exactly 20 s, with intermediate `brightness` reports about every 5 s.
+- **A new command overrides an in-progress fade.** `brightness_pct: 100, transition: 0` sent mid-fade snapped straight to 255.
+- **The configured 13% min-level does NOT clamp a hub `MoveToLevel`.** Ramping toward `brightness_pct: 1` went all the way to `brightness` 3 and the light stayed `on` — it did not auto-off at the bottom and did not floor at 13%. An explicit `light.turn_off` is still required to actually turn it off.
+- **`light.turn_off` + `transition` gives no slow fade** — off in ~2–3 s (the module's own `off_transition_time`, 2.5 s), not the requested duration. This is the HA-side limitation above, not the device.
+
 ---
 
 ## Shell Command Integration
