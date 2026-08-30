@@ -1,9 +1,12 @@
 id: '1787016226204'
 alias: 'Avery''s Room: Sleep Mode'
-description: 'Reacts to the Avery Sleeping toggle. Turning it on turns on the dresser
-  lamp (used as a nightlight) and turns off the Living Room Soundbar subwoofer; turning
-  it off turns the dresser lamp back off, turns the subwoofer back on, pauses the HomePod,
-  and turns on the Living Room Apple TV.'
+description: >-
+  Reacts to the Avery Sleeping toggle. Turning it on turns on the dresser lamp
+  (nightlight), fades the ceiling fan light off over ~30s, and turns off the
+  Living Room Soundbar subwoofer. Turning it off turns the dresser lamp back off,
+  turns the subwoofer back on, pauses the HomePod, turns on the Living Room Apple
+  TV, and fades the ceiling fan light up to 100% over 120s — snapping straight to
+  100% if Avery's door opens mid-fade.
 triggers:
 - trigger: state
   entity_id: input_boolean.avery_sleeping
@@ -34,7 +37,32 @@ actions:
       target:
         entity_id: switch.living_room_soundbar_subwoofer_enabled
       alias: Turn off Living Room Soundbar subwoofer
-    alias: Avery Sleeping turned ON — turn on dresser lamp and turn off Living Room Soundbar subwoofer
+    - if:
+      - condition: state
+        entity_id: light.averys_room_ceiling_fan_light
+        state: 'on'
+      then:
+      - action: light.turn_on
+        target:
+          entity_id: light.averys_room_ceiling_fan_light
+        data:
+          brightness_pct: 1
+          transition: 30
+        alias: Ramp ceiling fan light down to minimum over 30s
+        note: >-
+          light.turn_off ignores transition on this Matter device (HA sends a
+          bare Off; the module then uses its own ~2.5s off ramp). Ramp down with
+          turn_on, then cut at the bottom.
+      - delay:
+          seconds: 30
+        alias: Wait out the 30s ramp-down
+      - action: light.turn_off
+        target:
+          entity_id: light.averys_room_ceiling_fan_light
+        alias: Cut the ceiling fan light off at the bottom of the ramp
+      alias: Fade the ceiling fan light off, only if it is currently on
+    alias: Avery Sleeping turned ON — dresser lamp on, subwoofer off, ceiling fan light
+      fades off
   - conditions:
     - condition: trigger
       id:
@@ -57,6 +85,41 @@ actions:
       target:
         entity_id: media_player.living_room_appletv
       alias: Turn on Living Room Apple TV
-    alias: Avery Sleeping turned OFF — turn off dresser lamp, turn on Living Room Soundbar subwoofer, pause HomePod, and turn on Living Room Apple TV
-mode: single
+    - action: light.turn_on
+      target:
+        entity_id: light.averys_room_ceiling_fan_light
+      data:
+        brightness_pct: 100
+        transition: 120
+      alias: Start 120s fade of the ceiling fan light up to 100%
+      note: >-
+        Runs last in this branch so the quick actions above aren't held up by the
+        wait below.
+    - wait_for_trigger:
+      - trigger: state
+        entity_id: binary_sensor.averys_room_door
+        from: 'off'
+        to: 'on'
+        alias: Avery's door opens
+      timeout:
+        seconds: 120
+      continue_on_timeout: true
+      alias: Wait for Avery's door to open during the fade-up
+      note: >-
+        Fires only on a genuine closed->open change, so a door already open when
+        sleep mode ends does not cut the fade short.
+    - if:
+      - '{{ wait.completed }}'
+      then:
+      - action: light.turn_on
+        target:
+          entity_id: light.averys_room_ceiling_fan_light
+        data:
+          brightness_pct: 100
+          transition: 0
+        alias: Snap ceiling fan light straight to 100%
+      alias: If the door opened mid-fade, jump to full brightness now
+    alias: Avery Sleeping turned OFF — dresser lamp off, subwoofer on, HomePod paused,
+      Apple TV on, ceiling fan light fades up (snaps to 100% if the door opens)
+mode: restart
 category: 01M08R77W9A83G7DDA33MT8R09
