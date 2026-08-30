@@ -21,11 +21,12 @@ Breeze 40837 RF receiver, bonding line/load, swapping the switch) is documented
 separately in the "Harbor Breeze to Inovelli" work order; this guide covers only
 the Home Assistant side once both devices are paired.
 
-Three mechanisms connect the wall switch to the fan/light:
+Four mechanisms connect the wall switch to the fan/light:
 
 | Function | Mechanism | Works with HA down? |
 |---|---|---|
-| Paddle up/down → light on/off | Matter binding (switch → canopy) | Yes |
+| Paddle tap up/down → light on/off | Matter binding, cluster 6 (switch → canopy) | Yes |
+| Paddle hold up/down → light dim up/down | Matter binding, cluster 8 (switch → canopy) | Yes |
 | Config button taps → fan speed | HA automation | No |
 | Fan speed → switch LED bar + speed memory | HA automation | No |
 
@@ -39,8 +40,8 @@ Three mechanisms connect the wall switch to the fan/light:
                        │   endpoint 2: fan    ──────┼──► fan.averys_room_ceiling_fan
                        └────────▲─────────▲─────────┘
                                 │         │
-              Matter binding    │         │   Matter (HA-issued commands)
-       (On/Off, cluster 6)      │         │
+          Matter bindings       │         │   Matter (HA-issued commands)
+   (On/Off cl. 6, Level cl. 8)  │         │
                                 │         │
                        ┌────────┴─────────┴─────────┐
     wall paddle  ──────► VTM30-SN switch (node 11)  │
@@ -65,14 +66,16 @@ Three mechanisms connect the wall switch to the fan/light:
   client clusters don't map onto), so the config button must go through an HA
   automation. This split is deliberate: the everyday interaction (light on/off)
   is resilient; the fan, used less often, accepts the HA dependency.
-- **Binding is On/Off only, not Level Control.** A cluster 8 (Level Control)
-  binding for paddle press-and-hold dimming was tested on both stock `1.0.0` and
-  beta `1.0.1r1` canopy firmware and does not work — the paddle hold does not
-  emit a bound Move/Step command. It was removed rather than left in place,
-  because a non-functional binding could start behaving unpredictably after a
-  firmware update. Dimming is HA-only for now (app, dashboards, automations).
-  Revisit a Level Control binding when Inovelli and the matter.js server support
-  paddle-hold dimming and it can be bench-verified.
+- **Two bindings: On/Off (cluster 6) and Level Control (cluster 8).** Cluster 6
+  is paddle tap → light on/off; cluster 8 is paddle press-and-hold → smooth dim
+  up/down, release stops the ramp. Cluster 8 only emits Move/Step commands if the
+  switch has a ramp to play out — with `Dimming Speed (Simulated)` at `Instant`
+  (the factory default) a paddle hold sends nothing and the binding looks dead.
+  An earlier build tested cluster 8 on canopy `1.0.0` and `1.0.1r1`, saw nothing,
+  and ran cluster 6 only; the real cause was the `Instant` simulated speed. Set
+  `select.<prefix>_ceiling_fan_switch_dimming_speed_simulated` to a duration
+  (`3s` tested smooth on Avery's Room; `2s` ramped slightly fast) and hold-to-dim
+  works over the binding with HA down.
 - **Binding fires on physical presses only.** A command sent to the switch from
   HA or Apple Home does not propagate over the binding to the light, and bound
   state does not report back — the switch LED bar will not track light changes
@@ -228,6 +231,7 @@ Set physically during the install (paddle + config taps) and confirmed in HA:
 | Switch mode | Single-pole | No traveler; single-location install. Set physically; the live readout in HA is `select.*_switch_type` = `Single-Pole` (the older `Switch Mode` select reads `unavailable`). |
 | Smart Bulb Mode | Enabled | Keeps the load permanently powered so the paddle emits Matter commands (events / bindings) instead of chasing the empty local relay. Required for the binding to fire. Live entity: `select.*_ceiling_fan_switch_smart_bulb_mode` = `Smart Bulb Enable`. |
 | Control of switch load | `Remote & paddle control` (default — **do not** change) | On the White series the outgoing On/Off binding is triggered by the paddle's local load action. Setting this to `Remote control only` (to stop the phantom `switch.*_ceiling_fan_switch_load_control` toggle) also kills the paddle → light binding, even with Smart Bulb Mode on. Leave it at `Remote & paddle control` and accept the internal-relay toggle as the cost of a working binding. See `LESSONS.md`; Inovelli may decouple these in a later firmware. Live entity: `select.*_ceiling_fan_switch_control_of_switch_load`. |
+| Dimming Speed (Simulated) | `3s` | End-to-end ramp time for a paddle press-and-hold over the cluster 8 (Level Control) binding — see [Step 4](#step-4--matter-binding-paddle--light). At `Instant` (default) a paddle hold emits no Move/Step and cluster 8 dimming does nothing. `3s` tested smooth on Avery's Room; `2s` was slightly fast. Live entity: `select.*_ceiling_fan_switch_dimming_speed_simulated`. |
 | LED bar color | Blue | Bedroom indicator. The wall-control automation drives it via the light entity; the `LED Color` parameter is the fallback if the light-entity route ever stops holding. |
 | `LED Intensity(On)` **and** `LED Intensity(Off)` | `0` | The switch keeps an internal on/off state (toggled by the paddle even in Smart Bulb Mode — this is what fires the binding, see the `Control of switch load` row) and lights the bar to `LED Intensity(On)` / `(Off)` for it. Zeroing both means that native indicator never shows, so the bar reflects *only* the fan-speed automation. Each is exposed **twice** — a **select** and a `… (Load Control)` **number** — set all four to `0` per switch. The two `(Load Control)` numbers occasionally re-read their factory defaults (`33` / `1`) after a Matter Server restart; re-zero them if the bar starts glowing faintly at rest. The automation drives the bar through a separate RGB-notification channel that still works with the intensities at 0. |
 
@@ -239,18 +243,25 @@ Done in the Matter Server Web UI.
    identifier on the device page (`deviceid_…-00000000000000NN-…`, hex).
 2. Find the endpoint exposing the **Binding** cluster — **endpoint 2** on the
    VTM30-SN (endpoint 1 is the dead Load relay).
-3. Add a binding target: node **10** (Ceiling Fan canopy), **endpoint 1** (the
-   Dimmable Light — *not* endpoint 2, the fan), cluster **6 (On/Off)**.
+3. Add two binding targets, both to node **10** (Ceiling Fan canopy),
+   **endpoint 1** (the Dimmable Light — *not* endpoint 2, the fan):
+   - cluster **6 (On/Off)** — paddle tap → light on/off
+   - cluster **8 (Level Control)** — paddle press-and-hold → dim up/down
 4. If the UI has a separate ACL step, add an entry on node 10 granting node 11
    operate access. Most binding UIs write the ACL automatically.
-5. Test at the wall: tap up → light on (full, per the On level parameter), tap
-   down → light off. Confirm it still works with Home Assistant stopped.
+5. Set `Dimming Speed (Simulated)` = `3s` ([Step 3](#step-3--switch-vtm30-sn-parameters)).
+   Without a non-`Instant` value the cluster 8 bind emits nothing on a paddle
+   hold and the dim half of this step will look broken.
+6. Test at the wall: tap up → light on (full, per the On level parameter), tap
+   down → light off; hold up → smooth ramp up, hold down → ramp down, release →
+   stop mid-ramp. Confirm all of it still works with Home Assistant stopped.
 
 > **Rebuild the binding after a canopy firmware update.** VTM36 `1.0.1r1`
 > reworked the binding implementation; per Inovelli's advisory, bindings created
 > before the update may silently stop firing. If the paddle goes dead after an
-> update: delete the binding on **both** the switch and the canopy, power-cycle
-> both (breaker off ~10 s), then recreate it with the steps above. See
+> update: delete **both** bindings (cluster 6 and 8) on the switch and the
+> canopy, power-cycle both (breaker off ~10 s), then recreate them with the steps
+> above. See
 > [Updating the canopy firmware](#updating-the-canopy-firmware-101r1).
 
 ## Step 5 — Hide the phantom load switch
@@ -343,8 +354,9 @@ If the canopy ships on `1.0.0`, update it to `1.0.1r1` and run the cleanup in
   `Remote & paddle control` (changing it breaks the binding — see Step 3); LED
   colour Blue; `LED Intensity(On)` **and** `(Off)` = `0` (all four entities —
   select + number, each ×2) so only the fan automation lights the bar
-- Binding: switch Binding endpoint → canopy light endpoint, cluster **6 only**
-  (no cluster 8 — paddle-hold dimming is left out until it works)
+- Binding: switch Binding endpoint → canopy light endpoint 1, clusters **6
+  (On/Off) and 8 (Level Control)**; `Dimming Speed (Simulated)` = `3s` so the
+  cluster 8 hold-to-dim actually emits
 - Automation: one `automation.<prefix>_ceiling_fan_wall_control`, category
   Climate, label `int_inovelli_fan_canopy`, `mode: queued` max 10
 - Speed bands 33 / 66 / 100 with `< 45` / `< 78` edges; LED off when the fan is
@@ -400,8 +412,8 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 | Control | Detail |
 |---|---|
 | Fabric membership | Both devices are commissioned to the Home Assistant Matter fabric and the Apple Home fabric (multi-admin). The binding is written by HA as a fabric admin. |
-| Binding scope | The paddle → light binding is a single On/Off relationship, node 11 → node 10 endpoint 1. The corresponding ACL entry on the canopy grants the switch operate (not administer) access. |
-| Blast radius if the switch were compromised | It can turn the fan light on and off. It has no Load, no access to other devices, and no administer rights on the canopy. |
+| Binding scope | The paddle → light binding is node 11 → node 10 endpoint 1, On/Off (cluster 6) and Level Control (cluster 8) only. The corresponding ACL entry on the canopy grants the switch operate (not administer) access. |
+| Blast radius if the switch were compromised | It can turn the fan light on and off and change its brightness. It has no Load, no access to other devices, and no administer rights on the canopy. |
 | Local control | The switch's config-button programming menu is reachable by anyone physically present (config-button hold). This is Inovelli firmware behaviour and is not exposed over the network. |
 
 ## Related HA config
@@ -439,6 +451,13 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 **Paddle turns the light on at the last brightness instead of full.**
 `number.averys_room_ceiling_fan_on_level_1` is at `255` (the restore-previous
 sentinel). Set it to `254`. The change takes effect on the next off → on cycle.
+
+**Paddle tap works but paddle hold doesn't dim.** Two things must both be in
+place: a cluster 8 (Level Control) binding on the switch → canopy light endpoint
+1 ([Step 4](#step-4--matter-binding-paddle--light)), and `Dimming Speed
+(Simulated)` (`select.*_ceiling_fan_switch_dimming_speed_simulated`) set to a
+duration, not `Instant`. At `Instant` the switch plays out no ramp on a hold and
+sends no bound Move/Step. `3s` is the tested value.
 
 **Light cuts out at low brightness.** Raise `Minimum dim level`
 (`select.<prefix>_ceiling_fan_ligh_min_level`) one step at a time until the low

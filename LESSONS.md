@@ -589,6 +589,10 @@ On the White series switch, the paddle → light Matter binding fires *because* 
 - The phantom internal-relay toggle is therefore load-bearing, not just noise — leave `Control of switch load` at `Remote & paddle control` and hide the `switch.*_load_control` entity instead.
 - Inovelli community thread confirming the coupling: <https://community.inovelli.com/t/white-dimmer-binding-and-local-control/21471>. They may decouple binding from local control in a later firmware — worth re-testing after a switch update.
 
+### Inovelli White Series VTM30-SN — cluster 8 (Level Control) binding needs a non-Instant simulated dimming speed
+
+A cluster 8 binding (switch Binding endpoint → canopy light endpoint 1) for paddle press-and-hold dimming emits nothing while `Dimming Speed (Simulated)` (`select.*_ceiling_fan_switch_dimming_speed_simulated`) is at `Instant` — the switch has no ramp to play out, so the hold sends no Move/Step. Set it to a duration (`3s` tested smooth on Avery's Room, `2s` slightly fast) and hold-to-dim works over the binding with HA down; releasing the paddle stops the ramp. An earlier build tested cluster 8 on canopy fw `1.0.0` and `1.0.1r1`, saw nothing, concluded it "doesn't work", and ran cluster 6 only — the real cause was the `Instant` simulated speed, not the firmware. Guide `guides/inovelli_fan_canopy.md` Steps 3–4 now cover both clusters.
+
 ---
 
 ## Shell Command Integration
