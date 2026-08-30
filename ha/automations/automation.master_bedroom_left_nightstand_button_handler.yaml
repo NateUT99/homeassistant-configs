@@ -1,9 +1,9 @@
 id: "1787368091654"
 alias: "Master Bedroom: Left Nightstand Button Handler"
 description: >-
-  Handles button presses on the left nightstand remote: short press toggles
-  the nightstand lamp, long press turns it off. Double press is reserved for
-  future use.
+  Handles button presses on the left nightstand remote: short press toggles the
+  nightstand lamp, double press toggles the ceiling fan light, long press turns
+  both lights off.
 triggers:
   - alias: Short press
     trigger: event
@@ -40,14 +40,26 @@ actions:
             action: light.toggle
             target:
               entity_id: light.master_bedroom_left_nightstand_lamp
-      - alias: "Long press: turn off lamp"
+      - alias: "Double press: toggle ceiling fan light"
+        conditions:
+          - alias: Trigger was double press
+            condition: trigger
+            id: ["double_press"]
+        sequence:
+          - alias: Toggle ceiling fan light
+            action: light.toggle
+            target:
+              entity_id: light.master_bedroom_ceiling_fan_light
+      - alias: "Long press: turn off both lights"
         conditions:
           - alias: Trigger was long press
             condition: trigger
             id: ["long_press"]
         sequence:
-          - alias: Turn off left nightstand lamp
+          - alias: Turn off nightstand lamp and ceiling fan light
             action: light.turn_off
             target:
-              entity_id: light.master_bedroom_left_nightstand_lamp
+              entity_id:
+                - light.master_bedroom_left_nightstand_lamp
+                - light.master_bedroom_ceiling_fan_light
 mode: single
