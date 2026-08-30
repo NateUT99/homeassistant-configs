@@ -66,13 +66,13 @@ Three mechanisms connect the wall switch to the fan/light:
   automation. This split is deliberate: the everyday interaction (light on/off)
   is resilient; the fan, used less often, accepts the HA dependency.
 - **Binding is On/Off only, not Level Control.** A cluster 8 (Level Control)
-  binding for paddle press-and-hold dimming was tested and does not currently
-  work — the paddle hold does not emit a bound Move/Step command. It was removed
-  rather than left in place, because a non-functional binding could start
-  behaving unpredictably after a firmware update. Dimming is HA-only for now
-  (app, dashboards, automations). Revisit a Level Control binding when Inovelli
-  and the matter.js server support paddle-hold dimming and it can be
-  bench-verified.
+  binding for paddle press-and-hold dimming was tested on both stock `1.0.0` and
+  beta `1.0.1r1` canopy firmware and does not work — the paddle hold does not
+  emit a bound Move/Step command. It was removed rather than left in place,
+  because a non-functional binding could start behaving unpredictably after a
+  firmware update. Dimming is HA-only for now (app, dashboards, automations).
+  Revisit a Level Control binding when Inovelli and the matter.js server support
+  paddle-hold dimming and it can be bench-verified.
 - **Binding fires on physical presses only.** A command sent to the switch from
   HA or Apple Home does not propagate over the binding to the light, and bound
   state does not report back — the switch LED bar will not track light changes
@@ -131,7 +131,12 @@ Three mechanisms connect the wall switch to the fan/light:
 - Both devices commissioned to the Home Assistant Matter fabric (not only Apple
   Home) — binding must be written by an admin on the fabric, and Apple Home
   exposes no binding interface
-- VTM36 firmware and VTM30-SN firmware updated to latest
+- VTM36 canopy firmware **1.0.1r1 or later**, VTM30-SN switch firmware updated to
+  latest. The entity IDs and the minimum-dim control in this guide assume VTM36
+  `1.0.1r1`, which moves the per-endpoint config parameters onto standard Matter
+  Mode Select endpoints (EP20–EP26). Updating an already-paired canopy to
+  `1.0.1r1` leaves stale entities and can break the binding — see
+  [Updating the canopy firmware](#updating-the-canopy-firmware-101r1).
 - The physical install complete: ceiling permanently hot, switch Load terminal
   empty, pull chains set to fan HIGH / light ON
 
@@ -161,44 +166,49 @@ Entities renamed to purpose-based IDs (see `standards/naming.md`):
 > helper created from an "Avery's Room …" name needs its ID corrected to
 > `averys_room_*` afterward to match the naming standard.
 
-The ~30 remaining VTM30-SN config selects (duplicated `_2` variants included —
-an artifact of the firmware update creating a second endpoint's worth of
-entities) are left with their long default IDs; nothing references them.
+**Duplicate config entities.** A firmware change that moves config parameters
+onto spec-compliant Mode Select endpoints leaves the pre-change entities behind
+as dead duplicates: they read `unavailable` (`restored`) after an HA restart and
+a fresh entity (often `…_2`-suffixed) carries the live value. On the VTM36 this
+is firmware `1.0.1r1`; on the VTM30-SN it dates to the June 2026 matter.js
+rebuild. For the canopy, delete the dead originals and rename the survivors back
+to the clean slug — `select.<prefix>_ceiling_fan_light_mode` and `_fan_mode` —
+per [Updating the canopy firmware](#updating-the-canopy-firmware-101r1). The
+VTM30-SN's own dead duplicates are left as-is (the live copies keep their `_2`
+suffix); nothing references them.
 
 ## Step 2 — Canopy module (VTM36) parameters
 
-Set on the canopy device page:
+Set on the canopy device page (entity IDs assume the `1.0.1r1` layout and the
+post-update rename — see [Step 1](#step-1--device-and-entity-naming)):
 
 | Setting | Entity | Value | Why |
 |---|---|---|---|
-| Light Mode | `select.averys_room_ceiling_fan_light_mode` | `Dimmer+Trailing` | The integrated LED driver cuts out at ~20% on leading edge; trailing (reverse phase) drops that to ~10%. There is no minimum-dim-level entity over Matter — ~10% is the practical floor. |
+| Light Mode | `select.averys_room_ceiling_fan_light_mode` | `Trailing Dimmer` | The integrated LED driver cuts out at ~20% on leading edge; trailing (reverse phase) drops that to ~10%, and Minimum dim level (below) then pins a clean floor. (`1.0.1r1` renamed the option from `Dimmer+Trailing` to `Trailing Dimmer`.) |
 | Fan Mode | `select.averys_room_ceiling_fan_fan_mode` | `Ceiling (3 Speed)` | Matches the fan; gives HA a 3-speed `fan` entity (low 33 / medium 66 / high 100). |
+| Minimum dim level | `select.averys_room_ceiling_fan_ligh_min_level` | `13%` | New on `1.0.1r1` as a real Mode Select — the parameter that was unreachable on `1.0.0`. `13%` is the lowest step that holds without the driver dropping the light; `1%` on the HA brightness slider now maps to this floor instead of cutting out. (Friendly name reads "Ligh Min Level" — an Inovelli typo.) |
+| Maximum dim level | `select.averys_room_ceiling_fan_ligh_max_level` | `100%` (default) | Leave at 100 unless a fixture needs a cap. |
 | On level (endpoint 1, light) | `number.averys_room_ceiling_fan_on_level_1` | `254` | `255` is the "restore previous brightness" sentinel — an On command (paddle *or* HA) returns to the last level. `254` forces every On to 100%. The binding sends a plain On, so this is what makes paddle-up give full brightness. Trade-off: all On commands go to 100%; an explicit brightness from HA is not remembered as the on-level. |
 | Power-on behavior (both endpoints) | `select.averys_room_ceiling_fan_power_on_behavior_1` / `_2` | `previous` (default) | After a breaker/mains restore, fan and light return to their prior state. The breaker is now the only disconnect for the ceiling, so this is worth setting deliberately. |
-| Minimum dim level (Inovelli param 24) | *not settable on current firmware* | — | The light rides the LED driver's ~10% hardware floor. Param 24 would raise the software floor but there's no way to write it (below). |
+| Fan Min / Max Speed | `select.averys_room_ceiling_fan_fan_min_speed` / `_fan_max_speed` | `Low` / `High` (default) | Full range; leave unless a fan needs a narrower band. |
 
-### Inovelli parameter clusters — what's reachable
+Leave `Fan Breeze Mode` (`Off`), `FanQuick Start` (`Quick Start Disable`), and
+the transition-time numbers at their defaults.
 
-Only two config parameters are set as standard Matter **Mode Select** clusters
-(`0x0050`), and HA surfaces both as `select` entities: `Light Mode` (endpoint 1)
-and `Fan Mode` (endpoint 2). `Power-on behavior` comes from `StartUpOnOff`.
-Everything else the KB lists as "Mode Select configuration options" is not
-actually a Mode Select cluster on this firmware.
+### Config parameters over Matter
 
-**Minimum dim (param 24) cannot be set.** All three reachable surfaces were
-tried against the VTM36 (matter-server 1.4.0 / matter.js 0.17.9):
+On `1.0.1r1` the canopy exposes its Inovelli parameters as standard Mode Select
+endpoints (EP20–EP26), which HA surfaces as the `select` entities above — Light
+Mode, Fan Mode, min/max dim level, min/max fan speed, breeze mode, quick start.
+`Power-on behavior` comes from `StartUpOnOff`; `On level` from Level Control
+`OnLevel`.
 
-| Surface | Path | Result |
-|---|---|---|
-| Legacy vendor cluster | `1/305134641/0x122F0018` | `write_attribute` → `error_code 8, attribute … unknown` — matter.js has no schema to encode it |
-| Standard Level Control `MinLevel` | `1/8/2` | write accepted but silently ignored — read-back stays `1`; `MinLevel` is read-only per spec |
-| Mode Select | `1/80/*`, `2/80/*` | only Light Mode / Fan Mode; no minimum-dim option |
-
-`scripts/matter_write_attribute.py` can still **read** the vendor cluster
-(`--dump-node`), and it's kept for node discovery and any parameter Inovelli
-later exposes through a standard writable cluster. For now the light rides the
-LED driver's **~10% hardware floor** — `Dimmer+Trailing` already lowered it from
-~20%. Same on every canopy; not a per-room step.
+On stock `1.0.0` only Light Mode and Fan Mode were Mode Select clusters and the
+minimum-dim parameter was unreachable — the legacy Inovelli vendor cluster
+(`0x122FFC31`) has no matter.js schema, so a write fails with `error_code 8`, and
+Level Control `MinLevel` is read-only per spec. `1.0.1r1` is what makes the dim
+floor settable. `scripts/matter_write_attribute.py` (`--dump-node`) still reads
+the vendor cluster for discovery.
 
 ## Step 3 — Switch (VTM30-SN) parameters
 
@@ -206,10 +216,10 @@ Set physically during the install (paddle + config taps) and confirmed in HA:
 
 | Setting | Value | Why |
 |---|---|---|
-| Switch mode | Single-pole | No traveler; single-location install. (HA's `Switch Mode` select may read `unavailable` — a stale entity from a prior firmware. The physical setting stands.) |
-| Smart Bulb Mode | Enabled | Keeps the switch from chasing its empty local relay — the paddle emits Matter commands (events / bindings) instead. Required for the binding to fire. `select.*_smart_bulb_mode` reads `Smart Bulb Enable`; the duplicate `_2` select is on the other endpoint and can be ignored. |
+| Switch mode | Single-pole | No traveler; single-location install. Set physically; the live readout in HA is `select.*_switch_type` = `Single-Pole` (the older `Switch Mode` select reads `unavailable`). |
+| Smart Bulb Mode | Enabled | Keeps the switch from chasing its empty local relay — the paddle emits Matter commands (events / bindings) instead. Required for the binding to fire. The live entity is `select.*_smart_bulb_mode_2` = `Smart Bulb Enable`; the un-suffixed `_smart_bulb_mode` is the dead pre-June-2026 duplicate. Same pattern for `LED Color` (`_2` live). |
 | LED bar color | Blue | Bedroom indicator. The wall-control automation drives it via the light entity; the `LED Color` parameter is the fallback if the light-entity route ever stops holding. |
-| `LED Intensity(On)` **and** `LED Intensity(Off)` | `0` | The switch keeps an internal on/off state (toggled by the paddle even in Smart Bulb Mode) and lights the bar to `LED Intensity(On)` / `(Off)` for it. Zeroing both means that native indicator never shows, so the bar reflects *only* the fan-speed automation and the paddle (light on/off) doesn't touch it. Each is exposed **twice** — a **select** and a `… (Load Control)` **number** — set all four to `0` per switch. The automation drives the bar through a separate RGB-notification channel that still works with the intensities at 0. |
+| `LED Intensity(On)` **and** `LED Intensity(Off)` | `0` | The switch keeps an internal on/off state (toggled by the paddle even in Smart Bulb Mode) and lights the bar to `LED Intensity(On)` / `(Off)` for it. Zeroing both means that native indicator never shows, so the bar reflects *only* the fan-speed automation and the paddle (light on/off) doesn't touch it. Each is exposed **twice** — a **select** and a `… (Load Control)` **number** — set all four to `0` per switch. The two `(Load Control)` numbers occasionally re-read their factory defaults (`33` / `1`) after a Matter Server restart; re-zero them if the bar starts glowing faintly at rest. The automation drives the bar through a separate RGB-notification channel that still works with the intensities at 0. |
 
 ## Step 4 — Matter binding: paddle → light
 
@@ -225,6 +235,13 @@ Done in the Matter Server Web UI.
    operate access. Most binding UIs write the ACL automatically.
 5. Test at the wall: tap up → light on (full, per the On level parameter), tap
    down → light off. Confirm it still works with Home Assistant stopped.
+
+> **Rebuild the binding after a canopy firmware update.** VTM36 `1.0.1r1`
+> reworked the binding implementation; per Inovelli's advisory, bindings created
+> before the update may silently stop firing. If the paddle goes dead after an
+> update: delete the binding on **both** the switch and the canopy, power-cycle
+> both (breaker off ~10 s), then recreate it with the steps above. See
+> [Updating the canopy firmware](#updating-the-canopy-firmware-101r1).
 
 ## Step 5 — Hide the phantom load switch
 
@@ -299,11 +316,15 @@ value the same.
 | Switch Matter node | 11 | 13 |
 | Sleep boolean (Indicator trigger + night dim) | `input_boolean.avery_sleeping` | `input_boolean.everyone_sleeping` (no MBR-specific toggle; household sleep ≈ parents in bed) |
 
+If the canopy ships on `1.0.0`, update it to `1.0.1r1` and run the cleanup in
+[Updating the canopy firmware](#updating-the-canopy-firmware-101r1) before Step 2
+— otherwise the entity IDs and the minimum-dim control below will not match.
+
 **Identical across every room — do not vary:**
 
-- Canopy: `Light Mode` = `Dimmer+Trailing`; `Fan Mode` = `Ceiling (3 Speed)`;
-  `On level` (light endpoint) = `254`; power-on behaviour = `previous`
-  (minimum dim / param 24 is not settable — see above)
+- Canopy: `Light Mode` = `Trailing Dimmer`; `Fan Mode` = `Ceiling (3 Speed)`;
+  `Minimum dim level` = `13%`; `On level` (light endpoint) = `254`; power-on
+  behaviour = `previous`
 - Switch: Single-pole; Smart Bulb Mode enabled; LED colour Blue;
   `LED Intensity(On)` **and** `(Off)` = `0` (all four entities — select + number,
   each ×2) so only the fan automation lights the bar
@@ -319,6 +340,41 @@ and its own copy of the wall-control automation with the prefix and sleep
 boolean substituted. The `int_inovelli_fan_canopy` label and this guide are
 shared. (Rooms 3+: revisit whether to turn this into a blueprint — see the
 `standards/automations.md` gap note if so.)
+
+## Updating the canopy firmware (1.0.1r1)
+
+`1.0.1r1` moves the canopy's config parameters onto spec-compliant Mode Select
+endpoints and reworks the Matter binding stack. Updating an already-paired canopy
+leaves dead entities behind and can stop the paddle binding from firing. Per
+Inovelli's update advisory (linked under [Related documents](#related-documents)),
+a factory reset and re-commission are **not** required — this cleanup is enough.
+
+1. **Back up** — Settings → System → Backups.
+2. **Flash** the canopy (`update.<prefix>_ceiling_fan_firmware`); wait for it to
+   reboot and settle (~2–3 min — the uptime / reboot-count sensors confirm).
+3. **Restart HA** so the superseded entities re-register as `unavailable`
+   ("Not provided").
+4. **Delete the dead entities.** Settings → Devices & Services → Entities,
+   filter Integration = Matter, search `ceiling_fan`. Remove the greyed-out
+   rows — on the canopy that is the un-suffixed
+   `select.<prefix>_ceiling_fan_light_mode`, `…_fan_mode`, and
+   `number.<prefix>_ceiling_fan_on_off_transition_time_1`. If a row refuses to
+   delete it is not actually dead — leave it. (Alt method if the filter view is
+   unclear: stop the Matter Server from its add-on Web UI, restart HA, then
+   delete the still-unavailable entities from the canopy's device page.)
+5. **Rename the survivors** back to the clean slug —
+   `select.<prefix>_ceiling_fan_light_mode_2` → `…_light_mode`,
+   `…_fan_mode_2` → `…_fan_mode`. Nothing in the automations references these, so
+   the rename is safe.
+6. **Rebuild the binding** — test the paddle first; if it does not switch the
+   light cleanly, follow the rebuild callout in
+   [Step 4](#step-4--matter-binding-paddle--light).
+7. **Re-apply the parameters that reset.** The flash reverts Light Mode, Fan
+   Mode, On level, Minimum dim level, and power-on behavior to defaults — set
+   them again per [Step 2](#step-2--canopy-module-vtm36-parameters).
+8. **Verify**: paddle on/off, config-button speed cycle, LED bar colour by speed
+   and dark when the fan is off, and the light riding down to `1%` on the HA
+   slider without cutting out.
 
 ## Security summary
 
@@ -355,6 +411,9 @@ shared. (Rooms 3+: revisit whether to turn this into a blueprint — see the
 - `LESSONS.md` — Matter binding and VTM3x parameter gotchas
 - "Harbor Breeze to Inovelli" work order (Claude artifact) — the physical
   retrofit and wiring
+- Inovelli, "VTM35-SN & VTM36 Firmware 1.0.1r1+ Update Advisory" —
+  <https://help.inovelli.com/en/articles/15454545-vtm35-sn-vtm36-firmware-1-0-1r1-update-advisory>
+  (stale-entity cleanup and binding-rebuild steps)
 
 ## Troubleshooting
 
@@ -362,11 +421,13 @@ shared. (Rooms 3+: revisit whether to turn this into a blueprint — see the
 `number.averys_room_ceiling_fan_on_level_1` is at `255` (the restore-previous
 sentinel). Set it to `254`. The change takes effect on the next off → on cycle.
 
-**Light still cuts out at low brightness.** Expected below ~10% — the integrated
-LED driver's minimum conduction level. `Dimmer+Trailing` already lowered it from
-~20%. Inovelli parameter 24 (minimum dim) would raise the floor further but is
-not writable — see [Inovelli parameter clusters](#inovelli-parameter-clusters--whats-reachable).
-~10% is the working floor.
+**Light cuts out at low brightness.** Raise `Minimum dim level`
+(`select.<prefix>_ceiling_fan_ligh_min_level`) one step at a time until the low
+end holds — `13%` is the tested value with `Trailing Dimmer`. HA slider `1%` maps
+to whatever this floor is set to. On stock `1.0.0` firmware this parameter is not
+settable and the light rides the LED driver's ~10% hardware floor; `1.0.1r1` is
+what exposes it (see
+[Config parameters over Matter](#config-parameters-over-matter)).
 
 **One config tap advances two speeds, or the resumed speed is wrong.** The
 config button emits its event twice per tap; the config branch's guard condition
@@ -386,10 +447,19 @@ the LED back to its default indicator after `light.turn_on`, switch the Speed
 Indicator automation from `light.averys_room_ceiling_fan_switch_led` to the
 native `LED Intensity(Off)` select (blue is already the parameter colour).
 
-**Paddle does nothing after a firmware update.** Confirm Smart Bulb Mode is still
-enabled on the switch — a firmware update can reset it, and without it the paddle
-drives the (empty) local relay instead of emitting the bound command. Re-check
-the binding still lists node 10 / endpoint 1 / cluster 6.
+**Paddle does nothing after a firmware update.** Two causes. (1) Smart Bulb Mode
+reset — confirm `select.*_smart_bulb_mode_2` still reads `Smart Bulb Enable`;
+without it the paddle drives the (empty) local relay instead of emitting the
+bound command. (2) The binding stopped firing — VTM36 `1.0.1r1` reworked the
+binding stack and pre-update bindings can go silent. Delete the binding on both
+the switch and the canopy, power-cycle both, and recreate it per
+[Step 4](#step-4--matter-binding-paddle--light). Re-check it lists the canopy
+node / endpoint 1 / cluster 6.
+
+**Duplicate or greyed-out config entities after a canopy firmware update.**
+Expected on `1.0.1r1` — the config parameters moved to new Mode Select endpoints
+and the originals are now dead. Clean them up per
+[Updating the canopy firmware](#updating-the-canopy-firmware-101r1).
 
 **Entities read `unavailable` after a Thread blip.** Power-cycle the canopy once
 (breaker off ~2s, on) and wait a minute. Do not cycle repeatedly — the repeated
