@@ -191,9 +191,10 @@ post-update rename — see [Step 1](#step-1--device-and-entity-naming)):
 | On level (endpoint 1, light) | `number.averys_room_ceiling_fan_on_level_1` | `254` | `255` is the "restore previous brightness" sentinel — an On command (paddle *or* HA) returns to the last level. `254` forces every On to 100%. The binding sends a plain On, so this is what makes paddle-up give full brightness. Trade-off: all On commands go to 100%; an explicit brightness from HA is not remembered as the on-level. |
 | Power-on behavior (both endpoints) | `select.averys_room_ceiling_fan_power_on_behavior_1` / `_2` | `previous` (default) | After a breaker/mains restore, fan and light return to their prior state. The breaker is now the only disconnect for the ceiling, so this is worth setting deliberately. |
 | Fan Min / Max Speed | `select.averys_room_ceiling_fan_fan_min_speed` / `_fan_max_speed` | `Low` / `High` (default) | Full range; leave unless a fan needs a narrower band. |
+| Light transition time (On / Off / On-Off) | `number.averys_room_ceiling_fan_on_transition_time`, `…_off_transition_time`, `…_on_off_transition_time` | `0.5` s (all three) | Factory default is 2.5 s — a slow mood-fade that feels wrong on a bedroom light next to the ~0.4–1 s fade of the Hue / IKEA bulbs elsewhere. Set all three: HA on/off and some command paths read the combined `On/Off` value; the split `On` / `Off` pair covers the rest and takes precedence when set. Because `light.turn_off` drops any `transition:` HA passes (see `LESSONS.md`), these numbers are what actually control the fade. |
 
-Leave `Fan Breeze Mode` (`Off`), `FanQuick Start` (`Quick Start Disable`), and
-the transition-time numbers at their defaults.
+Leave `Fan Breeze Mode` (`Off`) and `FanQuick Start` (`Quick Start Disable`) at
+their defaults.
 
 ### Config parameters over Matter
 
@@ -324,7 +325,8 @@ If the canopy ships on `1.0.0`, update it to `1.0.1r1` and run the cleanup in
 
 - Canopy: `Light Mode` = `Trailing Dimmer`; `Fan Mode` = `Ceiling (3 Speed)`;
   `Minimum dim level` = `13%`; `On level` (light endpoint) = `254`; power-on
-  behaviour = `previous`
+  behaviour = `previous`; light transition time (`On` / `Off` / `On-Off`) =
+  `0.5` s
 - Switch: Single-pole; Smart Bulb Mode enabled; LED colour Blue;
   `LED Intensity(On)` **and** `(Off)` = `0` (all four entities — select + number,
   each ×2) so only the fan automation lights the bar
@@ -364,14 +366,18 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
    delete the still-unavailable entities from the canopy's device page.)
 5. **Rename the survivors** back to the clean slug —
    `select.<prefix>_ceiling_fan_light_mode_2` → `…_light_mode`,
-   `…_fan_mode_2` → `…_fan_mode`. Nothing in the automations references these, so
+   `…_fan_mode_2` → `…_fan_mode`, and
+   `number.<prefix>_ceiling_fan_on_off_transition_time_2` →
+   `…_on_off_transition_time`. Nothing in the automations references these, so
    the rename is safe.
 6. **Rebuild the binding** — test the paddle first; if it does not switch the
    light cleanly, follow the rebuild callout in
    [Step 4](#step-4--matter-binding-paddle--light).
 7. **Re-apply the parameters that reset.** The flash reverts Light Mode, Fan
    Mode, On level, Minimum dim level, and power-on behavior to defaults — set
-   them again per [Step 2](#step-2--canopy-module-vtm36-parameters).
+   them again per [Step 2](#step-2--canopy-module-vtm36-parameters). Re-check the
+   light transition-time numbers too (also Level Control attributes) and reset
+   them to `0.5` s if the flash returned them to `2.5`.
 8. **Verify**: paddle on/off, config-button speed cycle, LED bar colour by speed
    and dark when the fan is off, and the light riding down to `1%` on the HA
    slider without cutting out.

@@ -578,7 +578,7 @@ Live-tested 2026-08-30 on `light.averys_room_ceiling_fan_light` (model "White Se
 - **`light.turn_on` + `transition` is honored precisely.** A commanded 20 s fade produced a clean linear ramp (13→78→142→207→255) hitting the target at exactly 20 s, with intermediate `brightness` reports about every 5 s.
 - **A new command overrides an in-progress fade.** `brightness_pct: 100, transition: 0` sent mid-fade snapped straight to 255.
 - **The configured 13% min-level does NOT clamp a hub `MoveToLevel`.** Ramping toward `brightness_pct: 1` went all the way to `brightness` 3 and the light stayed `on` — it did not auto-off at the bottom and did not floor at 13%. An explicit `light.turn_off` is still required to actually turn it off.
-- **`light.turn_off` + `transition` gives no slow fade** — off in ~2–3 s (the module's own `off_transition_time`, 2.5 s), not the requested duration. This is the HA-side limitation above, not the device.
+- **`light.turn_off` + `transition` gives no slow fade** — the requested duration is dropped and the module applies its own configured off-ramp instead, held in the `Off transition time` / `On/Off transition time` Level Control number entities. Factory default is 2.5 s; both canopies are now set to `0.5` s (see `guides/inovelli_fan_canopy.md` Step 2). This is the HA-side limitation above, not the device.
 
 ---
 
