@@ -227,9 +227,9 @@ Set physically during the install (paddle + config taps) and confirmed in HA:
 |---|---|---|
 | Switch mode | Single-pole | No traveler; single-location install. Set physically; the live readout in HA is `select.*_switch_type` = `Single-Pole` (the older `Switch Mode` select reads `unavailable`). |
 | Smart Bulb Mode | Enabled | Keeps the load permanently powered so the paddle emits Matter commands (events / bindings) instead of chasing the empty local relay. Required for the binding to fire. Live entity: `select.*_ceiling_fan_switch_smart_bulb_mode` = `Smart Bulb Enable`. |
-| Control of switch load | `Remote control only` | Pairs with Smart Bulb Mode: stops the paddle from toggling the switch's internal on/off relay at all, so `switch.*_ceiling_fan_switch_load_control` stays at rest instead of flipping on every paddle press. The paddle still fires the binding and the button events — those are separate client-cluster mechanisms. Live entity: `select.*_ceiling_fan_switch_control_of_switch_load`. |
+| Control of switch load | `Remote & paddle control` (default — **do not** change) | On the White series the outgoing On/Off binding is triggered by the paddle's local load action. Setting this to `Remote control only` (to stop the phantom `switch.*_ceiling_fan_switch_load_control` toggle) also kills the paddle → light binding, even with Smart Bulb Mode on. Leave it at `Remote & paddle control` and accept the internal-relay toggle as the cost of a working binding. See `LESSONS.md`; Inovelli may decouple these in a later firmware. Live entity: `select.*_ceiling_fan_switch_control_of_switch_load`. |
 | LED bar color | Blue | Bedroom indicator. The wall-control automation drives it via the light entity; the `LED Color` parameter is the fallback if the light-entity route ever stops holding. |
-| `LED Intensity(On)` **and** `LED Intensity(Off)` | `0` | The switch keeps an internal on/off state and lights the bar to `LED Intensity(On)` / `(Off)` for it. Zeroing both means that native indicator never shows, so the bar reflects *only* the fan-speed automation. Each is exposed **twice** — a **select** and a `… (Load Control)` **number** — set all four to `0` per switch. The two `(Load Control)` numbers occasionally re-read their factory defaults (`33` / `1`) after a Matter Server restart; re-zero them if the bar starts glowing faintly at rest. The automation drives the bar through a separate RGB-notification channel that still works with the intensities at 0. |
+| `LED Intensity(On)` **and** `LED Intensity(Off)` | `0` | The switch keeps an internal on/off state (toggled by the paddle even in Smart Bulb Mode — this is what fires the binding, see the `Control of switch load` row) and lights the bar to `LED Intensity(On)` / `(Off)` for it. Zeroing both means that native indicator never shows, so the bar reflects *only* the fan-speed automation. Each is exposed **twice** — a **select** and a `… (Load Control)` **number** — set all four to `0` per switch. The two `(Load Control)` numbers occasionally re-read their factory defaults (`33` / `1`) after a Matter Server restart; re-zero them if the bar starts glowing faintly at rest. The automation drives the bar through a separate RGB-notification channel that still works with the intensities at 0. |
 
 ## Step 4 — Matter binding: paddle → light
 
@@ -258,10 +258,11 @@ Done in the Matter Server Web UI.
 `switch.averys_room_ceiling_fan_switch_load_control` is the switch's internal
 On/Off relay. The Load terminal is empty, so this entity controls nothing —
 toggling it does not touch the light (which responds to the paddle via the
-binding, or to `light.averys_room_ceiling_fan_light` directly). With
-`Control of switch load` = `Remote control only` (Step 3) the paddle no longer
-flips it either, so its state stays at rest. Hide it from the dashboards anyway
-so nobody taps it and concludes the install is broken.
+binding, or to `light.averys_room_ceiling_fan_light` directly). Its state still
+flips on every paddle press — that internal-relay toggle is what fires the
+outgoing binding on the White series, so it has to stay that way (see the
+`Control of switch load` row in Step 3). Hide it from the dashboards so nobody
+taps it and concludes the install is broken.
 
 ## Step 6 — HA automation
 
@@ -338,10 +339,10 @@ If the canopy ships on `1.0.0`, update it to `1.0.1r1` and run the cleanup in
   `Minimum dim level` = `13%`; `On level` (light endpoint) = `254`; power-on
   behaviour = `previous`; light transition time (`On` / `Off` / `On-Off`) =
   `0.5` s
-- Switch: Single-pole; Smart Bulb Mode enabled; `Control of switch load` =
-  `Remote control only`; LED colour Blue; `LED Intensity(On)` **and** `(Off)` =
-  `0` (all four entities — select + number, each ×2) so only the fan automation
-  lights the bar
+- Switch: Single-pole; Smart Bulb Mode enabled; `Control of switch load` left at
+  `Remote & paddle control` (changing it breaks the binding — see Step 3); LED
+  colour Blue; `LED Intensity(On)` **and** `(Off)` = `0` (all four entities —
+  select + number, each ×2) so only the fan automation lights the bar
 - Binding: switch Binding endpoint → canopy light endpoint, cluster **6 only**
   (no cluster 8 — paddle-hold dimming is left out until it works)
 - Automation: one `automation.<prefix>_ceiling_fan_wall_control`, category

@@ -580,6 +580,15 @@ Live-tested 2026-08-30 on `light.averys_room_ceiling_fan_light` (model "White Se
 - **The configured 13% min-level does NOT clamp a hub `MoveToLevel`.** Ramping toward `brightness_pct: 1` went all the way to `brightness` 3 and the light stayed `on` — it did not auto-off at the bottom and did not floor at 13%. An explicit `light.turn_off` is still required to actually turn it off.
 - **`light.turn_off` + `transition` gives no slow fade** — the requested duration is dropped and the module applies its own configured off-ramp instead, held in the `Off transition time` / `On/Off transition time` Level Control number entities. Factory default is 2.5 s; both canopies are now set to `0.5` s (see `guides/inovelli_fan_canopy.md` Step 2). This is the HA-side limitation above, not the device.
 
+### Inovelli White Series VTM30-SN — the outgoing binding is coupled to local paddle→load control
+
+On the White series switch, the paddle → light Matter binding fires *because* the paddle press acts on the switch's local load relay. Anything that takes the paddle off the load also stops the binding:
+
+- **`Control of switch load` = `Remote control only`** (`select.*_ceiling_fan_switch_control_of_switch_load`) — set to stop the phantom `switch.*_ceiling_fan_switch_load_control` entity toggling on every paddle press. It also silently kills the paddle → light binding. Reverting to `Remote & paddle control` restores it.
+- **Smart Bulb Mode enabled is fine** — SBM keeps the load powered and the paddle still "controls" the (bypassed) relay, so the binding keeps working. It's specifically disabling *paddle control of the load* that breaks it.
+- The phantom internal-relay toggle is therefore load-bearing, not just noise — leave `Control of switch load` at `Remote & paddle control` and hide the `switch.*_load_control` entity instead.
+- Inovelli community thread confirming the coupling: <https://community.inovelli.com/t/white-dimmer-binding-and-local-control/21471>. They may decouple binding from local control in a later firmware — worth re-testing after a switch update.
+
 ---
 
 ## Shell Command Integration
