@@ -5,6 +5,7 @@ description: >-
   everyone wakes. Sleep: sets the living room thermostat to Sleep preset,
   turns on the bathroom night lamp, master bedroom nightstand lamp, and
   kitchen sink light (dim nav light), turns off lights labeled "Sleeping",
+  dims the master bedroom ceiling fan light to 50% if it is already on,
   turns on the master bedroom Apple TV, closes the garage door, and locks
   the front door -- these actions are independent of each other and run in
   parallel so the bedroom is ready without waiting on the garage/lock
@@ -39,11 +40,11 @@ actions:
         sequence:
           - alias: Run night-prep actions in parallel
             note: >-
-              Eight independent actions (thermostat, 3 lights, label
-              turn-off, garage, lock, media player) with no ordering
-              dependency -- parallel avoids serializing the garage/lock
-              actuation time ahead of the bedroom actions. Small, fixed
-              action count; no meaningful HA Green load.
+              Nine independent actions (thermostat, 3 lights, label
+              turn-off, ceiling fan light dim, garage, lock, media player)
+              with no ordering dependency -- parallel avoids serializing
+              the garage/lock actuation time ahead of the bedroom actions.
+              Small, fixed action count; no meaningful HA Green load.
             parallel:
               - alias: Set living room thermostat to Sleep preset
                 action: climate.set_preset_mode
@@ -63,6 +64,24 @@ actions:
                 target:
                   label_id: sleeping
                 data: {}
+              - alias: Dim master bedroom ceiling fan light for sleep
+                note: >-
+                  Was labeled "Sleeping" (turned fully off); now dimmed to
+                  50% instead, but only if it is already on -- sleep should
+                  not switch on a dark ceiling light. Plain dimmable Matter
+                  light, brightness only.
+                if:
+                  - alias: Ceiling fan light is on
+                    condition: state
+                    entity_id: light.master_bedroom_ceiling_fan_light
+                    state: "on"
+                then:
+                  - alias: Set ceiling fan light to 50%
+                    action: light.turn_on
+                    target:
+                      entity_id: light.master_bedroom_ceiling_fan_light
+                    data:
+                      brightness_pct: 50
               - alias: Ensure garage door is closed
                 action: cover.close_cover
                 target:
