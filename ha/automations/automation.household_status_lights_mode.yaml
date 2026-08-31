@@ -1,7 +1,7 @@
 id: '1787020051576'
 alias: 'Household: Status Lights Mode'
 description: >-
-  Keeps the entrance and all three living room status lamps in sync with
+  Keeps the entrance, living room, and family room status lamps in sync with
   guest mode and sleep state, in priority order: guest mode (green)
   overrides everyone sleeping (warm white), which overrides off. Guest mode
   takes priority since it's the most useful indicator to see while people
@@ -69,9 +69,9 @@ actions:
             target:
               entity_id:
                 - light.entrance_status_lamp
-                - light.living_room_status_lamp_2
-                - light.living_room_status_lamp_1
+                - light.living_room_status_lamp
                 - light.living_room_mantle_status_light
+                - light.family_room_status_lamp
             data:
               rgb_color:
                 - 0
@@ -90,9 +90,9 @@ actions:
             target:
               entity_id:
                 - light.entrance_status_lamp
-                - light.living_room_status_lamp_2
-                - light.living_room_status_lamp_1
+                - light.living_room_status_lamp
                 - light.living_room_mantle_status_light
+                - light.family_room_status_lamp
             data:
               color_temp_kelvin: 2000
               brightness_pct: 50
@@ -102,8 +102,8 @@ actions:
         target:
           entity_id:
             - light.entrance_status_lamp
-            - light.living_room_status_lamp_2
-            - light.living_room_status_lamp_1
+            - light.living_room_status_lamp
             - light.living_room_mantle_status_light
+            - light.family_room_status_lamp
 mode: single
 category: 01M08MMBZ719V4GZ2FT10RPTJ2
