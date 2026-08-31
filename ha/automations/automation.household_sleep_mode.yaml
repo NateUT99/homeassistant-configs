@@ -3,7 +3,7 @@ alias: "Household: Sleep Mode"
 description: >-
   Prepares the home when everyone goes to sleep and restores it when
   everyone wakes. Sleep: sets the living room thermostat to Sleep preset,
-  turns on the bathroom night lamp, master bedroom nightstand lamp, and
+  turns on the bathroom ambient lamp, master bedroom nightstand lamp, and
   kitchen sink light (dim nav light), turns off lights labeled "Sleeping",
   dims the master bedroom ceiling fan light to 50% if it is on above 50%,
   turns on the master bedroom Apple TV, closes the garage door, and locks
@@ -52,10 +52,10 @@ actions:
                   entity_id: climate.living_room_thermostat
                 data:
                   preset_mode: sleep
-              - alias: Turn on bathroom night lamp
+              - alias: Turn on bathroom ambient lamp
                 action: light.turn_on
                 target:
-                  entity_id: light.bathroom_night_lamp
+                  entity_id: light.bathroom_ambient_lamp
                 data:
                   color_temp_kelvin: 2350
                   brightness_pct: 65

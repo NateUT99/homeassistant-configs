@@ -1,0 +1,56 @@
+id: "1788147583854"
+alias: "Family Room: Ambient Lamp"
+description: >-
+  Turns the family room ambient lamp on at 50% (keeping its current color
+  temperature) when the room gets dark and someone is home, and off when the
+  room gets bright again. Main use is soft bias lighting for watching movies or
+  gaming in the dark. Dark/bright lux thresholds are asymmetric with a debounce
+  on "bright" so on-screen brightness swings don't flicker the lamp.
+triggers:
+  - alias: Family room got dark
+    entity_id: sensor.family_room_ambient_lamp_illuminance
+    below: 10
+    id: dark
+    trigger: numeric_state
+  - alias: Family room got bright
+    entity_id: sensor.family_room_ambient_lamp_illuminance
+    above: 40
+    for:
+      minutes: 2
+    id: bright
+    trigger: numeric_state
+conditions: []
+actions:
+  - alias: Route by trigger
+    choose:
+      - alias: "Got dark and someone is home — turn lamp on"
+        conditions:
+          - alias: Dark trigger
+            condition: trigger
+            id: dark
+          - alias: Someone is home
+            condition: numeric_state
+            entity_id: zone.home
+            above: 0
+        sequence:
+          - alias: Turn lamp on at 50%, current color temperature
+            note: >-
+              Color temperature deliberately omitted so the lamp keeps whatever
+              CT it was last set to.
+            action: light.turn_on
+            target:
+              entity_id: light.family_room_ambient_lamp
+            data:
+              brightness_pct: 50
+      - alias: "Got bright — turn lamp off"
+        conditions:
+          - alias: Bright trigger
+            condition: trigger
+            id: bright
+        sequence:
+          - alias: Turn lamp off
+            action: light.turn_off
+            target:
+              entity_id: light.family_room_ambient_lamp
+mode: single
+category: 01M08MMBZ719V4GZ2FT10RPTJ2

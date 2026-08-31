@@ -31,7 +31,7 @@ automations/automation.<object_id>.yaml
 scripts/script.<object_id>.yaml
 ```
 
-The object_id is the entity_id without the domain: `automation.bathroom_night_lamp` → `automation.bathroom_night_lamp.yaml`.
+The object_id is the entity_id without the domain: `automation.bathroom_ambient_lamp` → `automation.bathroom_ambient_lamp.yaml`.
 
 ## What's NOT here
 

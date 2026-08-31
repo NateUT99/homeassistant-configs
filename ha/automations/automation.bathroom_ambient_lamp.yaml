@@ -1,7 +1,7 @@
 id: "1786996640211"
-alias: "Bathroom: Night Lamp"
+alias: "Bathroom: Ambient Lamp"
 description: >-
-  Controls the bathroom night lamp based on ambient light and arrivals. Turns
+  Controls the bathroom ambient lamp based on ambient light and arrivals. Turns
   on when the bathroom gets dark (only if someone is home), or when the first
   person arrives home to a dark bathroom. Turns off when the bathroom gets
   bright, or when the last person leaves home (see
@@ -10,12 +10,12 @@ description: >-
   glow.
 triggers:
   - alias: Bathroom illuminance drops below threshold
-    entity_id: sensor.bathroom_night_lamp_illuminance
+    entity_id: sensor.bathroom_ambient_lamp_illuminance
     below: 10
     id: dark
     trigger: numeric_state
   - alias: Bathroom illuminance rises above threshold
-    entity_id: sensor.bathroom_night_lamp_illuminance
+    entity_id: sensor.bathroom_ambient_lamp_illuminance
     above: 15
     for:
       seconds: 15
@@ -40,10 +40,10 @@ actions:
             entity_id: zone.home
             above: 0
         sequence:
-          - alias: Turn on night lamp at 65%
+          - alias: Turn on ambient lamp at 65%
             action: light.turn_on
             target:
-              entity_id: light.bathroom_night_lamp
+              entity_id: light.bathroom_ambient_lamp
             data:
               brightness_pct: 65
               color_temp_kelvin: 2000
@@ -53,10 +53,10 @@ actions:
             condition: trigger
             id: bright
         sequence:
-          - alias: Turn off night lamp
+          - alias: Turn off ambient lamp
             action: light.turn_off
             target:
-              entity_id: light.bathroom_night_lamp
+              entity_id: light.bathroom_ambient_lamp
       - alias: "First person home and bathroom is dark — turn lamp on"
         conditions:
           - alias: Home trigger
@@ -64,14 +64,15 @@ actions:
             id: home
           - alias: Bathroom is dark
             condition: numeric_state
-            entity_id: sensor.bathroom_night_lamp_illuminance
+            entity_id: sensor.bathroom_ambient_lamp_illuminance
             below: 10
         sequence:
-          - alias: Turn on night lamp at 65%
+          - alias: Turn on ambient lamp at 65%
             action: light.turn_on
             target:
-              entity_id: light.bathroom_night_lamp
+              entity_id: light.bathroom_ambient_lamp
             data:
               brightness_pct: 65
               color_temp_kelvin: 2000
 mode: single
+category: 01M08MMBZ719V4GZ2FT10RPTJ2
