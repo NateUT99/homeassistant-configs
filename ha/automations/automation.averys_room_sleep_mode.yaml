@@ -5,8 +5,9 @@ description: >-
   (nightlight), fades the ceiling fan light off over ~30s, and turns off the
   Living Room Soundbar subwoofer. Turning it off turns the dresser lamp back off,
   turns the subwoofer back on, pauses the HomePod, turns on the Living Room Apple
-  TV, and fades the ceiling fan light up to 100% over 120s — snapping straight to
-  100% if Avery's door opens mid-fade.
+  TV, fades the ceiling fan light up to 100% over 120s — snapping straight to
+  100% if Avery's door opens mid-fade — and clears the Everyone Sleeping flag if
+  the household was still marked all-asleep.
 triggers:
 - trigger: state
   entity_id: input_boolean.avery_sleeping
@@ -69,6 +70,17 @@ actions:
       - sleep_off
       alias: Triggered by Avery Sleeping turning off
     sequence:
+    - if:
+      - condition: state
+        entity_id: input_boolean.everyone_sleeping
+        state: 'on'
+        alias: Everyone Sleeping is currently on
+      then:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.everyone_sleeping
+        alias: Clear the Everyone Sleeping flag
+      alias: If the household was still marked all-asleep, Avery waking clears it
     - action: light.turn_off
       target:
         entity_id: light.averys_room_dresser_lamp
@@ -119,7 +131,8 @@ actions:
           transition: 0
         alias: Snap ceiling fan light straight to 100%
       alias: If the door opened mid-fade, jump to full brightness now
-    alias: Avery Sleeping turned OFF — dresser lamp off, subwoofer on, HomePod paused,
-      Apple TV on, ceiling fan light fades up (snaps to 100% if the door opens)
+    alias: Avery Sleeping turned OFF — Everyone Sleeping cleared if still on, dresser
+      lamp off, subwoofer on, HomePod paused, Apple TV on, ceiling fan light fades up
+      (snaps to 100% if the door opens)
 mode: restart
 category: 01M08R77W9A83G7DDA33MT8R09
