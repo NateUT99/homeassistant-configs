@@ -5,7 +5,7 @@ description: >-
   everyone wakes. Sleep: sets the living room thermostat to Sleep preset,
   turns on the bathroom night lamp, master bedroom nightstand lamp, and
   kitchen sink light (dim nav light), turns off lights labeled "Sleeping",
-  dims the master bedroom ceiling fan light to 50% if it is already on,
+  dims the master bedroom ceiling fan light to 50% if it is on above 50%,
   turns on the master bedroom Apple TV, closes the garage door, and locks
   the front door -- these actions are independent of each other and run in
   parallel so the bedroom is ready without waiting on the garage/lock
@@ -67,14 +67,21 @@ actions:
               - alias: Dim master bedroom ceiling fan light for sleep
                 note: >-
                   Was labeled "Sleeping" (turned fully off); now dimmed to
-                  50% instead, but only if it is already on -- sleep should
-                  not switch on a dark ceiling light. Plain dimmable Matter
-                  light, brightness only.
+                  50% instead, but only if it is already on AND currently
+                  brighter than 50% -- sleep should not switch on a dark
+                  ceiling light or brighten one that is already dim.
+                  brightness attribute is 0-255; 127.5 = 50%. Plain
+                  dimmable Matter light, brightness only.
                 if:
                   - alias: Ceiling fan light is on
                     condition: state
                     entity_id: light.master_bedroom_ceiling_fan_light
                     state: "on"
+                  - alias: Currently brighter than 50%
+                    condition: numeric_state
+                    entity_id: light.master_bedroom_ceiling_fan_light
+                    attribute: brightness
+                    above: 127.5
                 then:
                   - alias: Set ceiling fan light to 50%
                     action: light.turn_on
