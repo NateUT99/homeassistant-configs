@@ -125,12 +125,12 @@ actions:
                       entity_id: light.master_bedroom_ceiling_fan_switch_led
             default:
               - alias: Fan on - colour by speed, dimmer when everyone is sleeping
-                note: "Matter exposes the bar as one RGB light (no per-segment control): hue low teal 175, medium blue 220, high violet 265; brightness 55 awake, 20 sleeping."
+                note: "Matter exposes the bar as one RGB light (no per-segment control): hue low teal 175, medium blue 220, high violet 265; brightness 50 awake, 1 sleeping."
                 action: light.turn_on
                 target:
                   entity_id: light.master_bedroom_ceiling_fan_switch_led
                 data:
-                  brightness_pct: "{{ 20 if is_state('input_boolean.everyone_sleeping', 'on') else 55 }}"
+                  brightness_pct: "{{ 1 if is_state('input_boolean.everyone_sleeping', 'on') else 50 }}"
                   hs_color:
                     - "{{ {'low': 175, 'medium': 220, 'high': 265}.get(speed, 220) }}"
                     - 100

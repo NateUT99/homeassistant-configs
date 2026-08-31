@@ -314,9 +314,9 @@ carries the speed and brightness carries day vs. night:
 | Fan | Hue (`hs_color`) | Brightness (awake / sleeping) |
 |---|---|---|
 | off | — (bar off) | — |
-| low | 175 (teal) | 55% / 20% |
-| medium | 220 (blue) | 55% / 20% |
-| high | 265 (violet) | 55% / 20% |
+| low | 175 (teal) | 50% / 1% |
+| medium | 220 (blue) | 50% / 1% |
+| high | 265 (violet) | 50% / 1% |
 
 "Bar off when fan off" needs two things: the automation's fan-off branch does
 `light.turn_off`, **and** the switch's `LED Intensity(Off)` param is set to `0`
@@ -360,7 +360,7 @@ If the canopy ships on `1.0.0`, update it to `1.0.1r1` and run the cleanup in
 - Automation: one `automation.<prefix>_ceiling_fan_wall_control`, category
   Climate, label `int_inovelli_fan_canopy`, `mode: queued` max 10
 - Speed bands 33 / 66 / 100 with `< 45` / `< 78` edges; LED off when the fan is
-  off; running hues 175 / 220 / 265 at 55% awake / 20% sleeping
+  off; running hues 175 / 220 / 265 at 50% awake / 1% sleeping
 
 Each room gets its own helper (`input_select.<prefix>_ceiling_fan_last_speed`)
 and its own copy of the wall-control automation with the prefix and sleep
