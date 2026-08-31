@@ -1,0 +1,51 @@
+alias: "Avery's Room: Ceiling Fan LED Blip"
+description: >-
+  Briefly lights the Avery's Room ceiling-fan switch LED bar to acknowledge a fan
+  change made while Avery is sleeping, then turns it back off. A speed change
+  shows that speed's hue for 3s; switching the fan off shows amber for 1s. The
+  bar is otherwise dark at night, so without this an off command would land with
+  no visual confirmation. Called via script.turn_on from Avery's Room: Ceiling
+  Fan Wall Control, only while Avery is sleeping. mode: restart so rapid changes
+  keep the bar lit and reset the timer, and a fan-off mid-speed-blip swaps
+  straight to the amber acknowledgement.
+mode: restart
+sequence:
+  - alias: Resolve the current speed band
+    variables:
+      speed: "{% if is_state('fan.averys_room_ceiling_fan', 'off') %}off{% else %}{% set p = state_attr('fan.averys_room_ceiling_fan', 'percentage') | int(0) %}{% if p < 45 %}low{% elif p < 78 %}medium{% else %}high{% endif %}{% endif %}"
+  - alias: Show the acknowledgement colour, then the tail turns it off
+    choose:
+      - alias: Fan is off - amber acknowledgement for 1s
+        conditions:
+          - condition: state
+            entity_id: fan.averys_room_ceiling_fan
+            state: "off"
+            alias: Fan off
+        sequence:
+          - alias: Amber blip
+            action: light.turn_on
+            target:
+              entity_id: light.averys_room_ceiling_fan_switch_led
+            data:
+              brightness_pct: 15
+              hs_color:
+                - 30
+                - 100
+          - alias: Hold the amber blip
+            delay: "00:00:01"
+    default:
+      - alias: Speed change - that speed's hue for 3s
+        action: light.turn_on
+        target:
+          entity_id: light.averys_room_ceiling_fan_switch_led
+        data:
+          brightness_pct: 15
+          hs_color:
+            - "{{ {'low': 175, 'medium': 220, 'high': 265}.get(speed, 220) }}"
+            - 100
+      - alias: Hold the speed blip
+        delay: "00:00:03"
+  - alias: Turn the bar back off
+    action: light.turn_off
+    target:
+      entity_id: light.averys_room_ceiling_fan_switch_led
