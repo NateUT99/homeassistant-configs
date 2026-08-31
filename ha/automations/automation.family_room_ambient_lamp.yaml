@@ -1,11 +1,16 @@
 id: "1788147583854"
 alias: "Family Room: Ambient Lamp"
 description: >-
-  Turns the family room ambient lamp on at 50% (keeping its current color
-  temperature) when the room gets dark and someone is home, and off when the
-  room gets bright again. Main use is soft bias lighting for watching movies or
-  gaming in the dark. Dark/bright lux thresholds are asymmetric with a debounce
-  on "bright" so on-screen brightness swings don't flicker the lamp.
+  Turns the family room ambient lamp on at 50% / 2000K whenever the room is
+  dark and the household is home and awake, and off when the room gets bright.
+  Main use is soft bias lighting for movies or gaming in the dark. It
+  re-asserts on three edges — room got dark, first person confirmed home,
+  everyone woke up — because the lamp is also switched off by the "No One Is
+  Home" and "Sleeping" label sweeps and the dark trigger alone is edge-only.
+  Arrival keys off input_boolean.arrival_confirmed rather than raw zone.home so
+  a geofence flyby doesn't switch it on. Dark/bright lux thresholds are
+  asymmetric with a debounce on "bright" so on-screen brightness swings don't
+  flicker the lamp.
 triggers:
   - alias: Family room got dark
     entity_id: sensor.family_room_ambient_lamp_illuminance
@@ -19,6 +24,16 @@ triggers:
       minutes: 2
     id: bright
     trigger: numeric_state
+  - alias: First person confirmed home
+    entity_id: input_boolean.arrival_confirmed
+    to: "on"
+    id: arrived
+    trigger: state
+  - alias: Everyone wakes up
+    entity_id: input_boolean.everyone_sleeping
+    to: "off"
+    id: awake
+    trigger: state
 conditions: []
 actions:
   - alias: Route by trigger
@@ -33,15 +48,32 @@ actions:
             entity_id: zone.home
             above: 0
         sequence:
-          - alias: Turn lamp on at 50%, current color temperature
-            note: >-
-              Color temperature deliberately omitted so the lamp keeps whatever
-              CT it was last set to.
+          - alias: Turn lamp on at 50% / 2000K
             action: light.turn_on
             target:
               entity_id: light.family_room_ambient_lamp
             data:
               brightness_pct: 50
+              color_temp_kelvin: 2000
+      - alias: "Confirmed home or just woke — turn lamp on if room is dark"
+        conditions:
+          - alias: Arrival or wake trigger
+            condition: trigger
+            id:
+              - arrived
+              - awake
+          - alias: Family room is dark
+            condition: numeric_state
+            entity_id: sensor.family_room_ambient_lamp_illuminance
+            below: 10
+        sequence:
+          - alias: Turn lamp on at 50% / 2000K
+            action: light.turn_on
+            target:
+              entity_id: light.family_room_ambient_lamp
+            data:
+              brightness_pct: 50
+              color_temp_kelvin: 2000
       - alias: "Got bright — turn lamp off"
         conditions:
           - alias: Bright trigger
