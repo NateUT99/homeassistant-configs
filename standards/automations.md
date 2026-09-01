@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.15 — August 2026*
+*Version 1.16 — September 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.16 | September 2026 | Synced the §3.2 integration labels table — added `int_laundry` (Laundry), `int_vacuum_cleaning_routine` (Vacuum), and `int_inovelli_fan_canopy` (Ceiling Fan), which existed in HA but had drifted out of the table. Friendly names for the latter two are deliberately shortened from their guide names |
 | 1.15 | August 2026 | Added §5.12 (Confirmed Arrival) — generalizes §5.10's entry-evidence insight into a shared `input_boolean.arrival_confirmed`, set by `automation.household_confirm_arrival`, that any arrival-triggered automation consumes instead of `zone.home` directly |
 | 1.14 | August 2026 | Amended §5.4 — added a blast-radius check before parallelizing actions (broad label/area targets or dynamic `for_each` counts warrant more care than a handful of literal-entity calls) |
 | 1.13 | August 2026 | Rewrote §5.10 — the door-state gate never engaged because `zone.home` fires at the GPS geofence, before the person reaches the garage door, so the wait was always skipped; replaced with a bounded wait on evidence of entry (garage door closing behind them, or the front door lock releasing). Added §5.11 (semantic triggers and conditions). Amended §5.3 — `note:` is now a recognized, optional field alongside `alias:` for longer explanations. Updated §3.2 `text_to_speech` label description to remove the retired `notify.reminder_*` Chime TTS platform in favor of calling `chime_tts.say` directly from `script.household_tts_announce`. |
@@ -139,12 +140,15 @@ Applied to automations that belong to a documented integration in `guides/`, and
 | `int_adaptive_lighting` | Adaptive Lighting |
 | `int_home_alarm` | Home Alarm |
 | `int_litra_glow` | Litra Glow |
+| `int_laundry` | Laundry |
+| `int_vacuum_cleaning_routine` | Vacuum |
+| `int_inovelli_fan_canopy` | Ceiling Fan |
 | `reminders` | Reminders |
 | `waqi` | WAQI |
 
 > The `reminders` label predates this taxonomy and is applied to all reminder-system helpers and automations. Its ID does not carry the `int_` prefix — this is an intentional exception, not a bug to fix.
 
-When a new guide is added, a matching `int_<guide_name>` label is created (color: purple) before the guide's automations are created or migrated. HA does not allow specifying a label ID on creation — use a two-step approach: create the label with the desired ID as the name (HA slugifies it into the ID), then update it with the clean friendly name, color, and icon.
+When a new guide is added, a matching `int_<guide_name>` label is created (color: purple) before the guide's automations are created or migrated. HA does not allow specifying a label ID on creation — use a two-step approach: create the label with the desired ID as the name (HA slugifies it into the ID), then update it with the clean friendly name, color, and icon. The friendly name can be shortened from the guide name when the guide name is unwieldy as a chip label — `int_vacuum_cleaning_routine` displays as "Vacuum", `int_inovelli_fan_canopy` as "Ceiling Fan" — but the label ID always stays `int_<guide_name>` so the link back to the guide is unambiguous.
 
 An automation may carry zero, one, or more integration labels. A guide-documented automation always carries its guide's label. Non-automation entities that are directly configured by the integration also carry the label — for example, lights enrolled in an Adaptive Lighting instance. Entities only transitively affected (such as individual members of a light group that is itself enrolled) do not.
 
