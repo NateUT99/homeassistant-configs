@@ -175,6 +175,16 @@ An automation that restores a prior state (turning a thermostat back on after a 
 
 Always include a `condition: state` (or template equivalent) confirming the target is in the state you expect to restore from.
 
+### `scene.create` snapshots taken from inside a `mode: restart` script capture the script's own output
+
+A save-current-state / do-something / put-it-back pattern where the "do something" script is `mode: restart` must take the `scene.create` snapshot in the **caller**, not inside the script, and guard it on the script being idle.
+
+The `inovelli_fan_canopy` LED-bar blip is the worked example. `script.<prefix>_ceiling_fan_led_blip` is `mode: restart` so a rapid second fan change keeps the bar lit and resets the hold timer. If the snapshot lived at the top of that script, the second (restarting) run would snapshot the bar mid-animation — capturing a blip colour as the "resting" state — and the restore at the end would leave the bar stuck lit.
+
+Fix: `automation.<prefix>_ceiling_fan_wall_control` runs `scene.create` before `script.turn_on`, wrapped in `if: condition: state, entity_id: script.<prefix>_ceiling_fan_led_blip, state: "off"`. A burst snapshots once (blip idle), every subsequent restart within the burst skips the snapshot and reuses that first scene. The automation being `mode: queued` keeps its own runs serialised so the guard can't race itself.
+
+Related gotcha for the restore side: test scene existence with `states.scene.<id> is not none`, **not** `states('scene.<id>')` or `has_value(...)` — a freshly `scene.create`d scene reads `unknown` until it is first activated, so the value-based checks report it missing when it isn't.
+
 ---
 
 ## Dashboards & Lovelace
