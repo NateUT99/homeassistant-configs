@@ -1,0 +1,234 @@
+id: "1788265384460"
+alias: "Household: Cable Modem Auto Power-Cycle"
+description: |-
+  Recovers a dead internet connection by power-cycling the cable modem (switch.utility_room_cable_modem).
+
+  **Fires** when binary_sensor.utility_room_firewalla_gold_se_system_status reads `unavailable` continuously for 15 minutes. Up to 4 times: turns the modem plug off, waits 10 seconds, turns it back on, and waits up to 8 minutes for connectivity. Stops early on recovery; after 4 failed attempts (~40 min of cycling) it stops and posts an escalation notice for manual intervention.
+
+  Housekeeping: connectivity healthy for 6 hours resets the power-cycle counter and clears the failure notice; HA startup clears the guard flag in case a restart interrupted a previous run. A circuit breaker halts power-cycling once the counter reaches 8 within a window.
+
+  **Why:** the cable service dropped three times overnight (33-54 min each) and needed a manual modem reboot. The 15-minute delay rides out transient WAN blips; the 4-attempt cap and circuit breaker prevent indefinite power-cycling on a fault a reboot cannot fix. The connection-lost path is skipped while Cable Modem Maintenance mode is on.
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.utility_room_firewalla_gold_se_system_status
+    to: "unavailable"
+    for:
+      minutes: 15
+    id: connection_lost
+    alias: Firewalla connectivity lost for 15 minutes
+    note: >-
+      `unavailable` (not `off`) is the state observed during last night's
+      outages - the Firewalla local API stops responding when the WAN is down.
+      A HA restart also blips this unavailable, but never for a full 15 minutes.
+  - trigger: state
+    entity_id: binary_sensor.utility_room_firewalla_gold_se_system_status
+    to: "on"
+    for:
+      hours: 6
+    id: connection_stable
+    alias: Connectivity healthy for 6 hours
+  - trigger: homeassistant
+    event: start
+    id: ha_started
+    alias: Home Assistant started
+conditions: []
+actions:
+  - choose:
+      - alias: Connectivity lost - power-cycle the modem
+        conditions:
+          - condition: trigger
+            id: connection_lost
+        sequence:
+          - alias: Do nothing while in cable modem maintenance mode
+            if:
+              - condition: state
+                entity_id: input_boolean.utility_room_cable_modem_maintenance
+                state: "on"
+            then:
+              - stop: Cable modem maintenance mode is on
+          - alias: Bail out if the modem's smart plug is unreachable
+            if:
+              - condition: state
+                entity_id: switch.utility_room_cable_modem
+                state: "unavailable"
+            then:
+              - alias: "Notify: cannot reach the modem plug"
+                action: notify.send_message
+                target:
+                  entity_id: notify.nates_iphone
+                data:
+                  title: Internet down - can't auto-recover
+                  message: >-
+                    Firewalla has been offline for 15 minutes but
+                    switch.utility_room_cable_modem is unavailable, so the modem
+                    can't be power-cycled. Manual reboot needed.
+              - stop: Modem plug unavailable - nothing to power-cycle
+          - alias: "Circuit breaker: too many power-cycles this window"
+            note: >-
+              The counter resets after 6 h of stable connectivity. 8 is roughly
+              two full failed outages' worth of cycling - beyond that, stop
+              power-cycling and escalate, because the fault is not one a reboot
+              fixes.
+            if:
+              - condition: numeric_state
+                entity_id: counter.utility_room_cable_modem_power_cycles
+                above: 7
+            then:
+              - alias: "Notify: circuit breaker tripped"
+                action: notify.send_message
+                target:
+                  entity_id: notify.nates_iphone
+                data:
+                  title: Internet down - auto-recovery paused
+                  message: >-
+                    The cable modem has been power-cycled 8+ times without
+                    lasting recovery. Auto-recovery is paused until connectivity
+                    holds for 6 hours. Check the line or contact Buckeye
+                    Broadband.
+              - alias: Post a LAN-visible circuit-breaker notice
+                action: persistent_notification.create
+                data:
+                  notification_id: cable_modem_recovery_failed
+                  title: Cable modem auto-recovery paused (circuit breaker)
+                  message: >-
+                    8+ power-cycles without lasting recovery. Manual
+                    intervention required; auto-recovery resumes after 6 h of
+                    stable connectivity.
+              - stop: Circuit breaker tripped
+          - alias: Suppress the keep-powered guardian during the power-cycle
+            action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.utility_room_cable_modem_power_cycle_active
+          - alias: Record that auto-recovery started (LAN-visible)
+            note: >-
+              A persistent notification, not a push - an outbound push cannot
+              leave the house while the WAN is down. The success / failure push
+              below is sent once connectivity is (or is not) restored.
+            action: persistent_notification.create
+            data:
+              notification_id: cable_modem_recovery_in_progress
+              title: Cable modem auto-recovery in progress
+              message: >-
+                Firewalla offline 15 min. Power-cycling the modem, up to 4
+                attempts.
+          - alias: Power-cycle until connectivity returns or 4 attempts are used
+            repeat:
+              sequence:
+                - alias: Count this power-cycle
+                  action: counter.increment
+                  target:
+                    entity_id: counter.utility_room_cable_modem_power_cycles
+                - alias: Modem plug OFF
+                  action: switch.turn_off
+                  target:
+                    entity_id: switch.utility_room_cable_modem
+                - alias: Hold power off for 10 seconds
+                  note: >-
+                    As requested. 30 seconds is the more common modem-reset
+                    recommendation if 10 proves unreliable - if you raise it,
+                    also raise the guardian automation's 20-second recheck delay.
+                  delay:
+                    seconds: 10
+                - alias: Modem plug ON
+                  action: switch.turn_on
+                  target:
+                    entity_id: switch.utility_room_cable_modem
+                - alias: Wait up to 8 minutes for connectivity
+                  note: >-
+                    wait_template, not wait_for_trigger, so this returns
+                    immediately if connectivity is already back (e.g. it
+                    recovered during the 10-second power-off). Modem resync plus
+                    Firewalla reconnect is typically 2-5 minutes.
+                  wait_template: "{{ is_state('binary_sensor.utility_room_firewalla_gold_se_system_status', 'on') }}"
+                  timeout:
+                    minutes: 8
+                - alias: Buffer before the next attempt
+                  if:
+                    - "{{ not wait.completed and repeat.index < 4 }}"
+                  then:
+                    - delay:
+                        minutes: 2
+              until:
+                - alias: Connectivity restored, or all 4 attempts used
+                  condition: or
+                  conditions:
+                    - condition: state
+                      entity_id: binary_sensor.utility_room_firewalla_gold_se_system_status
+                      state: "on"
+                    - "{{ repeat.index >= 4 }}"
+          - alias: Re-enable the keep-powered guardian
+            action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.utility_room_cable_modem_power_cycle_active
+          - alias: Clear the in-progress notice
+            action: persistent_notification.dismiss
+            data:
+              notification_id: cable_modem_recovery_in_progress
+          - alias: Report the outcome
+            choose:
+              - alias: Connectivity restored
+                conditions:
+                  - condition: state
+                    entity_id: binary_sensor.utility_room_firewalla_gold_se_system_status
+                    state: "on"
+                sequence:
+                  - action: notify.send_message
+                    target:
+                      entity_id: notify.nates_iphone
+                    data:
+                      title: Internet restored
+                      message: Connectivity returned after power-cycling the cable modem.
+            default:
+              - alias: Still down after 4 attempts - escalate
+                action: notify.send_message
+                target:
+                  entity_id: notify.nates_iphone
+                data:
+                  title: Internet still down after 4 power-cycles
+                  message: >-
+                    The cable modem was power-cycled 4 times over ~40 minutes
+                    and Firewalla is still offline. Auto-recovery has stopped.
+                    Check the coax line and splitters, or contact Buckeye
+                    Broadband.
+              - alias: Post a LAN-visible failure notice
+                action: persistent_notification.create
+                data:
+                  notification_id: cable_modem_recovery_failed
+                  title: Cable modem auto-recovery failed
+                  message: >-
+                    4 power-cycles did not restore connectivity. Manual
+                    intervention required.
+      - alias: Connectivity healthy for 6 hours - reset tracking
+        conditions:
+          - condition: trigger
+            id: connection_stable
+        sequence:
+          - alias: Clear the guard flag if left set
+            action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.utility_room_cable_modem_power_cycle_active
+          - alias: Reset the counter and dismiss the failure notice
+            note: >-
+              Only recent instability matters for deciding whether to call the
+              ISP, so a 6-hour healthy stretch resets the count.
+            if:
+              - condition: numeric_state
+                entity_id: counter.utility_room_cable_modem_power_cycles
+                above: 0
+            then:
+              - action: counter.reset
+                target:
+                  entity_id: counter.utility_room_cable_modem_power_cycles
+              - action: persistent_notification.dismiss
+                data:
+                  notification_id: cable_modem_recovery_failed
+      - alias: HA started - clear any stale guard flag
+        conditions:
+          - condition: trigger
+            id: ha_started
+        sequence:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.utility_room_cable_modem_power_cycle_active
+mode: single
+category: 01M0SZBV5BGDGY2BQ2GBB5NA4C

@@ -1,0 +1,82 @@
+id: "1788265469736"
+alias: "Utility Room: Cable Modem Keep Powered"
+description: |-
+  Guards switch.utility_room_cable_modem against accidental power-off. If the plug turns off and is still off 20 seconds later, it is switched back on and a notification is sent.
+
+  **Fires** whenever the plug reports `off`.
+
+  **Stands down when:**
+  - input_boolean.utility_room_cable_modem_maintenance is on - you flipped it to work on the modem or plug deliberately.
+  - The auto-recovery automation is genuinely mid power-cycle (guard flag on *and* that automation running) - it restores power itself.
+
+  The 20-second delay-and-recheck means a brief manual off/on, or the recovery automation's own 10-second power-off, never triggers a spurious restore.
+triggers:
+  - trigger: state
+    entity_id: switch.utility_room_cable_modem
+    to: "off"
+    id: plug_off
+    alias: Cable modem plug turned off
+conditions:
+  - alias: Not in cable modem maintenance mode
+    condition: state
+    entity_id: input_boolean.utility_room_cable_modem_maintenance
+    state: "off"
+  - alias: Auto-recovery is not genuinely power-cycling
+    condition: or
+    conditions:
+      - alias: Guard flag is clear
+        condition: state
+        entity_id: input_boolean.utility_room_cable_modem_power_cycle_active
+        state: "off"
+      - alias: "...or the auto-recovery automation is not actually running"
+        note: >-
+          Closes the gap where a HA restart mid power-cycle could leave the
+          guard flag stuck on. `current` is 0 when that automation is idle.
+        condition: numeric_state
+        entity_id: automation.household_cable_modem_auto_power_cycle
+        attribute: current
+        below: 1
+actions:
+  - alias: Wait 20 seconds to see if power returns on its own
+    note: >-
+      Must exceed the auto-recovery automation's 10-second power-off. If that is
+      lengthened, lengthen this to match.
+    delay:
+      seconds: 20
+  - alias: Restore power only if still off and still not suppressed
+    note: >-
+      Re-checks every condition after the wait - the plug may have been turned
+      back on, or maintenance mode enabled, during the 20 seconds.
+    if:
+      - condition: state
+        entity_id: switch.utility_room_cable_modem
+        state: "off"
+      - condition: state
+        entity_id: input_boolean.utility_room_cable_modem_maintenance
+        state: "off"
+      - condition: or
+        conditions:
+          - condition: state
+            entity_id: input_boolean.utility_room_cable_modem_power_cycle_active
+            state: "off"
+          - condition: numeric_state
+            entity_id: automation.household_cable_modem_auto_power_cycle
+            attribute: current
+            below: 1
+    then:
+      - alias: Turn the modem plug back on
+        action: switch.turn_on
+        target:
+          entity_id: switch.utility_room_cable_modem
+      - alias: Notify that the plug was restored
+        action: notify.send_message
+        target:
+          entity_id: notify.nates_iphone
+        data:
+          title: Cable modem plug restored
+          message: >-
+            switch.utility_room_cable_modem was turned off and has been switched
+            back on. Turn on Cable Modem Maintenance mode first if you meant to
+            cut power.
+mode: restart
+category: 01M0SZBV5BGDGY2BQ2GBB5NA4C
