@@ -82,9 +82,12 @@ Four mechanisms connect the wall switch to the fan/light:
   (the factory default) a paddle hold sends nothing and the binding looks dead.
   An earlier build tested cluster 8 on canopy `1.0.0` and `1.0.1r1`, saw nothing,
   and ran cluster 6 only; the real cause was the `Instant` simulated speed. Set
-  `select.<prefix>_ceiling_fan_switch_dimming_speed_simulated` to a duration
-  (`3s` tested smooth on Avery's Room; `2s` ramped slightly fast) and hold-to-dim
-  works over the binding with HA down.
+  `select.<prefix>_ceiling_fan_switch_dimming_speed_simulated` to a duration and
+  hold-to-dim works over the binding with HA down. **`2s` is the value in use on
+  both rooms.** `3s` was tried and regressed intermittently — the cluster 8 bind
+  would stop emitting Move/Step on a paddle hold, the same failure as `Instant`;
+  `2s` restored reliable hold-to-dim. Faster steps (`500ms`–`1s`) ramp too fast to
+  land a level cleanly.
 - **Binding fires on physical presses only.** A command sent to the switch from
   HA or Apple Home does not propagate over the binding to the light, and bound
   state does not report back — the switch LED bar will not track light changes
@@ -309,7 +312,7 @@ Set physically during the install (paddle + config taps) and confirmed in HA:
 | Switch mode | Single-pole | No traveler; single-location install. Set physically; the live readout in HA is `select.*_switch_type` = `Single-Pole` (the older `Switch Mode` select reads `unavailable`). |
 | Smart Bulb Mode | Enabled | Keeps the load permanently powered so the paddle emits Matter commands (events / bindings) instead of chasing the empty local relay. Required for the binding to fire. Live entity: `select.*_ceiling_fan_switch_smart_bulb_mode` = `Smart Bulb Enable`. |
 | Control of switch load | `Remote & paddle control` (default — **do not** change) | On the White series the outgoing On/Off binding is triggered by the paddle's local load action. Setting this to `Remote control only` (to stop the phantom `switch.*_ceiling_fan_switch_load_control` toggle) also kills the paddle → light binding, even with Smart Bulb Mode on. Leave it at `Remote & paddle control` and accept the internal-relay toggle as the cost of a working binding. See `LESSONS.md`; Inovelli may decouple these in a later firmware. Live entity: `select.*_ceiling_fan_switch_control_of_switch_load`. |
-| Dimming Speed (Simulated) | `3s` | End-to-end ramp time for a paddle press-and-hold over the cluster 8 (Level Control) binding — see [Step 4](#step-4--matter-binding-paddle--light). At `Instant` (default) a paddle hold emits no Move/Step and cluster 8 dimming does nothing. `3s` tested smooth on Avery's Room; `2s` was slightly fast. Live entity: `select.*_ceiling_fan_switch_dimming_speed_simulated`. |
+| Dimming Speed (Simulated) | `2s` | End-to-end ramp time for a paddle press-and-hold over the cluster 8 (Level Control) binding — see [Step 4](#step-4--matter-binding-paddle--light). At `Instant` (default) a paddle hold emits no Move/Step and cluster 8 dimming does nothing. `2s` is reliable on both rooms; `3s` was tried and intermittently regressed to no Move/Step on a hold (like `Instant`), so it was reverted. `500ms`–`1s` ramp too fast to land a level. Live entity: `select.*_ceiling_fan_switch_dimming_speed_simulated`. |
 | LED bar color | Blue | Bedroom indicator. The wall-control automation drives colour via the light entity; the `LED Color` parameter is the fallback if the light-entity route ever stops holding, and it is also the colour the `LED Effect` animation plays in. |
 | `LED Effect` (`select.*_ceiling_fan_switch_led_effect`) | `Solid` | Resting value. **Not `Off`** — `Off` blanks the RGB notification channel and the automation's blips stop rendering. `Solid` at `LED Intensity` 0 is still dark at rest. The fan-off blip flips this to `Fast Falling` for ~2 s and the restore scene puts it back to `Solid`. |
 | `LED Intensity(On)` **and** `LED Intensity(Off)` | `0` | The switch keeps an internal on/off state (toggled by the paddle even in Smart Bulb Mode — this is what fires the binding, see the `Control of switch load` row) and lights the bar to `LED Intensity(On)` / `(Off)` for it. Zeroing both means that native indicator never shows, so the bar reflects *only* the fan-speed automation. Each is exposed **twice** — a **select** and a `… (Load Control)` **number** — set all four to `0` per switch. The two `(Load Control)` numbers occasionally re-read their factory defaults (`33` / `1`) after a Matter Server restart; re-zero them if the bar starts glowing faintly at rest. The automation drives the bar through a separate RGB-notification channel that still works with the intensities at 0. |
@@ -328,9 +331,10 @@ Done in the Matter Server Web UI.
    - cluster **8 (Level Control)** — paddle press-and-hold → dim up/down
 4. If the UI has a separate ACL step, add an entry on node 10 granting node 11
    operate access. Most binding UIs write the ACL automatically.
-5. Set `Dimming Speed (Simulated)` = `3s` ([Step 3](#step-3--switch-vtm30-sn-parameters)).
+5. Set `Dimming Speed (Simulated)` = `2s` ([Step 3](#step-3--switch-vtm30-sn-parameters)).
    Without a non-`Instant` value the cluster 8 bind emits nothing on a paddle
-   hold and the dim half of this step will look broken.
+   hold and the dim half of this step will look broken. `3s` also proved
+   unreliable — see Step 3.
 6. Test at the wall: tap up → light on (full, per the On level parameter), tap
    down → light off; hold up → smooth ramp up, hold down → ramp down, release →
    stop mid-ramp. Confirm all of it still works with Home Assistant stopped.
@@ -456,8 +460,8 @@ If the canopy ships on `1.0.0`, update it to `1.0.1r1` and run the cleanup in
   (all four entities — select + number, each ×2) so only the fan automation lights
   the bar
 - Binding: switch Binding endpoint → canopy light endpoint 1, clusters **6
-  (On/Off) and 8 (Level Control)**; `Dimming Speed (Simulated)` = `3s` so the
-  cluster 8 hold-to-dim actually emits
+  (On/Off) and 8 (Level Control)**; `Dimming Speed (Simulated)` = `2s` so the
+  cluster 8 hold-to-dim actually emits (`3s` was unreliable — see Step 3)
 - Automation: one `automation.<prefix>_ceiling_fan_wall_control`, category
   Climate, label `int_inovelli_fan_canopy`, `mode: queued` max 10, two triggers
   (config button, fan `percentage`)
@@ -595,7 +599,9 @@ place: a cluster 8 (Level Control) binding on the switch → canopy light endpoi
 1 ([Step 4](#step-4--matter-binding-paddle--light)), and `Dimming Speed
 (Simulated)` (`select.*_ceiling_fan_switch_dimming_speed_simulated`) set to a
 duration, not `Instant`. At `Instant` the switch plays out no ramp on a hold and
-sends no bound Move/Step. `3s` is the tested value.
+sends no bound Move/Step. `2s` is the tested value; `3s` was itself unreliable —
+the bind intermittently stopped emitting Move/Step on a hold, the same as
+`Instant`. If hold-to-dim is flaky at the current setting, try `2s`.
 
 **Light cuts out at low brightness.** Raise `Minimum dim level`
 (`select.<prefix>_ceiling_fan_ligh_min_level`) one step at a time until the low

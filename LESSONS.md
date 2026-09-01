@@ -601,7 +601,9 @@ On the White series switch, the paddle → light Matter binding fires *because* 
 
 ### Inovelli White Series VTM30-SN — cluster 8 (Level Control) binding needs a non-Instant simulated dimming speed
 
-A cluster 8 binding (switch Binding endpoint → canopy light endpoint 1) for paddle press-and-hold dimming emits nothing while `Dimming Speed (Simulated)` (`select.*_ceiling_fan_switch_dimming_speed_simulated`) is at `Instant` — the switch has no ramp to play out, so the hold sends no Move/Step. Set it to a duration (`3s` tested smooth on Avery's Room, `2s` slightly fast) and hold-to-dim works over the binding with HA down; releasing the paddle stops the ramp. An earlier build tested cluster 8 on canopy fw `1.0.0` and `1.0.1r1`, saw nothing, concluded it "doesn't work", and ran cluster 6 only — the real cause was the `Instant` simulated speed, not the firmware. Guide `guides/inovelli_fan_canopy.md` Steps 3–4 now cover both clusters.
+A cluster 8 binding (switch Binding endpoint → canopy light endpoint 1) for paddle press-and-hold dimming emits nothing while `Dimming Speed (Simulated)` (`select.*_ceiling_fan_switch_dimming_speed_simulated`) is at `Instant` — the switch has no ramp to play out, so the hold sends no Move/Step. Set it to a duration and hold-to-dim works over the binding with HA down; releasing the paddle stops the ramp. An earlier build tested cluster 8 on canopy fw `1.0.0` and `1.0.1r1`, saw nothing, concluded it "doesn't work", and ran cluster 6 only — the real cause was the `Instant` simulated speed, not the firmware.
+
+**`3s` is not a safe value.** It was run first and intermittently regressed to the `Instant` behaviour — the bind stopping mid-hold and sending no Move/Step, unpredictably. `2s` has been reliable on both switches; `500ms`–`1s` ramp too fast to land a level. Both rooms now run `2s`. If hold-to-dim goes flaky after a firmware update, re-check this select before assuming the binding broke. Guide `guides/inovelli_fan_canopy.md` Steps 3–4 cover both clusters.
 
 ---
 
