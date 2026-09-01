@@ -1,35 +1,36 @@
 # Vacuum Cleaning Routine
 
-*Last updated: August 2026*
+*Last updated: September 2026*
 
 ## Overview
 
 Automates the Roborock Q8 Max Plus (`vacuum.living_room_vacuum`) to clean the house on two independent schedules: a quiet pass over shared common areas in the evening, and a full-speed pass over the remaining rooms during the day when the house empties out. Each schedule targets a fixed set of rooms, tracks its own daily completion state, and never references the other's progress.
+
+The evening pass is its own automation (*Household: Vacuum Evening Cleaning*). The daytime pass is **not** a standalone automation — it is a block inside *Household: Last Leaves Home*, so it rides the same departure trigger, the same 5-minute debounce, and the Immediate Departure override as the rest of the leave-home routine (garage, locks, thermostat). This mirrors how the old apartment folded the vacuum start into its last-leaves automation; the rebuild briefly split it out, then folded the daytime half back in once the two halves proved to have nothing to share.
 
 The old apartment's version of this automation started the vacuum when the last person left and docked it when the first person arrived, then simply restarted the whole-house clean from scratch on every subsequent departure — using a "best single attempt cleared 50% progress" threshold to decide the day was done, never actually resuming an interrupted job. This rebuild set out to improve on that with genuine resume, which testing then proved isn't possible on this hardware (see [Why resume isn't used](#why-resume-isnt-used)); the two-zone schedule below is what replaced that goal.
 
 ## Architecture
 
 ```
-                    ┌─────────────────────────────┐
-                    │  Household: Vacuum Start     │
-                    │  Cleaning                    │
-                    │  (choose, keyed by trigger)  │
-                    └──────┬────────────────┬───────┘
-                           │                │
-        everyone_sleeping  │                │  zone.home -> 0
-        on for 1h          │                │  for 2m30s
-                           ▼                ▼
-              ┌─────────────────────┐  ┌─────────────────────────┐
-              │ Evening branch      │  │ Daytime branch          │
-              │ fan: quiet          │  │ fan: max                │
-              │ mop: off            │  │ mop: medium              │
-              │ segments: office,   │  │ segments: bedroom, bath, │
-              │ dining, living,     │  │ master bed, master bath, │
-              │ entrance, kitchen   │  │ utility, pantry          │
-              └──────────┬──────────┘  └──────────┬──────────────┘
-                         │                         │
-                         ▼                         ▼
+     ┌──────────────────────────┐   ┌────────────────────────────────┐
+     │ Household: Vacuum         │   │ Household: Last Leaves Home     │
+     │ Evening Cleaning          │   │ "Start daytime vacuum" block    │
+     └────────────┬─────────────┘   └───────────────┬────────────────┘
+                  │                                 │
+   everyone_sleeping                     zone.home -> 0 for 5m
+   on for 1h                             (or immediate, override armed)
+                  ▼                                 ▼
+        ┌─────────────────────┐        ┌─────────────────────────┐
+        │ fan: quiet          │        │ fan: max                │
+        │ mop: off            │        │ mop: medium             │
+        │ segments: office,   │        │ segments: bedroom, bath,│
+        │ living, entrance,   │        │ master bed, master bath,│
+        │ kitchen             │        │ master closet, utility, │
+        │                     │        │ pantry                  │
+        └──────────┬──────────┘        └──────────┬──────────────┘
+                   │                              │
+                   ▼                              ▼
               input_select.vacuum_active_zone = evening | daytime
                          │
                          ▼
@@ -75,7 +76,7 @@ The final design sidesteps this by never tracking leftovers at all. **Evening** 
 - Roborock integration configured, with `vacuum.living_room_vacuum` entity available
 - Room map built in the Roborock app, with segment IDs known (`roborock.get_maps` service)
 - `binary_sensor.avery_home_today`, `input_boolean.everyone_sleeping`, `input_boolean.avery_sleeping` already existing as part of the household sleep/presence system
-- `zone.home` as the presence source (matches the rest of this instance's household automations; see the Coordinated Change note in `standards/automations.md` §3.2 about the eventual migration to `sensor.household_people_home`)
+- `zone.home` as the presence source (matches the rest of this instance's household automations; see the Coordinated Change note in `standards/automations.md` §3.2 about the eventual migration to `sensor.household_people_home`). The daytime run's departure trigger and 5-minute debounce belong to *Household: Last Leaves Home*, not this routine — see `guides/presence_tracking.md`.
 
 ## Steps
 
@@ -92,7 +93,7 @@ Segment 20 (Master Closet) was originally believed to be a gap in the ID sequenc
 
 On 2026-08-26, Kitchen and Dining room were merged into one room in the Roborock app. The merge landed on segment ID **22** (absorbing the old Dining room's footprint) and retired the old Kitchen ID, **27**, entirely rather than renaming it — `roborock.get_maps` briefly showed 22 still as "Dining room" and 27 still as "Kitchen" for hours after the app-side edit, and a functional test against 27 during that lag window actually worked (it was still valid at that moment). Don't trust a single `get_maps` snapshot as final during a pending merge/rename — confirm the *current* segment ID by testing whether `app_segment_clean` targeting it actually starts a job (`state` → `cleaning`); a retired ID silently no-ops instead of erroring. The same map sync also surfaced a new, previously-unmapped segment **28 ("Stairs")**. This is a physical flight of stairs — a fall hazard, not an oversight — and is **deliberately excluded from both zones and must never be added to a `segments:` list**. A virtual wall is also placed in front of it in the Roborock app as a hardware-level backstop independent of this automation.
 
-> **Coordinated change:** if the map is rebuilt or rooms are re-split in the Roborock app, segment IDs can change. Re-run `roborock.get_maps` and update the `segments:` list in both branches of *Household: Vacuum Start Cleaning* — a stale ID silently cleans the wrong room or nothing at all.
+> **Coordinated change:** if the map is rebuilt or rooms are re-split in the Roborock app, segment IDs can change. Re-run `roborock.get_maps` and update the `segments:` list in both places — the evening list in *Household: Vacuum Evening Cleaning*, the daytime list in the "Start daytime vacuum" block of *Household: Last Leaves Home*. A stale ID silently cleans the wrong room or nothing at all.
 
 ### 2. Create the helpers
 
@@ -100,15 +101,16 @@ Five helpers back the routine, all under the `int_vacuum_cleaning_routine` label
 
 - `input_number.vacuum_evening_max_progress`, `input_number.vacuum_daytime_max_progress` — running maximum progress seen in each zone since the last reset. Needed because a commanded dock resets live progress to 0, but "best coverage achieved today" has to survive that.
 - `input_boolean.vacuum_ran_evening`, `input_boolean.vacuum_ran_daytime` — per-zone daily completion flags.
-- `input_select.vacuum_active_zone` (`evening` / `daytime`) — set by *Vacuum Start Cleaning* the moment it commands a job. Exists because live progress and the `returning` trigger are shared across both zones; without recording which zone commanded the current job, the tracking and completion automations couldn't tell a 5-room job's 100% from an 11-room job's 100%.
+- `input_select.vacuum_active_zone` (`evening` / `daytime`) — set the moment a job is commanded (by *Vacuum Evening Cleaning* for evening, by the *Last Leaves Home* daytime block for daytime). Exists because live progress and the `returning` trigger are shared across both zones; without recording which zone commanded the current job, the tracking and completion automations couldn't tell a 5-room job's 100% from an 11-room job's 100%.
 - `input_boolean.vacuum_routine_pause` — a per-trip "I'm stepping out briefly, don't start" flag, cleared automatically on arrival rather than surviving to block a later real departure.
 
 ### 3. Build the automations
 
-Five automations, described in the architecture diagram above. Live YAML for each is in `ha/automations/` — this guide does not reproduce it; fetch via `ha_config_get_automation` for the current version. Key design points not obvious from the YAML alone:
+Four vacuum automations plus the daytime-start block in *Household: Last Leaves Home*, described in the architecture diagram above. Live YAML for each is in `ha/automations/` — this guide does not reproduce it; fetch via `ha_config_get_automation` for the current version. Key design points not obvious from the YAML alone:
 
-- **Vacuum Start Cleaning** merges what could have been two automations (evening start, daytime start) into one `choose` block keyed on `condition: trigger, id: ...`. This is a deliberate departure from an earlier project-wide "avoid combining automations on opposite-state triggers" guideline that no longer reflects the author's preference — see `LESSONS.md` if that guidance resurfaces elsewhere.
-- The evening branch's trigger is deliberately *just* "everyone's been asleep for 1 hour," with no clock-time restriction. An earlier draft added a 21:00–05:00 window to guard against a daytime nap accidentally triggering an evening-flavored run — dropped once confirmed `everyone_sleeping` is only ever used at actual bedtime, never naps, so the guard protected against a scenario that can't happen while risking blocking a genuinely early or late bedtime.
+- **The two starts are split, not combined.** Evening cleaning is its own automation (*Household: Vacuum Evening Cleaning*, single `everyone_sleeping` trigger). Daytime cleaning is a block inside *Household: Last Leaves Home* — it has nothing operationally in common with the evening run (different trigger, zone, settings, completion flag) and everything in common with the rest of the leave-home routine, so it lives there and inherits that automation's 5-minute departure debounce and Immediate Departure override. An earlier rebuild draft merged both starts into one `choose` keyed on `condition: trigger, id: ...`; that only ever coupled two things that don't interact.
+- **The daytime block's guards double as re-run protection.** *Last Leaves Home* fires twice on an immediate departure (once instantly, once when the 5-minute trigger elapses). The daytime block's `vacuum_ran_daytime` off + "not currently cleaning" conditions make the second pass a no-op — no second job, no duplicate notification.
+- The evening automation's trigger is deliberately *just* "everyone's been asleep for 1 hour," with no clock-time restriction. An earlier draft added a 21:00–05:00 window to guard against a daytime nap accidentally triggering an evening-flavored run — dropped once confirmed `everyone_sleeping` is only ever used at actual bedtime, never naps, so the guard protected against a scenario that can't happen while risking blocking a genuinely early or late bedtime.
 - **Vacuum Stops For Occupants** does not call `vacuum.pause` before `vacuum.return_to_base`. Testing showed pausing first makes no difference to whether the job survives — it doesn't, either way — so the extra call and delay were dropped.
 - **Vacuum Mark Area Complete** uses different thresholds per zone: Evening requires >95% (open-plan, should reliably finish end-to-end when uninterrupted), Daytime requires >65% (several of those rooms have doors that may be closed, capping achievable progress in a way retrying won't fix). Originally set to 50% to match the old apartment's tuned value; raised to 65% on 2026-08-26 after a real run confirmed 2 of 6 rooms (Utility Room, Pantry — both door-closed) still cleared 91%, since progress is area-weighted rather than room-count-weighted and small rooms cost only a few points each when inaccessible. Still based on limited real-world data — revisit if daytime runs start landing below 65% on door-closed days.
 - **Segment order in `app_segment_clean` does not determine cleaning route.** Confirmed via trace: a job commanded `[16,17,19,21,23,24]` was actually visited 19 → 21 → 17 → 16 (23/24 skipped, doors closed) — the robot path-plans from its own position, not the array order. No need to sort segment lists for routing.
@@ -118,7 +120,8 @@ Five automations, described in the architecture diagram above. Live YAML for eac
 
 | Friendly Name | Entity ID | Type |
 |---|---|---|
-| Household: Vacuum Start Cleaning | `automation.household_vacuum_start_cleaning` | Automation |
+| Household: Vacuum Evening Cleaning | `automation.household_vacuum_evening_cleaning` | Automation |
+| Household: Last Leaves Home | `automation.household_last_leaves_home` | Automation (contains the daytime-start block) |
 | Household: Vacuum Stops For Occupants | `automation.household_vacuum_stops_for_occupants` | Automation |
 | Household: Vacuum Track Max Progress | `automation.household_vacuum_track_max_progress` | Automation |
 | Household: Vacuum Mark Area Complete | `automation.household_vacuum_mark_area_complete` | Automation |

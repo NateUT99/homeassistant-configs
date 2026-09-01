@@ -549,7 +549,7 @@ A `device_tracker` in a zone does not, by itself, increment that zone's occupant
 
 A calendar entity's state is `on` whenever *some* event is currently active; it says nothing about *which* event. This is a trap for custody/shared-schedule calendars that are, by design, always covered by one block or another (e.g. `calendar.avery` alternates "Avery @ Nate's" and "Avery @ Cheryl's" all-day blocks with no gaps). A template like `{{ is_state('calendar.avery', 'on') }}` intended to mean "Avery is home today" is permanently stuck `on`, because there's always an event — it can never observe the one case (a gap) it was written to detect.
 
-Caught 2026-08-29: `binary_sensor.avery_home_today` used exactly this pattern and had been unconditionally `on` since at least 2026-08-26, silently blocking `automation.household_vacuum_start_cleaning`'s adults-only evening branch (gated on this sensor being `off`) every single night regardless of where Avery actually was.
+Caught 2026-08-29: `binary_sensor.avery_home_today` used exactly this pattern and had been unconditionally `on` since at least 2026-08-26, silently blocking the adults-only evening vacuum clean (gated on this sensor being `off`) every single night regardless of where Avery actually was. That branch was then `automation.household_vacuum_start_cleaning`'s evening arm; it is now the standalone `automation.household_vacuum_evening_cleaning`.
 
 **Fix:** inspect the active event's summary/message, not just whether the calendar is occupied:
 

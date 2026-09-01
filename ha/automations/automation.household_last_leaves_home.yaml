@@ -1,13 +1,14 @@
 id: "1787007774696"
 alias: "Household: Last Leaves Home"
 description: >-
-  Closes the garage door, locks the front door, sets the living room thermostat
-  to Away, and turns off lights, fans, and switches labeled "No One Is Home"
-  when the last person leaves. Normally fires 5 minutes after zone.home drops to
-  0, long enough to absorb a walk to the community mailbox. When the Immediate
-  Departure override (input_boolean.immediate_departure) is armed before leaving
-  -- typically via Siri on the way out for a longer absence -- it fires the
-  moment zone.home hits 0 and clears the override.
+  Runs the whole-house departure routine: closes the garage, locks the front
+  door, sets the living room thermostat to Away, turns off lights/fans/switches
+  labeled "No One Is Home", and starts the daytime vacuum clean of the remaining
+  rooms (9am-7pm, if it hasn't run today). Normally fires 5 minutes after
+  zone.home drops to 0 -- long enough to absorb a walk to the community mailbox.
+  When the Immediate Departure override (input_boolean.immediate_departure) is
+  armed before leaving -- typically via Siri for a longer absence -- it fires
+  the moment zone.home hits 0. The override is cleared on every run.
 triggers:
   - trigger: state
     entity_id: zone.home
@@ -45,25 +46,15 @@ conditions:
         entity_id: input_boolean.immediate_departure
         state: "on"
 actions:
-  - alias: If the override was armed, consume it and confirm the early lock-up
-    if:
-      - condition: state
-        entity_id: input_boolean.immediate_departure
-        state: "on"
-    then:
-      - alias: Clear the override so the next departure uses the normal debounce
-        action: input_boolean.turn_off
-        target:
-          entity_id: input_boolean.immediate_departure
-      - alias: Push confirmation that the house locked up immediately
-        action: notify.send_message
-        target:
-          entity_id: notify.nates_iphone
-        data:
-          title: Immediate Departure
-          message: >-
-            Garage closed, front door locked, thermostat set to Away,
-            no-one-home devices off.
+  - alias: Clear the Immediate Departure override
+    action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.immediate_departure
+    note: >-
+      Unconditional -- a no-op when the override wasn't armed. The override is
+      only ever read in this automation's conditions, which are already
+      evaluated by the time actions run, so clearing it here cannot affect the
+      current run.
   - alias: Set living room thermostat to Away preset
     action: climate.set_preset_mode
     target:
@@ -95,5 +86,67 @@ actions:
     target:
       label_id: no_one_home
     data: {}
+  - alias: Start the daytime vacuum clean of the remaining rooms
+    note: >-
+      Folded in from the former automation.household_vacuum_start_cleaning
+      daytime branch so it rides the same departure trigger and the Immediate
+      Departure fast path. The "not already cleaning" and "ran_daytime off"
+      conditions make the 5-minute trigger's idempotent re-run after an
+      immediate departure a no-op here. Evening common-areas cleaning stays in
+      automation.household_vacuum_evening_cleaning.
+    if:
+      - condition: state
+        entity_id: input_boolean.vacuum_ran_daytime
+        state: "off"
+        alias: Daytime zone has not run today
+      - condition: state
+        entity_id: input_boolean.vacuum_routine_pause
+        state: "off"
+        alias: Vacuum routine is not paused
+      - condition: time
+        after: "09:00:00"
+        before: "19:00:00"
+        alias: Within daytime cleaning hours (9am-7pm), keeps school drop-off window clear
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: vacuum.living_room_vacuum
+            state: cleaning
+        alias: Vacuum is not currently cleaning
+    then:
+      - alias: Set active zone to daytime
+        action: input_select.select_option
+        target:
+          entity_id: input_select.vacuum_active_zone
+        data:
+          option: daytime
+      - alias: Set max fan speed for daytime cleaning
+        action: vacuum.set_fan_speed
+        target:
+          entity_id: vacuum.living_room_vacuum
+        data:
+          fan_speed: max
+      - alias: Set medium mop intensity
+        action: select.select_option
+        target:
+          entity_id: select.living_room_vacuum_mop_intensity
+        data:
+          option: medium
+      - alias: Start segment clean of remaining rooms
+        action: vacuum.send_command
+        target:
+          entity_id: vacuum.living_room_vacuum
+        data:
+          command: app_segment_clean
+          params:
+            - segments: [16, 17, 19, 20, 21, 23, 24]
+              repeat: 1
+      - alias: Notify that daytime cleaning started
+        action: notify.send_message
+        target:
+          entity_id: notify.nates_iphone
+        data:
+          title: Vacuum
+          message: Started cleaning remaining rooms.
 mode: single
 category: 01M08R77W9A83G7DDA33MT8R09

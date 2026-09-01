@@ -193,8 +193,7 @@ debounce.
   input_boolean.immediate_departure ── armed before leaving
                                           │
   zone.home → 0 ──────────┬───────────────┴──► immediate lock-up
-                          │                    + clear the override
-                          │                    + push confirmation
+                          │                    (override cleared every run)
                           ▼
               (override off) wait 5 min ──────► normal lock-up
 ```
@@ -208,13 +207,17 @@ debounce.
 - **Arm it *before* leaving.** If it is armed after `zone.home` has already hit 0, that
   edge has passed and the departure falls back to the 5-minute debounce — no worse than
   not arming it.
-- **Single-use, self-clearing.** The automation clears it as the first action on the
-  immediate path, and `automation.household_first_arrives_home` clears it again on
-  confirmed arrival — the same "must not survive to affect a later departure" rule that
+- **Single-use, self-clearing.** `automation.household_last_leaves_home` clears it
+  unconditionally as its first action (a no-op when it wasn't armed), and
+  `automation.household_first_arrives_home` clears it again on confirmed arrival — the same
+  "must not survive to affect a later departure" rule that
   `automation.household_vacuum_stops_for_occupants` applies to `input_boolean.vacuum_routine_pause`.
-- **The vacuum is unaffected.** `automation.household_vacuum_start_cleaning` keeps its own
-  2m30s `daytime_departure` debounce, so the daytime clean still starts promptly for
-  maximum runtime. The override is not wired to fast-start the vacuum.
+- **The daytime vacuum clean comes along for free.** Starting the daytime Roborock run is
+  a block inside this same automation (folded in from the former
+  `automation.household_vacuum_start_cleaning`), so it rides the 5-minute debounce and the
+  immediate path without any separate wiring. Evening common-areas cleaning is unaffected
+  — it lives in `automation.household_vacuum_evening_cleaning` on its own `everyone_sleeping`
+  trigger. See `guides/vacuum_cleaning_routine.md`.
 
 Exposing `input_boolean.immediate_departure` to Apple Home for the Siri trigger depends on
 the Matter Hub bridge, which is not yet installed in the new house (see

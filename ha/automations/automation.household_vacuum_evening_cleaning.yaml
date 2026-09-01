@@ -1,0 +1,79 @@
+id: "1787695541380"
+alias: "Household: Vacuum Evening Cleaning"
+description: >-
+  Starts the Roborock on a segment clean of the Common Areas (Office, Living
+  room, Entrance, Kitchen -- Kitchen now includes the former Dining room, merged
+  in the Roborock app) once everyone has been asleep for an hour, adults-only,
+  at quiet fan speed with mopping disabled to avoid a loud dock wash and dry.
+
+
+  The daytime Remaining Rooms clean lives in
+  automation.household_last_leaves_home -- it rides the departure trigger. The
+  two zones are fixed and never reference each other's progress or completion
+  state: a commanded dock always cancels the active job on this unit, and
+  cleaning progress is relative to job size, not house size, so cross-zone
+  comparisons or leftover-tracking don't work reliably. See
+  guides/vacuum_cleaning_routine.md for the full reasoning.
+triggers:
+  - trigger: state
+    entity_id: input_boolean.everyone_sleeping
+    to: "on"
+    for:
+      hours: 1
+    alias: Everyone has been asleep for 1 hour
+conditions:
+  - condition: state
+    entity_id: input_boolean.vacuum_ran_evening
+    state: "off"
+    alias: Evening zone has not run today
+  - condition: state
+    entity_id: input_boolean.vacuum_routine_pause
+    state: "off"
+    alias: Vacuum routine is not paused
+  - condition: state
+    entity_id: binary_sensor.avery_home_today
+    state: "off"
+    alias: Avery is not home today
+  - condition: not
+    conditions:
+      - condition: state
+        entity_id: vacuum.living_room_vacuum
+        state: cleaning
+    alias: Vacuum is not currently cleaning
+actions:
+  - alias: Set active zone to evening
+    action: input_select.select_option
+    target:
+      entity_id: input_select.vacuum_active_zone
+    data:
+      option: evening
+  - alias: Set quiet fan speed for evening cleaning
+    action: vacuum.set_fan_speed
+    target:
+      entity_id: vacuum.living_room_vacuum
+    data:
+      fan_speed: quiet
+  - alias: Disable mopping in the evening to avoid loud dock wash and dry
+    action: select.select_option
+    target:
+      entity_id: select.living_room_vacuum_mop_intensity
+    data:
+      option: "off"
+  - alias: Start segment clean of common areas
+    action: vacuum.send_command
+    target:
+      entity_id: vacuum.living_room_vacuum
+    data:
+      command: app_segment_clean
+      params:
+        - segments: [18, 22, 25, 26]
+          repeat: 1
+  - alias: Notify that evening cleaning started
+    action: notify.send_message
+    target:
+      entity_id: notify.nates_iphone
+    data:
+      title: Vacuum
+      message: Started cleaning common areas this evening.
+mode: single
+category: 01M0XF7RJK5EX3A4YPNEX7X3DG
