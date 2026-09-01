@@ -8,12 +8,13 @@ description: >-
   current speed without changing it; holds are unmapped. A settled fan-speed
   change (the percentage attribute) stores the running speed in
   input_select.averys_room_ceiling_fan_last_speed and blips the switch LED bar via
-  script.averys_room_ceiling_fan_led_blip - the speed's hue for 3s, amber for 1s
-  when the fan is switched off. The bar rests dark at all times; before each blip
-  the automation snapshots the bar into scene.averys_room_ceiling_fan_led_restore
-  so the blip restores whatever it was showing (dark today; a future status
-  colour transparently). None of this works while HA is down; paddle -> light
-  on/off is a Matter binding and is independent.
+  script.averys_room_ceiling_fan_led_blip - the speed's hue for 3s, amber plus a
+  Fast Falling animation when the fan is switched off. The bar rests dark at all
+  times; before each blip the automation snapshots the RGB bar and the LED-effect
+  select into scene.averys_room_ceiling_fan_led_restore so the blip restores
+  whatever it was showing (dark today; a future status colour transparently).
+  None of this works while HA is down; paddle -> light on/off is a Matter binding
+  and is independent.
 triggers:
   - alias: Config button gesture
     trigger: state
@@ -108,6 +109,7 @@ actions:
                           scene_id: averys_room_ceiling_fan_led_restore
                           snapshot_entities:
                             - light.averys_room_ceiling_fan_switch_led
+                            - select.averys_room_ceiling_fan_switch_led_effect
                   - alias: Blip the bar to show the current speed (no fan change)
                     action: script.turn_on
                     target:
@@ -151,7 +153,8 @@ actions:
                   scene_id: averys_room_ceiling_fan_led_restore
                   snapshot_entities:
                     - light.averys_room_ceiling_fan_switch_led
-          - alias: Blip the bar (speed hue 3s, amber 1s for off), then it restores itself
+                    - select.averys_room_ceiling_fan_switch_led_effect
+          - alias: Blip the bar (speed hue 3s, amber + fall for off), then it restores itself
             action: script.turn_on
             target:
               entity_id: script.averys_room_ceiling_fan_led_blip

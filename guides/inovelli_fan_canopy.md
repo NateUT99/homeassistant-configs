@@ -56,13 +56,14 @@ Four mechanisms connect the wall switch to the fan/light:
                                    └─►  snapshot + blip                     (3 taps: peek)
       fan.averys_room_ceiling_fan  ──►  input_select.averys_room_ceiling_fan_last_speed
                                    ├─►  scene.create  scene.averys_room_ceiling_fan_led_restore
-                                   │       (snapshot the bar's resting state, guarded)
+                                   │       (snapshot RGB bar + LED-effect select, guarded)
                                    └─►  script.averys_room_ceiling_fan_led_blip
 
   script.averys_room_ceiling_fan_led_blip   (mode: restart)
-      light.averys_room_ceiling_fan_switch_led   ◄── blip hue/amber, 75% awake / 25% asleep
-                                                       (reads input_boolean.avery_sleeping)
-      scene.averys_room_ceiling_fan_led_restore  ──► re-assert pre-blip state (else light.turn_off)
+      light.averys_room_ceiling_fan_switch_led          ◄── blip hue/amber, 75% / 25%
+                                                            (reads input_boolean.avery_sleeping)
+      select.averys_room_ceiling_fan_switch_led_effect  ◄── "Fast Falling" on fan-off only
+      scene.averys_room_ceiling_fan_led_restore         ──► re-assert both (else light.turn_off)
 ```
 
 **Key design decisions:**
@@ -122,11 +123,24 @@ Four mechanisms connect the wall switch to the fan/light:
   for a few days, the resting-dark bar was preferred around the clock. Now the
   bar is dark at rest whatever the fan is doing, and lights transiently to
   acknowledge a change: the new speed's hue for 3 s (teal low 175 / blue medium
-  220 / violet high 265), or **amber (hue 30) for 1 s** when the fan is switched
-  off. The off blip exists because a dark resting bar gives a double-tap-off no
-  visual confirmation at all. Amber, not red: the bar is the room's only ambient
-  signal surface, and red is kept in reserve for a real alert. Amber is also
-  long-wavelength, so it costs almost nothing in dark adaptation.
+  220 / violet high 265), or **amber (hue 30) for 2 s plus a "Fast Falling"
+  animation on the bar's effect channel** when the fan is switched off. The off
+  blip exists because a dark resting bar gives a double-tap-off no visual
+  confirmation at all, and the falling animation reads as "powering down". Amber,
+  not red: the bar is the room's only ambient signal surface, and red is kept in
+  reserve for a real alert. Amber is also long-wavelength, so it costs almost
+  nothing in dark adaptation.
+- **The off blip drives a second channel — the LED-effect select.** The RGB
+  notification channel (`light.<prefix>_ceiling_fan_switch_led`) can set colour
+  and brightness but has no animation. Inovelli's base LED-effect parameter,
+  exposed over Matter as `select.<prefix>_ceiling_fan_switch_led_effect`, has the
+  animation list (Falling / Rising / Chase / …) but plays in the fixed
+  `LED Color` param, not the notification colour. The off blip uses both at once:
+  amber on the RGB channel for the colour semantic, `Fast Falling` on the effect
+  select for the motion. The effect select's **resting value is `Solid`, not
+  `Off`** — `Off` blanks the RGB notification channel too, so the speed-hue blips
+  would stop rendering. `Solid` at `LED Intensity` 0 is still dark at rest. Only
+  the off blip touches this select; speed blips leave it alone.
 - **Blip brightness follows the room's sleep boolean: 75 % awake, 25 % asleep.**
   15 % (the old night-only value) is hard to read in a sunlit room; 75 % at 3 a.m.
   defeats the dark adaptation the blip is meant to preserve. The blip script
@@ -146,16 +160,24 @@ Four mechanisms connect the wall switch to the fan/light:
 - **The blip restores what the bar was showing, it doesn't blindly turn it off.**
   The bar is the room's one always-idle ambient surface, so it's the natural home
   for a future status colour (guest mode, an alert, a laundry indicator). Rather
-  than hard-coding "dark" as the resting state, the automation snapshots the bar
-  into `scene.<prefix>_ceiling_fan_led_restore` via `scene.create` *before* firing
-  the blip, and the blip's tail re-asserts that scene (`scene.turn_on`), falling
-  back to `light.turn_off` only when the scene doesn't exist — a bare manual
+  than hard-coding "dark" as the resting state, the automation snapshots both LED
+  channels — `light.<prefix>_ceiling_fan_switch_led` and
+  `select.<prefix>_ceiling_fan_switch_led_effect` — into
+  `scene.<prefix>_ceiling_fan_led_restore` via `scene.create` *before* firing the
+  blip, and the blip's tail re-asserts that scene (`scene.turn_on`), falling back
+  to `light.turn_off` only when the scene doesn't exist — a bare manual
   `script.turn_on`, since the automation always snapshots first. Existence is
   tested with `states.scene.<id> is not none`, not `states()` / `has_value()`: a
-  freshly `scene.create`d scene reads `unknown` until first activated. Today
-  nothing else drives the bar (`LED Intensity(On)`/`(Off)` are both 0), so the
-  snapshot is "off" and the restore is a no-op — the layer is built now so a
-  future owner of the bar needs zero coordination with this automation.
+  freshly `scene.create`d scene reads `unknown` until first activated. The effect
+  select is in the snapshot because the off blip changes it (to `Fast Falling`)
+  and the restore must put it back to `Solid`; for a speed blip the snapshot and
+  restore of that select are a no-op. Restoring the select is a Matter Mode Select
+  write, so every blip's restore carries one — slower than the RGB channel but off
+  the critical path (it runs after the 2–3 s hold). Aside from the fan automation
+  nothing else drives the bar today (`LED Intensity(On)`/`(Off)` are both 0), so
+  the RGB half of the snapshot is "off" and that half of the restore is a no-op —
+  the layer is built now so a future owner of the bar needs zero coordination with
+  this automation.
 - **The snapshot is guarded on the blip script being idle.** The blip is
   `mode: restart`, so a second fan change mid-blip restarts it. An unguarded
   re-snapshot would then capture the *blip's own colour* as the resting state and
@@ -288,7 +310,8 @@ Set physically during the install (paddle + config taps) and confirmed in HA:
 | Smart Bulb Mode | Enabled | Keeps the load permanently powered so the paddle emits Matter commands (events / bindings) instead of chasing the empty local relay. Required for the binding to fire. Live entity: `select.*_ceiling_fan_switch_smart_bulb_mode` = `Smart Bulb Enable`. |
 | Control of switch load | `Remote & paddle control` (default — **do not** change) | On the White series the outgoing On/Off binding is triggered by the paddle's local load action. Setting this to `Remote control only` (to stop the phantom `switch.*_ceiling_fan_switch_load_control` toggle) also kills the paddle → light binding, even with Smart Bulb Mode on. Leave it at `Remote & paddle control` and accept the internal-relay toggle as the cost of a working binding. See `LESSONS.md`; Inovelli may decouple these in a later firmware. Live entity: `select.*_ceiling_fan_switch_control_of_switch_load`. |
 | Dimming Speed (Simulated) | `3s` | End-to-end ramp time for a paddle press-and-hold over the cluster 8 (Level Control) binding — see [Step 4](#step-4--matter-binding-paddle--light). At `Instant` (default) a paddle hold emits no Move/Step and cluster 8 dimming does nothing. `3s` tested smooth on Avery's Room; `2s` was slightly fast. Live entity: `select.*_ceiling_fan_switch_dimming_speed_simulated`. |
-| LED bar color | Blue | Bedroom indicator. The wall-control automation drives it via the light entity; the `LED Color` parameter is the fallback if the light-entity route ever stops holding. |
+| LED bar color | Blue | Bedroom indicator. The wall-control automation drives colour via the light entity; the `LED Color` parameter is the fallback if the light-entity route ever stops holding, and it is also the colour the `LED Effect` animation plays in. |
+| `LED Effect` (`select.*_ceiling_fan_switch_led_effect`) | `Solid` | Resting value. **Not `Off`** — `Off` blanks the RGB notification channel and the automation's blips stop rendering. `Solid` at `LED Intensity` 0 is still dark at rest. The fan-off blip flips this to `Fast Falling` for ~2 s and the restore scene puts it back to `Solid`. |
 | `LED Intensity(On)` **and** `LED Intensity(Off)` | `0` | The switch keeps an internal on/off state (toggled by the paddle even in Smart Bulb Mode — this is what fires the binding, see the `Control of switch load` row) and lights the bar to `LED Intensity(On)` / `(Off)` for it. Zeroing both means that native indicator never shows, so the bar reflects *only* the fan-speed automation. Each is exposed **twice** — a **select** and a `… (Load Control)` **number** — set all four to `0` per switch. The two `(Load Control)` numbers occasionally re-read their factory defaults (`33` / `1`) after a Matter Server restart; re-zero them if the bar starts glowing faintly at rest. The automation drives the bar through a separate RGB-notification channel that still works with the intensities at 0. |
 
 ## Step 4 — Matter binding: paddle → light
@@ -355,13 +378,14 @@ value is already settled — no delay):
 2. If the fan is on, write `speed` to `input_select.*_ceiling_fan_last_speed`
    (skipped when off, so the memory survives an off/on cycle).
 3. If `script.*_ceiling_fan_led_blip` is `off` (no blip in flight), snapshot
-   `light.*_ceiling_fan_switch_led` into `scene.*_ceiling_fan_led_restore` via
-   `scene.create`.
+   `light.*_ceiling_fan_switch_led` **and**
+   `select.*_ceiling_fan_switch_led_effect` into `scene.*_ceiling_fan_led_restore`
+   via `scene.create`.
 4. `script.turn_on` the blip script and return. The script shows the
-   acknowledgement colour (speed hue 3 s / amber 1 s, at 75 % awake or 25 % while
-   the room's sleep boolean is on), holds, then re-asserts
-   `scene.*_ceiling_fan_led_restore` — or `light.turn_off` if that scene doesn't
-   exist.
+   acknowledgement (speed hue 3 s, or amber 2 s + a `Fast Falling` animation on
+   the effect select for a fan-off; 75 % awake or 25 % while the room's sleep
+   boolean is on), holds, then re-asserts `scene.*_ceiling_fan_led_restore` — or
+   `light.turn_off` if that scene doesn't exist.
 
 `mode: queued`, `max: 10` — runs process in order, so the "no blip in flight"
 snapshot guard can't race itself. The blip's timed hold runs in the
@@ -375,20 +399,22 @@ Matter fan's percentage rounding.
 
 LED bar — **dark at rest at all hours**, whatever the fan is doing. It only blips
 to acknowledge a change, then restores whatever it was showing before (dark
-today). The blip is the new speed's hue for 3 s, or amber for 1 s when the fan is
-switched off. Brightness is 75 % awake / 25 % while the room's sleep boolean is
-on.
+today). A speed change blips that speed's hue on the RGB channel; a fan-off blips
+amber on the RGB channel *and* plays `Fast Falling` on the effect select.
+Brightness is 75 % awake / 25 % while the room's sleep boolean is on.
 
-| Fan | Hue (`hs_color`) | Blip hold | Blip brightness (awake / asleep) |
-|---|---|---|---|
-| off | 30 (amber) | 1 s | 75% / 25% |
-| low | 175 (teal) | 3 s | 75% / 25% |
-| medium | 220 (blue) | 3 s | 75% / 25% |
-| high | 265 (violet) | 3 s | 75% / 25% |
+| Fan | RGB hue (`hs_color`) | Effect select | Blip hold | Blip brightness (awake / asleep) |
+|---|---|---|---|---|
+| off | 30 (amber) | `Fast Falling` | 2 s | 75% / 25% |
+| low | 175 (teal) | — (`Solid`, untouched) | 3 s | 75% / 25% |
+| medium | 220 (blue) | — (`Solid`, untouched) | 3 s | 75% / 25% |
+| high | 265 (violet) | — (`Solid`, untouched) | 3 s | 75% / 25% |
 
-"Dark at rest" needs two things: the blip's tail restores the pre-blip snapshot
-(currently `off`) or does `light.turn_off`, **and** the switch's
+"Dark at rest" needs: the blip's tail restores the pre-blip snapshot (RGB
+`off` + effect `Solid`) or does `light.turn_off`, **and** the switch's
 `LED Intensity(Off)` param is `0` so the native fallback (HA down) is also dark.
+The effect select rests on `Solid`, not `Off` — `Off` blanks the RGB
+notification channel and the speed blips stop rendering.
 
 ## Replicating for another room
 
@@ -425,8 +451,10 @@ If the canopy ships on `1.0.0`, update it to `1.0.1r1` and run the cleanup in
   `0.5` s
 - Switch: Single-pole; Smart Bulb Mode enabled; `Control of switch load` left at
   `Remote & paddle control` (changing it breaks the binding — see Step 3); LED
-  colour Blue; `LED Intensity(On)` **and** `(Off)` = `0` (all four entities —
-  select + number, each ×2) so only the fan automation lights the bar
+  colour Blue; `LED Effect` = `Solid` (**not `Off`** — `Off` blanks the RGB
+  notification channel the blips use); `LED Intensity(On)` **and** `(Off)` = `0`
+  (all four entities — select + number, each ×2) so only the fan automation lights
+  the bar
 - Binding: switch Binding endpoint → canopy light endpoint 1, clusters **6
   (On/Off) and 8 (Level Control)**; `Dimming Speed (Simulated)` = `3s` so the
   cluster 8 hold-to-dim actually emits
@@ -436,7 +464,9 @@ If the canopy ships on `1.0.0`, update it to `1.0.1r1` and run the cleanup in
 - Script: one `script.<prefix>_ceiling_fan_led_blip`, `mode: restart`
 - Speed bands 33 / 66 / 100 with `< 45` / `< 78` edges; bar dark at rest at all
   hours; blip hues 175 / 220 / 265, amber 30; blip brightness 75 % awake / 25 %
-  while the sleep boolean is on
+  while the sleep boolean is on; fan-off blip also plays `Fast Falling` on
+  `select.<prefix>_ceiling_fan_switch_led_effect` and the restore scene snapshots
+  that select alongside the RGB bar
 - Gestures: 1 tap cycles / resumes, 2 taps off, 3 taps peek
 
 Each room gets its own copies with the prefix and sleep boolean substituted:
@@ -502,11 +532,12 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
    light transition-time numbers too (also Level Control attributes) and reset
    them to `0.5` s if the flash returned them to `2.5`.
 8. **Verify**: paddle on/off; config-button speed cycle (1 tap); the LED bar
-   dark at rest and blipping the speed's hue for ~3 s on a change, amber for
-   ~1 s on a double-tap off, then returning to dark; the triple-tap peek showing
-   the current speed without moving the fan; a change made while the room's sleep
-   boolean is on blipping dimmer (25 %); and the light riding down to `1%` on the
-   HA slider without cutting out.
+   dark at rest and blipping the speed's hue for ~3 s on a change, amber + a
+   `Fast Falling` animation for ~2 s on a double-tap off, then returning to dark
+   (effect select back to `Solid`); the triple-tap peek showing the current speed
+   without moving the fan; a change made while the room's sleep boolean is on
+   blipping dimmer (25 %); and the light riding down to `1%` on the HA slider
+   without cutting out.
 
 ## Security summary
 
@@ -527,8 +558,8 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 | Master Bedroom: Ceiling Fan LED Blip | `script.master_bedroom_ceiling_fan_led_blip` | Script (`mode: restart`) — acknowledgement blip for the switch LED bar |
 | Avery's Room Ceiling Fan Last Speed | `input_select.averys_room_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
 | Master Bedroom Ceiling Fan Last Speed | `input_select.master_bedroom_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
-| Avery's Room Ceiling Fan LED Restore | `scene.averys_room_ceiling_fan_led_restore` | Transient scene — `scene.create`d by the automation before each blip, holds the bar's pre-blip state; not persisted, gone on restart and recreated on the next blip |
-| Master Bedroom Ceiling Fan LED Restore | `scene.master_bedroom_ceiling_fan_led_restore` | Transient scene — as above |
+| Avery's Room Ceiling Fan LED Restore | `scene.averys_room_ceiling_fan_led_restore` | Transient scene — `scene.create`d by the automation before each blip, holds the pre-blip state of `light.averys_room_ceiling_fan_switch_led` + `select.averys_room_ceiling_fan_switch_led_effect`; not persisted, gone on restart and recreated on the next blip |
+| Master Bedroom Ceiling Fan LED Restore | `scene.master_bedroom_ceiling_fan_led_restore` | Transient scene — as above, for the `master_bedroom` entities |
 | Ceiling Fan | `fan.averys_room_ceiling_fan` / `light.averys_room_ceiling_fan_light` | Matter device (VTM36) |
 | Ceiling Fan Switch | `event.averys_room_ceiling_fan_switch_button_config` et al. | Matter device (VTM30-SN) |
 

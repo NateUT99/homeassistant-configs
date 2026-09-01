@@ -9,12 +9,12 @@ description: >-
   change (the percentage attribute) stores the running speed in
   input_select.master_bedroom_ceiling_fan_last_speed and blips the switch LED bar
   via script.master_bedroom_ceiling_fan_led_blip - the speed's hue for 3s, amber
-  for 1s when the fan is switched off. The bar rests dark at all times; before
-  each blip the automation snapshots the bar into
-  scene.master_bedroom_ceiling_fan_led_restore so the blip restores whatever it
-  was showing (dark today; a future status colour transparently). None of this
-  works while HA is down; paddle -> light on/off is a Matter binding and is
-  independent.
+  plus a Fast Falling animation when the fan is switched off. The bar rests dark
+  at all times; before each blip the automation snapshots the RGB bar and the
+  LED-effect select into scene.master_bedroom_ceiling_fan_led_restore so the blip
+  restores whatever it was showing (dark today; a future status colour
+  transparently). None of this works while HA is down; paddle -> light on/off is
+  a Matter binding and is independent.
 triggers:
   - alias: Config button gesture
     trigger: state
@@ -109,6 +109,7 @@ actions:
                           scene_id: master_bedroom_ceiling_fan_led_restore
                           snapshot_entities:
                             - light.master_bedroom_ceiling_fan_switch_led
+                            - select.master_bedroom_ceiling_fan_switch_led_effect
                   - alias: Blip the bar to show the current speed (no fan change)
                     action: script.turn_on
                     target:
@@ -152,7 +153,8 @@ actions:
                   scene_id: master_bedroom_ceiling_fan_led_restore
                   snapshot_entities:
                     - light.master_bedroom_ceiling_fan_switch_led
-          - alias: Blip the bar (speed hue 3s, amber 1s for off), then it restores itself
+                    - select.master_bedroom_ceiling_fan_switch_led_effect
+          - alias: Blip the bar (speed hue 3s, amber + fall for off), then it restores itself
             action: script.turn_on
             target:
               entity_id: script.master_bedroom_ceiling_fan_led_blip

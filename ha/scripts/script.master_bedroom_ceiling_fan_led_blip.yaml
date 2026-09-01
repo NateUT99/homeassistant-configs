@@ -2,10 +2,13 @@ alias: "Master Bedroom: Ceiling Fan LED Blip"
 description: >-
   Blips the Master Bedroom ceiling-fan switch LED bar to acknowledge a fan change,
   then restores what the bar was showing before. A speed change shows that speed's
-  hue for 3s; switching the fan off shows amber for 1s. Brightness is 75% by
-  default and 25% while everyone is sleeping (input_boolean.everyone_sleeping) to
-  protect dark adaptation. Called via script.turn_on from Master Bedroom: Ceiling
-  Fan Wall Control, which snapshots the bar into
+  hue for 3s. Switching the fan off shows amber on the RGB channel plus a Fast
+  Falling animation on the bar's effect channel
+  (select.master_bedroom_ceiling_fan_switch_led_effect), held 2s. Brightness is
+  75% by default and 25% while everyone is sleeping
+  (input_boolean.everyone_sleeping) to protect dark adaptation. Called via
+  script.turn_on from Master Bedroom: Ceiling Fan Wall Control, which snapshots
+  the RGB bar and the effect select into
   scene.master_bedroom_ceiling_fan_led_restore before the first blip of a burst;
   the tail re-asserts that scene, falling back to light.turn_off when it does not
   exist (e.g. a manual run). mode: restart so rapid changes keep the bar lit and
@@ -19,14 +22,14 @@ sequence:
       level: "{{ 25 if is_state('input_boolean.everyone_sleeping', 'on') else 75 }}"
   - alias: Show the acknowledgement colour, then the tail restores the bar
     choose:
-      - alias: Fan is off - amber acknowledgement for 1s
+      - alias: Fan is off - amber acknowledgement with a fast-falling fade
         conditions:
           - condition: state
             entity_id: fan.master_bedroom_ceiling_fan
             state: "off"
             alias: Fan off
         sequence:
-          - alias: Amber blip
+          - alias: Amber blip on the RGB channel
             action: light.turn_on
             target:
               entity_id: light.master_bedroom_ceiling_fan_switch_led
@@ -35,8 +38,14 @@ sequence:
               hs_color:
                 - 30
                 - 100
-          - alias: Hold the amber blip
-            delay: "00:00:01"
+          - alias: Play the fast-falling fade on the bar effect channel
+            action: select.select_option
+            target:
+              entity_id: select.master_bedroom_ceiling_fan_switch_led_effect
+            data:
+              option: "Fast Falling"
+          - alias: Hold while the fall animation plays
+            delay: "00:00:02"
     default:
       - alias: Speed change - that speed's hue for 3s
         action: light.turn_on
@@ -55,7 +64,7 @@ sequence:
         condition: template
         value_template: "{{ states.scene.master_bedroom_ceiling_fan_led_restore is not none }}"
     then:
-      - alias: Re-assert the pre-blip state
+      - alias: Re-assert the pre-blip state (RGB bar + effect channel)
         action: scene.turn_on
         target:
           entity_id: scene.master_bedroom_ceiling_fan_led_restore
