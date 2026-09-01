@@ -145,11 +145,13 @@ docking the vacuum, setting the thermostat preset — trigger on this helper goi
                                           │
   zone.home → 0 ────────────────────────────────────────────┴──► off
                                           │
-              ┌────────────────────────────┼──────────────────────┐
-              ▼                            ▼                      ▼
-  Vacuum Stops For Occupants   First Arrives Home        (future arrival actions)
-        (dock the robot)      (thermostat → Home,
-                               clear Immediate Departure override)
+                                          ▼
+                            Household: First Arrives Home
+                            - thermostat → Home
+                            - clear Immediate Departure override
+                            - clear vacuum routine-pause flag
+                            - dock the vacuum if mid-run
+                            - (future arrival actions land here)
 ```
 
 **Why two paths.** The fast path buys a couple of minutes on a genuine drive-home, docking the
@@ -209,9 +211,9 @@ debounce.
   not arming it.
 - **Single-use, self-clearing.** `automation.household_last_leaves_home` clears it
   unconditionally as its first action (a no-op when it wasn't armed), and
-  `automation.household_first_arrives_home` clears it again on confirmed arrival — the same
-  "must not survive to affect a later departure" rule that
-  `automation.household_vacuum_stops_for_occupants` applies to `input_boolean.vacuum_routine_pause`.
+  `automation.household_first_arrives_home` clears it again on confirmed arrival. That
+  arrival automation applies the same "must not survive to affect a later departure" rule
+  to `input_boolean.vacuum_routine_pause` right alongside it.
 - **The daytime vacuum clean comes along for free.** Starting the daytime Roborock run is
   a block inside this same automation (folded in from the former
   `automation.household_vacuum_start_cleaning`), so it rides the 5-minute debounce and the
