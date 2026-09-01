@@ -1,19 +1,23 @@
 alias: "Avery's Room: Ceiling Fan LED Blip"
 description: >-
-  Briefly lights the Avery's Room ceiling-fan switch LED bar to acknowledge a fan
-  change made while Avery is sleeping, then turns it back off. A speed change
-  shows that speed's hue for 3s; switching the fan off shows amber for 1s. The
-  bar is otherwise dark at night, so without this an off command would land with
-  no visual confirmation. Called via script.turn_on from Avery's Room: Ceiling
-  Fan Wall Control, only while Avery is sleeping. mode: restart so rapid changes
-  keep the bar lit and reset the timer, and a fan-off mid-speed-blip swaps
-  straight to the amber acknowledgement.
+  Blips the Avery's Room ceiling-fan switch LED bar to acknowledge a fan change,
+  then restores what the bar was showing before. A speed change shows that speed's
+  hue for 3s; switching the fan off shows amber for 1s. Brightness is 75% by
+  default and 25% while Avery is sleeping (input_boolean.avery_sleeping) to
+  protect dark adaptation. Called via script.turn_on from Avery's Room: Ceiling
+  Fan Wall Control, which snapshots the bar into
+  scene.averys_room_ceiling_fan_led_restore before the first blip of a burst; the
+  tail re-asserts that scene, falling back to light.turn_off when it does not
+  exist (e.g. a manual run). mode: restart so rapid changes keep the bar lit and
+  reset the timer, and a fan-off mid-speed-blip swaps straight to the amber
+  acknowledgement.
 mode: restart
 sequence:
-  - alias: Resolve the current speed band
+  - alias: Resolve the speed band and the blip brightness
     variables:
       speed: "{% if is_state('fan.averys_room_ceiling_fan', 'off') %}off{% else %}{% set p = state_attr('fan.averys_room_ceiling_fan', 'percentage') | int(0) %}{% if p < 45 %}low{% elif p < 78 %}medium{% else %}high{% endif %}{% endif %}"
-  - alias: Show the acknowledgement colour, then the tail turns it off
+      level: "{{ 25 if is_state('input_boolean.avery_sleeping', 'on') else 75 }}"
+  - alias: Show the acknowledgement colour, then the tail restores the bar
     choose:
       - alias: Fan is off - amber acknowledgement for 1s
         conditions:
@@ -27,7 +31,7 @@ sequence:
             target:
               entity_id: light.averys_room_ceiling_fan_switch_led
             data:
-              brightness_pct: 15
+              brightness_pct: "{{ level }}"
               hs_color:
                 - 30
                 - 100
@@ -39,13 +43,24 @@ sequence:
         target:
           entity_id: light.averys_room_ceiling_fan_switch_led
         data:
-          brightness_pct: 15
+          brightness_pct: "{{ level }}"
           hs_color:
             - "{{ {'low': 175, 'medium': 220, 'high': 265}.get(speed, 220) }}"
             - 100
       - alias: Hold the speed blip
         delay: "00:00:03"
-  - alias: Turn the bar back off
-    action: light.turn_off
-    target:
-      entity_id: light.averys_room_ceiling_fan_switch_led
+  - alias: Restore the bar to what it was showing before the blip
+    if:
+      - alias: A restore snapshot exists
+        condition: template
+        value_template: "{{ states.scene.averys_room_ceiling_fan_led_restore is not none }}"
+    then:
+      - alias: Re-assert the pre-blip state
+        action: scene.turn_on
+        target:
+          entity_id: scene.averys_room_ceiling_fan_led_restore
+    else:
+      - alias: No snapshot (e.g. a manual run) - just turn the bar off
+        action: light.turn_off
+        target:
+          entity_id: light.averys_room_ceiling_fan_switch_led

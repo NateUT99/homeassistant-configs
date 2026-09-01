@@ -27,8 +27,8 @@ Four mechanisms connect the wall switch to the fan/light:
 |---|---|---|
 | Paddle tap up/down → light on/off | Matter binding, cluster 6 (switch → canopy) | Yes |
 | Paddle hold up/down → light dim up/down | Matter binding, cluster 8 (switch → canopy) | Yes |
-| Config button taps → fan speed | HA automation | No |
-| Fan speed → switch LED bar + speed memory | HA automation | No |
+| Config button taps → fan speed (1 tap cycle, 2 taps off, 3 taps peek) | HA automation | No |
+| Fan speed change → switch LED bar blip + speed memory | HA automation | No |
 
 ## Architecture
 
@@ -51,11 +51,18 @@ Four mechanisms connect the wall switch to the fan/light:
                        │  light.*_switch_led        │◄── automation: Ceiling Fan Wall Control
                        └────────────────────────────┘
 
-  automation.averys_room_ceiling_fan_wall_control   (one automation, three triggers)
-      event.*_button_config           ──►  fan.set_percentage / fan.turn_off
-      fan.averys_room_ceiling_fan     ──►  input_select.averys_room_ceiling_fan_last_speed
-      input_boolean.avery_sleeping    ├─►  light.averys_room_ceiling_fan_switch_led   (awake: steady)
-                                      └─►  script.averys_room_ceiling_fan_led_blip    (sleeping: blip → dark)
+  automation.averys_room_ceiling_fan_wall_control   (one automation, two triggers)
+      event.*_button_config        ──►  fan.set_percentage / fan.turn_off   (1 / 2 taps)
+                                   └─►  snapshot + blip                     (3 taps: peek)
+      fan.averys_room_ceiling_fan  ──►  input_select.averys_room_ceiling_fan_last_speed
+                                   ├─►  scene.create  scene.averys_room_ceiling_fan_led_restore
+                                   │       (snapshot the bar's resting state, guarded)
+                                   └─►  script.averys_room_ceiling_fan_led_blip
+
+  script.averys_room_ceiling_fan_led_blip   (mode: restart)
+      light.averys_room_ceiling_fan_switch_led   ◄── blip hue/amber, 75% awake / 25% asleep
+                                                       (reads input_boolean.avery_sleeping)
+      scene.averys_room_ceiling_fan_led_restore  ──► re-assert pre-blip state (else light.turn_off)
 ```
 
 **Key design decisions:**
@@ -86,7 +93,12 @@ Four mechanisms connect the wall switch to the fan/light:
 - **Config button: taps only, never holds.** Holding the config button puts the
   VTM30-SN into its own local programming menu. An automation on the config
   button's `long_press` event would fire *and* open programming mode at the same
-  time. Only `multi_press_*` events are mapped.
+  time. Only `multi_press_*` events are mapped: `multi_press_1` cycles the speed
+  (or resumes from off), `multi_press_2` turns the fan off, `multi_press_3` is a
+  read-only peek — it fires the LED blip without touching the fan, so the current
+  speed is legible at the wall now that the bar carries no steady colour. The
+  switch's button-press-delay window aggregates a multi-tap into one event, so a
+  triple tap emits `multi_press_3` alone (no `multi_press_1`/`_2` alongside it).
 - **Speed memory lives in a helper, not the fan entity.** When the Matter fan is
   off, HA retains no memory of its prior speed (`percentage` reads 0,
   `preset_mode` null). `input_select.averys_room_ceiling_fan_last_speed` records
@@ -97,30 +109,30 @@ Four mechanisms connect the wall switch to the fan/light:
   This was verified before relying on it. If a future firmware changes that, the
   fallback is the native `LED Intensity(Off)` select plus the `LED Color`
   parameter.
-- **One automation per room, not two.** `automation.<prefix>_ceiling_fan_wall_control`
-  carries all three non-binding links (config button, fan → LED/memory, sleep →
-  LED) on three triggers with a top-level `choose` on `condition: trigger id`.
+- **One automation per room.** `automation.<prefix>_ceiling_fan_wall_control`
+  carries the non-binding links (config button gestures, fan → speed memory +
+  LED blip) on two triggers with a top-level `choose` on `condition: trigger id`.
   This keeps every room a single reviewable unit and the behaviour identical
-  across rooms. `mode: queued` (max 10) so fan-change repaints process in order
-  and last wins.
-- **Bar off when the fan is off; colour by speed when it's running.** Over Matter
+  across rooms. `mode: queued` (max 10) so fan-change runs process in order and
+  the snapshot guard can't interleave with itself.
+- **The bar rests dark and only blips on a change — at all hours.** Over Matter
   the bar is one RGB light — no per-segment / level-meter control (unlike the
-  Zigbee White series). Running speed is encoded as hue (teal low / blue medium /
-  violet high). Fan off → `light.turn_off` plus `LED Intensity(Off)` = 0 so the
-  resting state is dark in every path. A true segment fill would require putting
-  the switch in Dimmer mode and driving an internal level — not worth the mode
-  change for a cosmetic gain.
-- **Awake: bar lit at 50% while the fan runs. Sleeping: bar dark, with a blip on
-  every change.** The old design left the bar dimly lit (1%) all night whenever
-  the fan was running. Now, while the room's sleep boolean is on, the bar rests
-  fully dark and only lights transiently to acknowledge a fan change — the new
-  speed's hue at 15% for 3 s, or **amber (hue 30) at 15% for 1 s** when the fan is
-  switched off. The off blip exists because a dark resting bar gives a
-  double-tap-off no visual confirmation at all; awake, the bar going from lit to
-  dark is that confirmation, so the awake fan-off path does not blip. Amber, not
-  red: the bar is the room's only ambient signal surface, and red is kept in
-  reserve for a real alert. Amber is also long-wavelength, so it costs almost
-  nothing in dark adaptation.
+  Zigbee White series). An earlier design left the bar steadily lit (50 % awake,
+  1 % at night) for as long as the fan ran; after living with the night-only blip
+  for a few days, the resting-dark bar was preferred around the clock. Now the
+  bar is dark at rest whatever the fan is doing, and lights transiently to
+  acknowledge a change: the new speed's hue for 3 s (teal low 175 / blue medium
+  220 / violet high 265), or **amber (hue 30) for 1 s** when the fan is switched
+  off. The off blip exists because a dark resting bar gives a double-tap-off no
+  visual confirmation at all. Amber, not red: the bar is the room's only ambient
+  signal surface, and red is kept in reserve for a real alert. Amber is also
+  long-wavelength, so it costs almost nothing in dark adaptation.
+- **Blip brightness follows the room's sleep boolean: 75 % awake, 25 % asleep.**
+  15 % (the old night-only value) is hard to read in a sunlit room; 75 % at 3 a.m.
+  defeats the dark adaptation the blip is meant to preserve. The blip script
+  reads `input_boolean.<sleep>` once at fire time to pick `level`. This is the
+  only place the sleep boolean touches the LED path — the automation no longer
+  has a sleep trigger or a sleeping/awake branch.
 - **The blip lives in a per-room script, not an inline `delay`.** The wall-control
   automation is `mode: queued` and shares that queue with the config-button
   gestures, so an inline `delay` would stall tap handling behind LED animations
@@ -130,9 +142,30 @@ Four mechanisms connect the wall switch to the fan/light:
   returns immediately. `restart` also buys the right feel for free: cycling
   low→medium→high keeps the bar lit and resets the timer, so it darkens 3 s after
   you *stop*, and a fan-off landing mid-speed-blip swaps straight to the amber
-  ack. Every path that asserts the bar directly (awake, or sleep just toggled on)
-  first calls `script.turn_off` on the blip script, so a blip's trailing
-  `light.turn_off` can't land late and darken a bar that should be lit.
+  ack.
+- **The blip restores what the bar was showing, it doesn't blindly turn it off.**
+  The bar is the room's one always-idle ambient surface, so it's the natural home
+  for a future status colour (guest mode, an alert, a laundry indicator). Rather
+  than hard-coding "dark" as the resting state, the automation snapshots the bar
+  into `scene.<prefix>_ceiling_fan_led_restore` via `scene.create` *before* firing
+  the blip, and the blip's tail re-asserts that scene (`scene.turn_on`), falling
+  back to `light.turn_off` only when the scene doesn't exist — a bare manual
+  `script.turn_on`, since the automation always snapshots first. Existence is
+  tested with `states.scene.<id> is not none`, not `states()` / `has_value()`: a
+  freshly `scene.create`d scene reads `unknown` until first activated. Today
+  nothing else drives the bar (`LED Intensity(On)`/`(Off)` are both 0), so the
+  snapshot is "off" and the restore is a no-op — the layer is built now so a
+  future owner of the bar needs zero coordination with this automation.
+- **The snapshot is guarded on the blip script being idle.** The blip is
+  `mode: restart`, so a second fan change mid-blip restarts it. An unguarded
+  re-snapshot would then capture the *blip's own colour* as the resting state and
+  leave the bar stuck lit. Guarding the `scene.create` on
+  `script.<prefix>_ceiling_fan_led_blip` being `off` means a burst snapshots once
+  and every restart reuses that first scene. `mode: queued` on the automation
+  keeps its runs serialised so the check can't race itself. `scene.create` scenes
+  are runtime-only (gone on restart, recreated on the next blip) and show as
+  non-editable rows under Settings → Automations & Scenes → Scenes — accepted
+  clutter for a restore layer that costs no helper.
 - **The config button emits its event twice per physical tap** (~8 ms apart, on
   this VTM30-SN firmware / matter.js server). Because `mode: queued` can't drop
   the duplicate, the config branch carries a guard condition: skip the run when
@@ -302,7 +335,7 @@ taps it and concludes the install is broken.
 
 One automation per room — `automation.averys_room_ceiling_fan_wall_control`
 (category Climate, label `int_inovelli_fan_canopy`). YAML lives in the `ha/`
-mirror. Three triggers, top-level `choose` on which one fired:
+mirror. Two triggers, top-level `choose` on which one fired:
 
 **Config button** (`event.*_button_config`) — guarded to skip the ~8 ms
 duplicate event (see design decisions), then branches on `event_type`:
@@ -312,26 +345,27 @@ duplicate event (see design decisions), then branches on `event_type`:
 | Single tap (`multi_press_1`) | off | Resume `input_select.averys_room_ceiling_fan_last_speed` |
 | Single tap (`multi_press_1`) | on | Advance low → medium → high → low |
 | Double tap (`multi_press_2`) | any | Off |
+| Triple tap (`multi_press_3`) | any | Snapshot the bar, then blip the current speed — fan untouched |
 
-**Fan `percentage` attribute change or sleep toggle** (triggering on the
-attribute means the value is already settled — no delay):
+**Fan `percentage` attribute change** (triggering on the attribute means the
+value is already settled — no delay):
 
 1. Resolve the current speed band into a `speed` variable
    (`off`/`low`/`medium`/`high`).
 2. If the fan is on, write `speed` to `input_select.*_ceiling_fan_last_speed`
    (skipped when off, so the memory survives an off/on cycle).
-3. Sync `light.*_ceiling_fan_switch_led`, splitting on the sleep boolean first:
-   - **Sleeping** — the bar stays dark. A `fan`-triggered run (a speed change or
-     the fan switching off) fires `script.*_ceiling_fan_led_blip` via
-     `script.turn_on` and returns; the script shows the acknowledgement colour,
-     holds, then turns the bar off. A `sleep`-triggered run (the boolean just
-     went on) cancels any pending blip and turns the bar off — no blip.
-   - **Awake, fan off** — cancel any pending blip, `light.turn_off`.
-   - **Awake, fan on** — cancel any pending blip, `light.turn_on` at 50% with the
-     speed's hue (see Scale reference).
+3. If `script.*_ceiling_fan_led_blip` is `off` (no blip in flight), snapshot
+   `light.*_ceiling_fan_switch_led` into `scene.*_ceiling_fan_led_restore` via
+   `scene.create`.
+4. `script.turn_on` the blip script and return. The script shows the
+   acknowledgement colour (speed hue 3 s / amber 1 s, at 75 % awake or 25 % while
+   the room's sleep boolean is on), holds, then re-asserts
+   `scene.*_ceiling_fan_led_restore` — or `light.turn_off` if that scene doesn't
+   exist.
 
-`mode: queued`, `max: 10` — repaints process in order, last wins. The blip's
-timed hold runs in the `mode: restart` script, off this queue.
+`mode: queued`, `max: 10` — runs process in order, so the "no blip in flight"
+snapshot guard can't race itself. The blip's timed hold runs in the
+`mode: restart` script, off this queue.
 
 ## Scale reference
 
@@ -339,39 +373,45 @@ Fan speed (VTM36 3-speed): `1–33% = low`, `34–66% = medium`, `67–100% = hi
 The automations use 33 / 66 / 100, with `< 45` / `< 78` band edges to absorb the
 Matter fan's percentage rounding.
 
-LED bar — **off entirely when the fan is off** and, at night, off at rest even
-while the fan runs. Awake, the bar is lit at 50% with the speed's hue. Sleeping,
-the bar is dark and only blips on a change: the new speed's hue at 15% for 3 s,
-or amber for 1 s when the fan is switched off.
+LED bar — **dark at rest at all hours**, whatever the fan is doing. It only blips
+to acknowledge a change, then restores whatever it was showing before (dark
+today). The blip is the new speed's hue for 3 s, or amber for 1 s when the fan is
+switched off. Brightness is 75 % awake / 25 % while the room's sleep boolean is
+on.
 
-| Fan | Hue (`hs_color`) | Awake (steady) | Sleeping (blip, then dark) |
+| Fan | Hue (`hs_color`) | Blip hold | Blip brightness (awake / asleep) |
 |---|---|---|---|
-| off | 30 (amber) | — (bar off) | 15% for 1 s |
-| low | 175 (teal) | 50% | 15% for 3 s |
-| medium | 220 (blue) | 50% | 15% for 3 s |
-| high | 265 (violet) | 50% | 15% for 3 s |
+| off | 30 (amber) | 1 s | 75% / 25% |
+| low | 175 (teal) | 3 s | 75% / 25% |
+| medium | 220 (blue) | 3 s | 75% / 25% |
+| high | 265 (violet) | 3 s | 75% / 25% |
 
-"Bar off when fan off" needs two things: the automation's fan-off branch does
-`light.turn_off`, **and** the switch's `LED Intensity(Off)` param is set to `0`
-so the native fallback (HA down, or notification cleared) is also dark.
+"Dark at rest" needs two things: the blip's tail restores the pre-blip snapshot
+(currently `off`) or does `light.turn_off`, **and** the switch's
+`LED Intensity(Off)` param is `0` so the native fallback (HA down) is also dark.
 
 ## Replicating for another room
 
-This setup is a per-room pattern. Avery's Room is the first instance; the Master
-Bedroom is the second, and both are meant to be configured identically. To add a
-room, work through Steps 1–6 with these substitutions and keep every parameter
-value the same.
+This setup is a per-room pattern. Avery's Room is the first instance and the
+Master Bedroom the second; Living Room and Office are planned and use the same
+build. Every room is configured identically apart from the substitutions below.
+To add a room, work through Steps 1–6 with these substitutions and keep every
+parameter value the same.
 
 **Per-room substitutions:**
 
-| Placeholder | Avery's Room | Master Bedroom |
-|---|---|---|
-| Area / entity prefix | `averys_room` | `master_bedroom` |
-| Canopy device name | `Ceiling Fan` | `Ceiling Fan` |
-| Switch device name | `Ceiling Fan Switch` | `Ceiling Fan Switch` |
-| Canopy Matter node | 10 | 12 |
-| Switch Matter node | 11 | 13 |
-| Sleep boolean (Indicator trigger + night dim) | `input_boolean.avery_sleeping` | `input_boolean.everyone_sleeping` (no MBR-specific toggle; household sleep ≈ parents in bed) |
+| Placeholder | Avery's Room | Master Bedroom | Living Room | Office |
+|---|---|---|---|---|
+| Area / entity prefix | `averys_room` | `master_bedroom` | `living_room` | `office` |
+| Canopy device name | `Ceiling Fan` | `Ceiling Fan` | `Ceiling Fan` | `Ceiling Fan` |
+| Switch device name | `Ceiling Fan Switch` | `Ceiling Fan Switch` | `Ceiling Fan Switch` | `Ceiling Fan Switch` |
+| Canopy Matter node | 10 | 12 | TBD | TBD |
+| Switch Matter node | 11 | 13 | TBD | TBD |
+| Sleep boolean (blip brightness) | `input_boolean.avery_sleeping` | `input_boolean.everyone_sleeping` | `input_boolean.everyone_sleeping` | `input_boolean.everyone_sleeping` |
+| Restore scene (created at runtime) | `scene.averys_room_ceiling_fan_led_restore` | `scene.master_bedroom_ceiling_fan_led_restore` | `scene.living_room_ceiling_fan_led_restore` | `scene.office_ceiling_fan_led_restore` |
+
+Only Avery's Room has a person-specific sleep toggle; the other rooms use the
+household `input_boolean.everyone_sleeping` (household sleep ≈ everyone in bed).
 
 If the canopy ships on `1.0.0`, update it to `1.0.1r1` and run the cleanup in
 [Updating the canopy firmware](#updating-the-canopy-firmware-101r1) before Step 2
@@ -391,15 +431,40 @@ If the canopy ships on `1.0.0`, update it to `1.0.1r1` and run the cleanup in
   (On/Off) and 8 (Level Control)**; `Dimming Speed (Simulated)` = `3s` so the
   cluster 8 hold-to-dim actually emits
 - Automation: one `automation.<prefix>_ceiling_fan_wall_control`, category
-  Climate, label `int_inovelli_fan_canopy`, `mode: queued` max 10
-- Speed bands 33 / 66 / 100 with `< 45` / `< 78` edges; LED off when the fan is
-  off; running hues 175 / 220 / 265 at 50% awake / 1% sleeping
+  Climate, label `int_inovelli_fan_canopy`, `mode: queued` max 10, two triggers
+  (config button, fan `percentage`)
+- Script: one `script.<prefix>_ceiling_fan_led_blip`, `mode: restart`
+- Speed bands 33 / 66 / 100 with `< 45` / `< 78` edges; bar dark at rest at all
+  hours; blip hues 175 / 220 / 265, amber 30; blip brightness 75 % awake / 25 %
+  while the sleep boolean is on
+- Gestures: 1 tap cycles / resumes, 2 taps off, 3 taps peek
 
-Each room gets its own helper (`input_select.<prefix>_ceiling_fan_last_speed`)
-and its own copy of the wall-control automation with the prefix and sleep
-boolean substituted. The `int_inovelli_fan_canopy` label and this guide are
-shared. (Rooms 3+: revisit whether to turn this into a blueprint — see the
-`standards/automations.md` gap note if so.)
+Each room gets its own copies with the prefix and sleep boolean substituted:
+
+- `automation.<prefix>_ceiling_fan_wall_control`
+- `script.<prefix>_ceiling_fan_led_blip`
+- `input_select.<prefix>_ceiling_fan_last_speed`
+- `scene.<prefix>_ceiling_fan_led_restore` — nothing to pre-create; the
+  automation makes it with `scene.create` on the first blip
+
+The `int_inovelli_fan_canopy` label and this guide are shared.
+
+**Parity check.** The per-room automation and script copies must differ *only* by
+the entity prefix, the sleep boolean (`avery_sleeping` vs `everyone_sleeping`),
+the automation `id`, and the friendly-name prefix in `alias` / `description`.
+After editing any room, `diff` its `ha/` mirror against another room's to confirm
+nothing else diverged — any other difference is a bug.
+
+**Why four copies, not a blueprint.** The blip script has to be per-room:
+`mode: restart` is what keeps the bar lit through a burst and resets the 3 s
+timer, and a script shared across rooms would have to be `mode: parallel`, which
+breaks that within a room. Collapsing the automations into one templated
+multi-room automation, or into a blueprint, means templated `target.entity_id`
+(the GUI editor then shows only an inputs form — against the house preference for
+GUI-editable automations) and one `mode: queued` shared across rooms. There is
+also no blueprint convention in this repo and no MCP tool that writes a blueprint
+file. Four self-contained copies kept honest by the parity check is the accepted
+cost.
 
 ## Updating the canopy firmware (1.0.1r1)
 
@@ -436,11 +501,12 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
    them again per [Step 2](#step-2--canopy-module-vtm36-parameters). Re-check the
    light transition-time numbers too (also Level Control attributes) and reset
    them to `0.5` s if the flash returned them to `2.5`.
-8. **Verify**: paddle on/off, config-button speed cycle, LED bar colour by speed
-   and dark when the fan is off, the night blip (turn the room's sleep boolean
-   on with the fan running — bar goes dark; change speed — brief hue blip; double
-   tap off — brief amber blip), and the light riding down to `1%` on the HA
-   slider without cutting out.
+8. **Verify**: paddle on/off; config-button speed cycle (1 tap); the LED bar
+   dark at rest and blipping the speed's hue for ~3 s on a change, amber for
+   ~1 s on a double-tap off, then returning to dark; the triple-tap peek showing
+   the current speed without moving the fan; a change made while the room's sleep
+   boolean is on blipping dimmer (25 %); and the light riding down to `1%` on the
+   HA slider without cutting out.
 
 ## Security summary
 
@@ -457,10 +523,12 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 |---|---|---|
 | Avery's Room: Ceiling Fan Wall Control | `automation.averys_room_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy`) |
 | Master Bedroom: Ceiling Fan Wall Control | `automation.master_bedroom_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy`) |
-| Avery's Room: Ceiling Fan LED Blip | `script.averys_room_ceiling_fan_led_blip` | Script (`mode: restart`) — night acknowledgement blip for the switch LED bar |
-| Master Bedroom: Ceiling Fan LED Blip | `script.master_bedroom_ceiling_fan_led_blip` | Script (`mode: restart`) — night acknowledgement blip for the switch LED bar |
+| Avery's Room: Ceiling Fan LED Blip | `script.averys_room_ceiling_fan_led_blip` | Script (`mode: restart`) — acknowledgement blip for the switch LED bar |
+| Master Bedroom: Ceiling Fan LED Blip | `script.master_bedroom_ceiling_fan_led_blip` | Script (`mode: restart`) — acknowledgement blip for the switch LED bar |
 | Avery's Room Ceiling Fan Last Speed | `input_select.averys_room_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
 | Master Bedroom Ceiling Fan Last Speed | `input_select.master_bedroom_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
+| Avery's Room Ceiling Fan LED Restore | `scene.averys_room_ceiling_fan_led_restore` | Transient scene — `scene.create`d by the automation before each blip, holds the bar's pre-blip state; not persisted, gone on restart and recreated on the next blip |
+| Master Bedroom Ceiling Fan LED Restore | `scene.master_bedroom_ceiling_fan_led_restore` | Transient scene — as above |
 | Ceiling Fan | `fan.averys_room_ceiling_fan` / `light.averys_room_ceiling_fan_light` | Matter device (VTM36) |
 | Ceiling Fan Switch | `event.averys_room_ceiling_fan_switch_button_config` et al. | Matter device (VTM30-SN) |
 
@@ -519,10 +587,15 @@ pressing — if a double-tap reports `multi_press_1` twice rather than
 `multi_press_2`, the switch's button-press delay is set too short. Raise it via
 the `Button Press Delay` / `Button Delay` select on the switch.
 
-**LED bar stops tracking fan speed.** If a firmware update makes the switch snap
-the LED back to its default indicator after `light.turn_on`, switch the Speed
-Indicator automation from `light.averys_room_ceiling_fan_switch_led` to the
-native `LED Intensity(Off)` select (blue is already the parameter colour).
+**LED bar blip doesn't show, or the bar won't go dark.** If a firmware update
+makes the switch snap the LED back to its default indicator after `light.turn_on`
+(so the blip is invisible or the restore can't hold), fall back to the native
+`LED Intensity(Off)` select for the indicator (blue is already the parameter
+colour). Separately, if the bar is stuck lit on a blip colour, a `scene.create`
+snapshot captured a blip colour as the resting state — check the automation's
+snapshot step is still guarded on `script.<prefix>_ceiling_fan_led_blip` being
+`off`. Clearing it: `scene.turn_on` won't help (the scene *is* the wrong state);
+`light.turn_off` the bar, then trigger a fresh fan change to re-snapshot.
 
 **Paddle does nothing after a firmware update.** Two causes. (1) Smart Bulb Mode
 reset — confirm `select.*_ceiling_fan_switch_smart_bulb_mode` still reads
