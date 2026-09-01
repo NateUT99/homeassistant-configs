@@ -1,11 +1,11 @@
 id: "1787348678512"
 alias: "Household: First Arrives Home"
 description: >-
-  Sets the living room thermostat to Home preset on a confirmed arrival
-  -- not just the zone.home geofence, which fires ~100m out and can't
-  distinguish a drive home from a walk around the block (see
-  automation.household_confirm_arrival). Additional arrival actions
-  will be added to this automation over time.
+  Sets the living room thermostat to Home preset and clears the Immediate
+  Departure override on a confirmed arrival -- not just the zone.home geofence,
+  which fires ~100m out and can't distinguish a drive home from a walk around
+  the block (see automation.household_confirm_arrival). Additional arrival
+  actions will be added to this automation over time.
 triggers:
   - trigger: state
     entity_id: input_boolean.arrival_confirmed
@@ -19,5 +19,13 @@ actions:
       entity_id: climate.living_room_thermostat
     data:
       preset_mode: home
+  - alias: Clear the Immediate Departure override now that someone is home
+    action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.immediate_departure
+    note: >-
+      Mirrors how automation.household_vacuum_stops_for_occupants clears
+      vacuum_routine_pause on arrival -- a "next departure is a long one" flag
+      must never survive to affect a later, possibly brief, departure.
 mode: single
 category: 01M08R77W9A83G7DDA33MT8R09

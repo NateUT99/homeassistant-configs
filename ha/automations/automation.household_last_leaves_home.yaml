@@ -1,20 +1,69 @@
 id: "1787007774696"
 alias: "Household: Last Leaves Home"
 description: >-
-  Closes the garage door, locks the front door, sets the living room
-  thermostat to Away preset, and turns off lights, fans, and switches labeled
-  "No One Is Home" when the last person leaves home. Fires when zone.home drops
-  to 0 and holds for 2 minutes 30 seconds.
+  Closes the garage door, locks the front door, sets the living room thermostat
+  to Away, and turns off lights, fans, and switches labeled "No One Is Home"
+  when the last person leaves. Normally fires 5 minutes after zone.home drops to
+  0, long enough to absorb a walk to the community mailbox. When the Immediate
+  Departure override (input_boolean.immediate_departure) is armed before leaving
+  -- typically via Siri on the way out for a longer absence -- it fires the
+  moment zone.home hits 0 and clears the override.
 triggers:
   - trigger: state
     entity_id: zone.home
     to: "0"
     for:
-      minutes: 2
-      seconds: 30
-    alias: Last person leaves home for 2 minutes 30 seconds
-conditions: []
+      minutes: 5
+    id: normal_departure
+    alias: Last person leaves home for 5 minutes
+    note: >-
+      5 minutes absorbs a walk to the community mailbox without triggering a
+      full lock-up. The Immediate Departure override handles known longer
+      absences that shouldn't wait out this debounce.
+  - trigger: state
+    entity_id: zone.home
+    to: "0"
+    id: immediate_departure
+    alias: Last person leaves while the override is armed
+    note: >-
+      Only the zone.home -> 0 edge starts the immediate path. Arming the
+      override by itself never fires this automation, so it can't lock up the
+      house while someone is still on the property. If the override is armed
+      after zone.home already hit 0, that departure falls back to the 5-minute
+      debounce.
+conditions:
+  - condition: state
+    entity_id: zone.home
+    state: "0"
+    alias: Everyone is still away
+  - condition: or
+    alias: Debounce elapsed, or the Immediate Departure override is armed
+    conditions:
+      - condition: trigger
+        id: normal_departure
+      - condition: state
+        entity_id: input_boolean.immediate_departure
+        state: "on"
 actions:
+  - alias: If the override was armed, consume it and confirm the early lock-up
+    if:
+      - condition: state
+        entity_id: input_boolean.immediate_departure
+        state: "on"
+    then:
+      - alias: Clear the override so the next departure uses the normal debounce
+        action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.immediate_departure
+      - alias: Push confirmation that the house locked up immediately
+        action: notify.send_message
+        target:
+          entity_id: notify.nates_iphone
+        data:
+          title: Immediate Departure
+          message: >-
+            Garage closed, front door locked, thermostat set to Away,
+            no-one-home devices off.
   - alias: Set living room thermostat to Away preset
     action: climate.set_preset_mode
     target:

@@ -1,6 +1,6 @@
 # Presence Tracking
 
-*Last updated: August 2026 (Confirmed Arrival added)*
+*Last updated: September 2026 (Immediate Departure override added)*
 
 ## Overview
 
@@ -148,7 +148,8 @@ docking the vacuum, setting the thermostat preset — trigger on this helper goi
               ┌────────────────────────────┼──────────────────────┐
               ▼                            ▼                      ▼
   Vacuum Stops For Occupants   First Arrives Home        (future arrival actions)
-        (dock the robot)      (thermostat → Home)
+        (dock the robot)      (thermostat → Home,
+                               clear Immediate Departure override)
 ```
 
 **Why two paths.** The fast path buys a couple of minutes on a genuine drive-home, docking the
@@ -175,6 +176,51 @@ is cheap, so it can afford the looser gate that `Confirm Arrival`'s fast path de
 See [Adding a New Household Member's Tracker](#adding-a-new-household-member's-tracker), Step 6,
 for how a new person is picked up by this design.
 
+## Immediate Departure Override
+
+`automation.household_last_leaves_home` normally waits **5 minutes** after `zone.home`
+drops to 0 before locking up (garage closed, front door locked, thermostat → Away,
+`no_one_home`-labelled devices off). The debounce is deliberately long: the community
+mailbox is a few minutes' walk, and a mailbox run re-enters the geofence well inside 5
+minutes, so the house never locks up behind a resident who is about to walk back in.
+
+`input_boolean.immediate_departure` is the escape hatch for a *known* longer absence.
+Armed before leaving — typically "Hey Siri, turn on Immediate Departure" on the way out
+— it makes the automation fire the instant `zone.home` hits 0 instead of waiting out the
+debounce.
+
+```
+  input_boolean.immediate_departure ── armed before leaving
+                                          │
+  zone.home → 0 ──────────┬───────────────┴──► immediate lock-up
+                          │                    + clear the override
+                          │                    + push confirmation
+                          ▼
+              (override off) wait 5 min ──────► normal lock-up
+```
+
+**Design constraints:**
+
+- **The override never starts the automation on its own.** Only the `zone.home → 0` edge
+  begins the immediate path, and the automation re-checks `zone.home == 0` before acting.
+  Arming the override while still on the property does nothing until everyone has actually
+  left — which is why there is no trigger on the override turning `on`.
+- **Arm it *before* leaving.** If it is armed after `zone.home` has already hit 0, that
+  edge has passed and the departure falls back to the 5-minute debounce — no worse than
+  not arming it.
+- **Single-use, self-clearing.** The automation clears it as the first action on the
+  immediate path, and `automation.household_first_arrives_home` clears it again on
+  confirmed arrival — the same "must not survive to affect a later departure" rule that
+  `automation.household_vacuum_stops_for_occupants` applies to `input_boolean.vacuum_routine_pause`.
+- **The vacuum is unaffected.** `automation.household_vacuum_start_cleaning` keeps its own
+  2m30s `daytime_departure` debounce, so the daytime clean still starts promptly for
+  maximum runtime. The override is not wired to fast-start the vacuum.
+
+Exposing `input_boolean.immediate_departure` to Apple Home for the Siri trigger depends on
+the Matter Hub bridge, which is not yet installed in the new house (see
+[Prerequisites](#prerequisites)). Until then the override is togglable from the HA UI, and
+the HA-side behaviour above works regardless of how it gets toggled.
+
 ## Related HA Config
 
 | Friendly Name | Entity ID | Type |
@@ -186,7 +232,10 @@ for how a new person is picked up by this design.
 | Nate Home | `input_boolean.nate_home` | Helper |
 | Guest Mode | `input_boolean.guest_mode` | Helper |
 | Household: Confirm Arrival | `automation.household_confirm_arrival` | Automation |
+| Household: First Arrives Home | `automation.household_first_arrives_home` | Automation |
+| Household: Last Leaves Home | `automation.household_last_leaves_home` | Automation |
 | Arrival Confirmed | `input_boolean.arrival_confirmed` | Helper |
+| Immediate Departure | `input_boolean.immediate_departure` | Helper |
 
 ## Related Documents
 
