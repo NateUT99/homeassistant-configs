@@ -3,18 +3,19 @@ alias: "Master Bedroom: Ceiling Fan Wall Control"
 description: >-
   Single wall-control automation for the Master Bedroom ceiling fan (VTM36 canopy
   + VTM30-SN switch), covering the links that don't run over the Matter binding.
-  Config button: single tap resumes the last speed (fan off) or advances
-  low->medium->high->low (fan on); double tap turns it off; triple tap shows the
-  current speed without changing it; holds are unmapped. A settled fan-speed
-  change (the percentage attribute) stores the running speed in
+  Down paddle hold turns the fan and light off; up paddle hold turns the fan on
+  to the last speed and the light on. Config button: single tap resumes the last
+  speed (fan off) or advances low->medium->high->low (fan on); double tap turns
+  it off; triple tap shows the current speed without changing it. A settled
+  fan-speed change (the percentage attribute) stores the running speed in
   input_select.master_bedroom_ceiling_fan_last_speed and blips the switch LED bar
   via script.master_bedroom_ceiling_fan_led_blip - the speed's hue for 3s, amber
   plus a Fast Falling animation when the fan is switched off. The bar rests dark
   at all times; before each blip the automation snapshots the RGB bar and the
   LED-effect select into scene.master_bedroom_ceiling_fan_led_restore so the blip
   restores whatever it was showing (dark today; a future status colour
-  transparently). None of this works while HA is down; paddle -> light on/off is
-  a Matter binding and is independent.
+  transparently). None of this works while HA is down; paddle tap -> light on/off
+  is a Matter binding (cluster 6) and is independent.
 triggers:
   - alias: Config button gesture
     trigger: state
@@ -28,6 +29,20 @@ triggers:
     entity_id: fan.master_bedroom_ceiling_fan
     attribute: percentage
     id: fan
+  - alias: Down paddle hold
+    trigger: state
+    entity_id: event.master_bedroom_ceiling_fan_switch_button_down
+    not_to:
+      - unavailable
+      - unknown
+    id: down_hold
+  - alias: Up paddle hold
+    trigger: state
+    entity_id: event.master_bedroom_ceiling_fan_switch_button_up
+    not_to:
+      - unavailable
+      - unknown
+    id: up_hold
 conditions: []
 actions:
   - alias: Route by trigger
@@ -114,6 +129,46 @@ actions:
                     action: script.turn_on
                     target:
                       entity_id: script.master_bedroom_ceiling_fan_led_blip
+      - alias: Down paddle held - turn the fan and light off
+        conditions:
+          - condition: trigger
+            id: down_hold
+            alias: Triggered by the down paddle
+          - alias: Gesture was a hold, not a tap
+            condition: state
+            entity_id: event.master_bedroom_ceiling_fan_switch_button_down
+            attribute: event_type
+            state: long_press
+        sequence:
+          - alias: Turn the ceiling fan off
+            action: fan.turn_off
+            target:
+              entity_id: fan.master_bedroom_ceiling_fan
+          - alias: Turn the fan light off
+            action: light.turn_off
+            target:
+              entity_id: light.master_bedroom_ceiling_fan_light
+      - alias: Up paddle held - turn the fan and light on
+        conditions:
+          - condition: trigger
+            id: up_hold
+            alias: Triggered by the up paddle
+          - alias: Gesture was a hold, not a tap
+            condition: state
+            entity_id: event.master_bedroom_ceiling_fan_switch_button_up
+            attribute: event_type
+            state: long_press
+        sequence:
+          - alias: Turn the fan on to the remembered speed
+            action: fan.set_percentage
+            target:
+              entity_id: fan.master_bedroom_ceiling_fan
+            data:
+              percentage: "{% set s = states('input_select.master_bedroom_ceiling_fan_last_speed') %}{{ {'low': 33, 'medium': 66, 'high': 100}.get(s, 66) }}"
+          - alias: Turn the fan light on
+            action: light.turn_on
+            target:
+              entity_id: light.master_bedroom_ceiling_fan_light
       - alias: Fan speed settled - record it and blip the LED bar
         conditions:
           - condition: trigger
