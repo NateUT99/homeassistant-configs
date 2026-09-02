@@ -2,8 +2,9 @@ alias: "Avery's Room: Ceiling Fan LED Blip"
 description: >-
   Blips the Avery's Room ceiling-fan switch LED bar to acknowledge a fan change,
   then restores what the bar was showing before. A speed change shows that speed's
-  hue for 5s; switching the fan off shows amber on the RGB channel plus a Fast
-  Falling animation on the bar's effect channel
+  hue for 5s; when that change is the fan coming on FROM OFF it also plays a Fast
+  Rising sweep on the effect channel. Switching the fan off shows amber on the RGB
+  channel plus a Fast Falling animation on the bar's effect channel
   (select.averys_room_ceiling_fan_switch_led_effect), held 2s. Brightness is 75%
   by default and 25% while Avery is sleeping (input_boolean.avery_sleeping) to
   protect dark adaptation. Called via script.turn_on from Avery's Room: Ceiling
@@ -63,6 +64,26 @@ sequence:
           hs_color:
             - "{{ {'low': 175, 'medium': 220, 'high': 265}.get(speed, 220) }}"
             - 100
+      - alias: Fan coming on from off - add a Fast Rising sweep alongside the hue
+        note: >-
+          The wall on-from-off paths (config single-tap resume, up double-tap)
+          call this script before fan.set_percentage lands, so the fan entity
+          still reads 'off' here - that is the signal for an on-from-off
+          transition vs a speed change while already running (config advance
+          reads 'on'). Mirror of the Fast Falling on the off blip; the restore
+          scene puts the effect select back to Solid.
+        if:
+          - alias: Fan is still off (blip fired before the fan turned on)
+            condition: state
+            entity_id: fan.averys_room_ceiling_fan
+            state: "off"
+        then:
+          - alias: Fast Rising on the effect channel
+            action: select.select_option
+            target:
+              entity_id: select.averys_room_ceiling_fan_switch_led_effect
+            data:
+              option: "Fast Rising"
       - alias: Hold the speed blip
         delay: "00:00:05"
   - alias: Restore the bar to what it was showing before the blip
