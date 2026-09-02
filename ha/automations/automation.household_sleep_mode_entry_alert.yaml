@@ -1,0 +1,50 @@
+id: '1788313028192'
+alias: 'Household: Sleep Mode Entry Alert'
+description: 'Sends a critical push notification to Nate''s iPhone when a perimeter
+  entry point is opened while the house is in sleep mode.
+
+
+  Fires when the front door lock (`lock.entrance_front_door`) reports `unlocked` or
+  the garage door (`cover.garage_door_opener_door`) reports `open`, and only while
+  `input_boolean.everyone_sleeping` is on.
+
+
+  Sent as an iOS critical alert so it breaks through the silent switch and the sleep
+  / Do Not Disturb focus — the point is to wake Nate if a door opens overnight.'
+triggers:
+- trigger: state
+  entity_id: lock.entrance_front_door
+  to: unlocked
+  id: front_door_unlocked
+  alias: Front door unlocked
+- trigger: state
+  entity_id: cover.garage_door_opener_door
+  to: open
+  id: garage_opened
+  alias: Garage door opened
+conditions:
+- condition: state
+  entity_id: input_boolean.everyone_sleeping
+  state: 'on'
+  alias: House is in sleep mode
+actions:
+- action: notify.mobile_app_nates_iphone
+  alias: Send critical alert to Nate's iPhone
+  note: Uses the legacy mobile_app_* notify service rather than notify.send_message
+    because only it passes the platform-specific data.push payload an iOS critical alert
+    requires (critical: 1 and interruption-level: critical).
+  data:
+    title: 🚨 Sleep Mode — Entry Point Opened
+    message: '{{ ''The FRONT DOOR was unlocked'' if trigger.id == ''front_door_unlocked''
+      else ''The GARAGE DOOR opened'' }} at {{ now().strftime(''%-I:%M %p'') }} while
+      everyone is asleep.'
+    data:
+      push:
+        interruption-level: critical
+        sound:
+          name: default
+          critical: 1
+          volume: 1
+mode: queued
+max: 3
+category: 01M08ZEA6TZ73J9HYFTSTTAX0W
