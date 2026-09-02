@@ -3,8 +3,11 @@ alias: 'Household: Nate Presence'
 description: 'Nate-specific arrival and departure actions.
 
 
-  - **Arrival:** opens the garage door when iPhone activity is Automotive, Unknown,
-  or Unavailable (suppresses trigger on walks), then disables guest mode.
+  - **Arrival:** opens the garage door only when Nate was away for more than 5 minutes
+  AND his iPhone activity is Automotive (driving) — this suppresses brief geofence
+  flaps and walks. Then disables guest mode. The auto-open is a convenience, not a
+  guarantee; the garage can always be opened manually from the CarPlay button or Apple
+  Home.
 
   - **Departure:** trigger is wired but disabled — no actions yet. Re-enable and populate
   the sequence when departure logic is needed.'
@@ -45,15 +48,17 @@ actions:
         entity_id: sensor.nates_iphone_activity
         state:
         - Automotive
-        - Unknown
-        - unavailable
-        alias: Activity is Automotive, Unknown, or Unavailable
+        alias: iPhone activity is Automotive (driving)
+      - condition: template
+        value_template: '{{ trigger.from_state is not none and (now() - trigger.from_state.last_changed).total_seconds()
+          > 300 }}'
+        alias: Nate was away for more than 5 minutes
       then:
       - action: cover.open_cover
         target:
           entity_id: cover.garage_door_opener_door
         alias: Open the Garage Door
-      alias: Open Garage Door if Driving
+      alias: Open Garage Door if actually arriving by car
     - action: input_boolean.turn_off
       target:
         entity_id: input_boolean.guest_mode
