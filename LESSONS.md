@@ -541,6 +541,12 @@ The Template Helper `device_tracker` platform's `in_zones` field must be a list 
 
 This looked exactly like a startup race condition during initial testing (tracker didn't reflect its source `input_boolean` immediately after a reload, or after a full HA restart) until the zone identifier format was corrected — after which both live toggles and cold-boot restores worked immediately. If a template `device_tracker` won't budge from `not_home`, check the `in_zones` value uses the full `zone.<slug>` form before suspecting a timing issue.
 
+### `input_boolean` restores its own state across HA restarts — retained-message persistence layers solve a non-problem
+
+`input_boolean` implements HA's `RestoreEntity` and restores its last state on every restart with no configuration (as long as `initial:` is left unset — setting `initial:` disables restore). A Template Helper `device_tracker` re-evaluates its `in_zones` template from current entity states the moment it loads, so on restart it reads the already-restored `input_boolean` directly.
+
+A presence design does **not** need MQTT retained-message topics, MQTT auto-discovery, a Mosquitto broker, or a startup recovery automation to survive restarts — that whole apparatus exists to persist state that HA already persists natively. Verified empirically: a full HA restart with `guest_mode` left `on` had both the template trackers and the guest `person` entity come back correct. If a presence chain is built on retained messages "so state survives a reboot," that's the tell it's over-engineered.
+
 ### Zone occupant counts (`zone.<name>` state) come from `person` entities only, not raw `device_tracker` entities
 
 A `device_tracker` in a zone does not, by itself, increment that zone's occupant count — only `person` entities do (the zone's `persons` attribute is the authoritative source). A tracking-only presence source (e.g. a guest) needs its own `person` entity wrapping the `device_tracker`, even with no linked HA user account, or it's invisible to any automation/dashboard that reads zone counts. See `guides/presence_tracking.md`.
@@ -618,6 +624,12 @@ The Litra Glow integration (`guides/litra_glow.md`) started in optimistic mode, 
 The polling sensor closes that gap: it's the actual source of truth, refreshed immediately after every command handler (`homeassistant.update_entity`) so the UI updates within about a second rather than waiting out the poll interval, and it naturally surfaces `unavailable`/`unknown` when the Mac or the USB device drops — which optimistic mode has no way to represent at all.
 
 **Rule:** prefer polling over optimistic mode whenever the backing device can change state outside HA's control (manual CLI use, another controller, a flaky USB/network link). Reserve optimistic mode for commands that are the *only* way the device's state ever changes.
+
+### macOS primary-display sensors are unreliable while the Mac is driven over Screen Sharing
+
+A Companion App / `command_line` sensor reporting the Mac's primary-display name or resolution reads correctly at the physical console, but while the Mac is being controlled via Screen Sharing it can report an empty display name and a generic virtual resolution instead of the real attached display. An automation that gates on display *identity* (e.g. "restore the desk light only if the primary display is `Studio Display`") then fires or fails to fire depending purely on how the Mac happened to be accessed at that moment.
+
+**Rule:** don't gate automations on which display is attached. If the intent is "someone is at the desk," use a coarser signal — at least one Mac reporting active — which doesn't depend on display detection. `guides/litra_glow.md` §9 uses exactly this fallback.
 
 ### Principle of least privilege for shell access
 
