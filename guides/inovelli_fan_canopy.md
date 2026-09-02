@@ -21,20 +21,21 @@ Breeze 40837 RF receiver, bonding line/load, swapping the switch) is documented
 separately in the "Harbor Breeze to Inovelli" work order; this guide covers only
 the Home Assistant side once both devices are paired.
 
-Four mechanisms connect the wall switch to the fan/light:
+Five mechanisms connect the wall switch to the fan/light:
 
 | Function | Mechanism | Works with HA down? |
 |---|---|---|
 | Paddle tap up/down → light on/off | Matter binding, cluster 6 (switch → canopy) | Yes |
-| Paddle hold down → fan + light off; hold up → fan on (last speed) + light on | HA automation | No |
+| Paddle hold up/down → light dim up/down | Matter binding, cluster 8 (switch → canopy) | Yes |
+| Paddle double-tap down → fan + light off; double-tap up → fan on (last speed) + light on | HA automation | No |
 | Config button taps → fan speed (1 tap cycle, 2 taps off, 3 taps peek) | HA automation | No |
 | Fan speed change → switch LED bar blip + speed memory | HA automation | No |
 
-The paddle **hold** was originally a second Matter binding (cluster 8, Level
-Control) that dimmed the light up/down locally. That binding is removed: the hold
-gesture is now an HA automation (`long_press` on the up/down paddle event
-entity) mapped to whole-room off/on, which was preferred over hold-to-dim. Tap →
-light on/off stays a binding and is unaffected.
+The whole-room off/on gesture is a paddle **double-tap** (`multi_press_2` on the
+up/down paddle event entity), handled by the HA automation. It was originally on
+paddle **hold**, but that collided with the more useful local hold-to-dim, so it
+moved to double-tap and the cluster 8 dim binding stayed. Tap and hold → light
+both stay Matter bindings and are unaffected.
 
 ## Architecture
 
@@ -46,13 +47,13 @@ light on/off stays a binding and is unaffected.
                        │   endpoint 2: fan    ──────┼──► fan.averys_room_ceiling_fan
                        └────────▲─────────▲─────────┘
                                 │         │
-          Matter binding        │         │   Matter (HA-issued commands)
-        (On/Off cluster 6)      │         │
+          Matter bindings       │         │   Matter (HA-issued commands)
+   (On/Off cl. 6, Level cl. 8)  │         │
                                 │         │
                        ┌────────┴─────────┴─────────┐
     wall paddle  ──────► VTM30-SN switch (node 11)  │
     config button ─────► endpoint 2: Binding cluster│
-                       │  event.*_button_down/up    │──► automation: hold → fan/light off / on
+                       │  event.*_button_down/up    │──► automation: double-tap → fan/light off / on
                        │  event.*_button_config     │──► automation: Ceiling Fan Wall Control
                        │  light.*_switch_led        │◄── automation: Ceiling Fan Wall Control
                        └────────────────────────────┘
@@ -60,8 +61,8 @@ light on/off stays a binding and is unaffected.
   automation.averys_room_ceiling_fan_wall_control   (one automation, four triggers)
       event.*_button_config        ──►  fan.set_percentage / fan.turn_off   (1 / 2 taps)
                                    └─►  snapshot + blip                     (3 taps: peek)
-      event.*_button_down (long_press) ─►  fan.turn_off + light.turn_off
-      event.*_button_up   (long_press) ─►  fan.set_percentage (last speed) + light.turn_on
+      event.*_button_down (multi_press_2) ─►  fan.turn_off + light.turn_off
+      event.*_button_up   (multi_press_2) ─►  fan.set_percentage (last speed) + light.turn_on
       fan.averys_room_ceiling_fan  ──►  input_select.averys_room_ceiling_fan_last_speed
                                    ├─►  scene.create  scene.averys_room_ceiling_fan_led_restore
                                    │       (snapshot RGB bar + LED-effect select, guarded)
@@ -83,29 +84,28 @@ light on/off stays a binding and is unaffected.
   client clusters don't map onto), so the config button must go through an HA
   automation. This split is deliberate: the everyday interaction (light on/off)
   is resilient; the fan, used less often, accepts the HA dependency.
-- **One binding: On/Off (cluster 6).** Cluster 6 is paddle tap → light on/off,
-  and it is the only binding — it survives HA being offline and has no
-  round-trip lag. A second binding (cluster 8, Level Control) originally gave
-  paddle press-and-hold → smooth local dim up/down; it was removed in favour of
-  mapping the hold gesture to a whole-room off/on in the HA automation (see
-  **Paddle hold**, below), which is used more than hold-to-dim was. Cluster 8 is
-  fiddly on this switch anyway — it only emits Move/Step while
-  `Dimming Speed (Simulated)` is a non-`Instant` duration, `2s` was the only
-  reliable value, and `3s` regressed intermittently. If hold-to-dim is ever
-  wanted back, re-add the cluster 8 target ([Step 4](#step-4--matter-binding-paddle--light))
-  and set `select.<prefix>_ceiling_fan_switch_dimming_speed_simulated` to `2s` —
-  but note the hold automation branches would then need to be dropped or they
-  fight the local ramp.
-- **Paddle hold → whole-room off/on (HA automation).** A `long_press` on
+- **Two bindings: On/Off (cluster 6) and Level Control (cluster 8).** Cluster 6
+  is paddle tap → light on/off; cluster 8 is paddle press-and-hold → smooth local
+  dim up/down, release stops the ramp. Both survive HA being offline and have no
+  round-trip lag. Cluster 8 only emits Move/Step while `Dimming Speed (Simulated)`
+  is a non-`Instant` duration — `2s` is the value in use on both rooms; `3s`
+  regressed intermittently and `500ms`–`1s` ramp too fast to land a level. See
+  `LESSONS.md`.
+- **Paddle double-tap → whole-room off/on (HA automation).** A `multi_press_2` on
   `event.<prefix>_ceiling_fan_switch_button_down` turns the fan off and the light
-  off; a `long_press` on `…_button_up` sets the fan to the remembered speed
+  off; a `multi_press_2` on `…_button_up` sets the fan to the remembered speed
   (`input_select.<prefix>_ceiling_fan_last_speed`) and turns the light on. Each
-  branch gates on the event entity's `event_type` attribute being `long_press`,
-  so a tap (`multi_press_1`) on the same entity does not match. `mode: queued`
-  makes a stray duplicate `long_press` harmless — the actions are idempotent. The
-  down-hold's `fan.turn_off` also drives the fan `percentage` trigger, so the
+  branch gates on the event entity's `event_type` attribute being `multi_press_2`,
+  so a single tap or a hold on the same paddle does not match. Double-tap was
+  chosen over hold so the cluster 8 hold-to-dim binding could stay — and the
+  switch's Button Delay is already `300ms` for the config button's multi-tap, so
+  the double-tap costs no extra latency and does not stray-toggle the light (the
+  switch holds the local load action until the delay expires). `mode: queued`
+  makes a stray duplicate harmless — the actions are idempotent. The down
+  double-tap's `fan.turn_off` also drives the fan `percentage` trigger, so the
   amber "Fast Falling" off-blip on the LED bar comes for free. This is HA-only —
-  with HA down, a paddle hold does nothing (tap still works over the binding).
+  with HA down, a paddle double-tap does nothing (tap and hold still work over
+  the bindings).
 - **Binding fires on physical presses only.** A command sent to the switch from
   HA or Apple Home does not propagate over the binding to the light, and bound
   state does not report back — the switch LED bar will not track light changes
@@ -132,8 +132,8 @@ light on/off stays a binding and is unaffected.
   fallback is the native `LED Intensity(Off)` select plus the `LED Color`
   parameter.
 - **One automation per room.** `automation.<prefix>_ceiling_fan_wall_control`
-  carries the non-binding links (config button gestures, down/up paddle holds,
-  fan → speed memory + LED blip) on four triggers with a top-level `choose` on
+  carries the non-binding links (config button gestures, down/up paddle
+  double-taps, fan → speed memory + LED blip) on four triggers with a top-level `choose` on
   `condition: trigger id`. This keeps every room a single reviewable unit and the
   behaviour identical across rooms. `mode: queued` (max 10) so fan-change runs
   process in order and the snapshot guard can't interleave with itself.
@@ -182,14 +182,14 @@ light on/off stays a binding and is unaffected.
   the fallback.** The `fan` trigger only fires after `fan.set_percentage`
   round-trips to the canopy over Thread and the new `percentage` reports back —
   ~0.3–0.6 s. Waiting on that made the blip feel disconnected from the tap. So
-  the config single-tap and up-hold branches now snapshot and `script.turn_on`
+  the config single-tap and up double-tap branches now snapshot and `script.turn_on`
   the blip themselves, *before* `fan.set_percentage`, passing the intended speed
   as a `blip_speed` variable (the script uses it instead of reading the fan,
   which hasn't changed yet). The bar lights within the switch's own ~0.3 s LED
   latency. The fan-settled branch still records speed memory, but its
   `script.turn_on` is now guarded on the blip script being idle — so when a
   button branch already started the blip it defers, and it only blips itself for
-  changes with no button branch (config double-tap off, the down-hold, external
+  changes with no button branch (config double-tap off, the down paddle double-tap, external
   fan changes). `mode: queued` serialises the two so the guard can't race.
 - **The blip restores what the bar was showing, it doesn't blindly turn it off.**
   The bar is the room's one always-idle ambient surface, so it's the natural home
@@ -343,7 +343,7 @@ Set physically during the install (paddle + config taps) and confirmed in HA:
 | Switch mode | Single-pole | No traveler; single-location install. Set physically; the live readout in HA is `select.*_switch_type` = `Single-Pole` (the older `Switch Mode` select reads `unavailable`). |
 | Smart Bulb Mode | Enabled | Keeps the load permanently powered so the paddle emits Matter commands (events / bindings) instead of chasing the empty local relay. Required for the binding to fire. Live entity: `select.*_ceiling_fan_switch_smart_bulb_mode` = `Smart Bulb Enable`. |
 | Control of switch load | `Remote & paddle control` (default — **do not** change) | On the White series the outgoing On/Off binding is triggered by the paddle's local load action. Setting this to `Remote control only` (to stop the phantom `switch.*_ceiling_fan_switch_load_control` toggle) also kills the paddle → light binding, even with Smart Bulb Mode on. Leave it at `Remote & paddle control` and accept the internal-relay toggle as the cost of a working binding. See `LESSONS.md`; Inovelli may decouple these in a later firmware. Live entity: `select.*_ceiling_fan_switch_control_of_switch_load`. |
-| Dimming Speed (Simulated) | `Instant` (default — leave it) | Only mattered for the removed cluster 8 (Level Control) binding — it set the ramp time for a paddle press-and-hold dim. With cluster 8 gone and the hold gesture handled in the HA automation ([Step 6](#step-6--ha-automation)), this parameter is inert; leave it at the factory default. Historical note if the binding is ever re-added: `Instant` emits no Move/Step, `2s` was the only reliable value, `3s` regressed intermittently, `500ms`–`1s` ramped too fast to land a level. Live entity: `select.*_ceiling_fan_switch_dimming_speed_simulated`. |
+| Dimming Speed (Simulated) | `2s` | End-to-end ramp time for a paddle press-and-hold over the cluster 8 (Level Control) binding — see [Step 4](#step-4--matter-binding-paddle--light). At `Instant` (default) a paddle hold emits no Move/Step and cluster 8 dimming does nothing. `2s` is reliable on both rooms; `3s` was tried and intermittently regressed to no Move/Step on a hold (like `Instant`), so it was reverted. `500ms`–`1s` ramp too fast to land a level. Live entity: `select.*_ceiling_fan_switch_dimming_speed_simulated`. |
 | LED bar color | Blue | Bedroom indicator. The wall-control automation drives colour via the light entity; the `LED Color` parameter is the fallback if the light-entity route ever stops holding, and it is also the colour the `LED Effect` animation plays in. |
 | `LED Effect` (`select.*_ceiling_fan_switch_led_effect`) | `Solid` | Resting value. **Not `Off`** — `Off` blanks the RGB notification channel and the automation's blips stop rendering. `Solid` at `LED Intensity` 0 is still dark at rest. The fan-off blip flips this to `Fast Falling` for ~2 s and the restore scene puts it back to `Solid`. |
 | `LED Intensity(On)` **and** `LED Intensity(Off)` | `0` | The switch keeps an internal on/off state (toggled by the paddle even in Smart Bulb Mode — this is what fires the binding, see the `Control of switch load` row) and lights the bar to `LED Intensity(On)` / `(Off)` for it. Zeroing both means that native indicator never shows, so the bar reflects *only* the fan-speed automation. Each is exposed **twice** — a **select** and a `… (Load Control)` **number** — set all four to `0` per switch. The two `(Load Control)` numbers occasionally re-read their factory defaults (`33` / `1`) after a Matter Server restart; re-zero them if the bar starts glowing faintly at rest. The automation drives the bar through a separate RGB-notification channel that still works with the intensities at 0. |
@@ -356,29 +356,29 @@ Done in the Matter Server Web UI.
    identifier on the device page (`deviceid_…-00000000000000NN-…`, hex).
 2. Find the endpoint exposing the **Binding** cluster — **endpoint 2** on the
    VTM30-SN (endpoint 1 is the dead Load relay).
-3. Add one binding target, to node **10** (Ceiling Fan canopy), **endpoint 1**
-   (the Dimmable Light — *not* endpoint 2, the fan):
+3. Add two binding targets, both to node **10** (Ceiling Fan canopy),
+   **endpoint 1** (the Dimmable Light — *not* endpoint 2, the fan):
    - cluster **6 (On/Off)** — paddle tap → light on/off
+   - cluster **8 (Level Control)** — paddle press-and-hold → dim up/down
 4. If the UI has a separate ACL step, add an entry on node 10 granting node 11
    operate access. Most binding UIs write the ACL automatically.
-5. Test at the wall: tap up → light on (full, per the On level parameter), tap
-   down → light off. Confirm it still works with Home Assistant stopped.
+5. Set `Dimming Speed (Simulated)` = `2s` ([Step 3](#step-3--switch-vtm30-sn-parameters)).
+   Without a non-`Instant` value the cluster 8 bind emits nothing on a paddle
+   hold and the dim half of this step will look broken. `3s` also proved
+   unreliable — see Step 3.
+6. Test at the wall: tap up → light on (full, per the On level parameter), tap
+   down → light off; hold up → smooth ramp up, hold down → ramp down, release →
+   stop mid-ramp. Confirm all of it still works with Home Assistant stopped.
 
-The paddle **hold** is not bound — it is an HA automation
-([Step 6](#step-6--ha-automation)). An earlier build also bound cluster **8
-(Level Control)** here for paddle press-and-hold → local dim; that target was
-removed when the hold gesture was remapped to whole-room off/on. To restore
-hold-to-dim, re-add a cluster 8 target to node 10 / endpoint 1, set
-`Dimming Speed (Simulated)` = `2s` ([Step 3](#step-3--switch-vtm30-sn-parameters)),
-and drop the down/up-hold branches from the automation so the local ramp and the
-automation don't fight.
+The paddle **double-tap** (whole-room off/on) is not bound — it is an HA
+automation ([Step 6](#step-6--ha-automation)), independent of these bindings.
 
 > **Rebuild the binding after a canopy firmware update.** VTM36 `1.0.1r1`
 > reworked the binding implementation; per Inovelli's advisory, bindings created
 > before the update may silently stop firing. If the paddle goes dead after an
-> update: delete the cluster 6 binding on the switch and the canopy, power-cycle
-> both (breaker off ~10 s), then recreate it with the steps above. See
-> [Updating the canopy firmware](#updating-the-canopy-firmware-101r1).
+> update: delete **both** bindings (cluster 6 and 8) on the switch and the
+> canopy, power-cycle both (breaker off ~10 s), then recreate them with the steps
+> above. See [Updating the canopy firmware](#updating-the-canopy-firmware-101r1).
 
 ## Step 5 — Hide the phantom load switch
 
@@ -407,26 +407,27 @@ duplicate event (see design decisions), then branches on `event_type`:
 | Double tap (`multi_press_2`) | any | Off |
 | Triple tap (`multi_press_3`) | any | Snapshot the bar, then blip the current speed — fan untouched |
 
-**Paddle hold** (`event.*_button_down` / `event.*_button_up`) — each branch fires
-on the entity changing and gates on its `event_type` attribute being
-`long_press`, so a tap on the same paddle (`multi_press_1`, handled by the cluster
-6 binding, not this automation) doesn't match:
+**Paddle double-tap** (`event.*_button_down` / `event.*_button_up`) — each branch
+fires on the entity changing and gates on its `event_type` attribute being
+`multi_press_2`, so a single tap (cluster 6 binding) or a hold (cluster 8
+binding) on the same paddle doesn't match:
 
 | Paddle gesture | Result |
 |---|---|
-| Hold down (`long_press`) | `fan.turn_off` + `light.turn_off` — the fan-off also blips the bar amber via the `percentage` branch |
-| Hold up (`long_press`) | snapshot + immediate speed-hue blip, then `fan.set_percentage` to the remembered speed + `light.turn_on` (full, per On level 254) |
+| Double-tap down (`multi_press_2`) | `fan.turn_off` + `light.turn_off` — the fan-off also blips the bar amber via the `percentage` branch |
+| Double-tap up (`multi_press_2`) | snapshot + immediate speed-hue blip, then `fan.set_percentage` to the remembered speed + `light.turn_on` (full, per On level 254) |
 
-`long_press` fires while the paddle is still held (~1 s in), not on release —
-`long_release` is left unmapped. No de-dup guard: `mode: queued` plus idempotent
-actions make a repeat `long_press` a no-op.
+No de-dup guard: `mode: queued` plus idempotent actions make a repeat
+`multi_press_2` a no-op. The switch's Button Delay is already `300ms` for the
+config button's multi-tap detection, so nothing extra was configured to enable
+paddle double-tap.
 
-**Immediate speed blip.** The config single-tap and up-hold branches don't wait
-for the fan. Before calling `fan.set_percentage` they snapshot the bar (guarded
-on the blip being idle) and `script.turn_on` the blip with a `blip_speed`
-variable set to the *intended* speed — remembered speed for a resume / up-hold,
-computed next band for an advance. The bar lights within the switch's ~0.3 s LED
-latency instead of after the ~0.3–0.6 s fan round-trip.
+**Immediate speed blip.** The config single-tap and up double-tap branches don't
+wait for the fan. Before calling `fan.set_percentage` they snapshot the bar
+(guarded on the blip being idle) and `script.turn_on` the blip with a
+`blip_speed` variable set to the *intended* speed — remembered speed for a
+resume / up double-tap, computed next band for an advance. The bar lights within
+the switch's ~0.3 s LED latency instead of after the ~0.3–0.6 s fan round-trip.
 
 **Fan `percentage` attribute change** (the value is already settled — no delay):
 
@@ -441,7 +442,7 @@ latency instead of after the ~0.3–0.6 s fan round-trip.
 4. **If** `script.*_ceiling_fan_led_blip` is `off`, `script.turn_on` the blip
    (no `blip_speed` — the script reads the now-settled fan). When a button
    branch already started an immediate blip this step is skipped, so the two
-   don't stack; it still fires for config double-tap off, the down-hold, and
+   don't stack; it still fires for config double-tap off, the down paddle double-tap, and
    external fan changes. The script shows the acknowledgement (speed hue 5 s, or
    amber 2 s + a `Fast Falling` animation on the effect select for a fan-off;
    75 % awake or 25 % while the room's sleep boolean is on), holds, then
@@ -515,25 +516,27 @@ If the canopy ships on `1.0.0`, update it to `1.0.1r1` and run the cleanup in
   colour Blue; `LED Effect` = `Solid` (**not `Off`** — `Off` blanks the RGB
   notification channel the blips use); `LED Intensity(On)` **and** `(Off)` = `0`
   (all four entities — select + number, each ×2) so only the fan automation lights
-  the bar; `Dimming Speed (Simulated)` left at `Instant` (the cluster 8 binding
-  that used it is not present)
-- Binding: switch Binding endpoint → canopy light endpoint 1, cluster **6
-  (On/Off)** only — paddle tap → light on/off. No cluster 8 (Level Control)
-  binding; the paddle hold is handled by the automation instead
+  the bar; `Dimming Speed (Simulated)` = `2s` (cluster 8 hold-to-dim needs it);
+  `Button Delay` = `300ms` (multi-tap detection for config button and paddle
+  double-tap)
+- Bindings: switch Binding endpoint → canopy light endpoint 1, clusters **6
+  (On/Off)** and **8 (Level Control)** — paddle tap → light on/off, paddle hold →
+  dim. The paddle double-tap (whole-room off/on) is the automation, not a binding
 - Automation: one `automation.<prefix>_ceiling_fan_wall_control`, category
   Climate, label `int_inovelli_fan_canopy`, `mode: queued` max 10, four triggers
-  (config button, fan `percentage`, down paddle hold, up paddle hold)
+  (config button, fan `percentage`, down paddle double-tap, up paddle double-tap)
 - Script: one `script.<prefix>_ceiling_fan_led_blip`, `mode: restart`
 - Speed bands 33 / 66 / 100 with `< 45` / `< 78` edges; bar dark at rest at all
   hours; blip hues 175 / 220 / 265, amber 30; speed blip holds 5 s, off blip 2 s;
   blip brightness 75 % awake / 25 % while the sleep boolean is on; fan-off blip
   also plays `Fast Falling` on `select.<prefix>_ceiling_fan_switch_led_effect` and
   the restore scene snapshots that select alongside the RGB bar
-- Config single-tap and up-hold branches fire the blip immediately with a
+- Config single-tap and up double-tap branches fire the blip immediately with a
   `blip_speed` variable (before `fan.set_percentage`); the fan-settled branch's
   `script.turn_on` is guarded on the blip being idle so the two don't stack
 - Gestures: config button — 1 tap cycles / resumes, 2 taps off, 3 taps peek;
-  paddle hold down → fan + light off, hold up → fan (last speed) + light on
+  paddle double-tap down → fan + light off, double-tap up → fan (last speed) +
+  light on
 
 Each room gets its own copies with the prefix and sleep boolean substituted:
 
@@ -656,14 +659,19 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 `number.averys_room_ceiling_fan_on_level_1` is at `255` (the restore-previous
 sentinel). Set it to `254`. The change takes effect on the next off → on cycle.
 
-**Paddle hold does nothing.** The hold gesture is an HA automation, not a binding
-— it does nothing with HA stopped, and nothing if the automation is disabled.
-When HA is up, watch `event.*_ceiling_fan_switch_button_down` /`_up` in Developer
-Tools while holding: the `event_type` attribute must land on `long_press`. If a
-hold reports only `multi_press_1`, the switch's button-press-delay / long-press
-threshold is off — adjust it on the switch. (There is intentionally no
-hold-to-dim: the cluster 8 binding that provided it was removed — see
-[Step 4](#step-4--matter-binding-paddle--light).)
+**Paddle tap works but paddle hold doesn't dim.** Two things must both be in
+place: a cluster 8 (Level Control) binding on the switch → canopy light endpoint
+1 ([Step 4](#step-4--matter-binding-paddle--light)), and `Dimming Speed
+(Simulated)` (`select.*_ceiling_fan_switch_dimming_speed_simulated`) set to a
+duration, not `Instant`. At `Instant` the switch plays out no ramp on a hold and
+sends no bound Move/Step. `2s` is the tested value; `3s` was itself unreliable.
+
+**Paddle double-tap does nothing (whole-room off/on).** The double-tap is an HA
+automation — it does nothing with HA stopped or the automation disabled. When HA
+is up, watch `event.*_ceiling_fan_switch_button_down` / `_up` in Developer Tools
+while double-tapping: the `event_type` must land on `multi_press_2`. If it
+reports `multi_press_1` twice instead, raise `Button Delay`
+(`select.*_ceiling_fan_switch_button_delay`) to `300ms` or more.
 
 **Light cuts out at low brightness.** Raise `Minimum dim level`
 (`select.<prefix>_ceiling_fan_ligh_min_level`) one step at a time until the low

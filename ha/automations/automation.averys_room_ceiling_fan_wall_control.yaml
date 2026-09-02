@@ -3,22 +3,22 @@ alias: "Avery's Room: Ceiling Fan Wall Control"
 description: >-
   Single wall-control automation for the Avery's Room ceiling fan (VTM36 canopy +
   VTM30-SN switch), covering the links that don't run over the Matter binding.
-  Down paddle hold turns the fan and light off; up paddle hold turns the fan on
-  to the last speed and the light on. Config button: single tap resumes the last
-  speed (fan off) or advances low->medium->high->low (fan on); double tap turns
-  it off; triple tap shows the current speed without changing it. A settled
+  Down paddle double tap turns the fan and light off; up paddle double tap turns
+  the fan on to the last speed and the light on. Config button: single tap resumes
+  the last speed (fan off) or advances low->medium->high->low (fan on); double tap
+  turns it off; triple tap shows the current speed without changing it. A settled
   fan-speed change (the percentage attribute) stores the running speed in
   input_select.averys_room_ceiling_fan_last_speed and blips the switch LED bar via
   script.averys_room_ceiling_fan_led_blip - the speed's hue for 5s, amber plus a
   Fast Falling animation when the fan is switched off. Config single tap and
-  up-paddle hold fire that blip immediately with the intended speed, so the bar
+  up-paddle double tap fire that blip immediately with the intended speed, so the bar
   lights without waiting for the fan's Matter round-trip; other fan changes blip
   once the speed settles. The bar rests dark at all times; before each blip the
   automation snapshots the RGB bar and the LED-effect select into
   scene.averys_room_ceiling_fan_led_restore so the blip restores whatever it was
   showing (dark today; a future status colour transparently). None of this works
-  while HA is down; paddle tap -> light on/off is a Matter binding (cluster 6) and
-  is independent.
+  while HA is down; paddle tap -> light on/off (cluster 6) and paddle hold -> dim
+  (cluster 8) are Matter bindings and are independent.
 triggers:
   - alias: Config button gesture
     trigger: state
@@ -32,20 +32,20 @@ triggers:
     entity_id: fan.averys_room_ceiling_fan
     attribute: percentage
     id: fan
-  - alias: Down paddle hold
+  - alias: Down paddle double tap
     trigger: state
     entity_id: event.averys_room_ceiling_fan_switch_button_down
     not_to:
       - unavailable
       - unknown
-    id: down_hold
-  - alias: Up paddle hold
+    id: down_double
+  - alias: Up paddle double tap
     trigger: state
     entity_id: event.averys_room_ceiling_fan_switch_button_up
     not_to:
       - unavailable
       - unknown
-    id: up_hold
+    id: up_double
 conditions: []
 actions:
   - alias: Route by trigger
@@ -182,16 +182,16 @@ actions:
                     action: script.turn_on
                     target:
                       entity_id: script.averys_room_ceiling_fan_led_blip
-      - alias: Down paddle held - turn the fan and light off
+      - alias: Down paddle double-tapped - turn the fan and light off
         conditions:
           - condition: trigger
-            id: down_hold
+            id: down_double
             alias: Triggered by the down paddle
-          - alias: Gesture was a hold, not a tap
+          - alias: Gesture was a double tap (multi_press_2), not a single tap or hold
             condition: state
             entity_id: event.averys_room_ceiling_fan_switch_button_down
             attribute: event_type
-            state: long_press
+            state: multi_press_2
         sequence:
           - alias: Turn the ceiling fan off
             action: fan.turn_off
@@ -201,16 +201,16 @@ actions:
             action: light.turn_off
             target:
               entity_id: light.averys_room_ceiling_fan_light
-      - alias: Up paddle held - turn the fan and light on
+      - alias: Up paddle double-tapped - turn the fan and light on
         conditions:
           - condition: trigger
-            id: up_hold
+            id: up_double
             alias: Triggered by the up paddle
-          - alias: Gesture was a hold, not a tap
+          - alias: Gesture was a double tap (multi_press_2), not a single tap or hold
             condition: state
             entity_id: event.averys_room_ceiling_fan_switch_button_up
             attribute: event_type
-            state: long_press
+            state: multi_press_2
         sequence:
           - alias: Snapshot the bar, unless a blip is in flight
             note: >-
@@ -289,12 +289,12 @@ actions:
                     - select.averys_room_ceiling_fan_switch_led_effect
           - alias: Blip the bar - unless a button branch already started an immediate blip
             note: >-
-              The config single-tap and up-hold branches fire their own blip the
-              moment the button is pressed, so the bar lights without waiting for
-              the fan's Matter round-trip. This branch (settled speed, ~0.5s
+              The config single-tap and up double-tap branches fire their own blip
+              the moment the button is pressed, so the bar lights without waiting
+              for the fan's Matter round-trip. This branch (settled speed, ~0.5s
               later) then skips its blip so it does not restart that one. It still
               blips for changes with no button branch: config double-tap off, the
-              down-hold, and any external fan change.
+              down paddle double-tap, and any external fan change.
             if:
               - alias: No blip already in flight
                 condition: state
