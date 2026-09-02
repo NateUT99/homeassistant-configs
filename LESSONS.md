@@ -607,6 +607,12 @@ A cluster 8 binding (switch Binding endpoint → canopy light endpoint 1) for pa
 
 **`3s` is not a safe value.** It was run first and intermittently regressed to the `Instant` behaviour — the bind stopping mid-hold and sending no Move/Step, unpredictably. `2s` was reliable on both switches; `500ms`–`1s` ramp too fast to land a level. If hold-to-dim goes flaky after a firmware update, re-check this select before assuming the binding broke.
 
+### Inovelli White Series VTM30-SN — the LED-effect channel renders nothing while LED Intensity is zeroed, and it suppresses the RGB notification channel
+
+The switch has two independent ways to light the bar from HA: the RGB **notification channel** (`light.*_ceiling_fan_switch_led`, set via `light.turn_on` + `hs_color`) and the **effect channel** (`select.*_ceiling_fan_switch_led_effect` = `Fast Falling` / `Rising` / …). In this build `LED Intensity(On)` and `(Off)` are pinned at `0` so the switch's own indicator never shows and only the fan automation lights the bar. The notification channel works fine at intensity 0 — that is how the speed-blip colours render. **The effect channel does not:** the animation plays into `LED Intensity`, so at `0` it is invisible. Worse, activating an effect (`select.select_option` → `Fast Falling`) *blanks the notification channel* — the ~0.25 s of amber that had rendered before the effect step disappears the moment the effect engages.
+
+Net: the `inovelli_fan_canopy` fan-off blip (amber on the notification channel, then `Fast Falling` on the effect channel) showed nothing on the physical bar — a solid teal speed blip was clearly visible, the amber off blip looked like a no-op. Fix: drop the effect step entirely. `script.<prefix>_ceiling_fan_led_blip` fan-off branch is now a plain `light.turn_on` to amber held 3 s, same as the speed blips. The effect select stays on `Solid` (never `Off` — `Off` also blanks the notification channel). The restore scene still snapshots the effect select, harmlessly, in case a future status colour ever drives it.
+
 ---
 
 ## Shell Command Integration
