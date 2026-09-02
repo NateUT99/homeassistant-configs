@@ -101,11 +101,13 @@ both stay Matter bindings and are unaffected.
   switch's Button Delay is already `300ms` for the config button's multi-tap, so
   the double-tap costs no extra latency and does not stray-toggle the light (the
   switch holds the local load action until the delay expires). `mode: queued`
-  makes a stray duplicate harmless — the actions are idempotent. The down
-  double-tap's `fan.turn_off` also drives the fan `percentage` trigger, so the
-  amber "Fast Falling" off-blip on the LED bar comes for free. This is HA-only —
-  with HA down, a paddle double-tap does nothing (tap and hold still work over
-  the bindings).
+  makes a stray duplicate harmless — the actions are idempotent. Both double-tap
+  branches fire the LED blip themselves (snapshot + `script.turn_on` with
+  `blip_speed`, `off` for down) *before* touching `fan.*`, so the bar
+  acknowledges on the gesture rather than after the fan round-trips — the down
+  double-tap's off cue is the same amber + Fast Falling the config double-tap-off
+  shows. This is HA-only — with HA down, a paddle double-tap does nothing (tap
+  and hold still work over the bindings).
 - **Binding fires on physical presses only.** A command sent to the switch from
   HA or Apple Home does not propagate over the binding to the light, and bound
   state does not report back — the switch LED bar will not track light changes
@@ -182,8 +184,8 @@ both stay Matter bindings and are unaffected.
   the fallback.** The `fan` trigger only fires after `fan.set_percentage`
   round-trips to the canopy over Thread and the new `percentage` reports back —
   ~0.3–0.6 s. Waiting on that made the blip feel disconnected from the tap. So
-  the config single-tap and up double-tap branches now snapshot and `script.turn_on`
-  the blip themselves, *before* `fan.set_percentage`, passing the intended speed
+  the config single-tap and both paddle double-tap branches now snapshot and `script.turn_on`
+  the blip themselves, *before* touching `fan.*`, passing the intended result
   as a `blip_speed` variable (the script uses it instead of reading the fan,
   which hasn't changed yet). The bar lights within the switch's own ~0.3 s LED
   latency. The fan-settled branch still records speed memory, but its
@@ -414,7 +416,7 @@ binding) on the same paddle doesn't match:
 
 | Paddle gesture | Result |
 |---|---|
-| Double-tap down (`multi_press_2`) | `fan.turn_off` + `light.turn_off` — the fan-off also blips the bar amber via the `percentage` branch |
+| Double-tap down (`multi_press_2`) | snapshot + immediate amber off-blip (`blip_speed: off`), then `fan.turn_off` + `light.turn_off` |
 | Double-tap up (`multi_press_2`) | snapshot + immediate speed-hue blip, then `fan.set_percentage` to the remembered speed + `light.turn_on` (full, per On level 254) |
 
 No de-dup guard: `mode: queued` plus idempotent actions make a repeat
@@ -422,12 +424,14 @@ No de-dup guard: `mode: queued` plus idempotent actions make a repeat
 config button's multi-tap detection, so nothing extra was configured to enable
 paddle double-tap.
 
-**Immediate speed blip.** The config single-tap and up double-tap branches don't
-wait for the fan. Before calling `fan.set_percentage` they snapshot the bar
-(guarded on the blip being idle) and `script.turn_on` the blip with a
-`blip_speed` variable set to the *intended* speed — remembered speed for a
-resume / up double-tap, computed next band for an advance. The bar lights within
-the switch's ~0.3 s LED latency instead of after the ~0.3–0.6 s fan round-trip.
+**Immediate blip.** The config single-tap and both paddle double-tap branches
+don't wait for the fan. Before touching `fan.*` they snapshot the bar (guarded
+on the blip being idle) and `script.turn_on` the blip with a `blip_speed`
+variable set to the *intended* result — remembered speed for a resume / up
+double-tap, computed next band for a config advance, `off` for the down
+double-tap. The bar lights within the switch's ~0.3 s LED latency instead of
+after the ~0.3–0.6 s fan round-trip. The down double-tap's `off` blip is the
+same amber + Fast Falling acknowledgement the config double-tap-off uses.
 
 **Fan `percentage` attribute change** (the value is already settled — no delay):
 
@@ -442,8 +446,8 @@ the switch's ~0.3 s LED latency instead of after the ~0.3–0.6 s fan round-trip
 4. **If** `script.*_ceiling_fan_led_blip` is `off`, `script.turn_on` the blip
    (no `blip_speed` — the script reads the now-settled fan). When a button
    branch already started an immediate blip this step is skipped, so the two
-   don't stack; it still fires for config double-tap off, the down paddle double-tap, and
-   external fan changes. The script shows the acknowledgement (speed hue 5 s, or
+   don't stack; it still fires for config double-tap off and external fan
+   changes. The script shows the acknowledgement (speed hue 5 s, or
    amber 2 s + a `Fast Falling` animation on the effect select for a fan-off;
    75 % awake or 25 % while the room's sleep boolean is on), holds, then
    re-asserts `scene.*_ceiling_fan_led_restore` — or `light.turn_off` if that
@@ -531,9 +535,10 @@ If the canopy ships on `1.0.0`, update it to `1.0.1r1` and run the cleanup in
   blip brightness 75 % awake / 25 % while the sleep boolean is on; fan-off blip
   also plays `Fast Falling` on `select.<prefix>_ceiling_fan_switch_led_effect` and
   the restore scene snapshots that select alongside the RGB bar
-- Config single-tap and up double-tap branches fire the blip immediately with a
-  `blip_speed` variable (before `fan.set_percentage`); the fan-settled branch's
-  `script.turn_on` is guarded on the blip being idle so the two don't stack
+- Config single-tap and both paddle double-tap branches fire the blip immediately
+  with a `blip_speed` variable (`off` for down), before touching `fan.*`; the
+  fan-settled branch's `script.turn_on` is guarded on the blip being idle so the
+  two don't stack
 - Gestures: config button — 1 tap cycles / resumes, 2 taps off, 3 taps peek;
   paddle double-tap down → fan + light off, double-tap up → fan (last speed) +
   light on

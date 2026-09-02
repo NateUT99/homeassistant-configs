@@ -8,10 +8,10 @@ description: >-
   75% by default and 25% while everyone is sleeping
   (input_boolean.everyone_sleeping) to protect dark adaptation. Called via
   script.turn_on from Master Bedroom: Ceiling Fan Wall Control. The button-press
-  branches (config single tap, up-paddle hold) call it immediately with a
-  blip_speed variable so the bar lights without waiting for the fan's Matter
-  round-trip; the fan-settled branch calls it with no blip_speed (reads the fan)
-  and only when no blip is already in flight. The caller snapshots the RGB bar and
+  branches (config single tap, up + down paddle double tap) call it immediately
+  with a blip_speed variable ('off' for the down double tap) so the bar lights
+  without waiting for the fan's Matter round-trip; the fan-settled branch calls it
+  with no blip_speed (reads the fan) and only when no blip is already in flight. The caller snapshots the RGB bar and
   the effect select into scene.master_bedroom_ceiling_fan_led_restore first; the
   tail re-asserts that scene, falling back to light.turn_off when it does not
   exist (e.g. a manual run). mode: restart so rapid changes keep the bar lit and

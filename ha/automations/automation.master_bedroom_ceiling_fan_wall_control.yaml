@@ -11,9 +11,9 @@ description: >-
   input_select.master_bedroom_ceiling_fan_last_speed and blips the switch LED bar
   via script.master_bedroom_ceiling_fan_led_blip - the speed's hue for 5s, amber
   plus a Fast Falling animation when the fan is switched off. Config single tap
-  and up-paddle double tap fire that blip immediately with the intended speed, so the
-  bar lights without waiting for the fan's Matter round-trip; other fan changes
-  blip once the speed settles. The bar rests dark at all times; before each blip
+  and both paddle double taps fire that blip immediately (the intended speed, or
+  the off cue for down), so the bar lights without waiting for the fan's Matter
+  round-trip; other fan changes blip once the speed settles. The bar rests dark at all times; before each blip
   the automation snapshots the RGB bar and the LED-effect select into
   scene.master_bedroom_ceiling_fan_led_restore so the blip restores whatever it
   was showing (dark today; a future status colour transparently). None of this
@@ -193,6 +193,31 @@ actions:
             attribute: event_type
             state: multi_press_2
         sequence:
+          - alias: Snapshot the bar, unless a blip is in flight
+            note: >-
+              Guarded on the blip being idle - it is mode:restart, so snapshotting
+              mid-burst captures a blip colour as the resting state and leaves the
+              bar stuck lit.
+            if:
+              - alias: No blip in flight
+                condition: state
+                entity_id: script.master_bedroom_ceiling_fan_led_blip
+                state: "off"
+            then:
+              - alias: Snapshot the LED bar
+                action: scene.create
+                data:
+                  scene_id: master_bedroom_ceiling_fan_led_restore
+                  snapshot_entities:
+                    - light.master_bedroom_ceiling_fan_switch_led
+                    - select.master_bedroom_ceiling_fan_switch_led_effect
+          - alias: Blip the off acknowledgement now, before the fan Matter round-trip
+            action: script.turn_on
+            target:
+              entity_id: script.master_bedroom_ceiling_fan_led_blip
+            data:
+              variables:
+                blip_speed: "off"
           - alias: Turn the ceiling fan off
             action: fan.turn_off
             target:
@@ -289,12 +314,12 @@ actions:
                     - select.master_bedroom_ceiling_fan_switch_led_effect
           - alias: Blip the bar - unless a button branch already started an immediate blip
             note: >-
-              The config single-tap and up double-tap branches fire their own blip
-              the moment the button is pressed, so the bar lights without waiting
-              for the fan's Matter round-trip. This branch (settled speed, ~0.5s
-              later) then skips its blip so it does not restart that one. It still
-              blips for changes with no button branch: config double-tap off, the
-              down paddle double-tap, and any external fan change.
+              The config single-tap and the up/down paddle double-tap branches
+              fire their own blip the moment the button is pressed, so the bar
+              lights without waiting for the fan's Matter round-trip. This branch
+              (settled speed, ~0.5s later) then skips its blip so it does not
+              restart that one. It still blips for changes with no button branch:
+              config double-tap off, and any external fan change.
             if:
               - alias: No blip already in flight
                 condition: state
