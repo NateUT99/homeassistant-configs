@@ -4,10 +4,9 @@ description: >-
   Single wall-control automation for the Master Bedroom ceiling fan (VTM36 canopy
   + VTM30-SN switch), covering the links that don't run over the Matter binding.
   Down paddle hold turns the fan and light off; up paddle hold turns the fan on
-  to the last speed and the light on; each hold also blips the LED bar. Config
-  button: single tap resumes the last speed (fan off) or advances
-  low->medium->high->low (fan on); double tap turns it off; triple tap shows the
-  current speed without changing it. A settled
+  to the last speed and the light on. Config button: single tap resumes the last
+  speed (fan off) or advances low->medium->high->low (fan on); double tap turns
+  it off; triple tap shows the current speed without changing it. A settled
   fan-speed change (the percentage attribute) stores the running speed in
   input_select.master_bedroom_ceiling_fan_last_speed and blips the switch LED bar
   via script.master_bedroom_ceiling_fan_led_blip - the speed's hue for 3s, amber
@@ -149,38 +148,6 @@ actions:
             action: light.turn_off
             target:
               entity_id: light.master_bedroom_ceiling_fan_light
-          - alias: Blip the bar amber when the fan was already off
-            note: >-
-              If the fan was running, fan.turn_off drives the percentage trigger
-              and that branch blips amber; if it was already off there is no fan
-              change to blip on, so acknowledge here. The fan entity still reads
-              its pre-call state here (Matter round-trip lag), which is exactly
-              the "was it already off?" test wanted. Snapshot guarded like the
-              other branches so a burst snapshots once.
-            if:
-              - alias: Fan was already off - no percentage blip coming
-                condition: state
-                entity_id: fan.master_bedroom_ceiling_fan
-                state: "off"
-            then:
-              - alias: Snapshot the bar's resting state, unless a blip is already in flight
-                if:
-                  - alias: No blip in flight
-                    condition: state
-                    entity_id: script.master_bedroom_ceiling_fan_led_blip
-                    state: "off"
-                then:
-                  - alias: Snapshot the LED bar so the blip can put it back
-                    action: scene.create
-                    data:
-                      scene_id: master_bedroom_ceiling_fan_led_restore
-                      snapshot_entities:
-                        - light.master_bedroom_ceiling_fan_switch_led
-                        - select.master_bedroom_ceiling_fan_switch_led_effect
-              - alias: Blip the bar (fan off -> amber + Fast Falling)
-                action: script.turn_on
-                target:
-                  entity_id: script.master_bedroom_ceiling_fan_led_blip
       - alias: Up paddle held - turn the fan and light on
         conditions:
           - condition: trigger
@@ -202,38 +169,6 @@ actions:
             action: light.turn_on
             target:
               entity_id: light.master_bedroom_ceiling_fan_light
-          - alias: Blip the bar with the speed hue when the fan was already running
-            note: >-
-              If the fan was off, spinning it up drives the percentage trigger
-              and that branch blips the speed hue; if it was already on there is
-              no reliable percentage change, so acknowledge here. The fan entity
-              still reads its pre-call state (Matter lag), which is the "was it
-              already on?" test wanted. Snapshot guarded so a burst snapshots
-              once.
-            if:
-              - alias: Fan was already on - no percentage blip coming
-                condition: state
-                entity_id: fan.master_bedroom_ceiling_fan
-                state: "on"
-            then:
-              - alias: Snapshot the bar's resting state, unless a blip is already in flight
-                if:
-                  - alias: No blip in flight
-                    condition: state
-                    entity_id: script.master_bedroom_ceiling_fan_led_blip
-                    state: "off"
-                then:
-                  - alias: Snapshot the LED bar so the blip can put it back
-                    action: scene.create
-                    data:
-                      scene_id: master_bedroom_ceiling_fan_led_restore
-                      snapshot_entities:
-                        - light.master_bedroom_ceiling_fan_switch_led
-                        - select.master_bedroom_ceiling_fan_switch_led_effect
-              - alias: Blip the bar (speed hue for 3s)
-                action: script.turn_on
-                target:
-                  entity_id: script.master_bedroom_ceiling_fan_led_blip
       - alias: Fan speed settled - record it and blip the LED bar
         conditions:
           - condition: trigger

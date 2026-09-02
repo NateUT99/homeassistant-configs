@@ -607,16 +607,6 @@ A cluster 8 binding (switch Binding endpoint → canopy light endpoint 1) for pa
 
 **`3s` is not a safe value.** It was run first and intermittently regressed to the `Instant` behaviour — the bind stopping mid-hold and sending no Move/Step, unpredictably. `2s` was reliable on both switches; `500ms`–`1s` ramp too fast to land a level. If hold-to-dim goes flaky after a firmware update, re-check this select before assuming the binding broke.
 
-### Inovelli White Series VTM30-SN — the RGB bar renders warm hues far dimmer than cool hues
-
-The `inovelli_fan_canopy` fan-off blip (`light.turn_on` the bar to `hs_color [30, 100]` / amber, 75 %, 3 s) was invisible on the physical bar, while the speed blips (`hs_color [175/220/265, 100]` / teal→violet, same call shape, same brightness, same hold) were clearly visible. Traces confirmed the amber `light.turn_on` executed and the bar entity read `on` for the full 3 s — it just didn't light up enough to see.
-
-The cool speed hues are all blue-heavy, and this bar's blue channel is bright. Hue 30 has **no blue** — it's red + a little green — and this bar drives red/green much dimmer, so a saturated amber at 75 % washed out completely in a lit room.
-
-**Not** an LED-Intensity issue: `LED Intensity(On)/(Off)` are `0` and the notification channel (and the older `Fast Falling` effect) rendered fine at `0` — warm-hue dimness is the whole story.
-
-Fix: the off blip now uses `hs_color [50, 100]` (amber-gold — more green, which this bar renders brighter) at its own higher brightness (`100 %` awake / `40 %` asleep, vs `75/25` for speed blips). If even that is too dim, the next step is a hue with blue content (magenta ~315) or white — not a warmer amber.
-
 ---
 
 ## Shell Command Integration

@@ -2,45 +2,49 @@ alias: "Avery's Room: Ceiling Fan LED Blip"
 description: >-
   Blips the Avery's Room ceiling-fan switch LED bar to acknowledge a fan change,
   then restores what the bar was showing before. A speed change shows that speed's
-  hue for 3s at 75/25% brightness; switching the fan off shows amber-gold (hue 50)
-  for 3s at 100/40% - warm hues render much dimmer than the cool speed hues on
-  this bar, so the off blip is pushed brighter and greener to stay visible.
-  Brightness drops on the low value while Avery is sleeping
-  (input_boolean.avery_sleeping) to protect dark adaptation. Called via
-  script.turn_on from Avery's Room: Ceiling Fan Wall Control, which snapshots the
-  RGB bar and the effect select into
+  hue for 3s. Switching the fan off shows amber on the RGB channel plus a Fast
+  Falling animation on the bar's effect channel
+  (select.averys_room_ceiling_fan_switch_led_effect), held 2s. Brightness is 75%
+  by default and 25% while Avery is sleeping (input_boolean.avery_sleeping) to
+  protect dark adaptation. Called via script.turn_on from Avery's Room: Ceiling
+  Fan Wall Control, which snapshots the RGB bar and the effect select into
   scene.averys_room_ceiling_fan_led_restore before the first blip of a burst; the
   tail re-asserts that scene, falling back to light.turn_off when it does not
   exist (e.g. a manual run). mode: restart so rapid changes keep the bar lit and
-  reset the timer. No blip writes the effect select - it stays Solid.
+  reset the timer, and a fan-off mid-speed-blip swaps straight to the amber
+  acknowledgement.
 mode: restart
 sequence:
   - alias: Resolve the speed band and the blip brightness
     variables:
       speed: "{% if is_state('fan.averys_room_ceiling_fan', 'off') %}off{% else %}{% set p = state_attr('fan.averys_room_ceiling_fan', 'percentage') | int(0) %}{% if p < 45 %}low{% elif p < 78 %}medium{% else %}high{% endif %}{% endif %}"
-      asleep: "{{ is_state('input_boolean.avery_sleeping', 'on') }}"
-      level: "{{ 25 if asleep else 75 }}"
-      off_level: "{{ 40 if asleep else 100 }}"
+      level: "{{ 25 if is_state('input_boolean.avery_sleeping', 'on') else 75 }}"
   - alias: Show the acknowledgement colour, then the tail restores the bar
     choose:
-      - alias: Fan is off - bright amber-gold acknowledgement
+      - alias: Fan is off - amber acknowledgement with a fast-falling fade
         conditions:
           - condition: state
             entity_id: fan.averys_room_ceiling_fan
             state: "off"
             alias: Fan off
         sequence:
-          - alias: Amber-gold blip on the RGB channel - hue 50 / brighter so it renders on this bar
+          - alias: Amber blip on the RGB channel
             action: light.turn_on
             target:
               entity_id: light.averys_room_ceiling_fan_switch_led
             data:
-              brightness_pct: "{{ off_level }}"
+              brightness_pct: "{{ level }}"
               hs_color:
-                - 50
+                - 30
                 - 100
-          - alias: Hold the amber blip
-            delay: "00:00:03"
+          - alias: Play the fast-falling fade on the bar effect channel
+            action: select.select_option
+            target:
+              entity_id: select.averys_room_ceiling_fan_switch_led_effect
+            data:
+              option: "Fast Falling"
+          - alias: Hold while the fall animation plays
+            delay: "00:00:02"
     default:
       - alias: Speed change - that speed's hue for 3s
         action: light.turn_on
