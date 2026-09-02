@@ -2,9 +2,11 @@ id: "1787695541380"
 alias: "Household: Vacuum Evening Cleaning"
 description: >-
   Starts the Roborock on a segment clean of the Common Areas (Office, Living
-  room, Entrance, Kitchen -- Kitchen now includes the former Dining room, merged
-  in the Roborock app) once everyone has been asleep for an hour, adults-only,
-  at quiet fan speed with mopping disabled to avoid a loud dock wash and dry.
+  room, Kitchen -- Kitchen now includes the former Dining room, merged in the
+  Roborock app) once everyone has been asleep for an hour, at quiet fan speed
+  with mopping disabled to avoid a loud dock wash and dry. Runs regardless of who
+  is home: the Entrance moved to the daytime clean, so nothing in this pass is
+  close enough to Avery's Room to need a presence gate.
 
 
   The daytime Remaining Rooms clean lives in
@@ -30,10 +32,6 @@ conditions:
     entity_id: input_boolean.vacuum_routine_pause
     state: "off"
     alias: Vacuum routine is not paused
-  - condition: state
-    entity_id: binary_sensor.avery_home_today
-    state: "off"
-    alias: Avery is not home today
   - condition: not
     conditions:
       - condition: state
@@ -66,7 +64,7 @@ actions:
     data:
       command: app_segment_clean
       params:
-        - segments: [18, 22, 25, 26]
+        - segments: [18, 22, 26]
           repeat: 1
   - alias: Notify that evening cleaning started
     action: notify.send_message

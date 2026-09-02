@@ -17,12 +17,14 @@ thermostat actions. Docking the vacuum when someone returns mid-run, and clearin
 routine-pause flag on arrival, likewise live in *Household: First Arrives Home* with the
 other confirmed-arrival actions.
 
-The two zones are fixed and non-overlapping because the constraint is physical: bedrooms and
-bathrooms can only be cleaned during the day — noise rules out an evening pass there — so
-splitting evening (common areas) from daytime (everything else) just names a boundary that
-already exists. Interrupted jobs restart rather than resume: a commanded dock always cancels
-the active Roborock job, and `sensor.<vacuum>_current_room` is too noisy to track room-level
-completion — see `LESSONS.md` → *Vacuum & Roborock*.
+The two zones are fixed and non-overlapping because the constraint is physical: the evening
+pass has to be quiet enough to run with the house asleep, so it covers only the rooms clear
+of Avery's Room (Office, Living room, Kitchen) and runs regardless of who is home. The
+daytime pass takes everything else — bedrooms, bathrooms, and the Entrance, which is the one
+common-area room within earshot of the bedroom hall. Interrupted jobs restart rather than
+resume: a commanded dock always cancels the active Roborock job, and
+`sensor.<vacuum>_current_room` is too noisy to track room-level completion — see
+`LESSONS.md` → *Vacuum & Roborock*.
 
 ## Architecture
 
@@ -39,9 +41,9 @@ completion — see `LESSONS.md` → *Vacuum & Roborock*.
         │ fan: quiet          │        │ fan: max                │
         │ mop: off            │        │ mop: medium             │
         │ segments: office,   │        │ segments: bedroom, bath,│
-        │ living, entrance,   │        │ master bed, master bath,│
-        │ kitchen             │        │ master closet, utility, │
-        │                     │        │ pantry                  │
+        │ living, kitchen     │        │ master bed, master bath,│
+        │                     │        │ master closet, utility, │
+        │                     │        │ pantry, entrance        │
         └──────────┬──────────┘        └──────────┬──────────────┘
                    │                              │
                    ▼                              ▼
@@ -72,16 +74,17 @@ completion — see `LESSONS.md` → *Vacuum & Roborock*.
 ### Why "evening" and "daytime" rather than room-set names
 
 The helpers, `active_zone` values, and automation aliases use time-of-day naming — **evening**
-= common areas (Office, Dining room, Living room, Entrance, Kitchen), **daytime** = the rest
-(Bedroom, Bathroom, Master bedroom, Master Bathroom, Utility Room, Pantry). Which physical
-rooms each zone covers lives in this guide and in each automation's `description`, not in the
-entity names — a room-set name like "remaining rooms" carries no meaning on its own.
+= common areas clear of the bedroom hall (Office, Living room, Kitchen), **daytime** = the
+rest (Bedroom, Bathroom, Master bedroom, Master Bathroom, Master Closet, Utility Room,
+Pantry, Entrance). Which physical rooms each zone covers lives in this guide and in each
+automation's `description`, not in the entity names — a room-set name like "remaining rooms"
+carries no meaning on its own.
 
 ## Prerequisites
 
 - Roborock integration configured, with `vacuum.living_room_vacuum` entity available
 - Room map built in the Roborock app, with segment IDs known (`roborock.get_maps` service)
-- `binary_sensor.avery_home_today`, `input_boolean.everyone_sleeping`, `input_boolean.avery_sleeping` already existing as part of the household sleep/presence system
+- `input_boolean.everyone_sleeping` already existing as part of the household sleep/presence system
 - `zone.home` as the presence source (matches the rest of this instance's household automations; see the Coordinated Change note in `standards/automations.md` §3.2 about the eventual migration to `sensor.household_people_home`). The daytime run's departure trigger and 5-minute debounce belong to *Household: Last Leaves Home*, not this routine — see `guides/presence_tracking.md`.
 
 ## Steps
@@ -92,8 +95,8 @@ Room segment IDs are read from the Roborock app's map, not derived from anything
 
 | Zone | Rooms | Segment IDs |
 |---|---|---|
-| Evening (common areas) | Office, Living room, Entrance, Kitchen (Kitchen absorbed the former Dining room) | 18, 22, 25, 26 |
-| Daytime (remaining rooms) | Bedroom, Bathroom, Master bedroom, Master Bathroom, Master Closet, Utility Room, Pantry | 16, 17, 19, 20, 21, 23, 24 |
+| Evening (common areas) | Office, Living room, Kitchen (Kitchen absorbed the former Dining room) | 18, 22, 26 |
+| Daytime (remaining rooms) | Bedroom, Bathroom, Master bedroom, Master Bathroom, Master Closet, Utility Room, Pantry, Entrance | 16, 17, 19, 20, 21, 23, 24, 25 |
 
 Segment **28 ("Stairs")** is a physical flight of stairs — a fall hazard — and is
 **deliberately excluded from both zones and must never be added to a `segments:` list**. A
@@ -126,6 +129,7 @@ Four standalone vacuum automations (*Vacuum Evening Cleaning*, *Vacuum Track Max
 - **The two starts are split, not combined.** Evening cleaning is its own automation (single `everyone_sleeping` trigger). Daytime cleaning is a block inside *Household: Last Leaves Home* — it shares nothing operationally with the evening run (different trigger, zone, settings, completion flag) and everything with the rest of the leave-home routine, so it lives there and inherits that automation's 5-minute departure debounce and Immediate Departure override.
 - **The daytime block's guards double as re-run protection.** *Last Leaves Home* fires twice on an immediate departure (once instantly, once when the 5-minute trigger elapses). The daytime block's `vacuum_ran_daytime` off + "not currently cleaning" conditions make the second pass a no-op — no second job, no duplicate notification.
 - **The evening trigger is just "everyone's been asleep for 1 hour," with no clock-time window.** `everyone_sleeping` is only ever used at actual bedtime, never naps, so a time window would only risk blocking a genuinely early or late bedtime.
+- **The evening run has no presence gate.** Every room in the evening zone (Office, Living room, Kitchen) is acoustically clear of Avery's Room, so the quiet common-areas pass runs every night regardless of who is home. The Entrance — the one common-area room within earshot of the bedroom hall — sits in the daytime zone for that reason, not because it can't be cleaned at night. The cost is that on a day the house never fully empties, the front-door area goes uncleaned; front-door dirt is the most frequent-cleaning argument there is, and it's accepted as the price of a gate-free evening run. `binary_sensor.avery_home_today` still exists for other automations; this routine no longer reads it.
 - **The arrival dock** (in *Household: First Arrives Home*) does not call `vacuum.pause` before `vacuum.return_to_base` — pausing first makes no difference to whether the job survives a dock (it doesn't, either way).
 - **Docking only happens on a confirmed arrival.** There is no "someone woke mid-evening-run" dock: the window it would cover (someone up within the ~40 min quiet common-areas pass) is rare and low-noise, and a manual dock from the app or a voice command handles it when it matters.
 - **Vacuum Mark Area Complete** uses different thresholds per zone: Evening requires >95% (open-plan, should reliably finish end-to-end when uninterrupted), Daytime requires >65% (several of those rooms have doors that may be closed, capping achievable progress in a way retrying won't fix — progress is area-weighted, so a closed small room costs only a few points). Still based on limited real-world data — revisit if daytime runs start landing below 65% on door-closed days.
