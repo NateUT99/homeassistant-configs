@@ -1,12 +1,12 @@
 # Presence Tracking
 
-*Last updated: September 2026 (Immediate Departure override added)*
+*Last updated: September 2026*
 
 ## Overview
 
 Household presence is derived from HomeKit's geofence detection, which updates significantly faster than the HA Companion app (~10–30 seconds vs. 2–5 minutes). A HomeKit automation toggles an `input_boolean.<name>_home` helper on arrive/depart; a Template Helper `device_tracker` reads that boolean and reports `home`/`not_home`; the tracker feeds a `person` entity, which is what `zone.home`'s occupant count and every presence-based automation actually consult.
 
-This replaces an earlier MQTT-backed design (`presence/<name>` retained-message topics, MQTT auto-discovery, a startup recovery automation) that required running a Mosquitto broker. That design existed to solve state persistence across HA restarts. It turned out to solve a problem that doesn't exist: `input_boolean` already implements `RestoreEntity` and restores its last state on every HA restart with no configuration required. A Template Helper `device_tracker` re-evaluates its template from current entity states the moment it loads, so on restart it reads the already-restored `input_boolean` value directly — no retained messages, no recovery automation, no broker. This was verified empirically (see [Troubleshooting](#troubleshooting)) before decommissioning the MQTT design, including a full HA restart with `guest_mode` left `on` to confirm both trackers and the guest `person` entity survive correctly.
+No broker, retained-message topics, or startup recovery automation is involved: state survives HA restarts natively. `input_boolean` implements `RestoreEntity` and restores its last state on every restart, and a Template Helper `device_tracker` re-evaluates from current entity states on load, so it reads the already-restored boolean directly. See `LESSONS.md` → *Presence & Device Trackers*.
 
 ## Architecture
 
@@ -122,9 +122,8 @@ Whatever toggles `guest_mode` on/off is outside the scope of this guide — the 
 `zone.home` answers "is a tracked person's phone within the geofence radius" (~100m on this
 instance), which is a different question from "is someone actually inside the house." A walk or
 bike ride around the block re-enters the geofence and, for that instant, looks identical to a
-genuine drive home. On 2026-08-27 this cut a daytime vacuum run short: the geofence re-entered
-mid-walk, docking the robot 26 minutes into the job — 12 minutes before anyone actually reached a
-door.
+genuine drive home — enough to trigger an arrival action (docking the vacuum, setting a
+thermostat preset) well before anyone reaches a door.
 
 `input_boolean.arrival_confirmed` closes that gap. Automations that act on a first arrival —
 docking the vacuum, setting the thermostat preset — trigger on this helper going `on`, not on
@@ -252,7 +251,7 @@ the HA-side behaviour above works regardless of how it gets toggled.
 
 **`in_zones` template evaluates correctly in isolation but the tracker never shows `home`**
 
-Check the exact value being returned. `in_zones` requires full zone `entity_id`s (`zone.home`), not bare slugs (`home`). A bare slug doesn't error anywhere — not at config validation, not in logs, not in `ha_eval_template`, which will happily render `['home']` since it doesn't know the zone-matching semantics. It only shows up as `in_zones: []` and `state: not_home` on the entity itself, no matter what the source `input_boolean` says. This was the actual root cause behind what initially looked like a startup race condition during this design's validation — the tracker failed to reflect its `input_boolean` both immediately after a reload and after a full restart, which pointed at a timing bug until the zone identifier format was corrected, after which both live toggles and cold-boot restores worked immediately.
+Check the exact value being returned. `in_zones` requires full zone `entity_id`s (`zone.home`), not bare slugs (`home`). A bare slug doesn't error anywhere — not at config validation, not in logs, not in `ha_eval_template`, which will happily render `['home']` since it doesn't know the zone-matching semantics. It only shows up as `in_zones: []` and `state: not_home` on the entity itself, no matter what the source `input_boolean` says. A tracker that won't budge from `not_home` after a reload or restart looks like a timing bug but is usually this — see `LESSONS.md`.
 
 **New `device_tracker` doesn't get the entity ID you expect**
 

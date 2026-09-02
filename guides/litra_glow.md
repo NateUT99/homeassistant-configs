@@ -451,9 +451,9 @@ Automatically controls office lighting when the active camera on either Mac beco
 
 Triggers fire on the camera-name sensors (`sensor.*_active_camera`), which report the active camera's display name as a string. This matches only Studio Display Camera sessions and ignores the built-in laptop FaceTime camera, since the goal is to optimize lighting specifically for the desk-mounted Studio Display setup.
 
-An earlier version of this automation also required the active Mac's primary display to report `Studio Display` before restoring the light bar. That check was dropped: a Mac's primary-display sensor reads unreliably while the Mac is being controlled via Screen Sharing (it can report an empty name and a generic virtual resolution instead of the real attached display), which would make the restore silently fail to fire depending on how the Mac happened to be accessed at the time. The simpler "at least one Mac active" guard covers the original intent — don't restore desk lighting to an empty room — without depending on display detection that isn't reliable in every access mode.
+The restore guard is "at least one Mac active" — deliberately not gated on which display is attached. macOS primary-display sensors misreport over Screen Sharing (empty name, generic virtual resolution), so a display-identity check would make the restore fire or not fire based purely on how the Mac was accessed. See `LESSONS.md` → *Shell Command Integration*.
 
-> Turning off an office ceiling light alongside the light bar was part of the original design but is not included here — this instance has no HA-controllable ceiling light yet. Add a `light.turn_off` / `light.turn_on` pair for it in both branches once one exists.
+> No office ceiling light is switched alongside the light bar — this instance has no HA-controllable one yet. Add a `light.turn_off` / `light.turn_on` pair for it in both branches once one exists.
 
 ### Automation
 
