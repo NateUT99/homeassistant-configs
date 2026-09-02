@@ -607,11 +607,15 @@ A cluster 8 binding (switch Binding endpoint → canopy light endpoint 1) for pa
 
 **`3s` is not a safe value.** It was run first and intermittently regressed to the `Instant` behaviour — the bind stopping mid-hold and sending no Move/Step, unpredictably. `2s` was reliable on both switches; `500ms`–`1s` ramp too fast to land a level. If hold-to-dim goes flaky after a firmware update, re-check this select before assuming the binding broke.
 
-### Inovelli White Series VTM30-SN — the LED-effect channel renders nothing while LED Intensity is zeroed, and it suppresses the RGB notification channel
+### Inovelli White Series VTM30-SN — the RGB bar renders warm hues far dimmer than cool hues
 
-The switch has two independent ways to light the bar from HA: the RGB **notification channel** (`light.*_ceiling_fan_switch_led`, set via `light.turn_on` + `hs_color`) and the **effect channel** (`select.*_ceiling_fan_switch_led_effect` = `Fast Falling` / `Rising` / …). In this build `LED Intensity(On)` and `(Off)` are pinned at `0` so the switch's own indicator never shows and only the fan automation lights the bar. The notification channel works fine at intensity 0 — that is how the speed-blip colours render. **The effect channel does not:** the animation plays into `LED Intensity`, so at `0` it is invisible. Worse, activating an effect (`select.select_option` → `Fast Falling`) *blanks the notification channel* — the ~0.25 s of amber that had rendered before the effect step disappears the moment the effect engages.
+The `inovelli_fan_canopy` fan-off blip (`light.turn_on` the bar to `hs_color [30, 100]` / amber, 75 %, 3 s) was invisible on the physical bar, while the speed blips (`hs_color [175/220/265, 100]` / teal→violet, same call shape, same brightness, same hold) were clearly visible. Traces confirmed the amber `light.turn_on` executed and the bar entity read `on` for the full 3 s — it just didn't light up enough to see.
 
-Net: the `inovelli_fan_canopy` fan-off blip (amber on the notification channel, then `Fast Falling` on the effect channel) showed nothing on the physical bar — a solid teal speed blip was clearly visible, the amber off blip looked like a no-op. Fix: drop the effect step entirely. `script.<prefix>_ceiling_fan_led_blip` fan-off branch is now a plain `light.turn_on` to amber held 3 s, same as the speed blips. The effect select stays on `Solid` (never `Off` — `Off` also blanks the notification channel). The restore scene still snapshots the effect select, harmlessly, in case a future status colour ever drives it.
+The cool speed hues are all blue-heavy, and this bar's blue channel is bright. Hue 30 has **no blue** — it's red + a little green — and this bar drives red/green much dimmer, so a saturated amber at 75 % washed out completely in a lit room.
+
+**Not** an LED-Intensity issue: `LED Intensity(On)/(Off)` are `0` and the notification channel (and the older `Fast Falling` effect) rendered fine at `0` — warm-hue dimness is the whole story.
+
+Fix: the off blip now uses `hs_color [50, 100]` (amber-gold — more green, which this bar renders brighter) at its own higher brightness (`100 %` awake / `40 %` asleep, vs `75/25` for speed blips). If even that is too dim, the next step is a hue with blue content (magenta ~315) or white — not a warmer amber.
 
 ---
 
