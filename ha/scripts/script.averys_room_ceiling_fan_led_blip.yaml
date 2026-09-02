@@ -5,7 +5,7 @@ description: >-
   hue for 5s; when that change is the fan coming on FROM OFF it also plays a Fast
   Rising sweep on the effect channel. Switching the fan off shows amber on the RGB
   channel plus a Fast Falling animation on the bar's effect channel
-  (select.averys_room_ceiling_fan_switch_led_effect), held 2s. Brightness is 75%
+  (select.averys_room_ceiling_fan_switch_led_effect), held 2.5s. Brightness is 75%
   by default and 25% while Avery is sleeping (input_boolean.avery_sleeping) to
   protect dark adaptation. Called via script.turn_on from Avery's Room: Ceiling
   Fan Wall Control. The button-press branches (config single tap, up + down paddle
@@ -53,7 +53,7 @@ sequence:
             data:
               option: "Fast Falling"
           - alias: Hold while the fall animation plays
-            delay: "00:00:02"
+            delay: "00:00:02.5"
     default:
       - alias: Speed change - that speed's hue for 5s
         action: light.turn_on
