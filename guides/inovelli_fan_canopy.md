@@ -102,10 +102,13 @@ light on/off stays a binding and is unaffected.
   (`input_select.<prefix>_ceiling_fan_last_speed`) and turns the light on. Each
   branch gates on the event entity's `event_type` attribute being `long_press`,
   so a tap (`multi_press_1`) on the same entity does not match. `mode: queued`
-  makes a stray duplicate `long_press` harmless — the actions are idempotent. The
-  down-hold's `fan.turn_off` also drives the fan `percentage` trigger, so the
-  amber "Fast Falling" off-blip on the LED bar comes for free. This is HA-only —
-  with HA down, a paddle hold does nothing (tap still works over the binding).
+  makes a stray duplicate `long_press` harmless — the actions are idempotent.
+  Every hold blips the LED bar: when it changes the fan, the `percentage` branch
+  fires the blip; when it doesn't (hold down while already off, hold up while
+  already at the last speed), the hold branch fires the blip itself, gated on the
+  fan's pre-call state so the two paths never double up (see
+  [Step 6](#step-6--ha-automation)). This is HA-only — with HA down, a paddle
+  hold does nothing (tap still works over the binding).
 - **Binding fires on physical presses only.** A command sent to the switch from
   HA or Apple Home does not propagate over the binding to the light, and bound
   state does not report back — the switch LED bar will not track light changes
@@ -401,12 +404,22 @@ on the entity changing and gates on its `event_type` attribute being
 
 | Paddle gesture | Result |
 |---|---|
-| Hold down (`long_press`) | `fan.turn_off` + `light.turn_off` — the fan-off also blips the bar amber via the `percentage` branch |
+| Hold down (`long_press`) | `fan.turn_off` + `light.turn_off` |
 | Hold up (`long_press`) | `fan.set_percentage` to the remembered speed + `light.turn_on` (full, per On level 254) |
 
 `long_press` fires while the paddle is still held (~1 s in), not on release —
 `long_release` is left unmapped. No de-dup guard: `mode: queued` plus idempotent
 actions make a repeat `long_press` a no-op.
+
+**LED acknowledgement.** Every hold blips the bar — amber + `Fast Falling` for
+the down (off) gesture, the resumed speed's hue for the up (on) gesture. When the
+gesture actually changes the fan (hold down while it's running, hold up while
+it's off), the `percentage` branch below fires the blip. When it doesn't (hold
+down while already off, hold up while already at the last speed), that branch
+never runs, so the hold branch fires the blip itself — guarded on the fan's
+*pre-call* state (`fan == off` for down, `fan == on` for up; the fan entity still
+reads its old value here because of Matter round-trip lag) so the two paths never
+both fire for the same gesture, and snapshot-guarded like the peek branch.
 
 **Fan `percentage` attribute change** (triggering on the attribute means the
 value is already settled — no delay):
@@ -507,7 +520,8 @@ If the canopy ships on `1.0.0`, update it to `1.0.1r1` and run the cleanup in
   `select.<prefix>_ceiling_fan_switch_led_effect` and the restore scene snapshots
   that select alongside the RGB bar
 - Gestures: config button — 1 tap cycles / resumes, 2 taps off, 3 taps peek;
-  paddle hold down → fan + light off, hold up → fan (last speed) + light on
+  paddle hold down → fan + light off, hold up → fan (last speed) + light on; both
+  holds blip the bar (amber for off, speed hue for on)
 
 Each room gets its own copies with the prefix and sleep boolean substituted:
 
