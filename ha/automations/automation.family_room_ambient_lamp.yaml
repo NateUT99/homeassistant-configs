@@ -19,7 +19,7 @@ triggers:
     trigger: numeric_state
   - alias: Family room got bright
     entity_id: sensor.family_room_ambient_lamp_illuminance
-    above: 40
+    above: 18
     for:
       minutes: 2
     id: bright
