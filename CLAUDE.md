@@ -10,7 +10,7 @@ This repository is the version-controlled home for documentation, standards, and
 
 The repository serves four purposes:
 
-1. **Reference standards** that govern how the HA instance is structured (see `standards/naming.md` for entities, `standards/automations.md` for automations)
+1. **Reference standards** that govern how the HA instance is structured (see `standards/naming.md` for entities, `standards/automations.md` for automations, `standards/documentation.md` for how the docs themselves are written)
 2. **Implementation guides** for custom integrations, written for the author's future reference and for sharing in HA community forums
 3. **Supporting scripts** that aren't UI-editable and live outside HA's entity registry (shell scripts, complex templates)
 4. **Living automation/script mirror** (`ha/`) — version-controlled YAML exports of every automation and script, kept in sync with HA each session
@@ -249,7 +249,27 @@ When you discover a new gotcha during work, propose adding it to `LESSONS.md`.
 
 ## Documentation Standards
 
-Documentation in this repo falls into two distinct types. They have different shapes, different lifecycles, and different conventions. Identify which type a document is before writing or editing it.
+`standards/documentation.md` is the source of truth for how every document in this repo is
+structured and written — the two document types (Reference Standards, Implementation Guides),
+their required sections, the writing/formatting conventions, and the pre-commit checklist.
+Read it before writing or editing any standard or guide.
+
+### Guides document the current state, not the history of the build
+
+This is the rule that keeps getting broken. A guide describes what exists now and how to
+rebuild it — nothing more.
+
+- **No build history.** No prior attempts, reverts, "an earlier version…", regressions, or
+  old-apartment / pre-move comparisons. Git history holds all of that.
+- **Keep the constraint, cut the story.** "Cluster 8 emits no Move/Step at `Instant`, so a
+  non-`Instant` value is required" — yes. "`3s` was tried and regressed, so we reverted" — no.
+- **Dead ends go in `LESSONS.md`.** The guide links to the lesson; it does not retell it.
+- **Every fact appears once**, in the section that owns it. Design Decisions entries are 2–4
+  sentences.
+- **`Last updated: Month YYYY`** — a bare month, no parenthetical describing what changed.
+- Deferred / future-work sections are fine — that is scope, not history.
+
+Full rules, worked examples, and the pre-commit checklist: `standards/documentation.md` §5–§9.
 
 ### File organization
 
@@ -278,114 +298,4 @@ Documentation in this repo falls into two distinct types. They have different sh
 
 **Standards, guides, and scripts** use `snake_case` filenames inside their respective directories. The directory tells you the type; the filename names the topic. Don't prefix filenames with the type (`standards/naming.md`, not `standards/naming_standard.md`).
 
-### Type 1 — Reference Standards (`standards/`)
-
-Rules, conventions, and policies that govern how things in the repo or HA instance are built. Examples: entity naming, automation conventions, security baselines.
-
-**Structure:**
-
-1. **Title and current version** — top of the document
-2. **Changelog table** — versioned history (see below)
-3. **Purpose & Scope** — what this standard covers and what it does not
-4. **Core Principles** — the high-level rules in bullet form
-5. **Topical sections** — detailed rules organized by area, with examples
-6. **Quick Reference** (if applicable) — a table summarizing the rules for at-a-glance use
-
-**Versioning:**
-
-Reference Standards follow semver-adapted versioning: `MAJOR.MINOR.PATCH`. Bump major for breaking changes that contradict prior versions; bump minor for additive rules or new sections; bump patch for clarifications or examples added inline. Use judgment on what merits a changelog entry — bulk small patches together rather than churning the changelog.
-
-**Changelog format:**
-
-```markdown
-| Version | Date | Changes |
-|---|---|---|
-| 1.1 | April 2026 | Added position qualifier rules for left/right pairs |
-| 1.0 | March 2026 | Initial release |
-```
-
-Dates use `Month YYYY` granularity.
-
-### Type 2 — Implementation Guides (`guides/`)
-
-Technical reconstruction documents for custom integrations and configurations. Examples: a Litra Glow integration, a water leak alerting setup, a Matter/HomeKit bridge configuration. Written so the author or someone reading along in an HA community forum could fully understand the design and recreate it — without needing to paste raw YAML.
-
-**Structure:**
-
-1. **Title and "Last updated" line** — `*Last updated: Month YYYY*` directly under the title
-2. **Overview** — one paragraph describing what the integration does and how it works at a high level
-3. **Architecture** — a text-based diagram showing the component chain, followed by a brief explanation of key design decisions
-4. **Prerequisites** — bulleted list of required hardware, software, and existing setup
-5. **Numbered Steps** — one step per major phase of the implementation, in order
-6. **Scale Conversions or Formula Reference** (if applicable) — table documenting any non-obvious math
-7. **Security Summary** (if applicable) — table summarizing all security controls applied
-8. **Related HA Config** (if applicable) — table of every HA-resident artifact the guide creates, with friendly name, entity_id, and type
-9. **Related Files** (if applicable) — table of every on-disk file created or modified, with repo path, deployed location, and purpose; omit if the guide creates no on-disk files
-10. **Related Documents** (if applicable) — list of other repo docs this guide depends on, references, or coordinates with
-11. **Troubleshooting** (if applicable) — advanced, non-obvious issues only; assume basic troubleshooting (restart, reload, check logs, verify entity exists) has already been done
-
-**Referencing HA-resident artifacts:** Use the *Friendly Name (`entity_id`)* format throughout. HA is the authoritative source for automation and script YAML — do not reproduce it in guides. Reference automations and scripts by entity ID; the live config is always retrievable via MCP. **`configuration.yaml` entries are the exception:** since they live outside HA storage and are not retrievable via MCP, include them in full in the relevant guide.
-
-**No changelog table.** Implementation Guides describe a build at a point in time. Git history captures what changed and when; the `Last updated` line tells the reader how stale the document might be. Update the date when the build itself changes (not for typo fixes).
-
-### Scripts (`scripts/`)
-
-Files that don't fit the standards/guides model but belong in version control: shell scripts called by HA's `shell_command` integration, complex Jinja templates referenced by multiple automations, packages YAML not managed via the UI.
-
-These files don't have a prescribed structure — they are what they are (a `.sh` file, a `.yaml` snippet). The conventions that apply:
-
-- **Filename matches purpose:** `scripts/litra_dispatch.sh`, not `scripts/script1.sh`
-- **Header comment explains intent:** every script starts with a comment block describing what it does, what calls it, and any prerequisites
-- **Security-relevant scripts cross-reference their guide:** a comment near the top points to the guide documenting the security model
-
-### Writing style (both doc types)
-
-- Technical and direct — no conversational filler
-- Present tense for descriptions, imperative for instructions
-- Explain *why* a decision was made, not just *what* was done — especially for non-obvious choices
-- Include relevant caveats and gotchas inline where they apply
-- Troubleshooting is optional — see structure item 11. Dead ends, abandoned approaches, and historical context still don't belong in guides; git history captures those.
-
-### Coordinated change callouts (Implementation Guides)
-
-When a value, entity ID, or configuration in a guide depends on or coordinates with something configured elsewhere — another integration's baseline, a value shared across multiple automations, an entity controlled by more than one system — add a blockquote callout immediately adjacent to that value (above or below the YAML block or table row):
-
-> **Coordinated change:** `<what the dependency is>`. If `<upstream thing>` changes, update `<this value/section>` to match.
-
-### Code blocks (both doc types)
-
-- Every command the user must run goes in a `bash` code block
-- Every configuration snippet goes in a `yaml` code block with correct indentation
-- Include comments in code blocks where the purpose of a line is not self-evident
-- Do not truncate code — include complete, copy-pasteable blocks
-
-### Placeholders (Implementation Guides)
-
-All environment-specific values must be replaced with clearly marked placeholders. Do not include real IP addresses, usernames, API keys, or device serial numbers.
-
-| Value type | Placeholder format |
-|---|---|
-| IP addresses | `<mac-mini-ip>`, `<ha-ip>`, etc. |
-| macOS username | `<your_username>` |
-| SSH public key | `AAAA...your-key...` |
-
-**Exception:** Entity IDs inside HA YAML code (automations, scripts, shell commands, template definitions) retain their actual values. These documents may be used to recreate configurations, and generic placeholders in HA code would make them non-functional.
-
-Reference Standards don't typically need placeholders — they describe rules, not specific environments.
-
-### Formatting (both doc types)
-
-- Use tables for reference data (commands, files, security controls, scale conversions)
-- Use `---` horizontal rules between major sections
-- Use `>` blockquotes for important notes or caveats within a section
-- Avoid bold emphasis mid-paragraph — use it only for UI navigation paths (e.g. **Settings → Devices & Services**)
-- Architecture diagrams use plain ASCII/Unicode box-drawing characters; no embedded images
-
-### Security documentation (Implementation Guides)
-
-Any guide for an integration involving network access, credentials, or elevated permissions must include a Security Summary section covering:
-
-- Authentication mechanism
-- Access restrictions applied
-- Principle of least privilege controls (e.g. sudo scope, SSH key restrictions)
-- Worst-case impact if credentials were compromised
+Everything else — the required sections for each document type, versioning, coordinated-change callouts, code-block and placeholder rules, security-summary requirements, and the pre-commit checklist — is in `standards/documentation.md`.
