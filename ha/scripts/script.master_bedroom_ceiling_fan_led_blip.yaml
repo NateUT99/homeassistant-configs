@@ -2,32 +2,39 @@ alias: "Master Bedroom: Ceiling Fan LED Blip"
 description: >-
   Blips the Master Bedroom ceiling-fan switch LED bar to acknowledge a fan change,
   then restores what the bar was showing before. A speed change shows that speed's
-  hue for 3s. Switching the fan off shows amber on the RGB channel plus a Fast
+  hue for 5s; switching the fan off shows amber on the RGB channel plus a Fast
   Falling animation on the bar's effect channel
   (select.master_bedroom_ceiling_fan_switch_led_effect), held 2s. Brightness is
   75% by default and 25% while everyone is sleeping
   (input_boolean.everyone_sleeping) to protect dark adaptation. Called via
-  script.turn_on from Master Bedroom: Ceiling Fan Wall Control, which snapshots
-  the RGB bar and the effect select into
-  scene.master_bedroom_ceiling_fan_led_restore before the first blip of a burst;
-  the tail re-asserts that scene, falling back to light.turn_off when it does not
+  script.turn_on from Master Bedroom: Ceiling Fan Wall Control. The button-press
+  branches (config single tap, up-paddle hold) call it immediately with a
+  blip_speed variable so the bar lights without waiting for the fan's Matter
+  round-trip; the fan-settled branch calls it with no blip_speed (reads the fan)
+  and only when no blip is already in flight. The caller snapshots the RGB bar and
+  the effect select into scene.master_bedroom_ceiling_fan_led_restore first; the
+  tail re-asserts that scene, falling back to light.turn_off when it does not
   exist (e.g. a manual run). mode: restart so rapid changes keep the bar lit and
   reset the timer, and a fan-off mid-speed-blip swaps straight to the amber
   acknowledgement.
 mode: restart
+fields:
+  blip_speed:
+    description: "Speed name to blip (low / medium / high / off). Omit to read the fan's current speed."
+    selector:
+      text:
 sequence:
   - alias: Resolve the speed band and the blip brightness
     variables:
-      speed: "{% if is_state('fan.master_bedroom_ceiling_fan', 'off') %}off{% else %}{% set p = state_attr('fan.master_bedroom_ceiling_fan', 'percentage') | int(0) %}{% if p < 45 %}low{% elif p < 78 %}medium{% else %}high{% endif %}{% endif %}"
+      speed: "{% set bs = blip_speed | default('') %}{% if bs %}{{ bs }}{% elif is_state('fan.master_bedroom_ceiling_fan', 'off') %}off{% else %}{% set p = state_attr('fan.master_bedroom_ceiling_fan', 'percentage') | int(0) %}{% if p < 45 %}low{% elif p < 78 %}medium{% else %}high{% endif %}{% endif %}"
       level: "{{ 25 if is_state('input_boolean.everyone_sleeping', 'on') else 75 }}"
   - alias: Show the acknowledgement colour, then the tail restores the bar
     choose:
       - alias: Fan is off - amber acknowledgement with a fast-falling fade
         conditions:
-          - condition: state
-            entity_id: fan.master_bedroom_ceiling_fan
-            state: "off"
-            alias: Fan off
+          - condition: template
+            value_template: "{{ speed == 'off' }}"
+            alias: Resolved speed is off
         sequence:
           - alias: Amber blip on the RGB channel
             action: light.turn_on
@@ -47,7 +54,7 @@ sequence:
           - alias: Hold while the fall animation plays
             delay: "00:00:02"
     default:
-      - alias: Speed change - that speed's hue for 3s
+      - alias: Speed change - that speed's hue for 5s
         action: light.turn_on
         target:
           entity_id: light.master_bedroom_ceiling_fan_switch_led
@@ -57,7 +64,7 @@ sequence:
             - "{{ {'low': 175, 'medium': 220, 'high': 265}.get(speed, 220) }}"
             - 100
       - alias: Hold the speed blip
-        delay: "00:00:03"
+        delay: "00:00:05"
   - alias: Restore the bar to what it was showing before the blip
     if:
       - alias: A restore snapshot exists

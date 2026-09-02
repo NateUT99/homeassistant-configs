@@ -143,7 +143,7 @@ light on/off stays a binding and is unaffected.
   1 % at night) for as long as the fan ran; after living with the night-only blip
   for a few days, the resting-dark bar was preferred around the clock. Now the
   bar is dark at rest whatever the fan is doing, and lights transiently to
-  acknowledge a change: the new speed's hue for 3 s (teal low 175 / blue medium
+  acknowledge a change: the new speed's hue for 5 s (teal low 175 / blue medium
   220 / violet high 265), or **amber (hue 30) for 2 s plus a "Fast Falling"
   animation on the bar's effect channel** when the fan is switched off. The off
   blip exists because a dark resting bar gives a double-tap-off no visual
@@ -175,9 +175,22 @@ light on/off stays a binding and is unaffected.
   on one colour). `script.<prefix>_ceiling_fan_led_blip` (`mode: restart`) runs
   the delay outside that queue; the automation fires it with `script.turn_on` and
   returns immediately. `restart` also buys the right feel for free: cycling
-  low→medium→high keeps the bar lit and resets the timer, so it darkens 3 s after
+  low→medium→high keeps the bar lit and resets the timer, so it darkens 5 s after
   you *stop*, and a fan-off landing mid-speed-blip swaps straight to the amber
   ack.
+- **Button-press branches fire the blip immediately; the fan-settled branch is
+  the fallback.** The `fan` trigger only fires after `fan.set_percentage`
+  round-trips to the canopy over Thread and the new `percentage` reports back —
+  ~0.3–0.6 s. Waiting on that made the blip feel disconnected from the tap. So
+  the config single-tap and up-hold branches now snapshot and `script.turn_on`
+  the blip themselves, *before* `fan.set_percentage`, passing the intended speed
+  as a `blip_speed` variable (the script uses it instead of reading the fan,
+  which hasn't changed yet). The bar lights within the switch's own ~0.3 s LED
+  latency. The fan-settled branch still records speed memory, but its
+  `script.turn_on` is now guarded on the blip script being idle — so when a
+  button branch already started the blip it defers, and it only blips itself for
+  changes with no button branch (config double-tap off, the down-hold, external
+  fan changes). `mode: queued` serialises the two so the guard can't race.
 - **The blip restores what the bar was showing, it doesn't blindly turn it off.**
   The bar is the room's one always-idle ambient surface, so it's the natural home
   for a future status colour (guest mode, an alert, a laundry indicator). Rather
@@ -402,14 +415,20 @@ on the entity changing and gates on its `event_type` attribute being
 | Paddle gesture | Result |
 |---|---|
 | Hold down (`long_press`) | `fan.turn_off` + `light.turn_off` — the fan-off also blips the bar amber via the `percentage` branch |
-| Hold up (`long_press`) | `fan.set_percentage` to the remembered speed + `light.turn_on` (full, per On level 254) |
+| Hold up (`long_press`) | snapshot + immediate speed-hue blip, then `fan.set_percentage` to the remembered speed + `light.turn_on` (full, per On level 254) |
 
 `long_press` fires while the paddle is still held (~1 s in), not on release —
 `long_release` is left unmapped. No de-dup guard: `mode: queued` plus idempotent
 actions make a repeat `long_press` a no-op.
 
-**Fan `percentage` attribute change** (triggering on the attribute means the
-value is already settled — no delay):
+**Immediate speed blip.** The config single-tap and up-hold branches don't wait
+for the fan. Before calling `fan.set_percentage` they snapshot the bar (guarded
+on the blip being idle) and `script.turn_on` the blip with a `blip_speed`
+variable set to the *intended* speed — remembered speed for a resume / up-hold,
+computed next band for an advance. The bar lights within the switch's ~0.3 s LED
+latency instead of after the ~0.3–0.6 s fan round-trip.
+
+**Fan `percentage` attribute change** (the value is already settled — no delay):
 
 1. Resolve the current speed band into a `speed` variable
    (`off`/`low`/`medium`/`high`).
@@ -419,11 +438,15 @@ value is already settled — no delay):
    `light.*_ceiling_fan_switch_led` **and**
    `select.*_ceiling_fan_switch_led_effect` into `scene.*_ceiling_fan_led_restore`
    via `scene.create`.
-4. `script.turn_on` the blip script and return. The script shows the
-   acknowledgement (speed hue 3 s, or amber 2 s + a `Fast Falling` animation on
-   the effect select for a fan-off; 75 % awake or 25 % while the room's sleep
-   boolean is on), holds, then re-asserts `scene.*_ceiling_fan_led_restore` — or
-   `light.turn_off` if that scene doesn't exist.
+4. **If** `script.*_ceiling_fan_led_blip` is `off`, `script.turn_on` the blip
+   (no `blip_speed` — the script reads the now-settled fan). When a button
+   branch already started an immediate blip this step is skipped, so the two
+   don't stack; it still fires for config double-tap off, the down-hold, and
+   external fan changes. The script shows the acknowledgement (speed hue 5 s, or
+   amber 2 s + a `Fast Falling` animation on the effect select for a fan-off;
+   75 % awake or 25 % while the room's sleep boolean is on), holds, then
+   re-asserts `scene.*_ceiling_fan_led_restore` — or `light.turn_off` if that
+   scene doesn't exist.
 
 `mode: queued`, `max: 10` — runs process in order, so the "no blip in flight"
 snapshot guard can't race itself. The blip's timed hold runs in the
@@ -444,9 +467,9 @@ Brightness is 75 % awake / 25 % while the room's sleep boolean is on.
 | Fan | RGB hue (`hs_color`) | Effect select | Blip hold | Blip brightness (awake / asleep) |
 |---|---|---|---|---|
 | off | 30 (amber) | `Fast Falling` | 2 s | 75% / 25% |
-| low | 175 (teal) | — (`Solid`, untouched) | 3 s | 75% / 25% |
-| medium | 220 (blue) | — (`Solid`, untouched) | 3 s | 75% / 25% |
-| high | 265 (violet) | — (`Solid`, untouched) | 3 s | 75% / 25% |
+| low | 175 (teal) | — (`Solid`, untouched) | 5 s | 75% / 25% |
+| medium | 220 (blue) | — (`Solid`, untouched) | 5 s | 75% / 25% |
+| high | 265 (violet) | — (`Solid`, untouched) | 5 s | 75% / 25% |
 
 "Dark at rest" needs: the blip's tail restores the pre-blip snapshot (RGB
 `off` + effect `Solid`) or does `light.turn_off`, **and** the switch's
@@ -502,10 +525,13 @@ If the canopy ships on `1.0.0`, update it to `1.0.1r1` and run the cleanup in
   (config button, fan `percentage`, down paddle hold, up paddle hold)
 - Script: one `script.<prefix>_ceiling_fan_led_blip`, `mode: restart`
 - Speed bands 33 / 66 / 100 with `< 45` / `< 78` edges; bar dark at rest at all
-  hours; blip hues 175 / 220 / 265, amber 30; blip brightness 75 % awake / 25 %
-  while the sleep boolean is on; fan-off blip also plays `Fast Falling` on
-  `select.<prefix>_ceiling_fan_switch_led_effect` and the restore scene snapshots
-  that select alongside the RGB bar
+  hours; blip hues 175 / 220 / 265, amber 30; speed blip holds 5 s, off blip 2 s;
+  blip brightness 75 % awake / 25 % while the sleep boolean is on; fan-off blip
+  also plays `Fast Falling` on `select.<prefix>_ceiling_fan_switch_led_effect` and
+  the restore scene snapshots that select alongside the RGB bar
+- Config single-tap and up-hold branches fire the blip immediately with a
+  `blip_speed` variable (before `fan.set_percentage`); the fan-settled branch's
+  `script.turn_on` is guarded on the blip being idle so the two don't stack
 - Gestures: config button — 1 tap cycles / resumes, 2 taps off, 3 taps peek;
   paddle hold down → fan + light off, hold up → fan (last speed) + light on
 
@@ -571,10 +597,10 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
    them again per [Step 2](#step-2--canopy-module-vtm36-parameters). Re-check the
    light transition-time numbers too (also Level Control attributes) and reset
    them to `0.5` s if the flash returned them to `2.5`.
-8. **Verify**: paddle on/off; config-button speed cycle (1 tap); the LED bar
-   dark at rest and blipping the speed's hue for ~3 s on a change, amber + a
-   `Fast Falling` animation for ~2 s on a double-tap off, then returning to dark
-   (effect select back to `Solid`); the triple-tap peek showing the current speed
+8. **Verify**: paddle on/off; config-button speed cycle (1 tap) — the LED bar
+   lights the speed's hue almost immediately (before the fan spins up) and holds
+   ~5 s, amber + a `Fast Falling` animation for ~2 s on a double-tap off, then
+   returns to dark (effect select back to `Solid`); the triple-tap peek showing the current speed
    without moving the fan; a change made while the room's sleep boolean is on
    blipping dimmer (25 %); and the light riding down to `1%` on the HA slider
    without cutting out.

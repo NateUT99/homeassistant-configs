@@ -9,13 +9,16 @@ description: >-
   it off; triple tap shows the current speed without changing it. A settled
   fan-speed change (the percentage attribute) stores the running speed in
   input_select.averys_room_ceiling_fan_last_speed and blips the switch LED bar via
-  script.averys_room_ceiling_fan_led_blip - the speed's hue for 3s, amber plus a
-  Fast Falling animation when the fan is switched off. The bar rests dark at all
-  times; before each blip the automation snapshots the RGB bar and the LED-effect
-  select into scene.averys_room_ceiling_fan_led_restore so the blip restores
-  whatever it was showing (dark today; a future status colour transparently).
-  None of this works while HA is down; paddle tap -> light on/off is a Matter
-  binding (cluster 6) and is independent.
+  script.averys_room_ceiling_fan_led_blip - the speed's hue for 5s, amber plus a
+  Fast Falling animation when the fan is switched off. Config single tap and
+  up-paddle hold fire that blip immediately with the intended speed, so the bar
+  lights without waiting for the fan's Matter round-trip; other fan changes blip
+  once the speed settles. The bar rests dark at all times; before each blip the
+  automation snapshots the RGB bar and the LED-effect select into
+  scene.averys_room_ceiling_fan_led_restore so the blip restores whatever it was
+  showing (dark today; a future status colour transparently). None of this works
+  while HA is down; paddle tap -> light on/off is a Matter binding (cluster 6) and
+  is independent.
 triggers:
   - alias: Config button gesture
     trigger: state
@@ -73,6 +76,31 @@ actions:
                         state: "off"
                         alias: Fan currently off
                     then:
+                      - alias: Snapshot the bar, unless a blip is in flight
+                        note: >-
+                          Guarded on the blip being idle - it is mode:restart, so
+                          snapshotting mid-burst captures a blip colour as the
+                          resting state and leaves the bar stuck lit.
+                        if:
+                          - alias: No blip in flight
+                            condition: state
+                            entity_id: script.averys_room_ceiling_fan_led_blip
+                            state: "off"
+                        then:
+                          - alias: Snapshot the LED bar
+                            action: scene.create
+                            data:
+                              scene_id: averys_room_ceiling_fan_led_restore
+                              snapshot_entities:
+                                - light.averys_room_ceiling_fan_switch_led
+                                - select.averys_room_ceiling_fan_switch_led_effect
+                      - alias: Blip the remembered speed now, before the fan Matter round-trip
+                        action: script.turn_on
+                        target:
+                          entity_id: script.averys_room_ceiling_fan_led_blip
+                        data:
+                          variables:
+                            blip_speed: "{{ states('input_select.averys_room_ceiling_fan_last_speed') }}"
                       - alias: Turn fan on to the remembered speed
                         action: fan.set_percentage
                         target:
@@ -80,6 +108,31 @@ actions:
                         data:
                           percentage: "{% set s = states('input_select.averys_room_ceiling_fan_last_speed') %}{{ {'low': 33, 'medium': 66, 'high': 100}.get(s, 66) }}"
                     else:
+                      - alias: Snapshot the bar, unless a blip is in flight
+                        note: >-
+                          Guarded on the blip being idle - it is mode:restart, so
+                          snapshotting mid-burst captures a blip colour as the
+                          resting state and leaves the bar stuck lit.
+                        if:
+                          - alias: No blip in flight
+                            condition: state
+                            entity_id: script.averys_room_ceiling_fan_led_blip
+                            state: "off"
+                        then:
+                          - alias: Snapshot the LED bar
+                            action: scene.create
+                            data:
+                              scene_id: averys_room_ceiling_fan_led_restore
+                              snapshot_entities:
+                                - light.averys_room_ceiling_fan_switch_led
+                                - select.averys_room_ceiling_fan_switch_led_effect
+                      - alias: Blip the next speed now, before the fan Matter round-trip
+                        action: script.turn_on
+                        target:
+                          entity_id: script.averys_room_ceiling_fan_led_blip
+                        data:
+                          variables:
+                            blip_speed: "{% set p = state_attr('fan.averys_room_ceiling_fan', 'percentage') | int(0) %}{{ 'medium' if p < 45 else ('high' if p < 78 else 'low') }}"
                       - alias: Advance low -> medium -> high -> low
                         note: "Wide bands absorb Matter fan percentage rounding: low~33, medium~66, high~100."
                         action: fan.set_percentage
@@ -159,6 +212,31 @@ actions:
             attribute: event_type
             state: long_press
         sequence:
+          - alias: Snapshot the bar, unless a blip is in flight
+            note: >-
+              Guarded on the blip being idle - it is mode:restart, so snapshotting
+              mid-burst captures a blip colour as the resting state and leaves the
+              bar stuck lit.
+            if:
+              - alias: No blip in flight
+                condition: state
+                entity_id: script.averys_room_ceiling_fan_led_blip
+                state: "off"
+            then:
+              - alias: Snapshot the LED bar
+                action: scene.create
+                data:
+                  scene_id: averys_room_ceiling_fan_led_restore
+                  snapshot_entities:
+                    - light.averys_room_ceiling_fan_switch_led
+                    - select.averys_room_ceiling_fan_switch_led_effect
+          - alias: Blip the remembered speed now, before the fan Matter round-trip
+            action: script.turn_on
+            target:
+              entity_id: script.averys_room_ceiling_fan_led_blip
+            data:
+              variables:
+                blip_speed: "{{ states('input_select.averys_room_ceiling_fan_last_speed') }}"
           - alias: Turn the fan on to the remembered speed
             action: fan.set_percentage
             target:
@@ -209,10 +287,24 @@ actions:
                   snapshot_entities:
                     - light.averys_room_ceiling_fan_switch_led
                     - select.averys_room_ceiling_fan_switch_led_effect
-          - alias: Blip the bar (speed hue 3s, amber + fall for off), then it restores itself
-            action: script.turn_on
-            target:
-              entity_id: script.averys_room_ceiling_fan_led_blip
+          - alias: Blip the bar - unless a button branch already started an immediate blip
+            note: >-
+              The config single-tap and up-hold branches fire their own blip the
+              moment the button is pressed, so the bar lights without waiting for
+              the fan's Matter round-trip. This branch (settled speed, ~0.5s
+              later) then skips its blip so it does not restart that one. It still
+              blips for changes with no button branch: config double-tap off, the
+              down-hold, and any external fan change.
+            if:
+              - alias: No blip already in flight
+                condition: state
+                entity_id: script.averys_room_ceiling_fan_led_blip
+                state: "off"
+            then:
+              - alias: Blip the bar (speed hue 5s, amber + fall for off), then it restores itself
+                action: script.turn_on
+                target:
+                  entity_id: script.averys_room_ceiling_fan_led_blip
 mode: queued
 max: 10
 category: 01M0BFFGNX30MJNVWS58ZKEH3H
