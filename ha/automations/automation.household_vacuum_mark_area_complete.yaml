@@ -6,11 +6,11 @@ description: >-
   both natural completion (progress at or near 100, then returning) and
   an arrival-cancelled run that had already cleared the threshold --
   status passes through returning before progress resets to 0, so the
-  max helper is already correct when this fires. Daytime uses a lower
-  threshold (65%) than Evening (95%) since several of those rooms have
+  max helper is already correct when this fires. Both thresholds sit
+  below 100 (Evening 75%, Daytime 65%) because rooms in each zone have
   doors that may be closed, capping achievable progress in a way
-  retrying won't fix; Evening (common areas) is open-plan and should
-  reliably finish end-to-end.
+  retrying won't fix; Daytime is the lower of the two because more of
+  its rooms are doored.
 triggers:
   - trigger: state
     entity_id: vacuum.living_room_vacuum
@@ -26,7 +26,7 @@ actions:
             state: evening
           - condition: numeric_state
             entity_id: input_number.vacuum_evening_max_progress
-            above: 95
+            above: 75
         sequence:
           - alias: Mark evening zone ran today
             action: input_boolean.turn_on
