@@ -139,7 +139,7 @@ actions:
         data:
           command: app_segment_clean
           params:
-            - segments: [16, 17, 18, 19, 20, 21, 25]
+            - segments: [16, 17, 18, 19, 20, 21, 26]
               repeat: 1
       - alias: Notify that daytime cleaning started
         action: notify.send_message

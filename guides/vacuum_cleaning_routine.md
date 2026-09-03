@@ -7,8 +7,8 @@
 Automates the Roborock Q8 Max Plus (`vacuum.living_room_vacuum`) to clean the house on two
 independent schedules: a quiet pass over shared common areas in the evening, and a
 full-speed pass over the remaining rooms during the day when the house empties out. Each
-schedule targets a fixed set of rooms, tracks its own daily completion state, and never
-references the other's progress.
+schedule targets a fixed set of rooms and records its own daily completion; the two never
+reference each other's progress or state.
 
 The evening pass is its own automation (*Household: Vacuum Evening Cleaning*). The daytime
 pass is a block inside *Household: Last Leaves Home*, so it rides that automation's departure
@@ -51,25 +51,31 @@ resume: a commanded dock always cancels the active Roborock job, and
                    ▼                              ▼
               input_select.vacuum_active_zone = evening | daytime
                          │
+                         ├─ evening: Vacuum Evening Cleaning sets
+                         │           vacuum_ran_evening = on the moment it
+                         │           commands the job. Nothing docks the
+                         │           evening run, so there is no progress
+                         │           tracking or completion check.
+                         │
+                         └─ daytime:
                          ▼
         ┌────────────────────────────────────────────────┐
         │  Household: Vacuum Track Max Progress            │
-        │  (every progress tick, choose by active_zone)     │
-        │  -> input_number.vacuum_{zone}_max_progress       │
+        │  every progress tick, if active_zone = daytime:  │
+        │  raise input_number.vacuum_daytime_max_progress  │
         └────────────────────────────────────────────────┘
                          │
                          ▼  vacuum enters "returning"
         ┌────────────────────────────────────────────────┐
         │  Household: Vacuum Mark Area Complete             │
-        │  if max_progress clears the zone's threshold:     │
-        │    evening -> vacuum_ran_evening = on              │
-        │    daytime -> vacuum_ran_daytime = on              │
+        │  if daytime and max_progress > 65%:              │
+        │    vacuum_ran_daytime = on                        │
         └────────────────────────────────────────────────┘
 
   Household: First Arrives Home                   Household: Vacuum Daily Reset
   (confirmed-arrival block)                       trigger: 08:00 daily
   docks the vacuum if mid-run (cancels the        clears both ran-today flags,
-  job -- expected on this hardware) and           both max-progress numbers,
+  job -- expected on this hardware) and           the daytime max-progress number,
   clears vacuum_routine_pause                     and the routine-pause flag
 ```
 
@@ -96,10 +102,12 @@ carries no meaning on its own.
 
 Room segment IDs are read from the Roborock app's map, not derived from anything in HA:
 
-| Zone | Rooms | Segment IDs |
+| Zone | Rooms (in segment-ID order) | Segment IDs |
 |---|---|---|
-| Evening (common areas) | Kitchen (absorbed the former Dining room), Living room, Pantry, Utility Room | 22, 23, 24, 26 |
-| Daytime (remaining rooms) | Bedroom, Bathroom, Office, Master bedroom, Master Bathroom, Master Closet, Entrance | 16, 17, 18, 19, 20, 21, 25 |
+| Evening (common areas) | Kitchen (absorbed the former Dining room), Utility Room, Pantry, Living room | 22, 23, 24, 25 |
+| Daytime (remaining rooms) | Bedroom, Bathroom, Office, Master bedroom, Master closet, Master Bathroom, Entrance | 16, 17, 18, 19, 20, 21, 26 |
+
+These IDs are confirmed against `roborock.get_maps`; the app's numbering runs Kitchen 22, Utility Room 23, Pantry 24, Living room 25, Entrance 26.
 
 Segment **28 ("Stairs")** is a physical flight of stairs — a fall hazard — and is
 **deliberately excluded from both zones and must never be added to a `segments:` list**. A
@@ -118,11 +126,11 @@ See `LESSONS.md` → *Vacuum & Roborock*.
 
 ### 2. Create the helpers
 
-Five helpers back the routine, all under the `int_vacuum_cleaning_routine` label:
+Four helpers back the routine, all under the `int_vacuum_cleaning_routine` label:
 
-- `input_number.vacuum_evening_max_progress`, `input_number.vacuum_daytime_max_progress` — running maximum progress seen in each zone since the last reset. Needed because a commanded dock resets live progress to 0, but "best coverage achieved today" has to survive that.
-- `input_boolean.vacuum_ran_evening`, `input_boolean.vacuum_ran_daytime` — per-zone daily completion flags.
-- `input_select.vacuum_active_zone` (`evening` / `daytime`) — set the moment a job is commanded (by *Vacuum Evening Cleaning* for evening, by the *Last Leaves Home* daytime block for daytime). Live progress and the `returning` trigger are shared across both zones; without recording which zone commanded the current job, the tracking and completion automations couldn't tell a 5-room job's 100% from an 11-room job's 100%.
+- `input_number.vacuum_daytime_max_progress` — running maximum progress seen in the daytime zone since the last reset. Needed because a commanded dock (someone arriving home mid-run) resets live progress to 0, but "best coverage achieved today" has to survive that. The evening zone has no equivalent — nothing docks it mid-run, so it is marked done on command rather than on verified coverage.
+- `input_boolean.vacuum_ran_evening`, `input_boolean.vacuum_ran_daytime` — per-zone daily completion flags. `vacuum_ran_daytime` is set by *Vacuum Mark Area Complete* once coverage clears the threshold; `vacuum_ran_evening` is set by *Vacuum Evening Cleaning* the moment it commands the job.
+- `input_select.vacuum_active_zone` (`evening` / `daytime`) — set the moment a job is commanded (by *Vacuum Evening Cleaning* for evening, by the *Last Leaves Home* daytime block for daytime). Live progress and the `returning` trigger are shared across both zones; the daytime tracking and completion automations gate on this so a job the daytime zone didn't command can't bump `vacuum_daytime_max_progress` or flip `vacuum_ran_daytime`.
 - `input_boolean.vacuum_routine_pause` — a per-trip "I'm stepping out briefly, don't start" flag, cleared automatically on arrival rather than surviving to block a later real departure.
 
 ### 3. Build the automations
@@ -135,9 +143,10 @@ Four standalone vacuum automations (*Vacuum Evening Cleaning*, *Vacuum Track Max
 - **The evening run has no presence gate.** Every room in the evening zone (Kitchen, Living room, Pantry, Utility Room) is on hard flooring that cleans well at quiet fan speed and sits clear of the bedroom hall, so the pass runs every night regardless of who is home. Two common-area rooms sit in the daytime zone instead: the Entrance, which is within earshot of the bedroom hall, and the Office, which is carpeted and needs max suction — too loud to run with the house asleep. The cost is that on a day the house never fully empties, the front-door area and the Office go uncleaned; front-door dirt is the most frequent-cleaning argument there is, and it's accepted as the price of a gate-free evening run. `binary_sensor.avery_home_today` still exists for other automations; this routine no longer reads it.
 - **The arrival dock** (in *Household: First Arrives Home*) does not call `vacuum.pause` before `vacuum.return_to_base` — pausing first makes no difference to whether the job survives a dock (it doesn't, either way).
 - **Docking only happens on a confirmed arrival.** There is no "someone woke mid-evening-run" dock: the window it would cover (someone up within the ~40 min quiet common-areas pass) is rare and low-noise, and a manual dock from the app or a voice command handles it when it matters.
-- **Vacuum Mark Area Complete** uses different thresholds per zone: Evening requires >75%, Daytime >65%. Both sit below 100 because rooms in each zone have doors that may be closed (Pantry and Utility Room in the evening zone; several bedrooms and bathrooms in the daytime zone), capping achievable progress in a way retrying won't fix — progress is area-weighted, so a closed small room costs only a few points. Daytime is the lower of the two because more of its rooms are doored. Still based on limited real-world data — revisit if either zone's runs start landing below its threshold on door-closed days.
+- **The evening zone is marked done on command, not on verified coverage.** *Vacuum Evening Cleaning* flips `vacuum_ran_evening` immediately after issuing the segment clean. Nothing in the automation set docks the evening run mid-way (no arrival dock for it, naps excluded from `everyone_sleeping`), so "commanded" and "completed" are effectively the same event — a max-progress helper and a `returning`-time threshold check would add machinery with almost nothing to catch. The flag still matters as a guard: an HA restart re-primes the `everyone_sleeping` "on for 1h" trigger, so without a persistent "already ran today" flag a 2am restart plus an hour of continued sleep would start a second clean overnight. `Vacuum Daily Reset` clears it at 08:00.
+- **Vacuum Mark Area Complete only handles the daytime zone**, which *can* be cut short by an arrival dock. It flips `vacuum_ran_daytime` when the vacuum starts `returning` if `vacuum_daytime_max_progress` is >65%. The threshold sits below 100 because several daytime rooms have doors that may be closed, capping achievable coverage in a way retrying won't fix — progress is area-weighted, so a closed small room costs only a few points. Still based on limited real-world data — revisit if daytime runs start landing below 65% on door-closed days.
 - **Segment order in `app_segment_clean` does not determine cleaning route.** The robot path-plans from its own position, not the array order — no need to sort segment lists.
-- **Vacuum Daily Reset** fires at 08:00, not midnight. An evening run that starts just after midnight (a typical bedtime plus the 1-hour hold can land there) must still see *yesterday's* ran-today flags; a midnight reset would collide with that window. The two zones' flags are otherwise fully independent.
+- **Vacuum Daily Reset** fires at 08:00, not midnight. An evening run that starts just after midnight (a typical bedtime plus the 1-hour hold can land there) must still see *yesterday's* ran-today flags; a midnight reset would collide with that window. It clears both `vacuum_ran_*` flags, the routine-pause flag, and `vacuum_daytime_max_progress` (the evening zone has no max-progress figure). The two zones' flags are otherwise fully independent.
 
 ## Related HA Config
 
@@ -149,7 +158,6 @@ Four standalone vacuum automations (*Vacuum Evening Cleaning*, *Vacuum Track Max
 | Household: Vacuum Track Max Progress | `automation.household_vacuum_track_max_progress` | Automation |
 | Household: Vacuum Mark Area Complete | `automation.household_vacuum_mark_area_complete` | Automation |
 | Household: Vacuum Daily Reset | `automation.household_vacuum_daily_reset` | Automation |
-| Vacuum Evening Max Progress | `input_number.vacuum_evening_max_progress` | Helper |
 | Vacuum Daytime Max Progress | `input_number.vacuum_daytime_max_progress` | Helper |
 | Vacuum Ran Evening | `input_boolean.vacuum_ran_evening` | Helper |
 | Vacuum Ran Daytime | `input_boolean.vacuum_ran_daytime` | Helper |
@@ -160,10 +168,10 @@ Four standalone vacuum automations (*Vacuum Evening Cleaning*, *Vacuum Track Max
 
 - `standards/automations.md` — automation naming, category, and label conventions applied here
 - `LESSONS.md` → *Vacuum & Roborock* — the underlying Roborock behavior (dock-cancels-job, job-relative progress, `current_room` unreliability, `get_maps` merge lag) this design is built around
-- `snapshot/2026-07-27-pre-move/automations/automation.household_vacuum_daily_max_progress.yaml` — the max-progress tracking pattern this routine revives, split by zone
+- `snapshot/2026-07-27-pre-move/automations/automation.household_vacuum_daily_max_progress.yaml` — the max-progress tracking pattern this routine revives for the daytime zone
 
 ## Troubleshooting
 
 **Evening run doesn't start.** Do Not Disturb is on 20:00–08:00 on this unit, overlapping the evening window. Roborock DND is expected to allow commanded starts (only blocking scheduled cleans and auto-resume) while muting voice prompts. If a night consistently fails to start with no other condition explaining it, check whether DND is silently blocking the `app_segment_clean` command, and narrow the DND window if so rather than toggling DND off around the run.
 
-**A zone's `ran_*` flag never flips on despite the vacuum apparently finishing.** Check `input_select.vacuum_active_zone` at the time the job completed — if a job was started manually outside these automations (e.g., from the Roborock app), the active-zone helper won't reflect it, and *Vacuum Track Max Progress* / *Vacuum Mark Area Complete* will silently attribute progress to whichever zone the helper happened to already be set to.
+**`vacuum_ran_daytime` never flips on despite the vacuum apparently finishing.** Check `input_select.vacuum_active_zone` at the time the job completed — if a job was started manually outside these automations (e.g., from the Roborock app), the active-zone helper won't reflect it, and *Vacuum Track Max Progress* / *Vacuum Mark Area Complete* will silently attribute progress to whichever zone the helper happened to already be set to. (`vacuum_ran_evening` can't hit this — it is set when the job is commanded, not when it finishes.)

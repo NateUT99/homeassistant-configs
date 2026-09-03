@@ -1,11 +1,12 @@
 id: "1787695608938"
 alias: "Household: Vacuum Daily Reset"
 description: >-
-  Resets both zones' daily-state helpers at 8am, not midnight -- an
-  evening run just after midnight must still evaluate against
-  yesterday's flags, and this boundary keeps that intact. Also clears
-  the routine-pause flag as a backstop for the rare case where it was
-  set but no arrival followed to clear it naturally.
+  Resets both zones' ran-today flags and the daytime max-progress figure at 8am,
+  not midnight -- an evening run just after midnight must still evaluate against
+  yesterday's flags, and this boundary keeps that intact. Also clears the
+  routine-pause flag as a backstop for the rare case where it was set but no
+  arrival followed to clear it naturally. The evening zone has no max-progress
+  helper -- Vacuum Evening Cleaning marks it done on command.
 triggers:
   - trigger: time
     at: "08:00:00"
@@ -28,12 +29,6 @@ actions:
     action: input_number.set_value
     target:
       entity_id: input_number.vacuum_daytime_max_progress
-    data:
-      value: 0
-  - alias: Reset evening max progress to 0
-    action: input_number.set_value
-    target:
-      entity_id: input_number.vacuum_evening_max_progress
     data:
       value: 0
 mode: single

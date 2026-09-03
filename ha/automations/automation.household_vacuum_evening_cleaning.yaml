@@ -11,12 +11,14 @@ description: >-
   daytime clean instead.
 
 
-  The daytime Remaining Rooms clean lives in
-  automation.household_last_leaves_home -- it rides the departure trigger. The
-  two zones are fixed and never reference each other's progress or completion
-  state: a commanded dock always cancels the active job on this unit, and
-  cleaning progress is relative to job size, not house size, so cross-zone
-  comparisons or leftover-tracking don't work reliably. See
+  Marks the evening zone done (input_boolean.vacuum_ran_evening) the moment it
+  commands the job. Nothing docks this run mid-way, so there is no
+  partial-completion case worth tracking -- the flag just records that tonight's
+  clean was started, and Vacuum Daily Reset clears it at 8am. It also stops an HA
+  restart (which re-primes the 1-hour sleep timer) from kicking off a second
+  clean overnight. The daytime Remaining Rooms clean lives in
+  automation.household_last_leaves_home and rides the departure trigger; the two
+  zones never reference each other's state. See
   guides/vacuum_cleaning_routine.md for the full reasoning.
 triggers:
   - trigger: state
@@ -66,8 +68,17 @@ actions:
     data:
       command: app_segment_clean
       params:
-        - segments: [22, 23, 24, 26]
+        - segments: [22, 23, 24, 25]
           repeat: 1
+  - alias: Mark evening zone ran today
+    action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.vacuum_ran_evening
+    note: >-
+      Set on command, not on verified completion -- nothing docks the evening run
+      mid-way, so there is no partial run to distinguish. Guards against a
+      re-primed sleep timer (HA restart) starting a second clean the same night.
+      Cleared at 8am by Vacuum Daily Reset.
   - alias: Notify that evening cleaning started
     action: notify.send_message
     target:
