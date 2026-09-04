@@ -1,0 +1,29 @@
+id: "1788489683013"
+alias: "Household: Vacuum Pause Auto-Clear"
+description: >-
+  Clears input_boolean.vacuum_routine_pause whenever home occupancy increases
+  (someone arrives), so a pause only ever suppresses a single departure's
+  daytime vacuum. The pause means "stepping out briefly, don't start the
+  vacuum" -- once anyone is back it has done its job and must not linger to
+  block the next real departure. Fires on any arrival, including when another
+  person was already home and no house-empty edge occurred. Household: Vacuum
+  Daily Reset clears the same flag at 08:00 as a last-resort backstop.
+triggers:
+  - trigger: state
+    entity_id: zone.home
+    alias: Home occupancy changes
+conditions:
+  - condition: state
+    entity_id: input_boolean.vacuum_routine_pause
+    state: "on"
+    alias: A vacuum pause is currently armed
+  - condition: template
+    value_template: "{{ trigger.to_state.state | int(0) > trigger.from_state.state | int(0) }}"
+    alias: Occupancy went up -- someone arrived (no native 'increased' trigger exists)
+actions:
+  - alias: Clear the vacuum routine-pause flag
+    action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.vacuum_routine_pause
+mode: single
+category: 01M0XF7RJK5EX3A4YPNEX7X3DG

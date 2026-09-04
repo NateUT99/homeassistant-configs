@@ -4,9 +4,9 @@ description: >-
   Confirmed-arrival actions -- fires on input_boolean.arrival_confirmed, set by
   automation.household_confirm_arrival, not the raw zone.home geofence (which
   fires ~100m out and can't tell a drive home from a walk around the block).
-  Sets the living room thermostat to Home, clears the Immediate Departure and
-  vacuum routine-pause flags, and docks the vacuum if it's mid-run. Additional
-  arrival actions will be added over time.
+  Sets the living room thermostat to Home, clears the Immediate Departure flag,
+  and docks the vacuum if it's mid-run. Additional arrival actions will be added
+  over time.
 triggers:
   - trigger: state
     entity_id: input_boolean.arrival_confirmed
@@ -29,14 +29,6 @@ actions:
       later, possibly brief, departure. automation.household_last_leaves_home
       also clears it on use; this is the safety net for when that automation
       didn't run.
-  - alias: Clear the vacuum routine-pause flag
-    action: input_boolean.turn_off
-    target:
-      entity_id: input_boolean.vacuum_routine_pause
-    note: >-
-      Folded in from the former automation.household_vacuum_stops_for_occupants.
-      "I'm stepping out briefly, don't start" flag -- must not survive to block
-      a later real departure.
   - alias: Dock the vacuum if it's mid-run now that someone is home
     note: >-
       Also folded in from automation.household_vacuum_stops_for_occupants. A

@@ -13,9 +13,11 @@ reference each other's progress or state.
 The evening pass is its own automation (*Household: Vacuum Evening Cleaning*). The daytime
 pass is a block inside *Household: Last Leaves Home*, so it rides that automation's departure
 trigger, 5-minute debounce, and Immediate Departure override alongside the garage/lock/
-thermostat actions. Docking the vacuum when someone returns mid-run, and clearing the
-routine-pause flag on arrival, likewise live in *Household: First Arrives Home* with the
-other confirmed-arrival actions.
+thermostat actions. Docking the vacuum when someone returns mid-run lives in *Household:
+First Arrives Home* with the other confirmed-arrival actions. Clearing the routine-pause
+flag on arrival is its own automation (*Household: Vacuum Pause Auto-Clear*), triggered by
+any rise in `zone.home` occupancy rather than by a confirmed arrival, so it still fires
+when someone was already home and no house-empty edge occurred.
 
 The two zones are fixed and non-overlapping because the constraint is physical: the evening
 pass runs at quiet fan speed with the house asleep, so it covers only rooms that clean well
@@ -75,8 +77,12 @@ resume: a commanded dock always cancels the active Roborock job, and
   Household: First Arrives Home                   Household: Vacuum Daily Reset
   (confirmed-arrival block)                       trigger: 08:00 daily
   docks the vacuum if mid-run (cancels the        clears both ran-today flags,
-  job -- expected on this hardware) and           the daytime max-progress number,
-  clears vacuum_routine_pause                     and the routine-pause flag
+  job -- expected on this hardware)               the daytime max-progress number,
+                                                  and the routine-pause flag
+
+  Household: Vacuum Pause Auto-Clear
+  trigger: zone.home occupancy rises
+  clears vacuum_routine_pause on any arrival
 ```
 
 ### Why "evening" and "daytime" rather than room-set names
@@ -131,11 +137,11 @@ Four helpers back the routine, all under the `int_vacuum_cleaning_routine` label
 - `input_number.vacuum_daytime_max_progress` — running maximum progress seen in the daytime zone since the last reset. Needed because a commanded dock (someone arriving home mid-run) resets live progress to 0, but "best coverage achieved today" has to survive that. The evening zone has no equivalent — nothing docks it mid-run, so it is marked done on command rather than on verified coverage.
 - `input_boolean.vacuum_ran_evening`, `input_boolean.vacuum_ran_daytime` — per-zone daily completion flags. `vacuum_ran_daytime` is set by *Vacuum Mark Area Complete* once coverage clears the threshold; `vacuum_ran_evening` is set by *Vacuum Evening Cleaning* the moment it commands the job.
 - `input_select.vacuum_active_zone` (`evening` / `daytime`) — set the moment a job is commanded (by *Vacuum Evening Cleaning* for evening, by the *Last Leaves Home* daytime block for daytime). Live progress and the `returning` trigger are shared across both zones; the daytime tracking and completion automations gate on this so a job the daytime zone didn't command can't bump `vacuum_daytime_max_progress` or flip `vacuum_ran_daytime`.
-- `input_boolean.vacuum_routine_pause` — a per-trip "I'm stepping out briefly, don't start" flag, cleared automatically on arrival rather than surviving to block a later real departure.
+- `input_boolean.vacuum_routine_pause` — a per-trip "I'm stepping out briefly, don't start" flag, cleared automatically by *Household: Vacuum Pause Auto-Clear* the next time anyone arrives home, so it never survives to block a later real departure.
 
 ### 3. Build the automations
 
-Four standalone vacuum automations (*Vacuum Evening Cleaning*, *Vacuum Track Max Progress*, *Vacuum Mark Area Complete*, *Vacuum Daily Reset*), plus two blocks folded into the presence automations: the daytime-start block in *Household: Last Leaves Home* and the arrival dock + routine-pause clear in *Household: First Arrives Home*. All described in the architecture diagram above. Live YAML for each is in `ha/automations/` — this guide does not reproduce it. Key design points not obvious from the YAML alone:
+Five standalone vacuum automations (*Vacuum Evening Cleaning*, *Vacuum Track Max Progress*, *Vacuum Mark Area Complete*, *Vacuum Daily Reset*, *Vacuum Pause Auto-Clear*), plus two blocks folded into the presence automations: the daytime-start block in *Household: Last Leaves Home* and the arrival dock in *Household: First Arrives Home*. All described in the architecture diagram above. Live YAML for each is in `ha/automations/` — this guide does not reproduce it. Key design points not obvious from the YAML alone:
 
 - **The two starts are split, not combined.** Evening cleaning is its own automation (single `everyone_sleeping` trigger). Daytime cleaning is a block inside *Household: Last Leaves Home* — it shares nothing operationally with the evening run (different trigger, zone, settings, completion flag) and everything with the rest of the leave-home routine, so it lives there and inherits that automation's 5-minute departure debounce and Immediate Departure override.
 - **The daytime block's guards double as re-run protection.** *Last Leaves Home* fires twice on an immediate departure (once instantly, once when the 5-minute trigger elapses). The daytime block's `vacuum_ran_daytime` off + "not currently cleaning" conditions make the second pass a no-op — no second job, no duplicate notification.
@@ -143,6 +149,7 @@ Four standalone vacuum automations (*Vacuum Evening Cleaning*, *Vacuum Track Max
 - **The evening run has no presence gate.** Every room in the evening zone (Kitchen, Living room, Pantry, Utility Room) is on hard flooring that cleans well at quiet fan speed and sits clear of the bedroom hall, so the pass runs every night regardless of who is home. Two common-area rooms sit in the daytime zone instead: the Entrance, which is within earshot of the bedroom hall, and the Office, which is carpeted and needs max suction — too loud to run with the house asleep. The cost is that on a day the house never fully empties, the front-door area and the Office go uncleaned; front-door dirt is the most frequent-cleaning argument there is, and it's accepted as the price of a gate-free evening run. `binary_sensor.avery_home_today` still exists for other automations; this routine no longer reads it.
 - **The arrival dock** (in *Household: First Arrives Home*) does not call `vacuum.pause` before `vacuum.return_to_base` — pausing first makes no difference to whether the job survives a dock (it doesn't, either way).
 - **Docking only happens on a confirmed arrival.** There is no "someone woke mid-evening-run" dock: the window it would cover (someone up within the ~40 min quiet common-areas pass) is rare and low-noise, and a manual dock from the app or a voice command handles it when it matters.
+- **The routine-pause clear is a standalone automation, not part of the confirmed-arrival block.** *Vacuum Pause Auto-Clear* triggers on any increase in `zone.home` occupancy, so it fires on a plain arrival even when another person was already home and no house-empty / confirmed-first-arrival edge ever occurred — the case a solo errand with a guest at home would otherwise miss, leaving the flag to wrongly suppress the next full-household departure. A pause is meant to cover exactly one departure; this guarantees it. `Vacuum Daily Reset`'s 08:00 clear stays as the backstop for a pause set on a day nobody comes home. HA has no native "value increased" trigger, so the "occupancy went up" check is a one-line template comparing `trigger.to_state` to `trigger.from_state`.
 - **The evening zone is marked done on command, not on verified coverage.** *Vacuum Evening Cleaning* flips `vacuum_ran_evening` immediately after issuing the segment clean. Nothing in the automation set docks the evening run mid-way (no arrival dock for it, naps excluded from `everyone_sleeping`), so "commanded" and "completed" are effectively the same event — a max-progress helper and a `returning`-time threshold check would add machinery with almost nothing to catch. The flag still matters as a guard: an HA restart re-primes the `everyone_sleeping` "on for 1h" trigger, so without a persistent "already ran today" flag a 2am restart plus an hour of continued sleep would start a second clean overnight. `Vacuum Daily Reset` clears it at 08:00.
 - **Vacuum Mark Area Complete only handles the daytime zone**, which *can* be cut short by an arrival dock. It flips `vacuum_ran_daytime` when the vacuum starts `returning` if `vacuum_daytime_max_progress` is >65%. The threshold sits below 100 because several daytime rooms have doors that may be closed, capping achievable coverage in a way retrying won't fix — progress is area-weighted, so a closed small room costs only a few points. Still based on limited real-world data — revisit if daytime runs start landing below 65% on door-closed days.
 - **Segment order in `app_segment_clean` does not determine cleaning route.** The robot path-plans from its own position, not the array order — no need to sort segment lists.
@@ -154,10 +161,11 @@ Four standalone vacuum automations (*Vacuum Evening Cleaning*, *Vacuum Track Max
 |---|---|---|
 | Household: Vacuum Evening Cleaning | `automation.household_vacuum_evening_cleaning` | Automation |
 | Household: Last Leaves Home | `automation.household_last_leaves_home` | Automation (contains the daytime-start block) |
-| Household: First Arrives Home | `automation.household_first_arrives_home` | Automation (contains the arrival dock + routine-pause clear) |
+| Household: First Arrives Home | `automation.household_first_arrives_home` | Automation (contains the arrival dock) |
 | Household: Vacuum Track Max Progress | `automation.household_vacuum_track_max_progress` | Automation |
 | Household: Vacuum Mark Area Complete | `automation.household_vacuum_mark_area_complete` | Automation |
 | Household: Vacuum Daily Reset | `automation.household_vacuum_daily_reset` | Automation |
+| Household: Vacuum Pause Auto-Clear | `automation.household_vacuum_pause_auto_clear` | Automation |
 | Vacuum Daytime Max Progress | `input_number.vacuum_daytime_max_progress` | Helper |
 | Vacuum Ran Evening | `input_boolean.vacuum_ran_evening` | Helper |
 | Vacuum Ran Daytime | `input_boolean.vacuum_ran_daytime` | Helper |
