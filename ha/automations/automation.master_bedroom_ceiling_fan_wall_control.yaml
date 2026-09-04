@@ -14,9 +14,7 @@ description: >-
   Config single tap and both paddle double taps fire that blip immediately (the
   intended speed, or the off cue for down), so the bar lights without waiting for
   the fan's Matter round-trip; other fan changes blip once the speed settles. The
-  canopy light turning on or off from a single paddle tap or an external change
-  blips the bar at 3000 K with a Fast Rising / Fast Falling sweep; a whole-room
-  double tap shows the fan cue instead. The bar rests dark at all times; before each blip
+  bar rests dark at all times; before each blip
   the automation snapshots the RGB bar and the LED-effect select into
   scene.master_bedroom_ceiling_fan_led_restore so the blip restores whatever it
   was showing (dark today; a future status colour transparently). None of this
@@ -49,18 +47,6 @@ triggers:
       - unavailable
       - unknown
     id: up_double
-  - alias: Canopy light turned on
-    trigger: state
-    entity_id: light.master_bedroom_ceiling_fan_light
-    from: "off"
-    to: "on"
-    id: light_on
-  - alias: Canopy light turned off
-    trigger: state
-    entity_id: light.master_bedroom_ceiling_fan_light
-    from: "on"
-    to: "off"
-    id: light_off
 conditions: []
 actions:
   - alias: Route by trigger
@@ -287,86 +273,6 @@ actions:
             action: light.turn_on
             target:
               entity_id: light.master_bedroom_ceiling_fan_light
-      - alias: Canopy light came on - blip the bar 3000 K with a rising sweep
-        conditions:
-          - condition: trigger
-            id: light_on
-            alias: Triggered by the canopy light coming on
-          - alias: No blip in flight
-            condition: state
-            entity_id: script.master_bedroom_ceiling_fan_led_blip
-            state: "off"
-          - alias: Not part of a paddle double tap - that fires the fan cue instead
-            note: >-
-              A whole-room double tap turns the light on as its last step; the
-              paddle event (multi_press_2) lands ~instantly, well before the
-              light state settles, so this window hands that gesture to the fan
-              blip. A single tap (multi_press_1) and external changes are not
-              suppressed - the 3000 K light blip is their only acknowledgement.
-            condition: template
-            value_template: >-
-              {{ not (
-                (is_state_attr('event.master_bedroom_ceiling_fan_switch_button_up', 'event_type', 'multi_press_2')
-                 and (now() - states.event.master_bedroom_ceiling_fan_switch_button_up.last_changed).total_seconds() < 2)
-                or
-                (is_state_attr('event.master_bedroom_ceiling_fan_switch_button_down', 'event_type', 'multi_press_2')
-                 and (now() - states.event.master_bedroom_ceiling_fan_switch_button_down.last_changed).total_seconds() < 2)
-              ) }}
-        sequence:
-          - alias: Snapshot the LED bar so the blip can put it back
-            action: scene.create
-            data:
-              scene_id: master_bedroom_ceiling_fan_led_restore
-              snapshot_entities:
-                - light.master_bedroom_ceiling_fan_switch_led
-                - select.master_bedroom_ceiling_fan_switch_led_effect
-          - alias: Blip the light-on acknowledgement (3000 K, fast rising)
-            action: script.turn_on
-            target:
-              entity_id: script.master_bedroom_ceiling_fan_led_blip
-            data:
-              variables:
-                blip_kind: light_on
-      - alias: Canopy light went off - blip the bar 3000 K with a falling fade
-        conditions:
-          - condition: trigger
-            id: light_off
-            alias: Triggered by the canopy light going off
-          - alias: No blip in flight
-            condition: state
-            entity_id: script.master_bedroom_ceiling_fan_led_blip
-            state: "off"
-          - alias: Not part of a paddle double tap - that fires the fan cue instead
-            note: >-
-              A whole-room double tap turns the light off as its last step; the
-              paddle event (multi_press_2) lands ~instantly, well before the
-              light state settles, so this window hands that gesture to the fan
-              blip. A single tap (multi_press_1) and external changes are not
-              suppressed - the 3000 K light blip is their only acknowledgement.
-            condition: template
-            value_template: >-
-              {{ not (
-                (is_state_attr('event.master_bedroom_ceiling_fan_switch_button_up', 'event_type', 'multi_press_2')
-                 and (now() - states.event.master_bedroom_ceiling_fan_switch_button_up.last_changed).total_seconds() < 2)
-                or
-                (is_state_attr('event.master_bedroom_ceiling_fan_switch_button_down', 'event_type', 'multi_press_2')
-                 and (now() - states.event.master_bedroom_ceiling_fan_switch_button_down.last_changed).total_seconds() < 2)
-              ) }}
-        sequence:
-          - alias: Snapshot the LED bar so the blip can put it back
-            action: scene.create
-            data:
-              scene_id: master_bedroom_ceiling_fan_led_restore
-              snapshot_entities:
-                - light.master_bedroom_ceiling_fan_switch_led
-                - select.master_bedroom_ceiling_fan_switch_led_effect
-          - alias: Blip the light-off acknowledgement (3000 K, fast falling)
-            action: script.turn_on
-            target:
-              entity_id: script.master_bedroom_ceiling_fan_led_blip
-            data:
-              variables:
-                blip_kind: light_off
       - alias: Fan speed settled - record it and blip the LED bar
         conditions:
           - condition: trigger
