@@ -1,50 +1,100 @@
 alias: "Avery's Room: Ceiling Fan LED Blip"
 description: >-
-  Blips the Avery's Room ceiling-fan switch LED bar to acknowledge a fan change,
-  then restores what the bar was showing before. A speed change shows that speed's
-  hue for 5s; when that change is the fan coming on FROM OFF it also plays a Fast
-  Rising sweep on the effect channel. Switching the fan off shows amber on the RGB
-  channel plus a Fast Falling animation on the bar's effect channel
-  (select.averys_room_ceiling_fan_switch_led_effect), held 2.5s. Brightness is 75%
-  by default and 25% while Avery is sleeping (input_boolean.avery_sleeping) to
-  protect dark adaptation. Called via script.turn_on from Avery's Room: Ceiling
-  Fan Wall Control. The button-press branches (config single tap, up + down paddle
-  double tap) call it immediately with a blip_speed variable ('off' for the down
-  double tap) so the bar lights without waiting for the fan's Matter round-trip;
-  the fan-settled branch calls it with no blip_speed (reads the fan) and only when
-  no blip is already in flight. The
-  caller snapshots the RGB bar and the effect select into
+  Blips the Avery's Room ceiling-fan switch LED bar to acknowledge a fan or
+  canopy-light change, then restores what the bar was showing before. A speed
+  change shows that speed's hue for 5s; when that change is the fan coming on FROM
+  OFF it also plays a Fast Rising sweep on the effect channel. Switching the fan
+  off shows the last recorded speed's hue plus a Fast Falling animation on the
+  bar's effect channel (select.averys_room_ceiling_fan_switch_led_effect), held
+  2.5s. A blip_kind of 'light_on' / 'light_off' instead blips the bar at 3000 K
+  with a Fast Rising / Fast Falling sweep, held 2.5s, to acknowledge the canopy
+  light. Brightness is 75% by default and 25% while Avery is sleeping
+  (input_boolean.avery_sleeping) to protect dark adaptation. Called via
+  script.turn_on from Avery's Room: Ceiling Fan Wall Control. The button-press
+  branches (config single tap, up + down paddle double tap) call it immediately
+  with a blip_speed variable ('off' for the down double tap) so the bar lights
+  without waiting for the fan's Matter round-trip; the light-on / light-off
+  branches call it with blip_kind; the fan-settled branch calls it with no
+  variables (reads the fan) and only when no blip is already in flight. The caller
+  snapshots the RGB bar and the effect select into
   scene.averys_room_ceiling_fan_led_restore first; the tail re-asserts that scene,
   falling back to light.turn_off when it does not exist (e.g. a manual run).
   mode: restart so rapid changes keep the bar lit and reset the timer, and a
-  fan-off mid-speed-blip swaps straight to the amber acknowledgement.
+  fan-off mid-speed-blip swaps straight to the off acknowledgement.
 mode: restart
 fields:
   blip_speed:
     description: "Speed name to blip (low / medium / high / off). Omit to read the fan's current speed."
     selector:
       text:
+  blip_kind:
+    description: "Canopy-light blip: 'light_on' / 'light_off' (3000 K + Fast Rising / Fast Falling). Omit for a fan blip."
+    selector:
+      text:
 sequence:
-  - alias: Resolve the speed band and the blip brightness
+  - alias: Resolve the blip kind, speed band, and blip brightness
     variables:
+      kind: "{{ blip_kind | default('') }}"
       speed: "{% set bs = blip_speed | default('') %}{% if bs %}{{ bs }}{% elif is_state('fan.averys_room_ceiling_fan', 'off') %}off{% else %}{% set p = state_attr('fan.averys_room_ceiling_fan', 'percentage') | int(0) %}{% if p < 45 %}low{% elif p < 78 %}medium{% else %}high{% endif %}{% endif %}"
       level: "{{ 25 if is_state('input_boolean.avery_sleeping', 'on') else 75 }}"
   - alias: Show the acknowledgement colour, then the tail restores the bar
     choose:
-      - alias: Fan is off - amber acknowledgement with a fast-falling fade
+      - alias: Canopy light turned on - 3000 K with a fast-rising sweep
+        conditions:
+          - condition: template
+            value_template: "{{ kind == 'light_on' }}"
+            alias: Blip kind is light_on
+        sequence:
+          - alias: Warm-white blip on the RGB channel
+            action: light.turn_on
+            target:
+              entity_id: light.averys_room_ceiling_fan_switch_led
+            data:
+              brightness_pct: "{{ level }}"
+              color_temp_kelvin: 3000
+          - alias: Play the fast-rising sweep on the bar effect channel
+            action: select.select_option
+            target:
+              entity_id: select.averys_room_ceiling_fan_switch_led_effect
+            data:
+              option: "Fast Rising"
+          - alias: Hold while the rise animation plays
+            delay: "00:00:02.5"
+      - alias: Canopy light turned off - 3000 K with a fast-falling fade
+        conditions:
+          - condition: template
+            value_template: "{{ kind == 'light_off' }}"
+            alias: Blip kind is light_off
+        sequence:
+          - alias: Warm-white blip on the RGB channel
+            action: light.turn_on
+            target:
+              entity_id: light.averys_room_ceiling_fan_switch_led
+            data:
+              brightness_pct: "{{ level }}"
+              color_temp_kelvin: 3000
+          - alias: Play the fast-falling fade on the bar effect channel
+            action: select.select_option
+            target:
+              entity_id: select.averys_room_ceiling_fan_switch_led_effect
+            data:
+              option: "Fast Falling"
+          - alias: Hold while the fall animation plays
+            delay: "00:00:02.5"
+      - alias: Fan is off - last speed's hue with a fast-falling fade
         conditions:
           - condition: template
             value_template: "{{ speed == 'off' }}"
             alias: Resolved speed is off
         sequence:
-          - alias: Amber blip on the RGB channel
+          - alias: Last speed's hue on the RGB channel
             action: light.turn_on
             target:
               entity_id: light.averys_room_ceiling_fan_switch_led
             data:
               brightness_pct: "{{ level }}"
               hs_color:
-                - 30
+                - "{{ {'low': 175, 'medium': 220, 'high': 265}.get(states('input_select.averys_room_ceiling_fan_last_speed'), 220) }}"
                 - 100
           - alias: Play the fast-falling fade on the bar effect channel
             action: select.select_option
