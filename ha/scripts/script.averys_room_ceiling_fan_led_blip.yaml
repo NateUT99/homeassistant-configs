@@ -6,9 +6,9 @@ description: >-
   OFF it also plays a Fast Rising sweep on the effect channel. Switching the fan
   off shows the last recorded speed's hue plus a Fast Falling animation on the
   bar's effect channel (select.averys_room_ceiling_fan_switch_led_effect), held
-  2.5s. A blip_kind of 'light_on' / 'light_off' instead blips the bar at 3000 K
-  with a Fast Rising / Fast Falling sweep, held 2.5s, to acknowledge the canopy
-  light. Brightness is 75% by default and 25% while Avery is sleeping
+  2.5s. A blip_kind of 'light_on' / 'light_off' instead blips the bar warm white
+  (~3000 K via hs_color) with a Fast Rising / Fast Falling sweep, held 2.5s, to
+  acknowledge the canopy light. Brightness is 75% by default and 25% while Avery is sleeping
   (input_boolean.avery_sleeping) to protect dark adaptation. Called via
   script.turn_on from Avery's Room: Ceiling Fan Wall Control. The button-press
   branches (config single tap, up + down paddle double tap) call it immediately
@@ -28,7 +28,7 @@ fields:
     selector:
       text:
   blip_kind:
-    description: "Canopy-light blip: 'light_on' / 'light_off' (3000 K + Fast Rising / Fast Falling). Omit for a fan blip."
+    description: "Canopy-light blip: 'light_on' / 'light_off' (warm white + Fast Rising / Fast Falling). Omit for a fan blip."
     selector:
       text:
 sequence:
@@ -39,19 +39,25 @@ sequence:
       level: "{{ 25 if is_state('input_boolean.avery_sleeping', 'on') else 75 }}"
   - alias: Show the acknowledgement colour, then the tail restores the bar
     choose:
-      - alias: Canopy light turned on - 3000 K with a fast-rising sweep
+      - alias: Canopy light turned on - warm white with a fast-rising sweep
         conditions:
           - condition: template
             value_template: "{{ kind == 'light_on' }}"
             alias: Blip kind is light_on
         sequence:
           - alias: Warm-white blip on the RGB channel
+            note: >-
+              hs_color, not color_temp_kelvin - the bar's Matter layer advertises
+              a color_temp mode but renders nothing visible in it. [28, 60] is the
+              ~3000 K warm-white point on the RGB channel the fan blips use.
             action: light.turn_on
             target:
               entity_id: light.averys_room_ceiling_fan_switch_led
             data:
               brightness_pct: "{{ level }}"
-              color_temp_kelvin: 3000
+              hs_color:
+                - 28
+                - 60
           - alias: Play the fast-rising sweep on the bar effect channel
             action: select.select_option
             target:
@@ -60,19 +66,25 @@ sequence:
               option: "Fast Rising"
           - alias: Hold while the rise animation plays
             delay: "00:00:02.5"
-      - alias: Canopy light turned off - 3000 K with a fast-falling fade
+      - alias: Canopy light turned off - warm white with a fast-falling fade
         conditions:
           - condition: template
             value_template: "{{ kind == 'light_off' }}"
             alias: Blip kind is light_off
         sequence:
           - alias: Warm-white blip on the RGB channel
+            note: >-
+              hs_color, not color_temp_kelvin - the bar's Matter layer advertises
+              a color_temp mode but renders nothing visible in it. [28, 60] is the
+              ~3000 K warm-white point on the RGB channel the fan blips use.
             action: light.turn_on
             target:
               entity_id: light.averys_room_ceiling_fan_switch_led
             data:
               brightness_pct: "{{ level }}"
-              color_temp_kelvin: 3000
+              hs_color:
+                - 28
+                - 60
           - alias: Play the fast-falling fade on the bar effect channel
             action: select.select_option
             target:

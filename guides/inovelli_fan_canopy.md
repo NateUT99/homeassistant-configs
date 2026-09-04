@@ -444,13 +444,16 @@ reference it.
 | fan off | last running speed's hue | `Fast Falling` | 2.5 s | 75% / 25% |
 | fan on from off | that speed's hue | `Fast Rising` | 5 s | 75% / 25% |
 | fan speed change (already on) | that speed's hue | — (`Solid`, untouched) | 5 s | 75% / 25% |
-| light on | 3000 K (`color_temp_kelvin`) | `Fast Rising` | 2.5 s | 75% / 25% |
-| light off | 3000 K (`color_temp_kelvin`) | `Fast Falling` | 2.5 s | 75% / 25% |
+| light on | warm white (~3000 K), `hs_color` `[28, 60]` | `Fast Rising` | 2.5 s | 75% / 25% |
+| light off | warm white (~3000 K), `hs_color` `[28, 60]` | `Fast Falling` | 2.5 s | 75% / 25% |
 
 Speed hues (`hs_color`): teal low 175 / blue medium 220 / violet high 265.
 On-from-off is detected by the fan entity still reading `off` when the blip fires.
 The two light rows fire only for a single paddle tap or an external change — a
-whole-room double-tap uses the fan rows instead.
+whole-room double-tap uses the fan rows instead. Every colour goes on the bar as
+`hs_color`: the bar advertises a Matter `color_temp` mode but renders nothing
+visible in it, so the light blip uses the `hs_color` warm-white point, not
+`color_temp_kelvin`. See `LESSONS.md`.
 
 "Dark at rest" needs: the blip's tail restores the pre-blip snapshot (RGB
 `off` + effect `Solid`) or does `light.turn_off`, **and** the switch's

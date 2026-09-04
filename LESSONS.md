@@ -613,6 +613,10 @@ A cluster 8 binding (switch Binding endpoint → canopy light endpoint 1) for pa
 
 **Whole-room off/on is a paddle double-tap, not a hold** (September 2026) — the cluster 8 hold-to-dim binding was briefly removed to free the hold gesture for whole-room off/on, then restored once it was clear `multi_press_2` fires on the paddle (Button Delay already `300ms` for the config button). Hold = dim (binding); double-tap = whole-room (automation). Guide `guides/inovelli_fan_canopy.md` Steps 4 and 6.
 
+### Inovelli VTM30-SN LED bar — `color_temp_kelvin` reports "on" but renders nothing; use `hs_color`
+
+The switch's RGB notification bar (`light.*_ceiling_fan_switch_led`) advertises `supported_color_modes: [color_temp, hs, xy]` with a nonsense range (`min_color_temp_kelvin` 15, `max` 1000000) — the matter.js shim exposing a mode the hardware doesn't really have. A `light.turn_on` with `color_temp_kelvin` flips the entity to `on` and traces cleanly, the bar's `state` history even shows `on` for the full hold, but **no light is emitted** — the LED-blip's warm-white "3000 K" cue was invisible while `hs_color`-based fan blips on the same entity rendered fine. Fix: send the colour as `hs_color` (`[28, 60]` ≈ 3000 K warm white). Caught September 2026 via automation + script traces: the automation fired the `light_off` branch, the script ran `light.turn_on color_temp_kelvin: 3000` + `Fast Falling` + 2.5 s hold + restore, all "successful", and the user saw nothing. `guides/inovelli_fan_canopy.md` Scale reference.
+
 ---
 
 ## Shell Command Integration
