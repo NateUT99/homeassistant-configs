@@ -459,10 +459,11 @@ Traps carried over from the removed implementation:
 
 ## Replicating for another room
 
-This setup is a per-room pattern. Avery's Room is the first instance and the
-Master Bedroom the second; Living Room and Office are planned and use the same
-build. Every room is configured identically apart from the substitutions below.
-To add a room, work through Steps 1–6 with these substitutions.
+This setup is a per-room pattern. Avery's Room is the first instance, the
+Master Bedroom the second, and the Office the third; Living Room is planned and
+uses the same build. Every room is configured identically apart from the
+substitutions below. To add a room, work through Steps 1–6 with these
+substitutions.
 
 **Per-room substitutions:**
 
@@ -471,8 +472,8 @@ To add a room, work through Steps 1–6 with these substitutions.
 | Area / entity prefix | `averys_room` | `master_bedroom` | `living_room` | `office` |
 | Canopy device name | `Ceiling Fan` | `Ceiling Fan` | `Ceiling Fan` | `Ceiling Fan` |
 | Switch device name | `Ceiling Fan Switch` | `Ceiling Fan Switch` | `Ceiling Fan Switch` | `Ceiling Fan Switch` |
-| Canopy Matter node | 10 | 12 | TBD | TBD |
-| Switch Matter node | 11 | 13 | TBD | TBD |
+| Canopy Matter node | 10 | 12 | TBD | 15 |
+| Switch Matter node | 11 | 13 | TBD | 16 |
 | Sleep boolean (blip brightness) | `input_boolean.avery_sleeping` | `input_boolean.everyone_sleeping` | `input_boolean.everyone_sleeping` | `input_boolean.everyone_sleeping` |
 
 Only Avery's Room has a person-specific sleep toggle; the other rooms use the
@@ -569,10 +570,13 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 |---|---|---|
 | Avery's Room: Ceiling Fan Wall Control | `automation.averys_room_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy`) |
 | Master Bedroom: Ceiling Fan Wall Control | `automation.master_bedroom_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy`) |
+| Office: Ceiling Fan Wall Control | `automation.office_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy`) |
 | Avery's Room: Ceiling Fan LED Blip | `script.averys_room_ceiling_fan_led_blip` | Script (`mode: restart`) — acknowledgement blip for the switch LED bar |
 | Master Bedroom: Ceiling Fan LED Blip | `script.master_bedroom_ceiling_fan_led_blip` | Script (`mode: restart`) — acknowledgement blip for the switch LED bar |
+| Office: Ceiling Fan LED Blip | `script.office_ceiling_fan_led_blip` | Script (`mode: restart`) — acknowledgement blip for the switch LED bar |
 | Avery's Room Ceiling Fan Last Speed | `input_select.averys_room_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
 | Master Bedroom Ceiling Fan Last Speed | `input_select.master_bedroom_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
+| Office Ceiling Fan Last Speed | `input_select.office_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
 | Ceiling Fan | `fan.averys_room_ceiling_fan` / `light.averys_room_ceiling_fan_light` | Matter device (VTM36) |
 | Ceiling Fan Switch | `event.averys_room_ceiling_fan_switch_button_config` et al. | Matter device (VTM30-SN) |
 
@@ -582,8 +586,10 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 |---|---|---|
 | `ha/automations/automation.averys_room_ceiling_fan_wall_control.yaml` | HA automation registry | Mirror — Avery's Room wall-control automation |
 | `ha/automations/automation.master_bedroom_ceiling_fan_wall_control.yaml` | HA automation registry | Mirror — Master Bedroom wall-control automation |
+| `ha/automations/automation.office_ceiling_fan_wall_control.yaml` | HA automation registry | Mirror — Office wall-control automation |
 | `ha/scripts/script.averys_room_ceiling_fan_led_blip.yaml` | HA script registry | Mirror — Avery's Room LED-bar acknowledgement blip |
 | `ha/scripts/script.master_bedroom_ceiling_fan_led_blip.yaml` | HA script registry | Mirror — Master Bedroom LED-bar acknowledgement blip |
+| `ha/scripts/script.office_ceiling_fan_led_blip.yaml` | HA script registry | Mirror — Office LED-bar acknowledgement blip |
 | `scripts/matter_write_attribute.py` | run from a LAN machine (Mac Mini) | Reads vendor-cluster attributes HA doesn't expose; `--dump-node` / `--dump-modes` for discovery |
 
 ## Related documents

@@ -1,0 +1,102 @@
+alias: "Office: Ceiling Fan LED Blip"
+description: >-
+  Blips the Office ceiling-fan switch LED bar to acknowledge a fan
+  change, then rests it dark again. Every blip holds 2s. A speed change shows that
+  speed's hue; when that change is the fan coming on FROM OFF it also plays a Fast
+  Rising sweep on the effect channel
+  (select.office_ceiling_fan_switch_led_effect). Switching the fan off
+  shows the last recorded speed's hue plus a Fast Falling animation. Brightness is
+  75% by default and 25% while everyone is
+  sleeping (input_boolean.everyone_sleeping) to protect dark adaptation. Called
+  via script.turn_on from Office: Ceiling Fan Wall Control. The
+  button-press branches (config single tap, up + down paddle double tap) call it
+  immediately with a blip_speed variable ('off' for the down double tap) so the
+  bar lights without waiting for the fan's Matter round-trip; the fan-settled
+  branch calls it with no variables (reads the fan) and only when no blip is
+  already in flight. The tail turns the bar off and forces the effect channel
+  back to Solid - the bar has no persistent resting state, so there is nothing to
+  snapshot or restore. mode: restart so rapid changes keep the bar lit and reset
+  the timer, and a fan-off mid-speed-blip swaps straight to the off
+  acknowledgement.
+mode: restart
+fields:
+  blip_speed:
+    description: "Speed name to blip (low / medium / high / off). Omit to read the fan's current speed."
+    selector:
+      text:
+sequence:
+  - alias: Resolve the speed band and the blip brightness
+    variables:
+      speed: "{% set bs = blip_speed | default('') %}{% if bs %}{{ bs }}{% elif is_state('fan.office_ceiling_fan', 'off') %}off{% else %}{% set p = state_attr('fan.office_ceiling_fan', 'percentage') | int(0) %}{% if p < 45 %}low{% elif p < 78 %}medium{% else %}high{% endif %}{% endif %}"
+      level: "{{ 25 if is_state('input_boolean.everyone_sleeping', 'on') else 75 }}"
+  - alias: Show the acknowledgement colour, then the tail rests the bar dark
+    choose:
+      - alias: Fan is off - last speed's hue with a fast-falling fade
+        conditions:
+          - condition: template
+            value_template: "{{ speed == 'off' }}"
+            alias: Resolved speed is off
+        sequence:
+          - alias: Last speed's hue on the RGB channel
+            action: light.turn_on
+            target:
+              entity_id: light.office_ceiling_fan_switch_led
+            data:
+              brightness_pct: "{{ level }}"
+              hs_color:
+                - "{{ {'low': 175, 'medium': 220, 'high': 265}.get(states('input_select.office_ceiling_fan_last_speed'), 220) }}"
+                - 100
+          - alias: Play the fast-falling fade on the bar effect channel
+            action: select.select_option
+            target:
+              entity_id: select.office_ceiling_fan_switch_led_effect
+            data:
+              option: "Fast Falling"
+          - alias: Hold while the fall animation plays
+            delay: "00:00:02"
+    default:
+      - alias: Speed change - that speed's hue
+        action: light.turn_on
+        target:
+          entity_id: light.office_ceiling_fan_switch_led
+        data:
+          brightness_pct: "{{ level }}"
+          hs_color:
+            - "{{ {'low': 175, 'medium': 220, 'high': 265}.get(speed, 220) }}"
+            - 100
+      - alias: Fan coming on from off - add a Fast Rising sweep alongside the hue
+        note: >-
+          The wall on-from-off paths (config single-tap resume, up double-tap)
+          call this script before fan.set_percentage lands, so the fan entity
+          still reads 'off' here - that is the signal for an on-from-off
+          transition vs a speed change while already running (config advance
+          reads 'on'). Mirror of the Fast Falling on the off blip; the tail
+          forces the effect select back to Solid afterwards.
+        if:
+          - alias: Fan is still off (blip fired before the fan turned on)
+            condition: state
+            entity_id: fan.office_ceiling_fan
+            state: "off"
+        then:
+          - alias: Fast Rising on the effect channel
+            action: select.select_option
+            target:
+              entity_id: select.office_ceiling_fan_switch_led_effect
+            data:
+              option: "Fast Rising"
+      - alias: Hold the speed blip
+        delay: "00:00:02"
+  - alias: Rest the bar dark
+    action: light.turn_off
+    target:
+      entity_id: light.office_ceiling_fan_switch_led
+  - alias: Effect channel always rests on Solid
+    note: >-
+      Solid is the only valid resting value - Off blanks the RGB notification
+      channel and an animation value left active plays over the next blip. Forced
+      unconditionally so a Fast Falling / Fast Rising cannot stick.
+    action: select.select_option
+    target:
+      entity_id: select.office_ceiling_fan_switch_led_effect
+    data:
+      option: "Solid"
