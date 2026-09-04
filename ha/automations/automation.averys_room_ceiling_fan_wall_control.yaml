@@ -14,10 +14,8 @@ description: >-
   single tap and both paddle double taps fire that blip immediately (the intended
   speed, or the off cue for down), so the bar lights without waiting for the fan's
   Matter round-trip; other fan changes blip once the speed settles. The bar rests
-  dark at all times; before each blip the
-  automation snapshots the RGB bar and the LED-effect select into
-  scene.averys_room_ceiling_fan_led_restore so the blip restores whatever it was
-  showing (dark today; a future status colour transparently). None of this works
+  dark at all times - the blip script turns it off and forces the effect channel
+  back to Solid when it finishes. None of this works
   while HA is down; paddle tap -> light on/off (cluster 6) and paddle hold -> dim
   (cluster 8) are Matter bindings and are independent.
 triggers:
@@ -77,24 +75,6 @@ actions:
                         state: "off"
                         alias: Fan currently off
                     then:
-                      - alias: Snapshot the bar, unless a blip is in flight
-                        note: >-
-                          Guarded on the blip being idle - it is mode:restart, so
-                          snapshotting mid-burst captures a blip colour as the
-                          resting state and leaves the bar stuck lit.
-                        if:
-                          - alias: No blip in flight
-                            condition: state
-                            entity_id: script.averys_room_ceiling_fan_led_blip
-                            state: "off"
-                        then:
-                          - alias: Snapshot the LED bar
-                            action: scene.create
-                            data:
-                              scene_id: averys_room_ceiling_fan_led_restore
-                              snapshot_entities:
-                                - light.averys_room_ceiling_fan_switch_led
-                                - select.averys_room_ceiling_fan_switch_led_effect
                       - alias: Blip the remembered speed now, before the fan Matter round-trip
                         action: script.turn_on
                         target:
@@ -109,24 +89,6 @@ actions:
                         data:
                           percentage: "{% set s = states('input_select.averys_room_ceiling_fan_last_speed') %}{{ {'low': 33, 'medium': 66, 'high': 100}.get(s, 66) }}"
                     else:
-                      - alias: Snapshot the bar, unless a blip is in flight
-                        note: >-
-                          Guarded on the blip being idle - it is mode:restart, so
-                          snapshotting mid-burst captures a blip colour as the
-                          resting state and leaves the bar stuck lit.
-                        if:
-                          - alias: No blip in flight
-                            condition: state
-                            entity_id: script.averys_room_ceiling_fan_led_blip
-                            state: "off"
-                        then:
-                          - alias: Snapshot the LED bar
-                            action: scene.create
-                            data:
-                              scene_id: averys_room_ceiling_fan_led_restore
-                              snapshot_entities:
-                                - light.averys_room_ceiling_fan_switch_led
-                                - select.averys_room_ceiling_fan_switch_led_effect
                       - alias: Blip the next speed now, before the fan Matter round-trip
                         action: script.turn_on
                         target:
@@ -161,24 +123,6 @@ actions:
                     state: multi_press_3
                     alias: Triple tap
                 sequence:
-                  - alias: Snapshot the bar's resting state, unless a blip is already in flight
-                    note: >-
-                      Guarded because the blip script is mode:restart - snapshotting
-                      mid-burst would capture the blip's own colour as the resting
-                      state and leave the bar stuck lit.
-                    if:
-                      - alias: No blip in flight
-                        condition: state
-                        entity_id: script.averys_room_ceiling_fan_led_blip
-                        state: "off"
-                    then:
-                      - alias: Snapshot the LED bar so the blip can put it back
-                        action: scene.create
-                        data:
-                          scene_id: averys_room_ceiling_fan_led_restore
-                          snapshot_entities:
-                            - light.averys_room_ceiling_fan_switch_led
-                            - select.averys_room_ceiling_fan_switch_led_effect
                   - alias: Blip the bar to show the current speed (no fan change)
                     action: script.turn_on
                     target:
@@ -194,24 +138,6 @@ actions:
             attribute: event_type
             state: multi_press_2
         sequence:
-          - alias: Snapshot the bar, unless a blip is in flight
-            note: >-
-              Guarded on the blip being idle - it is mode:restart, so snapshotting
-              mid-burst captures a blip colour as the resting state and leaves the
-              bar stuck lit.
-            if:
-              - alias: No blip in flight
-                condition: state
-                entity_id: script.averys_room_ceiling_fan_led_blip
-                state: "off"
-            then:
-              - alias: Snapshot the LED bar
-                action: scene.create
-                data:
-                  scene_id: averys_room_ceiling_fan_led_restore
-                  snapshot_entities:
-                    - light.averys_room_ceiling_fan_switch_led
-                    - select.averys_room_ceiling_fan_switch_led_effect
           - alias: Blip the off acknowledgement now, before the fan Matter round-trip
             action: script.turn_on
             target:
@@ -238,24 +164,6 @@ actions:
             attribute: event_type
             state: multi_press_2
         sequence:
-          - alias: Snapshot the bar, unless a blip is in flight
-            note: >-
-              Guarded on the blip being idle - it is mode:restart, so snapshotting
-              mid-burst captures a blip colour as the resting state and leaves the
-              bar stuck lit.
-            if:
-              - alias: No blip in flight
-                condition: state
-                entity_id: script.averys_room_ceiling_fan_led_blip
-                state: "off"
-            then:
-              - alias: Snapshot the LED bar
-                action: scene.create
-                data:
-                  scene_id: averys_room_ceiling_fan_led_restore
-                  snapshot_entities:
-                    - light.averys_room_ceiling_fan_switch_led
-                    - select.averys_room_ceiling_fan_switch_led_effect
           - alias: Blip the remembered speed now, before the fan Matter round-trip
             action: script.turn_on
             target:
@@ -295,24 +203,6 @@ actions:
                   entity_id: input_select.averys_room_ceiling_fan_last_speed
                 data:
                   option: "{{ speed }}"
-          - alias: Snapshot the bar's resting state, unless a blip is already in flight
-            note: >-
-              Guarded because the blip script is mode:restart - snapshotting
-              mid-burst would capture the blip's own colour as the resting state
-              and leave the bar stuck lit.
-            if:
-              - alias: No blip in flight
-                condition: state
-                entity_id: script.averys_room_ceiling_fan_led_blip
-                state: "off"
-            then:
-              - alias: Snapshot the LED bar so the blip can put it back
-                action: scene.create
-                data:
-                  scene_id: averys_room_ceiling_fan_led_restore
-                  snapshot_entities:
-                    - light.averys_room_ceiling_fan_switch_led
-                    - select.averys_room_ceiling_fan_switch_led_effect
           - alias: Blip the bar - unless a button branch already started an immediate blip
             note: >-
               The config single-tap and the up/down paddle double-tap branches
@@ -327,7 +217,7 @@ actions:
                 entity_id: script.averys_room_ceiling_fan_led_blip
                 state: "off"
             then:
-              - alias: Blip the bar (speed hue 5s, last-speed hue + fall for off), then it restores itself
+              - alias: Blip the bar (speed hue 5s, last-speed hue + fall for off), then it rests itself dark
                 action: script.turn_on
                 target:
                   entity_id: script.averys_room_ceiling_fan_led_blip

@@ -1,23 +1,22 @@
 alias: "Master Bedroom: Ceiling Fan LED Blip"
 description: >-
   Blips the Master Bedroom ceiling-fan switch LED bar to acknowledge a fan
-  change, then restores what the bar was showing before. A speed change shows
-  that speed's hue for 5s; when that change is the fan coming on FROM OFF it also
-  plays a Fast Rising sweep on the effect channel
-  (select.master_bedroom_ceiling_fan_switch_led_effect). Switching the fan off
-  shows the last recorded speed's hue plus a Fast Falling animation, held 2.5s.
-  Brightness is 75% by default and 25% while everyone is sleeping
-  (input_boolean.everyone_sleeping) to protect dark adaptation. Called via
-  script.turn_on from Master Bedroom: Ceiling Fan Wall Control. The button-press
-  branches (config single tap, up + down paddle double tap) call it immediately
-  with a blip_speed variable ('off' for the down double tap) so the bar lights
-  without waiting for the fan's Matter round-trip; the fan-settled branch calls
-  it with no variables (reads the fan) and only when no blip is already in
-  flight. The caller snapshots the RGB bar and the effect select into
-  scene.master_bedroom_ceiling_fan_led_restore first; the tail re-asserts that
-  scene, falling back to light.turn_off when it does not exist (e.g. a manual
-  run). mode: restart so rapid changes keep the bar lit and reset the timer, and
-  a fan-off mid-speed-blip swaps straight to the off acknowledgement.
+  change, then rests it dark again. A speed change shows that speed's hue for 5s;
+  when that change is the fan coming on FROM OFF it also plays a Fast Rising sweep
+  on the effect channel (select.master_bedroom_ceiling_fan_switch_led_effect).
+  Switching the fan off shows the last recorded speed's hue plus a Fast Falling
+  animation, held 2.5s. Brightness is 75% by default and 25% while everyone is
+  sleeping (input_boolean.everyone_sleeping) to protect dark adaptation. Called
+  via script.turn_on from Master Bedroom: Ceiling Fan Wall Control. The
+  button-press branches (config single tap, up + down paddle double tap) call it
+  immediately with a blip_speed variable ('off' for the down double tap) so the
+  bar lights without waiting for the fan's Matter round-trip; the fan-settled
+  branch calls it with no variables (reads the fan) and only when no blip is
+  already in flight. The tail turns the bar off and forces the effect channel
+  back to Solid - the bar has no persistent resting state, so there is nothing to
+  snapshot or restore. mode: restart so rapid changes keep the bar lit and reset
+  the timer, and a fan-off mid-speed-blip swaps straight to the off
+  acknowledgement.
 mode: restart
 fields:
   blip_speed:
@@ -29,7 +28,7 @@ sequence:
     variables:
       speed: "{% set bs = blip_speed | default('') %}{% if bs %}{{ bs }}{% elif is_state('fan.master_bedroom_ceiling_fan', 'off') %}off{% else %}{% set p = state_attr('fan.master_bedroom_ceiling_fan', 'percentage') | int(0) %}{% if p < 45 %}low{% elif p < 78 %}medium{% else %}high{% endif %}{% endif %}"
       level: "{{ 25 if is_state('input_boolean.everyone_sleeping', 'on') else 75 }}"
-  - alias: Show the acknowledgement colour, then the tail restores the bar
+  - alias: Show the acknowledgement colour, then the tail rests the bar dark
     choose:
       - alias: Fan is off - last speed's hue with a fast-falling fade
         conditions:
@@ -70,8 +69,8 @@ sequence:
           call this script before fan.set_percentage lands, so the fan entity
           still reads 'off' here - that is the signal for an on-from-off
           transition vs a speed change while already running (config advance
-          reads 'on'). Mirror of the Fast Falling on the off blip; the restore
-          scene puts the effect select back to Solid.
+          reads 'on'). Mirror of the Fast Falling on the off blip; the tail
+          forces the effect select back to Solid afterwards.
         if:
           - alias: Fan is still off (blip fired before the fan turned on)
             condition: state
@@ -86,18 +85,17 @@ sequence:
               option: "Fast Rising"
       - alias: Hold the speed blip
         delay: "00:00:05"
-  - alias: Restore the bar to what it was showing before the blip
-    if:
-      - alias: A restore snapshot exists
-        condition: template
-        value_template: "{{ states.scene.master_bedroom_ceiling_fan_led_restore is not none }}"
-    then:
-      - alias: Re-assert the pre-blip state (RGB bar + effect channel)
-        action: scene.turn_on
-        target:
-          entity_id: scene.master_bedroom_ceiling_fan_led_restore
-    else:
-      - alias: No snapshot (e.g. a manual run) - just turn the bar off
-        action: light.turn_off
-        target:
-          entity_id: light.master_bedroom_ceiling_fan_switch_led
+  - alias: Rest the bar dark
+    action: light.turn_off
+    target:
+      entity_id: light.master_bedroom_ceiling_fan_switch_led
+  - alias: Effect channel always rests on Solid
+    note: >-
+      Solid is the only valid resting value - Off blanks the RGB notification
+      channel and an animation value left active plays over the next blip. Forced
+      unconditionally so a Fast Falling / Fast Rising cannot stick.
+    action: select.select_option
+    target:
+      entity_id: select.master_bedroom_ceiling_fan_switch_led_effect
+    data:
+      option: "Solid"
