@@ -21,6 +21,8 @@ Breeze 40837 RF receiver, bonding line/load, swapping the switch) is documented
 separately in the "Harbor Breeze to Inovelli" work order; this guide covers only
 the Home Assistant side once both devices are paired.
 
+## Architecture
+
 Five mechanisms connect the wall switch to the fan/light:
 
 | Function | Mechanism | Works with HA down? |
@@ -34,8 +36,6 @@ Five mechanisms connect the wall switch to the fan/light:
 The whole-room off/on gesture is a paddle **double-tap** (`multi_press_2` on the
 up/down paddle event entity), handled by the HA automation. Tap → light and
 hold → light are Matter bindings and are independent of it.
-
-## Architecture
 
 ```
                        Avery's Room ceiling
@@ -83,19 +83,16 @@ hold → light are Matter bindings and are independent of it.
 - **Two bindings: On/Off (cluster 6) and Level Control (cluster 8).** Cluster 6 is
   paddle tap → light on/off; cluster 8 is paddle press-and-hold → smooth local dim,
   release stops the ramp. Cluster 8 only emits Move/Step while `Dimming Speed
-  (Simulated)` is a non-`Instant` duration — both rooms run `2s`. See `LESSONS.md`
-  for the values tested and rejected.
+  (Simulated)` is a non-`Instant` duration — [Step 3](#step-3--switch-vtm30-sn-parameters)
+  sets the value; `LESSONS.md` has the values tried and rejected.
 
 - **Paddle double-tap → whole-room off/on (HA automation).** `multi_press_2` on
   `event.<prefix>_ceiling_fan_switch_button_down` turns fan and light off;
-  `multi_press_2` on `…_button_up` sets the fan to the remembered speed
-  (`input_select.<prefix>_ceiling_fan_last_speed`) and turns the light on. Each
-  branch gates on the event's `event_type` being `multi_press_2`, so a single tap
-  or a hold does not match. Double-tap (not hold) leaves the cluster 8 hold-to-dim
-  binding free; the switch's `300ms` Button Delay already covers multi-tap
-  detection, so it costs no extra latency. `mode: queued` plus idempotent actions
-  make a stray duplicate a no-op. HA-only — a paddle double-tap does nothing with
-  HA down.
+  `multi_press_2` on `…_button_up` sets the fan to the remembered speed and turns
+  the light on. Each branch gates on `event_type` being `multi_press_2`, so a
+  single tap or a hold does not match — which is what leaves the cluster 8
+  hold-to-dim binding free. The switch's `300ms` Button Delay already covers
+  multi-tap detection, so the double-tap costs no extra latency.
 
 - **Binding fires on physical presses only.** A command sent to the switch from HA
   or Apple Home does not propagate over the binding, and bound state does not
@@ -124,31 +121,27 @@ hold → light are Matter bindings and are independent of it.
 
 - **The LED bar rests dark and only blips on a change — at all hours.** Over
   Matter the bar is one RGB light, with no per-segment control. At rest it is
-  dark whatever the fan is doing; it lights transiently to acknowledge a change:
-  the speed's hue for 5 s on a speed change, or the last running speed's hue for
-  2.5 s plus a `Fast Falling` animation when the fan is switched off. A fan coming
-  on *from off* also carries a `Fast Rising` sweep. The off blip exists because a
-  dark bar gives a double-tap-off no confirmation otherwise; the falling / rising
-  animations read as "powering down / spinning up". Full spec:
+  dark whatever the fan is doing; it lights transiently to acknowledge a fan
+  change and then goes dark again. The off blip exists because a dark bar
+  otherwise gives a switch-off no confirmation; the falling / rising animations
+  read as "powering down / spinning up". Colours, holds, and animations:
   [Scale reference](#scale-reference).
 
-- **Two blips drive a second channel — the LED-effect select.** The RGB
-  notification channel (`light.<prefix>_ceiling_fan_switch_led`) sets colour and
-  brightness but has no animation. Inovelli's base LED-effect parameter, exposed as
-  `select.<prefix>_ceiling_fan_switch_led_effect`, has the animation list but plays
-  in the fixed `LED Color` param. The off blip uses both at once (the last speed's
-  hue + `Fast Falling`); the on-from-off blip uses the speed hue + `Fast Rising`.
-  On-from-off
-  is detected by the fan entity still reading `off` when the blip fires — the wall
-  paths call the blip before `fan.set_percentage` lands, so a config advance (fan
-  already `on`) gets no sweep. The select's **resting value is `Solid`, not `Off`**
-  — `Off` blanks the RGB notification channel too, so the speed-hue blips would
-  stop rendering. `Solid` at `LED Intensity` 0 is still dark at rest.
+- **Two channels: RGB colour + LED-effect animation.** The RGB notification
+  channel (`light.<prefix>_ceiling_fan_switch_led`) sets colour and brightness but
+  has no animation; Inovelli's base LED-effect parameter
+  (`select.<prefix>_ceiling_fan_switch_led_effect`) has the animation list but
+  plays in the fixed `LED Color` param. The fan-off and fan-on-from-off blips use
+  both at once. Its **resting value is `Solid`, not `Off`** — `Off` blanks the RGB
+  notification channel too, so the blips stop rendering; `Solid` at `LED Intensity`
+  0 is still dark at rest. On-from-off is detected by the fan entity still reading
+  `off` when the blip fires (the wall paths call it before `fan.set_percentage`
+  lands), so a config advance gets no sweep.
 
-- **Blip brightness follows the room's sleep boolean: 75 % awake, 25 % asleep.**
-  The blip script reads `input_boolean.<sleep>` once at fire time to pick `level`.
-  This is the only place the sleep boolean touches the LED path — the automation
-  has no sleep trigger or branch.
+- **Blip brightness follows the room's sleep boolean.** The blip script reads
+  `input_boolean.<sleep>` once at fire time to pick `level` (values in
+  [Scale reference](#scale-reference)). This is the only place the sleep boolean
+  touches the LED path — the automation has no sleep trigger or branch.
 
 - **The blip lives in a per-room script, not an inline `delay`.** The wall-control
   automation is `mode: queued` and shares that queue with the config-button
@@ -156,8 +149,8 @@ hold → light are Matter bindings and are independent of it.
   `script.<prefix>_ceiling_fan_led_blip` (`mode: restart`) runs the hold outside
   that queue; the automation fires it with `script.turn_on` and returns
   immediately. `restart` also gives the right feel: cycling low→medium→high keeps
-  the bar lit and resets the timer, so it darkens 5 s after you *stop*, and a
-  fan-off landing mid-speed-blip swaps straight to the off ack.
+  the bar lit and resets the timer, so it darkens once you *stop*, and a fan-off
+  landing mid-speed-blip swaps straight to the off ack.
 
 - **Button-press branches fire the blip immediately; the fan-settled branch is the
   fallback.** The `fan` trigger only fires after `fan.set_percentage` round-trips
@@ -185,13 +178,13 @@ hold → light are Matter bindings and are independent of it.
 - **The fan trigger is a `state` trigger on the `percentage` attribute.** The
   Matter fan reports `state: on` before `percentage` populates, so triggering on
   the attribute means the value is real when the branch runs — no settle delay.
-  Bands are widened (`< 45` = low, `< 78` = medium, else high) to absorb the fan's
-  percentage rounding around 33 / 66 / 100. See `LESSONS.md`.
+  The speed bands are widened to absorb the fan's percentage rounding
+  ([Scale reference](#scale-reference); `LESSONS.md` for why).
 
 ## Prerequisites
 
 - Home Assistant with the Matter integration and a matter.js-based Matter
-  Server (binding UI is standard, not beta, since the June 2026 rebuild)
+  Server (the binding UI is a standard, non-beta feature there)
 - A Thread border router HA can see; both devices on the same Thread network
   (verify `sensor.*_thread_network_name` matches on both)
 - Both devices commissioned to the Home Assistant Matter fabric (not only Apple
@@ -236,7 +229,7 @@ Entities renamed to purpose-based IDs (see `standards/naming.md`):
 spec-compliant Mode Select endpoints leaves the pre-change entities behind as dead
 duplicates: they read `unavailable` (`restored`) after an HA restart and a fresh
 entity (often `…_2`-suffixed) carries the live value. On the VTM36 this is
-firmware `1.0.1r1`; on the VTM30-SN it dates to the June 2026 matter.js rebuild.
+firmware `1.0.1r1`; on the VTM30-SN it came with the matter.js Matter Server.
 On both devices, delete the dead originals and rename the surviving `…_2` entity
 back to the clean slug:
 
@@ -246,10 +239,12 @@ back to the clean slug:
 - VTM30-SN: `select.<prefix>_ceiling_fan_switch_smart_bulb_mode`, `…_led_color`,
   `…_led_effect`, and the `light.<prefix>_ceiling_fan_switch_led` bar.
 
-Only `light.<prefix>_ceiling_fan_switch_led` is referenced by an automation (the
-wall-control automation, twice) — if its slug changes, update that automation and
-its `ha/` mirror in the same pass. The rest are config entities nothing depends
-on, so those renames are safe on their own.
+Only `light.<prefix>_ceiling_fan_switch_led` and
+`select.<prefix>_ceiling_fan_switch_led_effect` are referenced by config — the
+blip script drives both — so if either slug changes, update
+`script.<prefix>_ceiling_fan_led_blip` and its `ha/` mirror in the same pass. The
+rest are config entities nothing depends on, so those renames are safe on their
+own.
 
 ## Step 2 — Canopy module (VTM36) parameters
 
@@ -295,8 +290,8 @@ Set physically during the install (paddle + config taps) and confirmed in HA:
 | Smart Bulb Mode | Enabled | Keeps the load permanently powered so the paddle emits Matter commands (events / bindings) instead of chasing the empty local relay. Required for the binding to fire. Live entity: `select.*_ceiling_fan_switch_smart_bulb_mode` = `Smart Bulb Enable`. |
 | Control of switch load | `Remote & paddle control` (default — **do not** change) | On the White series the outgoing On/Off binding is triggered by the paddle's local load action. Setting this to `Remote control only` (to stop the phantom `switch.*_ceiling_fan_switch_load_control` toggle) also kills the paddle → light binding, even with Smart Bulb Mode on. Leave it and accept the internal-relay toggle as the cost of a working binding. See `LESSONS.md`. Live entity: `select.*_ceiling_fan_switch_control_of_switch_load`. |
 | Dimming Speed (Simulated) | `2s` | End-to-end ramp time for a paddle press-and-hold over the cluster 8 (Level Control) binding — see [Step 4](#step-4--matter-binding-paddle--light). At `Instant` (default) a paddle hold emits no Move/Step and cluster 8 dimming does nothing. `2s` is the tested value on both rooms; see `LESSONS.md` for values tried and rejected. Live entity: `select.*_ceiling_fan_switch_dimming_speed_simulated`. |
-| LED bar color | Blue | Bedroom indicator. The wall-control automation drives colour via the light entity; the `LED Color` parameter is the fallback if the light-entity route ever stops holding, and it is the colour the `LED Effect` animation plays in. |
-| `LED Effect` (`select.*_ceiling_fan_switch_led_effect`) | `Solid` | Resting value. **Not `Off`** — `Off` blanks the RGB notification channel and the automation's blips stop rendering. `Solid` at `LED Intensity` 0 is still dark at rest. The fan-off blip flips this to `Fast Falling` (~2.5 s) and the fan-on-from-off blip to `Fast Rising` (~5 s); the blip's tail forces it back to `Solid`. |
+| LED bar color | Blue | Bedroom indicator. The blip script drives colour via the light entity; the `LED Color` parameter is the fallback if the light-entity route ever stops holding, and it is the colour the `LED Effect` animation plays in. |
+| `LED Effect` (`select.*_ceiling_fan_switch_led_effect`) | `Solid` | Resting value. **Not `Off`** — `Off` blanks the RGB notification channel and the blips stop rendering. `Solid` at `LED Intensity` 0 is still dark at rest. A blip flips this to `Fast Falling` / `Fast Rising` and the blip's tail forces it back to `Solid` ([Scale reference](#scale-reference)). |
 | `LED Intensity(On)` **and** `LED Intensity(Off)` | `0` | The switch keeps an internal on/off state (toggled by the paddle even in Smart Bulb Mode — this is what fires the binding, see the `Control of switch load` row) and lights the bar to `LED Intensity(On)` / `(Off)` for it. Zeroing both means that native indicator never shows, so the bar reflects *only* the fan-speed automation. Each is exposed **twice** — a **select** and a `… (Load Control)` **number** — set all four to `0` per switch. The two `(Load Control)` numbers occasionally re-read their factory defaults (`33` / `1`) after a Matter Server restart; re-zero them if the bar starts glowing faintly at rest. |
 
 ## Step 4 — Matter binding: paddle → light
@@ -407,18 +402,17 @@ truth for the blip; other sections reference it.
 
 | Fan | RGB hue (`hs_color`) | Effect select | Blip hold | Blip brightness (awake / asleep) |
 |---|---|---|---|---|
-| off | last running speed's hue | `Fast Falling` | 2.5 s | 75% / 25% |
-| on from off | that speed's hue | `Fast Rising` | 5 s | 75% / 25% |
-| speed change (already on) | that speed's hue | — (`Solid`, untouched) | 5 s | 75% / 25% |
+| off | last running speed's hue | `Fast Falling` | 2 s | 75% / 25% |
+| on from off | that speed's hue | `Fast Rising` | 2 s | 75% / 25% |
+| speed change (already on) | that speed's hue | — (`Solid`, untouched) | 2 s | 75% / 25% |
 
 Speed hues: teal low 175 / blue medium 220 / violet high 265. On-from-off is
 detected by the fan entity still reading `off` when the blip fires.
 
-"Dark at rest" needs: the blip's tail does `light.turn_off` on the bar and
-`select.select_option` `Solid` on the effect select, **and** the switch's
-`LED Intensity(Off)` param is `0` so the native fallback (HA down) is also dark.
-The effect select rests on `Solid`, not `Off` — `Off` blanks the RGB
-notification channel and the speed blips stop rendering.
+"Dark at rest" needs both halves: the blip's tail does `light.turn_off` on the
+bar and `select.select_option` `Solid` on the effect select, **and** the switch's
+`LED Intensity(Off)` param is `0` (Step 3) so the native fallback with HA down is
+also dark.
 
 ## Deferred — LED-bar status colour and snapshot/restore
 
@@ -511,13 +505,10 @@ the automation `id`, and the friendly-name prefix in `alias` / `description`.
 After editing any room, `diff` its `ha/` mirror against another room's to confirm
 nothing else diverged — any other difference is a bug.
 
-Per-room copies rather than a blueprint: the blip script must be `mode: restart`
-per room (a shared script would have to be `mode: parallel`, which breaks the
-keep-lit-through-a-burst behaviour within a room), and a templated
-`target.entity_id` in one shared automation would leave the GUI editor showing
-only an inputs form — against the house preference for GUI-editable automations.
-There is also no blueprint convention in this repo. Four self-contained copies
-kept honest by the parity check is the accepted cost.
+Per-room copies, not a blueprint: the blip script has to be `mode: restart` per
+room (a shared one would be `mode: parallel`, breaking the keep-lit-through-a-burst
+behaviour), and a templated `target.entity_id` in a shared automation leaves the
+GUI editor showing only an inputs form.
 
 ## Updating the canopy firmware (1.0.1r1)
 
@@ -556,11 +547,11 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
    returned them to `2.5`.
 8. **Verify**: paddle on/off; config-button speed cycle (1 tap) — the LED bar
    lights the speed's hue almost immediately (before the fan spins up) and holds
-   ~5 s; a 1-tap resume from off adds a `Fast Rising` sweep, a config double-tap
-   off shows the last speed's hue + `Fast Falling` for ~2.5 s, and both return to dark (effect
-   select back to `Solid`); the triple-tap peek showing the current speed
-   without moving the fan; a change made while the room's sleep boolean is on
-   blipping dimmer (25 %); and the light riding down to `1%` on the HA slider
+   briefly; a 1-tap resume from off adds a `Fast Rising` sweep, a config
+   double-tap off shows the last speed's hue + `Fast Falling`, and both return to
+   dark (effect select back to `Solid`); the triple-tap peek showing the current
+   speed without moving the fan; a change made while the room's sleep boolean is
+   on blipping dimmer (25 %); and the light riding down to `1%` on the HA slider
    without cutting out.
 
 ## Security summary
@@ -568,7 +559,7 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 | Control | Detail |
 |---|---|
 | Fabric membership | Both devices are commissioned to the Home Assistant Matter fabric and the Apple Home fabric (multi-admin). The binding is written by HA as a fabric admin. |
-| Binding scope | The paddle → light binding is node 11 → node 10 endpoint 1, On/Off (cluster 6) only. The corresponding ACL entry on the canopy grants the switch operate (not administer) access. |
+| Binding scope | The paddle → light bindings are node 11 → node 10 endpoint 1 only: On/Off (cluster 6) and Level Control (cluster 8). The corresponding ACL entry on the canopy grants the switch operate (not administer) access. |
 | Blast radius if the switch were compromised | It can turn the fan light on and off and change its brightness. It has no Load, no access to other devices, and no administer rights on the canopy. |
 | Local control | The switch's config-button programming menu is reachable by anyone physically present (config-button hold). This is Inovelli firmware behaviour and is not exposed over the network. |
 

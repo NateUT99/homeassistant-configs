@@ -1,11 +1,12 @@
 alias: "Master Bedroom: Ceiling Fan LED Blip"
 description: >-
   Blips the Master Bedroom ceiling-fan switch LED bar to acknowledge a fan
-  change, then rests it dark again. A speed change shows that speed's hue for 5s;
-  when that change is the fan coming on FROM OFF it also plays a Fast Rising sweep
-  on the effect channel (select.master_bedroom_ceiling_fan_switch_led_effect).
-  Switching the fan off shows the last recorded speed's hue plus a Fast Falling
-  animation, held 2.5s. Brightness is 75% by default and 25% while everyone is
+  change, then rests it dark again. Every blip holds 2s. A speed change shows that
+  speed's hue; when that change is the fan coming on FROM OFF it also plays a Fast
+  Rising sweep on the effect channel
+  (select.master_bedroom_ceiling_fan_switch_led_effect). Switching the fan off
+  shows the last recorded speed's hue plus a Fast Falling animation. Brightness is
+  75% by default and 25% while everyone is
   sleeping (input_boolean.everyone_sleeping) to protect dark adaptation. Called
   via script.turn_on from Master Bedroom: Ceiling Fan Wall Control. The
   button-press branches (config single tap, up + down paddle double tap) call it
@@ -52,9 +53,9 @@ sequence:
             data:
               option: "Fast Falling"
           - alias: Hold while the fall animation plays
-            delay: "00:00:02.5"
+            delay: "00:00:02"
     default:
-      - alias: Speed change - that speed's hue for 5s
+      - alias: Speed change - that speed's hue
         action: light.turn_on
         target:
           entity_id: light.master_bedroom_ceiling_fan_switch_led
@@ -84,7 +85,7 @@ sequence:
             data:
               option: "Fast Rising"
       - alias: Hold the speed blip
-        delay: "00:00:05"
+        delay: "00:00:02"
   - alias: Rest the bar dark
     action: light.turn_off
     target:
