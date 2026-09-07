@@ -1,0 +1,85 @@
+id: "1788805194163"
+alias: "Household: Vacuum Away Catch-Up"
+description: >-
+  Cleans the whole house once no one has been home for 18 hours, covering the
+  gap that opens on an extended absence: the evening pass never fires because
+  everyone_sleeping is only ever set at real bedtime, and the daytime pass
+  only fires on a departure edge, which is long gone by day 2 of a trip. Runs
+  at 11:00 daily for as long as the house stays empty -- max fan speed,
+  mopping disabled (the dock can't refill its water tank unattended),
+  covering the entire map via vacuum.start rather than a segment list. Marks
+  both zones' daily-ran flags on command, since nothing docks a run when no
+  one is home to interrupt it. Stops on its own the moment anyone is home; no
+  separate handoff back to the normal schedule is needed. See
+  guides/vacuum_cleaning_routine.md.
+triggers:
+  - trigger: time
+    at: "11:00:00"
+    alias: 11:00am daily
+conditions:
+  - condition: state
+    entity_id: zone.home
+    state: "0"
+    for:
+      hours: 18
+    alias: House has been empty for 18 hours
+  - condition: state
+    entity_id: input_boolean.vacuum_routine_pause
+    state: "off"
+    alias: Vacuum routine is not paused
+  - condition: state
+    entity_id: vacuum.living_room_vacuum
+    state: docked
+    alias: Vacuum is docked, not mid-job
+  - condition: state
+    entity_id: binary_sensor.living_room_vacuum_cleaning
+    state: "off"
+    alias: Vacuum isn't mid-clean (e.g. an autonomous recharge)
+actions:
+  - alias: Set active zone to away
+    action: input_select.select_option
+    target:
+      entity_id: input_select.vacuum_active_zone
+    data:
+      option: away
+  - alias: Set max fan speed for whole-house cleaning
+    action: vacuum.set_fan_speed
+    target:
+      entity_id: vacuum.living_room_vacuum
+    data:
+      fan_speed: max
+  - alias: Disable mopping -- dock can't refill water unattended
+    action: select.select_option
+    target:
+      entity_id: select.living_room_vacuum_mop_intensity
+    data:
+      option: "off"
+  - alias: Start whole-house clean
+    action: vacuum.start
+    target:
+      entity_id: vacuum.living_room_vacuum
+    note: >-
+      Deliberately not app_segment_clean -- this is the only job that wants
+      the entire map, and a stale segment list would silently no-op after a
+      Roborock app-side merge (LESSONS.md). Segment 28 (Stairs) is excluded
+      by the virtual wall placed in front of it in the Roborock app, not by
+      a segment list.
+  - alias: Mark both zones ran today
+    action: input_boolean.turn_on
+    target:
+      entity_id:
+        - input_boolean.vacuum_ran_daytime
+        - input_boolean.vacuum_ran_evening
+    note: >-
+      Set on command -- nothing docks a run when no one is home to interrupt
+      it, so there is no partial-completion case to distinguish, same
+      reasoning as the evening zone's own flag.
+  - alias: Notify that whole-house away cleaning started
+    action: notify.send_message
+    target:
+      entity_id: notify.nates_iphone
+    data:
+      title: Vacuum
+      message: No one's been home for 18 hours -- started a whole-house clean.
+mode: single
+category: 01M0XF7RJK5EX3A4YPNEX7X3DG
