@@ -51,9 +51,14 @@ integration error it would introduce.
 **`total_energy_received` is mapped but idle.** There is no solar or export, so it stays at
 `0.0`. The dashboard pairs it automatically and it is ready if on-site generation is added.
 
-**No per-device breakdown.** The EAGLE reads the revenue meter only. Individual-device
-consumption in the dashboard requires separate per-circuit or per-plug energy sensors added
-under "Individual devices".
+**Individual devices.** The EAGLE reads the revenue meter only, so per-device breakdown
+comes from each device's own energy sensor added under "Individual devices". The washer
+(`lg_thinq`) reports `energy_today` with `state_class: total` and a midnight `last_reset` —
+the correct shape for this section, since HA stitches the daily resets into a continuous
+long-term statistic. Only `energy_today` is added; `energy_yesterday`/`energy_this_month`/
+`energy_last_month` are the same underlying data at coarser windows and would double-count
+if also added. The dryer exposes no energy sensor via either the official `lg_thinq`
+integration or the HACS `ha-smartthinq-sensors` alternative, so it can't be tracked here.
 
 ---
 
@@ -154,6 +159,7 @@ dashboard's cost figure track the real bill.
 | Household Energy Monitor Total energy delivered | `sensor.household_energy_monitor_total_energy_delivered` | Sensor (`rainforest_eagle`) — kWh, grid-consumption statistic |
 | Household Energy Monitor Total energy received | `sensor.household_energy_monitor_total_energy_received` | Sensor (`rainforest_eagle`) — kWh, export statistic (idle, no generation) |
 | Grid Consumption | Energy Dashboard grid source | `.storage/energy` — consumed energy = Total energy delivered; fixed price per Reference Values |
+| Washer | Energy Dashboard individual device | `.storage/energy` — consumed energy = `sensor.utility_room_washer_energy_today` (`lg_thinq`) |
 
 ---
 
