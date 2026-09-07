@@ -1,0 +1,13 @@
+# Generac MobileLink generator monitoring. Entity naming and diagnostic
+# entity visibility documented in guides/generac.md.
+
+template:
+  - trigger:
+      - trigger: state
+        entity_id: sensor.outside_home_generator_generac_959903_status
+        to: "Running"
+    sensor:
+      - name: "Home Generator Last Ran"
+        unique_id: outside_home_generator_last_ran
+        state: "{{ now().isoformat() }}"
+        device_class: timestamp
