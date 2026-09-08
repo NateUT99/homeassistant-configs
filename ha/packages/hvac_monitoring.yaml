@@ -1,0 +1,84 @@
+# HVAC daily runtime/cycle tracking, derived from climate.living_room_thermostat's
+# hvac_action attribute (the Aqara W200 exposes no runtime sensor of its own).
+# Architecture and accuracy limits documented in guides/hvac_monitoring.md.
+#
+# Deployed as a package: /config/packages/hvac_monitoring.yaml on HA, loaded via
+# `homeassistant: packages: !include_dir_named packages` in configuration.yaml.
+
+template:
+  - binary_sensor:
+      - name: "Household HVAC Cooling"
+        unique_id: household_hvac_cooling
+        device_class: running
+        availability: "{{ has_value('climate.living_room_thermostat') }}"
+        state: "{{ state_attr('climate.living_room_thermostat', 'hvac_action') == 'cooling' }}"
+      - name: "Household HVAC Heating"
+        unique_id: household_hvac_heating
+        device_class: running
+        availability: "{{ has_value('climate.living_room_thermostat') }}"
+        state: "{{ state_attr('climate.living_room_thermostat', 'hvac_action') == 'heating' }}"
+  - sensor:
+      - name: "Household HVAC Cooling Average Cycle Today"
+        unique_id: household_hvac_cooling_average_cycle_today
+        unit_of_measurement: min
+        state_class: measurement
+        availability: "{{ states('sensor.household_hvac_cooling_cycles_today') | int(0) > 0 }}"
+        state: >-
+          {% set cycles = states('sensor.household_hvac_cooling_cycles_today') | int(1) %}
+          {% set hours = states('sensor.household_hvac_cooling_runtime_today') | float(0) %}
+          {{ (hours * 60 / cycles) | round(1) }}
+      - name: "Household HVAC Heating Average Cycle Today"
+        unique_id: household_hvac_heating_average_cycle_today
+        unit_of_measurement: min
+        state_class: measurement
+        availability: "{{ states('sensor.household_hvac_heating_cycles_today') | int(0) > 0 }}"
+        state: >-
+          {% set cycles = states('sensor.household_hvac_heating_cycles_today') | int(1) %}
+          {% set hours = states('sensor.household_hvac_heating_runtime_today') | float(0) %}
+          {{ (hours * 60 / cycles) | round(1) }}
+
+# history_stats matches on binary_sensor STATE, not the climate entity's hvac_action
+# attribute directly — hence the template layer above. state_class: total_increasing
+# is only configurable here (the config-flow UI doesn't expose it) and is what makes
+# these sensors accumulate as permanent daily-total long-term statistics.
+sensor:
+  - platform: history_stats
+    name: "Household HVAC Cooling Runtime Today"
+    unique_id: household_hvac_cooling_runtime_today
+    entity_id: binary_sensor.household_hvac_cooling
+    state: "on"
+    type: time
+    start: "{{ today_at() }}"
+    duration:
+      hours: 24
+    state_class: total_increasing
+  - platform: history_stats
+    name: "Household HVAC Heating Runtime Today"
+    unique_id: household_hvac_heating_runtime_today
+    entity_id: binary_sensor.household_hvac_heating
+    state: "on"
+    type: time
+    start: "{{ today_at() }}"
+    duration:
+      hours: 24
+    state_class: total_increasing
+  - platform: history_stats
+    name: "Household HVAC Cooling Cycles Today"
+    unique_id: household_hvac_cooling_cycles_today
+    entity_id: binary_sensor.household_hvac_cooling
+    state: "on"
+    type: count
+    start: "{{ today_at() }}"
+    duration:
+      hours: 24
+    state_class: total_increasing
+  - platform: history_stats
+    name: "Household HVAC Heating Cycles Today"
+    unique_id: household_hvac_heating_cycles_today
+    entity_id: binary_sensor.household_hvac_heating
+    state: "on"
+    type: count
+    start: "{{ today_at() }}"
+    duration:
+      hours: 24
+    state_class: total_increasing
