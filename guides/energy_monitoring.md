@@ -60,6 +60,13 @@ long-term statistic. Only `energy_today` is added; `energy_yesterday`/`energy_th
 if also added. The dryer exposes no energy sensor via either the official `lg_thinq`
 integration or the HACS `ha-smartthinq-sensors` alternative, so it can't be tracked here.
 
+The dishwasher's Third Reality plug (ZHA) reports `summation_delivered` — a lifetime kWh
+register with `state_class: total_increasing` already, so it feeds the dashboard directly
+with no daily-reset stitching needed (unlike the washer's `energy_today`). The plug's
+Metering only mode is enabled and Power-on behavior is set to On, so it acts as a pass-through
+meter rather than a switched outlet; the `switch.kitchen_dishwasher` on/off control is hidden
+in the UI to prevent accidentally power-cycling the dishwasher from a dashboard.
+
 ---
 
 ## Prerequisites
@@ -160,6 +167,9 @@ dashboard's cost figure track the real bill.
 | Household Energy Monitor Total energy received | `sensor.household_energy_monitor_total_energy_received` | Sensor (`rainforest_eagle`) — kWh, export statistic (idle, no generation) |
 | Grid Consumption | Energy Dashboard grid source | `.storage/energy` — consumed energy = Total energy delivered; fixed price per Reference Values |
 | Washer | Energy Dashboard individual device | `.storage/energy` — consumed energy = `sensor.utility_room_washer_energy_today` (`lg_thinq`) |
+| Dishwasher | Energy Dashboard individual device | `.storage/energy` — consumed energy = `sensor.kitchen_dishwasher_summation_delivered` (ZHA, Third Reality metering plug) |
+| Dishwasher Power | `sensor.kitchen_dishwasher_power` | Sensor (ZHA) — instantaneous W |
+| Dishwasher (switch, hidden) | `switch.kitchen_dishwasher` | ZHA — relay control, hidden from dashboards; plug runs in metering-only pass-through mode |
 
 ---
 
