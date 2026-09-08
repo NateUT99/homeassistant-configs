@@ -1,5 +1,5 @@
 # Documentation Standard
-*Version 1.0 — September 2026*
+*Version 1.1 — September 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.1 | September 2026 | Splits packages YAML out of `scripts/` into its own type, `ha/packages/` (§3.5) — packages have a real deployed location on the HA host, unlike shell scripts, but reversed authority from the automation/script mirror |
 | 1.0 | September 2026 | Initial release. Absorbs the documentation-format content previously inline in `CLAUDE.md`; adds the current-state rule (§5), the rationale-vs-history distinction (§6), the single-owner rule (§7), and length discipline (§8) |
 
 ---
@@ -58,13 +59,15 @@ organization (`standards/automations.md`), dashboard conventions (`standards/das
 ├── guides/
 │   └── <topic>.md         ← Implementation Guides
 ├── scripts/
-│   └── <name>.<ext>       ← Shell scripts and non-UI-editable YAML
+│   └── <name>.<ext>       ← Shell scripts, Python utilities
 ├── ha/
 │   ├── README.md          ← Mirror purpose, sync rule, snapshot distinction
 │   ├── automations/
-│   │   └── automation.<object_id>.yaml   ← Living mirror, kept in sync
-│   └── scripts/
-│       └── script.<object_id>.yaml       ← Living mirror, kept in sync
+│   │   └── automation.<object_id>.yaml   ← Living mirror, HA authoritative
+│   ├── scripts/
+│   │   └── script.<object_id>.yaml       ← Living mirror, HA authoritative
+│   └── packages/
+│       └── <name>.yaml                   ← Repo authoritative, deployed to /config/packages/
 └── snapshot/
     └── 2026-07-27-pre-move/  ← Frozen pre-move export (READ-ONLY — never modify)
 ```
@@ -146,9 +149,9 @@ be. Update the date when the build itself changes — not for typo fixes.
 
 ### 3.4 Scripts (`scripts/`)
 
-Files that don't fit the standards/guides model but belong in version control: shell scripts
-called by HA's `shell_command` integration, complex Jinja templates referenced by multiple
-automations, packages YAML not managed via the UI.
+Shell scripts and Python utilities that don't fit the standards/guides model but belong in
+version control: scripts called by HA's `shell_command` integration, standalone diagnostic
+or maintenance utilities.
 
 No prescribed structure — they are what they are. The conventions that apply:
 
@@ -156,6 +159,19 @@ No prescribed structure — they are what they are. The conventions that apply:
 - **Header comment explains intent:** what it does, what calls it, any prerequisites
 - **Security-relevant scripts cross-reference their guide:** a comment near the top points
   to the guide documenting the security model
+
+### 3.5 Packages (`ha/packages/`)
+
+HA packages YAML not manageable via the UI config flow (template sensors, `history_stats`,
+etc.) — see `CLAUDE.md` Mirror Discipline for why these live under `ha/` despite the repo,
+not HA, being authoritative for them.
+
+- **Filename matches the deployed name:** `ha/packages/hvac_monitoring.yaml` deploys to
+  `/config/packages/hvac_monitoring.yaml`
+- **Header comment explains intent and deployment:** what the package does, and the
+  deployed path, per the pattern in `ha/packages/litra_glow.yaml`
+- **Embedded in the guide, in full:** unlike automation/script YAML, package YAML has no
+  MCP-retrievable counterpart, so the guide's Steps section reproduces it in full (§3.3)
 
 ---
 

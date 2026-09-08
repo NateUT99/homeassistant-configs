@@ -30,7 +30,7 @@ Key design decisions:
 - `litra` requires USB HID access, which is only available to the logged-in user (`<your_username>`), so a targeted `sudo` rule allows `homeassistant` to run `litra` as `<your_username>` only
 - A `command_line` sensor (`sensor.office_key_light_status`) polls the device's actual state via `litra devices --json`, serving as the source of truth for the template light's `state`, `level`, and `temperature` templates — the light is no longer in optimistic mode. Each command handler also triggers an immediate sensor refresh so the UI stays in sync without waiting for the scheduled poll. See `LESSONS.md` ("Poll for state on command-line lights that can change out-of-band") for why polling was chosen over optimistic mode.
 - A composite `litra apply` command applies on/off, brightness, and temperature in a single SSH invocation, working around Home Assistant's template light convention where only one of `set_level` / `set_temperature` fires when both parameters are supplied to `light.turn_on`
-- All three HA-side config blocks (`shell_command`, `template`, `command_line`) live in a single package file (`scripts/litra_glow.yaml` in this repo, deployed to `/config/packages/litra_glow.yaml`) rather than inline in `configuration.yaml`, keeping the integration reviewable as one unit
+- All three HA-side config blocks (`shell_command`, `template`, `command_line`) live in a single package file (`ha/packages/litra_glow.yaml` in this repo, deployed to `/config/packages/litra_glow.yaml`) rather than inline in `configuration.yaml`, keeping the integration reviewable as one unit
 
 ---
 
@@ -265,7 +265,7 @@ homeassistant:
   packages: !include_dir_named packages
 ```
 
-in `configuration.yaml`. The package source is version-controlled at `scripts/litra_glow.yaml` in this repo (with `<mac-mini-hostname>` as a placeholder — substitute the real value when deploying).
+in `configuration.yaml`. The package source is version-controlled at `ha/packages/litra_glow.yaml` in this repo (with `<mac-mini-hostname>` as a placeholder — substitute the real value when deploying).
 
 ### Shell Command
 
@@ -566,8 +566,8 @@ The `light.turn_on` call uses `brightness_pct` and `color_temp_kelvin`. HA norma
 
 | Artifact | Entity ID | Type |
 | --- | --- | --- |
-| Office Desk Key Light | `light.office_desk_key_light` | Template light (package: `scripts/litra_glow.yaml`) |
-| Office Key Light Status | `sensor.office_key_light_status` | Command-line sensor (package: `scripts/litra_glow.yaml`) |
+| Office Desk Key Light | `light.office_desk_key_light` | Template light (package: `ha/packages/litra_glow.yaml`) |
+| Office Key Light Status | `sensor.office_key_light_status` | Command-line sensor (package: `ha/packages/litra_glow.yaml`) |
 | Office: Camera Lighting | `automation.office_camera_lighting` | Automation |
 | Office: Litra Status Refresh on HA Start | `automation.office_litra_status_refresh_on_ha_start` | Automation |
 
@@ -577,7 +577,7 @@ The `light.turn_on` call uses `brightness_pct` and `color_temp_kelvin`. HA norma
 
 | File | Location | Purpose |
 | --- | --- | --- |
-| Package config | `scripts/litra_glow.yaml` in this repo; deployed to `/config/packages/litra_glow.yaml` on HA | `shell_command`, template light, and status sensor definitions |
+| Package config | `ha/packages/litra_glow.yaml` in this repo; deployed to `/config/packages/litra_glow.yaml` on HA | `shell_command`, template light, and status sensor definitions |
 | Dispatch script | `scripts/litra_dispatch.sh` in this repo; deployed to `/usr/local/bin/litra_dispatch.sh` on Mac Mini | Command whitelist gatekeeper; includes composite `apply_composite` handler |
 | sudoers rule | `/etc/sudoers.d/homeassistant-litra` | Allows `homeassistant` to run `litra` as `<your_username>` |
 | SSH private key | `/config/.ssh/id_ed25519_litra` | HA's private key for authenticating to Mac Mini |

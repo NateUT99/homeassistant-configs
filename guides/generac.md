@@ -74,7 +74,7 @@ The Generac device also exposes connectivity, run/protection time, battery volta
 
 | Repo path | Deployed location | Purpose |
 |---|---|---|
-| `scripts/generac.yaml` | `/config/packages/generac.yaml` on the HA host | Trigger-based "last ran" template sensor |
+| `ha/packages/generac.yaml` | `/config/packages/generac.yaml` on the HA host | Trigger-based "last ran" template sensor |
 
 ## Related Documents
 

@@ -12,8 +12,8 @@ The repository serves four purposes:
 
 1. **Reference standards** that govern how the HA instance is structured (see `standards/naming.md` for entities, `standards/automations.md` for automations, `standards/documentation.md` for how the docs themselves are written)
 2. **Implementation guides** for custom integrations, written for the author's future reference and for sharing in HA community forums
-3. **Supporting scripts** that aren't UI-editable and live outside HA's entity registry (shell scripts, complex templates)
-4. **Living automation/script mirror** (`ha/`) — version-controlled YAML exports of every automation and script, kept in sync with HA each session
+3. **Supporting scripts** that aren't UI-editable and live outside HA's entity registry (shell scripts, Python utilities)
+4. **Living HA mirror** (`ha/`) — version-controlled copies of every automation, script, and HA package, kept in sync with HA each session
 
 The author has a security engineering background; security controls in any proposed implementation should be thorough, scoped to least privilege, and clearly explained — never glossed over.
 
@@ -26,11 +26,15 @@ The author has a security engineering background; security controls in any propo
 **The repo is the design and recovery reference.** HA is the authoritative source for automation and script YAML. The repo documents enough to understand, audit, and recreate each integration. This means:
 
 - **Implementation guides** explain architecture, design decisions, and the rationale behind non-obvious choices. They reference automations and scripts by entity ID; the live YAML is always retrievable via MCP. Guides do **not** embed automation/script YAML — that belongs in `ha/`.
-- **`configuration.yaml` entries** (not stored in HA, not retrievable via MCP) are documented in full in the relevant guide — these are the only YAML blocks that belong in a guide.
+- **`configuration.yaml` entries and HA packages** (neither stored in HA's storage registry, neither retrievable via MCP) are documented in full in the relevant guide — these are the only YAML blocks that belong in a guide.
 - **Shell scripts** invoked by HA `shell_command` integrations live in `scripts/` as the authoritative source.
+- **HA packages** (template sensors, `history_stats`, and other YAML not manageable via the UI) live in `ha/packages/` as the authoritative source — authored in the repo, deployed to `/config/packages/` on the host via `scp`.
 - Changes to HA and the repo happen in the same session and are kept in sync.
 
-**Automation/script mirror (`ha/`):** Every automation and script is also mirrored as YAML in `ha/automations/` and `ha/scripts/`. HA remains authoritative; the mirror is a downstream, human-readable, version-controlled copy used for recovery and diffing. The mirror is updated in the same session as any automation or script change (export via MCP → write file → commit). Updating the mirror is part of "done" for any automation/script work.
+**HA mirror (`ha/`):** Every automation and script is mirrored as YAML in `ha/automations/` and `ha/scripts/`; HA packages live in `ha/packages/`. The sync direction differs by subdirectory:
+
+- `ha/automations/`, `ha/scripts/` — **HA is authoritative.** Downstream, human-readable, version-controlled copies used for recovery and diffing. Updated in the same session as any automation/script change (export via MCP → write file → commit). Updating these is part of "done" for any automation/script work.
+- `ha/packages/` — **the repo is authoritative**, the reverse direction. There is no HA-storage registry entry to fetch back via MCP; the file in the repo is deployed to the host with `scp`, and a config reload or restart is what makes it live. See `guides/litra_glow.md` for the deploy pattern.
 
 **Snapshot (`snapshot/2026-07-27-pre-move/`):** A frozen, read-only point-in-time export from the old apartment captured before the move. It is a rebuild reference — consult it freely when replicating prior functionality. **Never write to it or update it.**
 
@@ -158,18 +162,39 @@ Push after each commit unless explicitly working on a sequence of related commit
 
 ## Mirror Discipline
 
-The `ha/` directory contains version-controlled YAML mirrors of every automation and script. This is downstream from HA — HA remains authoritative, the mirror is a copy for recovery and diffing.
+The `ha/` directory holds version-controlled copies of everything that has a real, deployed
+location on the HA host filesystem: automations, scripts, and packages. `ha/automations/`
+and `ha/scripts/` are downstream — HA remains authoritative, the mirror is a copy for
+recovery and diffing. `ha/packages/` runs the opposite direction — the repo is authoritative
+and the file is deployed *to* the host. Both live under `ha/` because both correspond to a
+real path under `/config` on the HA server; the direction of sync is documented per
+subdirectory, not implied by location. See [Source of Truth](#source-of-truth) for the full
+authority breakdown.
 
-**What's mirrored:** `ha/automations/` and `ha/scripts/` only. Helpers, scenes, and dashboards are not mirrored (they're either UI-editable in HA or covered by guides).
+**What's mirrored:** `ha/automations/`, `ha/scripts/`, and `ha/packages/` only. Helpers,
+scenes, and dashboards are not mirrored (they're either UI-editable in HA or covered by
+guides).
 
-**File naming:** `automation.<object_id>.yaml` and `script.<object_id>.yaml` — matching the frozen snapshot convention for easy comparison.
+**File naming:**
+- `ha/automations/automation.<object_id>.yaml`, `ha/scripts/script.<object_id>.yaml` —
+  matching the frozen snapshot convention for easy comparison
+- `ha/packages/<name>.yaml` — matching the deployed filename under `/config/packages/`
 
-**When to update:** Anytime an automation or script is created, modified, or deleted in HA, update the mirror in the same session:
+**When to update `ha/automations/` or `ha/scripts/`:** Anytime an automation or script is
+created, modified, or deleted in HA, update the mirror in the same session:
 1. Export from HA via `ha_config_get_automation` or `ha_config_get_script`
 2. Write/update/delete the corresponding file in `ha/automations/` or `ha/scripts/`
 3. Include the mirror update in the same commit as any guide or standards changes for that automation
 
-**What does NOT belong in `ha/`:** Do not write `configuration.yaml` entries, template sensors, or helper definitions here — those belong in the relevant guide or are HA-only artifacts.
+**When to update `ha/packages/`:** Anytime a package is created or changed:
+1. Write/update the file in `ha/packages/`
+2. Deploy via `scp` to `/config/packages/<name>.yaml` on the HA host
+3. Reload or restart HA (packages are not covered by any single reload service — see the
+   guide's Steps section for which components need which)
+4. Include the change in the same commit as the guide documenting it
+
+**What does NOT belong in `ha/`:** Do not write `configuration.yaml` entries or helper
+definitions here — those belong in the relevant guide or are HA-only artifacts.
 
 **Snapshot boundary:** `snapshot/2026-07-27-pre-move/` is a frozen archive of the old instance. It is a reference, not a mirror. Do not copy snapshot files into `ha/` as-is — the entity IDs and area names are from the old house. When replicating prior functionality, read the snapshot for logic and intent, then build fresh in the new HA and mirror the result.
 
@@ -283,13 +308,15 @@ Full rules, worked examples, and the pre-commit checklist: `standards/documentat
 ├── guides/
 │   └── <topic>.md         ← Implementation Guides
 ├── scripts/
-│   └── <name>.<ext>       ← Shell scripts and non-UI-editable YAML
+│   └── <name>.<ext>       ← Shell scripts, Python utilities
 ├── ha/
 │   ├── README.md          ← Mirror purpose, sync rule, snapshot distinction
 │   ├── automations/
-│   │   └── automation.<object_id>.yaml   ← Living mirror, kept in sync
-│   └── scripts/
-│       └── script.<object_id>.yaml       ← Living mirror, kept in sync
+│   │   └── automation.<object_id>.yaml   ← Living mirror, HA authoritative
+│   ├── scripts/
+│   │   └── script.<object_id>.yaml       ← Living mirror, HA authoritative
+│   └── packages/
+│       └── <name>.yaml                   ← Repo authoritative, deployed to /config/packages/
 └── snapshot/
     └── 2026-07-27-pre-move/  ← Frozen pre-move export (READ-ONLY — never modify)
 ```
