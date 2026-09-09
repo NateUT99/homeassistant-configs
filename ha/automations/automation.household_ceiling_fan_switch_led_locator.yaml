@@ -1,0 +1,268 @@
+id: "1788920021778"
+alias: "Household: Ceiling Fan Switch LED Locator"
+description: >-
+  Keeps the resting state of the three Inovelli ceiling-fan switch LED bars in
+  sync with presence and sleep, by recomputing each affected room via its
+  script.<prefix>_ceiling_fan_led_state whenever a relevant gate changes - or
+  script.<prefix>_ceiling_fan_led_blip_dim instead, when a change that newly
+  makes a room not-home-awake fires while that room's fan is already running
+  (one flash to acknowledge, then dark). Office is a non-bedroom room (see
+  guides/inovelli_switches.md) so only zone.home affects it - the sleep
+  triggers below skip it entirely. Master Bedroom and Avery's Room also depend
+  on input_boolean.everyone_sleeping; Avery's Room additionally depends on
+  input_boolean.avery_sleeping unless binary_sensor.avery_home_today has been
+  off for at least 8 hours - an instantaneous off would fire at the midnight
+  day-boundary while she's still physically asleep, so the 8h minimum protects
+  her through the night and school-day wake time while still catching the
+  multi-day-away case this exists for.
+  Fires 30s after HA start (to let Matter settle) to resync all three rooms
+  with no flash - a fresh restart has nothing to acknowledge.
+triggers:
+  - alias: HA started
+    trigger: homeassistant
+    event: start
+    id: ha_started
+  - alias: Someone enters the home zone
+    trigger: numeric_state
+    entity_id: zone.home
+    above: 0
+    id: someone_home
+  - alias: Last person leaves the home zone
+    trigger: numeric_state
+    entity_id: zone.home
+    below: 1
+    id: nobody_home
+  - alias: Everyone goes to sleep
+    trigger: switch.turned_on
+    target:
+      entity_id: input_boolean.everyone_sleeping
+    options:
+      behavior: each
+      for: "00:00:00"
+    id: sleep_on
+  - alias: Everyone wakes up
+    trigger: switch.turned_off
+    target:
+      entity_id: input_boolean.everyone_sleeping
+    options:
+      behavior: each
+      for: "00:00:00"
+    id: sleep_off
+  - alias: Avery goes to sleep
+    trigger: switch.turned_on
+    target:
+      entity_id: input_boolean.avery_sleeping
+    options:
+      behavior: each
+      for: "00:00:00"
+    id: avery_sleep_on
+  - alias: Avery wakes up
+    trigger: switch.turned_off
+    target:
+      entity_id: input_boolean.avery_sleeping
+    options:
+      behavior: each
+      for: "00:00:00"
+    id: avery_sleep_off
+  - alias: Avery becomes home today
+    trigger: state
+    entity_id: binary_sensor.avery_home_today
+    to: "on"
+    id: avery_home_on
+  - alias: Avery is no longer home today
+    trigger: state
+    entity_id: binary_sensor.avery_home_today
+    to: "off"
+    id: avery_home_off
+conditions: []
+actions:
+  - alias: Delay on startup to let Matter settle
+    if:
+      - condition: trigger
+        id:
+          - ha_started
+        alias: Triggered by HA start
+    then:
+      - delay:
+          seconds: 30
+        alias: Wait 30 seconds for Matter to settle
+  - alias: Route by trigger
+    choose:
+      - alias: HA started or someone arrived - recompute all three rooms, no flash
+        conditions:
+          - condition: trigger
+            id:
+              - ha_started
+              - someone_home
+            alias: Triggered by HA start or arrival
+        sequence:
+          - alias: Office
+            action: script.office_ceiling_fan_led_state
+          - alias: Master Bedroom
+            action: script.master_bedroom_ceiling_fan_led_state
+          - alias: Avery's Room
+            action: script.averys_room_ceiling_fan_led_state
+      - alias: Last person left - flash the fan's speed if it's running, otherwise just recompute
+        conditions:
+          - condition: trigger
+            id:
+              - nobody_home
+            alias: Triggered by the last departure
+        sequence:
+          - alias: Office
+            if:
+              - condition: state
+                entity_id: fan.office_ceiling_fan
+                state: "on"
+                alias: Office fan is on
+            then:
+              - alias: Flash the dim acknowledgement
+                action: script.office_ceiling_fan_led_blip_dim
+            else:
+              - alias: Recompute the steady LED state
+                action: script.office_ceiling_fan_led_state
+          - alias: Master Bedroom
+            if:
+              - condition: state
+                entity_id: fan.master_bedroom_ceiling_fan
+                state: "on"
+                alias: Master Bedroom fan is on
+            then:
+              - alias: Flash the dim acknowledgement
+                action: script.master_bedroom_ceiling_fan_led_blip_dim
+            else:
+              - alias: Recompute the steady LED state
+                action: script.master_bedroom_ceiling_fan_led_state
+          - alias: Avery's Room
+            if:
+              - condition: state
+                entity_id: fan.averys_room_ceiling_fan
+                state: "on"
+                alias: Avery's Room fan is on
+            then:
+              - alias: Flash the dim acknowledgement
+                action: script.averys_room_ceiling_fan_led_blip_dim
+            else:
+              - alias: Recompute the steady LED state
+                action: script.averys_room_ceiling_fan_led_state
+      - alias: Everyone went to sleep - flash the bedroom rooms' fans if running, otherwise recompute
+        conditions:
+          - condition: trigger
+            id:
+              - sleep_on
+            alias: Triggered by everyone-sleeping turning on
+        sequence:
+          - alias: Master Bedroom
+            if:
+              - condition: state
+                entity_id: fan.master_bedroom_ceiling_fan
+                state: "on"
+                alias: Master Bedroom fan is on
+            then:
+              - alias: Flash the dim acknowledgement
+                action: script.master_bedroom_ceiling_fan_led_blip_dim
+            else:
+              - alias: Recompute the steady LED state
+                action: script.master_bedroom_ceiling_fan_led_state
+          - alias: Avery's Room
+            if:
+              - condition: state
+                entity_id: fan.averys_room_ceiling_fan
+                state: "on"
+                alias: Avery's Room fan is on
+              - condition: not
+                alias: Currently not home and awake
+                conditions:
+                  - condition: numeric_state
+                    entity_id: zone.home
+                    above: 0
+                    alias: Someone home
+                  - condition: state
+                    entity_id: input_boolean.everyone_sleeping
+                    state: "off"
+                    alias: Everyone awake
+                  - condition: or
+                    alias: Avery's flag doesn't apply
+                    conditions:
+                      - condition: state
+                        entity_id: input_boolean.avery_sleeping
+                        state: "off"
+                        alias: Avery is not asleep
+                      - condition: state
+                        entity_id: binary_sensor.avery_home_today
+                        state: "off"
+                        for: "08:00:00"
+                        alias: Avery has not been home today for at least 8 hours
+            then:
+              - alias: Flash the dim acknowledgement
+                action: script.averys_room_ceiling_fan_led_blip_dim
+            else:
+              - alias: Recompute the steady LED state
+                action: script.averys_room_ceiling_fan_led_state
+      - alias: Everyone woke up - recompute the bedroom rooms, no flash
+        conditions:
+          - condition: trigger
+            id:
+              - sleep_off
+            alias: Triggered by everyone-sleeping turning off
+        sequence:
+          - alias: Master Bedroom
+            action: script.master_bedroom_ceiling_fan_led_state
+          - alias: Avery's Room
+            action: script.averys_room_ceiling_fan_led_state
+      - alias: Avery-specific sleep or home-today change entering a restriction - flash Avery's Room if its fan is running
+        conditions:
+          - condition: trigger
+            id:
+              - avery_sleep_on
+              - avery_home_on
+            alias: Triggered by Avery sleeping on or becoming home today
+        sequence:
+          - alias: Avery's Room
+            if:
+              - condition: state
+                entity_id: fan.averys_room_ceiling_fan
+                state: "on"
+                alias: Avery's Room fan is on
+              - condition: not
+                alias: Currently not home and awake
+                conditions:
+                  - condition: numeric_state
+                    entity_id: zone.home
+                    above: 0
+                    alias: Someone home
+                  - condition: state
+                    entity_id: input_boolean.everyone_sleeping
+                    state: "off"
+                    alias: Everyone awake
+                  - condition: or
+                    alias: Avery's flag doesn't apply
+                    conditions:
+                      - condition: state
+                        entity_id: input_boolean.avery_sleeping
+                        state: "off"
+                        alias: Avery is not asleep
+                      - condition: state
+                        entity_id: binary_sensor.avery_home_today
+                        state: "off"
+                        for: "08:00:00"
+                        alias: Avery has not been home today for at least 8 hours
+            then:
+              - alias: Flash the dim acknowledgement
+                action: script.averys_room_ceiling_fan_led_blip_dim
+            else:
+              - alias: Recompute the steady LED state
+                action: script.averys_room_ceiling_fan_led_state
+      - alias: Avery woke up or is no longer home today - recompute Avery's Room, no flash
+        conditions:
+          - condition: trigger
+            id:
+              - avery_sleep_off
+              - avery_home_off
+            alias: Triggered by Avery waking or leaving for the day
+        sequence:
+          - alias: Avery's Room
+            action: script.averys_room_ceiling_fan_led_state
+mode: queued
+max: 5
+category: 01M08MMBZ719V4GZ2FT10RPTJ2

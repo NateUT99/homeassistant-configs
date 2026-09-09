@@ -177,13 +177,13 @@ Always include a `condition: state` (or template equivalent) confirming the targ
 
 ### `scene.create` snapshots taken from inside a `mode: restart` script capture the script's own output
 
-A save-current-state / do-something / put-it-back pattern where the "do something" script is `mode: restart` must take the `scene.create` snapshot in the **caller**, not inside the script, and guard it on the script being idle.
+A save-current-state / do-something / put-it-back pattern where the "do something" script is `mode: restart` must take the `scene.create` snapshot in the **caller**, not inside the script, and guard it on the script being idle. Otherwise a rapid second run (the restart) snapshots the script's own in-progress output as the "resting" state, and the restore afterward reapplies that instead of the real prior state.
 
-The `inovelli_fan_canopy` LED-bar blip is the worked example. `script.<prefix>_ceiling_fan_led_blip` is `mode: restart` so a rapid second fan change keeps the bar lit and resets the hold timer. If the snapshot lived at the top of that script, the second (restarting) run would snapshot the bar mid-animation — capturing a blip colour as the "resting" state — and the restore at the end would leave the bar stuck lit.
-
-Fix: `automation.<prefix>_ceiling_fan_wall_control` runs `scene.create` before `script.turn_on`, wrapped in `if: condition: state, entity_id: script.<prefix>_ceiling_fan_led_blip, state: "off"`. A burst snapshots once (blip idle), every subsequent restart within the burst skips the snapshot and reuses that first scene. The automation being `mode: queued` keeps its own runs serialised so the guard can't race itself.
+Fix, if this pattern is used again: take the snapshot in the caller before dispatching to the `mode: restart` script, wrapped in `if: condition: state, entity_id: script.<the script>, state: "off"` so a burst snapshots once (idle) and every subsequent restart within the burst reuses that first scene. The caller being `mode: queued` keeps its own runs serialised so the guard can't race itself.
 
 Related gotcha for the restore side: test scene existence with `states.scene.<id> is not none`, **not** `states('scene.<id>')` or `has_value(...)` — a freshly `scene.create`d scene reads `unknown` until it is first activated, so the value-based checks report it missing when it isn't.
+
+(The Inovelli ceiling-fan LED bar used to be the worked example for this, but that design has since moved to a compute-don't-snapshot approach — see `guides/inovelli_switches.md` — so no live automation in this repo currently exercises this pattern. Kept here as a general lesson for the next time a snapshot/restore is genuinely the right shape.)
 
 ---
 
@@ -594,7 +594,7 @@ Live-tested 2026-08-30 on `light.averys_room_ceiling_fan_light` (model "White Se
 - **`light.turn_on` + `transition` is honored precisely.** A commanded 20 s fade produced a clean linear ramp (13→78→142→207→255) hitting the target at exactly 20 s, with intermediate `brightness` reports about every 5 s.
 - **A new command overrides an in-progress fade.** `brightness_pct: 100, transition: 0` sent mid-fade snapped straight to 255.
 - **The configured 13% min-level does NOT clamp a hub `MoveToLevel`.** Ramping toward `brightness_pct: 1` went all the way to `brightness` 3 and the light stayed `on` — it did not auto-off at the bottom and did not floor at 13%. An explicit `light.turn_off` is still required to actually turn it off.
-- **`light.turn_off` + `transition` gives no slow fade** — the requested duration is dropped and the module applies its own configured off-ramp instead, held in the `Off transition time` / `On/Off transition time` Level Control number entities. Factory default is 2.5 s; both canopies are now set to `0.5` s (see `guides/inovelli_fan_canopy.md` Step 2). This is the HA-side limitation above, not the device.
+- **`light.turn_off` + `transition` gives no slow fade** — the requested duration is dropped and the module applies its own configured off-ramp instead, held in the `Off transition time` / `On/Off transition time` Level Control number entities. Factory default is 2.5 s; both canopies are now set to `0.5` s (see `guides/inovelli_switches.md` Step 2). This is the HA-side limitation above, not the device.
 
 ### Inovelli White Series VTM30-SN — the outgoing binding is coupled to local paddle→load control
 
@@ -611,11 +611,25 @@ A cluster 8 binding (switch Binding endpoint → canopy light endpoint 1) for pa
 
 **`3s` is not a safe value.** It was run first and intermittently regressed to the `Instant` behaviour — the bind stopping mid-hold and sending no Move/Step, unpredictably. `2s` is reliable on both switches; `500ms`–`1s` ramp too fast to land a level. Both rooms run `2s`. If hold-to-dim goes flaky after a firmware update, re-check this select before assuming the binding broke.
 
-**Whole-room off/on is a paddle double-tap, not a hold** (September 2026) — the cluster 8 hold-to-dim binding was briefly removed to free the hold gesture for whole-room off/on, then restored once it was clear `multi_press_2` fires on the paddle (Button Delay already `300ms` for the config button). Hold = dim (binding); double-tap = whole-room (automation). Guide `guides/inovelli_fan_canopy.md` Steps 4 and 6.
+**Whole-room off/on is a paddle double-tap, not a hold** (September 2026) — the cluster 8 hold-to-dim binding was briefly removed to free the hold gesture for whole-room off/on, then restored once it was clear `multi_press_2` fires on the paddle (Button Delay already `300ms` for the config button). Hold = dim (binding); double-tap = whole-room (automation). Guide `guides/inovelli_switches.md` Steps 4 and 6.
 
 ### Inovelli VTM30-SN LED bar — only a saturated `hs_color` renders reliably; white / colour-temp are dropped
 
 The switch's RGB notification bar (`light.*_ceiling_fan_switch_led`) advertises `supported_color_modes: [color_temp, hs, xy]` with a nonsense range (`min_color_temp_kelvin` 15, `max` 1000000). In practice, from inside a `script` / automation run: `color_temp_kelvin` and a low-saturation / white `hs_color` or `rgb_color` all flip the entity to `on`, trace cleanly, and show `on` in state history for the full hold — but **emit no visible light**. A fully-saturated `hs_color` (e.g. the fan speed hues `[175/220/265, 100]`) renders every time. A *direct* `light.turn_on` with white does render, which made this maddening to isolate. Fan speed blips work because they use saturated hues; a "warm white 3000 K" canopy-light cue was chased for hours and abandoned (September 2026) — the light turning on/off is its own feedback. If you ever need a non-speed colour on this bar, keep saturation at 100.
+
+**Historical note:** the Inovelli LED bar design (`guides/inovelli_switches.md`) has since moved entirely off this RGB channel and onto the switch's native `LED Color`/`LED Intensity`/`LED Effect` parameters, which retire this quirk rather than working around it — the native `LED Color` select has no saturation concept and includes `White` as a first-class option. `light.*_ceiling_fan_switch_led` is left hidden and unused. This lesson is kept for reference in case that channel is ever revisited.
+
+### Inovelli VTM30-SN LED bar — paddle presses cause a brief native transition flicker, independent of any HA-set value
+
+A paddle-driven change (e.g. the bound ceiling light toggling on/off) shows a ~1s downward-wipe visual on the LED bar that isn't caused by anything HA commands. Confirmed by entity history: `select.*_ceiling_fan_switch_led_effect` never leaves `Solid` through the transition, and the same or larger intensity changes made via the config button (which never touches the paddle) show no flicker at all — only paddle-driven changes do.
+
+The paddle is the one path where the switch's own internal load-control relay physically flips (that's what fires the Matter binding — see the "outgoing binding is coupled to local paddle→load control" entry above). The working theory is a local, firmware-level "paddle was pressed" acknowledgment on the relay-toggle path itself, not anything reachable from `select.select_option`. Tracked in GitHub issue #2 for re-testing after a firmware update; not fixable from the HA side today.
+
+### A `binary_sensor.*_home_today`-style sensor flips at midnight, not at the moment the person leaves
+
+A calendar/schedule-derived "is so-and-so home today" sensor recalculates at the day boundary, not when the person actually leaves the house. Gating any nighttime behavior on it going instantaneously `off` — e.g. neutralizing a stale personal sleep flag once someone's "not home today" — fires hours before they've actually gone, while they may still be asleep in the house.
+
+Fix: require the `off` state to have held for a **minimum duration** (`condition: state` with `for:`) long enough to span the person's usual overnight-to-departure window, not an instantaneous check. The Inovelli LED-bar design (`guides/inovelli_switches.md`, Avery's Room) uses `for: "08:00:00"` against `binary_sensor.avery_home_today` for exactly this reason.
 
 ---
 

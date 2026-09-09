@@ -1,0 +1,78 @@
+alias: "Office: Ceiling Fan LED Blip (dim)"
+description: >-
+  Brief low-intensity acknowledgement for a fan change (turned on or speed
+  changed) while nobody is home - the new speed's colour at intensity 8 for
+  ~2s, then dark. No animation. Every write is skipped when the target
+  already holds the desired value. Called instead of
+  script.office_ceiling_fan_led_state by Office: Ceiling Fan Wall Control's
+  fan-settled trigger when nobody is home, and by Household: Ceiling Fan
+  Switch LED Locator when the last person leaves while the fan is already
+  running (one flash to acknowledge, then dark). Fan-off is not acknowledged
+  here - that transition goes straight to dark via
+  script.office_ceiling_fan_led_state. The Office does not gate on sleep at
+  all (non-bedroom room - see guides/inovelli_switches.md), so in practice
+  this script only fires while away, unlike the bedroom rooms where it also
+  covers the asleep case.
+mode: restart
+sequence:
+  - alias: Resolve the current speed's colour
+    variables:
+      speed_colour: >-
+        {% set p = state_attr('fan.office_ceiling_fan', 'percentage') | int(0) %}
+        {{ 'Cyan' if p < 45 else ('Violet' if p >= 78 else 'Blue') }}
+  - alias: Effect channel always stays Solid - skip if already set
+    if:
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: select.office_ceiling_fan_switch_led_effect
+            state: "Solid"
+    then:
+      - action: select.select_option
+        target:
+          entity_id: select.office_ceiling_fan_switch_led_effect
+        data:
+          option: "Solid"
+  - alias: Flash the speed colour - skip if already showing it
+    if:
+      - condition: template
+        value_template: "{{ states('select.office_ceiling_fan_switch_led_color') != speed_colour }}"
+        alias: Colour needs to change
+    then:
+      - action: select.select_option
+        target:
+          entity_id: select.office_ceiling_fan_switch_led_color
+        data:
+          option: "{{ speed_colour }}"
+  - alias: Set both intensities together at the dim level - skip if already correct
+    if:
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: select.office_ceiling_fan_switch_led_intensity_on
+            state: "8"
+    then:
+      - action: select.select_option
+        target:
+          entity_id:
+            - select.office_ceiling_fan_switch_led_intensity_on
+            - select.office_ceiling_fan_switch_led_intensity_off
+        data:
+          option: "8"
+  - alias: Hold the flash briefly
+    delay: "00:00:02"
+  - alias: Rest dark - skip if already dark
+    if:
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: select.office_ceiling_fan_switch_led_intensity_on
+            state: "0"
+    then:
+      - action: select.select_option
+        target:
+          entity_id:
+            - select.office_ceiling_fan_switch_led_intensity_on
+            - select.office_ceiling_fan_switch_led_intensity_off
+        data:
+          option: "0"

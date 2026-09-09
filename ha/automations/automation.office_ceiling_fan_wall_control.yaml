@@ -6,18 +6,16 @@ description: >-
   Down paddle double tap turns the fan and light off; up paddle double tap turns
   the fan on to the last speed and the light on. Config button: single tap resumes
   the last speed (fan off) or advances low->medium->high->low (fan on); double tap
-  turns it off; triple tap shows the current speed without changing it. A settled
-  fan-speed change (the percentage attribute) stores the running speed in
-  input_select.office_ceiling_fan_last_speed and blips the switch LED bar
-  via script.office_ceiling_fan_led_blip - the speed's hue, or the last
-  speed's hue plus a Fast Falling animation when the fan is switched off.
-  Config single tap and both paddle double taps fire that blip immediately (the
-  intended speed, or the off cue for down), so the bar lights without waiting for
-  the fan's Matter round-trip; other fan changes blip once the speed settles. The
-  bar rests dark at all times - the blip script turns it off and forces the
-  effect channel back to Solid when it finishes. None of this
-  works while HA is down; paddle tap -> light on/off (cluster 6) and paddle hold
-  -> dim (cluster 8) are Matter bindings and are independent.
+  turns it off; triple tap peeks at the current LED state without changing the fan.
+  Fan-percentage and ceiling-light changes each recompute the switch's LED bar via
+  script.office_ceiling_fan_led_state (persistent speed colour at 50% while home,
+  a faint white locator glow when the fan and light are both off, dark when
+  nobody's home) - or script.office_ceiling_fan_led_blip_dim instead when the fan
+  is running but nobody is home. The Office is a non-bedroom room, so unlike
+  Master Bedroom/Avery's Room this does not depend on the sleep booleans at all -
+  see guides/inovelli_switches.md. None of this works while HA is down; paddle
+  tap -> light on/off (cluster 6) and paddle hold -> dim (cluster 8) are Matter
+  bindings and are independent.
 triggers:
   - alias: Config button gesture
     trigger: state
@@ -45,6 +43,10 @@ triggers:
       - unavailable
       - unknown
     id: up_double
+  - alias: Ceiling light changed (paddle-bound)
+    trigger: state
+    entity_id: light.office_ceiling_fan_light
+    id: light
 conditions: []
 actions:
   - alias: Route by trigger
@@ -75,13 +77,6 @@ actions:
                         state: "off"
                         alias: Fan currently off
                     then:
-                      - alias: Blip the remembered speed now, before the fan Matter round-trip
-                        action: script.turn_on
-                        target:
-                          entity_id: script.office_ceiling_fan_led_blip
-                        data:
-                          variables:
-                            blip_speed: "{{ states('input_select.office_ceiling_fan_last_speed') }}"
                       - alias: Turn fan on to the remembered speed
                         action: fan.set_percentage
                         target:
@@ -89,13 +84,6 @@ actions:
                         data:
                           percentage: "{% set s = states('input_select.office_ceiling_fan_last_speed') %}{{ {'low': 33, 'medium': 66, 'high': 100}.get(s, 66) }}"
                     else:
-                      - alias: Blip the next speed now, before the fan Matter round-trip
-                        action: script.turn_on
-                        target:
-                          entity_id: script.office_ceiling_fan_led_blip
-                        data:
-                          variables:
-                            blip_speed: "{% set p = state_attr('fan.office_ceiling_fan', 'percentage') | int(0) %}{{ 'medium' if p < 45 else ('high' if p < 78 else 'low') }}"
                       - alias: Advance low -> medium -> high -> low
                         note: "Wide bands absorb Matter fan percentage rounding: low~33, medium~66, high~100."
                         action: fan.set_percentage
@@ -115,7 +103,7 @@ actions:
                     action: fan.turn_off
                     target:
                       entity_id: fan.office_ceiling_fan
-              - alias: Triple tap - show the current speed without changing it
+              - alias: Triple tap - peek at the current LED state without changing the fan
                 conditions:
                   - condition: state
                     entity_id: event.office_ceiling_fan_switch_button_config
@@ -123,10 +111,22 @@ actions:
                     state: multi_press_3
                     alias: Triple tap
                 sequence:
-                  - alias: Blip the bar to show the current speed (no fan change)
-                    action: script.turn_on
-                    target:
-                      entity_id: script.office_ceiling_fan_led_blip
+                  - alias: Dispatch the LED update
+                    if:
+                      - condition: state
+                        entity_id: fan.office_ceiling_fan
+                        state: "on"
+                        alias: Fan is on
+                      - condition: numeric_state
+                        entity_id: zone.home
+                        below: 1
+                        alias: Nobody home
+                    then:
+                      - alias: Flash the dim acknowledgement
+                        action: script.office_ceiling_fan_led_blip_dim
+                    else:
+                      - alias: Recompute the steady LED state
+                        action: script.office_ceiling_fan_led_state
       - alias: Down paddle double-tapped - turn the fan and light off
         conditions:
           - condition: trigger
@@ -138,13 +138,6 @@ actions:
             attribute: event_type
             state: multi_press_2
         sequence:
-          - alias: Blip the off acknowledgement now, before the fan Matter round-trip
-            action: script.turn_on
-            target:
-              entity_id: script.office_ceiling_fan_led_blip
-            data:
-              variables:
-                blip_speed: "off"
           - alias: Turn the ceiling fan off
             action: fan.turn_off
             target:
@@ -164,13 +157,6 @@ actions:
             attribute: event_type
             state: multi_press_2
         sequence:
-          - alias: Blip the remembered speed now, before the fan Matter round-trip
-            action: script.turn_on
-            target:
-              entity_id: script.office_ceiling_fan_led_blip
-            data:
-              variables:
-                blip_speed: "{{ states('input_select.office_ceiling_fan_last_speed') }}"
           - alias: Turn the fan on to the remembered speed
             action: fan.set_percentage
             target:
@@ -181,7 +167,7 @@ actions:
             action: light.turn_on
             target:
               entity_id: light.office_ceiling_fan_light
-      - alias: Fan speed settled - record it and blip the LED bar
+      - alias: Fan speed settled - record it and update the LED bar
         conditions:
           - condition: trigger
             id: fan
@@ -203,24 +189,30 @@ actions:
                   entity_id: input_select.office_ceiling_fan_last_speed
                 data:
                   option: "{{ speed }}"
-          - alias: Blip the bar - unless a button branch already started an immediate blip
-            note: >-
-              The config single-tap and the up/down paddle double-tap branches
-              fire their own blip the moment the button is pressed, so the bar
-              lights without waiting for the fan's Matter round-trip. This branch
-              (settled speed, ~0.5s later) then skips its blip so it does not
-              restart that one. It still blips for changes with no button branch:
-              config double-tap off, and any external fan change.
+          - alias: Dispatch the LED update
             if:
-              - alias: No blip already in flight
-                condition: state
-                entity_id: script.office_ceiling_fan_led_blip
-                state: "off"
+              - condition: state
+                entity_id: fan.office_ceiling_fan
+                state: "on"
+                alias: Fan is on
+              - condition: numeric_state
+                entity_id: zone.home
+                below: 1
+                alias: Nobody home
             then:
-              - alias: Blip the bar (speed hue, last-speed hue + fall for off), then it rests itself dark
-                action: script.turn_on
-                target:
-                  entity_id: script.office_ceiling_fan_led_blip
+              - alias: Flash the dim acknowledgement
+                action: script.office_ceiling_fan_led_blip_dim
+            else:
+              - alias: Recompute the steady LED state
+                action: script.office_ceiling_fan_led_state
+      - alias: Ceiling light changed - recompute the LED bar
+        conditions:
+          - condition: trigger
+            id: light
+            alias: Triggered by the ceiling light
+        sequence:
+          - alias: Recompute the steady LED state
+            action: script.office_ceiling_fan_led_state
 mode: queued
 max: 10
 category: 01M0BFFGNX30MJNVWS58ZKEH3H
