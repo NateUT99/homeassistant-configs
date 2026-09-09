@@ -281,7 +281,7 @@ Entities renamed to purpose-based IDs (see `standards/naming.md`):
 | `fan.averys_room_ceiling_fan` | Fan motor (canopy endpoint 2) |
 | `event.averys_room_ceiling_fan_switch_button_up` / `_down` / `_config` | Paddle and config button events |
 | `sensor.averys_room_ceiling_fan_switch_humidity` / `_temperature` | Switch's built-in sensors |
-| `light.averys_room_ceiling_fan_switch_led` | RGB indicator bar (unused - see Shared: LED Bar) |
+| `light.averys_room_ceiling_fan_switch_led_bar` | RGB indicator bar (unused - see Shared: LED Bar) |
 | `switch.averys_room_ceiling_fan_switch_load_control` | Empty Load relay — see Step 5 |
 
 > HA's slugifier turns "Avery's" into `avery_s`, not `averys`. Every entity and
@@ -300,17 +300,36 @@ back to the clean slug:
   `number.<prefix>_ceiling_fan_on_off_transition_time` — per
   [Updating the canopy firmware](#updating-the-canopy-firmware-101r1).
 - VTM30-SN: `select.<prefix>_ceiling_fan_switch_smart_bulb_mode`, `…_led_color`,
-  `…_led_effect`, and the `light.<prefix>_ceiling_fan_switch_led` bar.
+  `…_led_effect`, and the `light.<prefix>_ceiling_fan_switch_led_bar` bar.
 
 Only the `select.<prefix>_ceiling_fan_switch_led_*` entities (colour, intensity
 on/off, effect) are referenced by config — the LED script drives them, see
 [Shared: LED Bar](#shared-led-bar) — so if any of their slugs change, update
 `script.<prefix>_ceiling_fan_led_state` and its `ha/` mirror in the same pass.
 The rest are config entities nothing depends on, so those
-renames are safe on their own. The Office device carries a **stale duplicate**
-entity set at a different Matter endpoint (`select.office_matter_thread_on_off_switch_vtm30_sn_*`)
-left over from before its clean rename — nothing references it, but don't
-mistake it for the canonical one when troubleshooting.
+renames are safe on their own.
+
+**Incomplete device rename leaves stale prefixes, not duplicates.** Renaming
+a device in the HA UI does not re-slug its existing entity_ids — only newly
+discovered entities pick up the new device name (`standards/naming.md` §4.4).
+The Office switch was renamed to "Ceiling Fan Switch" after some of its
+entities already existed, so 26 of them were stuck under two older
+generations of prefix (`select.office_matter_thread_on_off_switch_vtm30_sn_*`
+and, for nine Thread-diagnostics sensors, `sensor.inovelli_on_off_switch_*`).
+Nothing referenced either prefix, so all 26 were renamed to the clean
+`office_ceiling_fan_switch_*` slug. Confirm nothing in a device's entity
+list still carries an old device name or platform-default prefix after a
+rename; it isn't a genuine duplicate endpoint, just an unfinished one.
+
+The nine Thread-diagnostics sensors (`_thread_channel`, `_thread_routing_role`,
+`_thread_network_name`, `_reboot_count`, `_uptime`, `_boot_reason`, and the
+three `_current_switch_position_*`) come `disabled_by: integration` from the
+Matter integration on **all three** switches, Office included — this is the
+integration's own default for that entity category, not leftover config from
+the rename. HA also refuses to rename an entity that's disabled by its
+integration, so renaming them required enabling them first; they were
+disabled again immediately after to keep parity with Master Bedroom and
+Avery's Room.
 
 ## Step 2 — Canopy module (VTM36) parameters
 
