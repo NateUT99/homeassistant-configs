@@ -98,6 +98,40 @@ conditions:
         value_template: "{{ trigger.platform is none }}"
 ```
 
+### `condition: not` with a multi-item `conditions:` list is NOR, not "NOT of the AND"
+
+`condition: not` passes only when **all** of its listed sub-conditions are false. It is `NOT A AND NOT B`, not `NOT (A AND B)`. Writing `condition: not, conditions: [A, B]` to mean "not (A and B are both true)" is a natural mistake — De Morgan's law says those should be equivalent, but they aren't what `not` computes here — and it fails **silently**: the automation still runs, takes the other branch every time, and nothing in the trace looks obviously wrong unless you check which sub-conditions actually got evaluated (a short-circuited `not` block shows only the first sub-condition in the trace once it hits one that's true, since one true entry already disproves "all false").
+
+Concretely: `condition: not, conditions: [{state: fan, "on"}, {numeric_state: zone.home, above: 0}]` intended as "the fan is off, or nobody's home" is wrong twice over — but even the narrower, more common case of intending "NOT (A and B)" from `not: [A, B]` actually computes "NOT A and NOT B", a much narrower condition that's often close to unreachable in practice (both must independently fail).
+
+**Fix:** to get `NOT (A AND B [AND C...])`, wrap the list in an explicit `condition: and` and negate that single group:
+
+```yaml
+# Wrong — this is NOT A and NOT B, not NOT(A and B)
+- condition: not
+  conditions:
+    - condition: numeric_state
+      entity_id: zone.home
+      above: 0
+    - condition: state
+      entity_id: input_boolean.everyone_sleeping
+      state: "off"
+
+# Right — negates the AND-group as a whole
+- condition: not
+  conditions:
+    - condition: and
+      conditions:
+        - condition: numeric_state
+          entity_id: zone.home
+          above: 0
+        - condition: state
+          entity_id: input_boolean.everyone_sleeping
+          state: "off"
+```
+
+Discovered when the Inovelli LED-bar "flash while asleep" acknowledgement (`guides/inovelli_switches.md`) never fired in Master Bedroom or Avery's Room — every fan change while everyone was marked asleep silently fell through to the "steady state" branch instead, with no visible symptom beyond "the light didn't do the thing." A **trace with only one sub-condition of a multi-item `not` block evaluated** is the tell — that's the block short-circuiting on the first sub-condition that's true, disproving "all false" before it needs to check the rest.
+
 ---
 
 ## Dashboards

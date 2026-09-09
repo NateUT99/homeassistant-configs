@@ -173,26 +173,29 @@ actions:
               - condition: not
                 alias: Currently not home and awake
                 conditions:
-                  - condition: numeric_state
-                    entity_id: zone.home
-                    above: 0
-                    alias: Someone home
-                  - condition: state
-                    entity_id: input_boolean.everyone_sleeping
-                    state: "off"
-                    alias: Everyone awake
-                  - condition: or
-                    alias: Avery's flag doesn't apply
+                  - condition: and
+                    alias: Currently home and awake
                     conditions:
+                      - condition: numeric_state
+                        entity_id: zone.home
+                        above: 0
+                        alias: Someone home
                       - condition: state
-                        entity_id: input_boolean.avery_sleeping
+                        entity_id: input_boolean.everyone_sleeping
                         state: "off"
-                        alias: Avery is not asleep
-                      - condition: state
-                        entity_id: binary_sensor.avery_home_today
-                        state: "off"
-                        for: "08:00:00"
-                        alias: Avery has not been home today for at least 8 hours
+                        alias: Everyone awake
+                      - condition: or
+                        alias: Avery's flag doesn't apply
+                        conditions:
+                          - condition: state
+                            entity_id: input_boolean.avery_sleeping
+                            state: "off"
+                            alias: Avery is not asleep
+                          - condition: state
+                            entity_id: binary_sensor.avery_home_today
+                            state: "off"
+                            for: "08:00:00"
+                            alias: Avery has not been home today for at least 8 hours
             then:
               - alias: Flash the dim acknowledgement
                 action: script.averys_room_ceiling_fan_led_blip_dim
@@ -227,26 +230,29 @@ actions:
               - condition: not
                 alias: Currently not home and awake
                 conditions:
-                  - condition: numeric_state
-                    entity_id: zone.home
-                    above: 0
-                    alias: Someone home
-                  - condition: state
-                    entity_id: input_boolean.everyone_sleeping
-                    state: "off"
-                    alias: Everyone awake
-                  - condition: or
-                    alias: Avery's flag doesn't apply
+                  - condition: and
+                    alias: Currently home and awake
                     conditions:
+                      - condition: numeric_state
+                        entity_id: zone.home
+                        above: 0
+                        alias: Someone home
                       - condition: state
-                        entity_id: input_boolean.avery_sleeping
+                        entity_id: input_boolean.everyone_sleeping
                         state: "off"
-                        alias: Avery is not asleep
-                      - condition: state
-                        entity_id: binary_sensor.avery_home_today
-                        state: "off"
-                        for: "08:00:00"
-                        alias: Avery has not been home today for at least 8 hours
+                        alias: Everyone awake
+                      - condition: or
+                        alias: Avery's flag doesn't apply
+                        conditions:
+                          - condition: state
+                            entity_id: input_boolean.avery_sleeping
+                            state: "off"
+                            alias: Avery is not asleep
+                          - condition: state
+                            entity_id: binary_sensor.avery_home_today
+                            state: "off"
+                            for: "08:00:00"
+                            alias: Avery has not been home today for at least 8 hours
             then:
               - alias: Flash the dim acknowledgement
                 action: script.averys_room_ceiling_fan_led_blip_dim

@@ -121,14 +121,17 @@ actions:
                       - condition: not
                         alias: Nobody home and awake
                         conditions:
-                          - condition: numeric_state
-                            entity_id: zone.home
-                            above: 0
-                            alias: Someone home
-                          - condition: state
-                            entity_id: input_boolean.everyone_sleeping
-                            state: "off"
-                            alias: Everyone awake
+                          - condition: and
+                            alias: Currently home and awake
+                            conditions:
+                              - condition: numeric_state
+                                entity_id: zone.home
+                                above: 0
+                                alias: Someone home
+                              - condition: state
+                                entity_id: input_boolean.everyone_sleeping
+                                state: "off"
+                                alias: Everyone awake
                     then:
                       - alias: Flash the dim acknowledgement
                         action: script.master_bedroom_ceiling_fan_led_blip_dim
@@ -206,14 +209,17 @@ actions:
               - condition: not
                 alias: Nobody home and awake
                 conditions:
-                  - condition: numeric_state
-                    entity_id: zone.home
-                    above: 0
-                    alias: Someone home
-                  - condition: state
-                    entity_id: input_boolean.everyone_sleeping
-                    state: "off"
-                    alias: Everyone awake
+                  - condition: and
+                    alias: Currently home and awake
+                    conditions:
+                      - condition: numeric_state
+                        entity_id: zone.home
+                        above: 0
+                        alias: Someone home
+                      - condition: state
+                        entity_id: input_boolean.everyone_sleeping
+                        state: "off"
+                        alias: Everyone awake
             then:
               - alias: Flash the dim acknowledgement
                 action: script.master_bedroom_ceiling_fan_led_blip_dim
