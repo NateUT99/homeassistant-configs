@@ -1,7 +1,7 @@
 alias: "Master Bedroom: Ceiling Fan LED State"
 description: >-
   Sets the Master Bedroom ceiling-fan switch LED bar to its correct steady
-  state: the running fan's speed colour (Cyan/Blue/Violet) at intensity 50
+  state: the running fan's speed colour (Cyan/Blue/Violet) at intensity 25
   while someone is home and awake, a faint white locator glow at intensity
   3 when the fan and the ceiling light are both off and someone is home and
   awake, or dark otherwise. Recomputed entirely from live state on every
@@ -75,7 +75,7 @@ sequence:
                 conditions:
                   - condition: state
                     entity_id: select.master_bedroom_ceiling_fan_switch_led_intensity_on
-                    state: "50"
+                    state: "25"
             then:
               - action: select.select_option
                 target:
@@ -83,7 +83,7 @@ sequence:
                     - select.master_bedroom_ceiling_fan_switch_led_intensity_on
                     - select.master_bedroom_ceiling_fan_switch_led_intensity_off
                 data:
-                  option: "50"
+                  option: "25"
       - alias: Fan and light both off, someone home and awake - faint locator glow
         conditions:
           - condition: state

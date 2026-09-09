@@ -463,7 +463,7 @@ Matter fan's percentage rounding.
 | high | `Violet` |
 
 Intensity levels are the [Shared: LED Bar](#shared-led-bar) pattern's, unchanged
-by this device pattern: `50` while home-awake and the fan is running, `3` for the
+by this device pattern: `25` while home-awake and the fan is running, `3` for the
 resting locator glow, `8` for the away/asleep acknowledgement flash, `0` dark.
 
 ## Replicating for another room
