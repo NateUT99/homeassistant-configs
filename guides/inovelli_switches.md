@@ -63,7 +63,7 @@ per-room classification to get right at install time:
 
 | Condition | Colour | Intensity |
 |---|---|---|
-| Someone home, switch "active" | device-pattern-defined (e.g. fan speed colour) | `25` by day, `3` at night |
+| Someone home, switch "active" | device-pattern-defined (e.g. fan speed colour) | `26` by day, `3` at night |
 | Someone home, switch idle | `White` (locator glow) | `3`, day or night |
 | Nobody home | — | `0` (dark) |
 
@@ -463,7 +463,7 @@ Matter fan's percentage rounding.
 | high | `Violet` |
 
 Intensity levels are the [Shared: LED Bar](#shared-led-bar) pattern's, unchanged
-by this device pattern: `25` by day / `3` at night while the fan is running, `3`
+by this device pattern: `26` by day / `3` at night while the fan is running, `3`
 (day or night) for the resting locator glow, `0` dark when nobody's home.
 
 ## Replicating for another room
@@ -561,7 +561,7 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
    light transition-time numbers too and reset them to `0.5` s if the flash
    returned them to `2.5`.
 8. **Verify**: paddle on/off; config-button speed cycle (1 tap) — the LED bar
-   shows the speed's colour at day intensity (`25`) almost immediately; a config
+   shows the speed's colour at day intensity (`26`) almost immediately; a config
    double-tap off returns the bar to the locator glow; the triple-tap peek
    re-asserts the current LED state without moving the fan; toggling the room's
    day/night gate drops the running-fan colour to intensity `3` (the locator

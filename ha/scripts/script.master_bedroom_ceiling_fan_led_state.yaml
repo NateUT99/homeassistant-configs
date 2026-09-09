@@ -1,7 +1,7 @@
 alias: "Master Bedroom: Ceiling Fan LED State"
 description: >-
   Sets the Master Bedroom ceiling-fan switch LED bar to its correct steady
-  state: the running fan's speed colour (Cyan/Blue/Violet) at intensity 25
+  state: the running fan's speed colour (Cyan/Blue/Violet) at intensity 26
   by day / 3 at night while someone is home, a white locator glow at
   intensity 3 (same day or night) when the fan and the ceiling light are
   both off and someone is home, or dark when nobody is home. Day vs night
@@ -20,7 +20,7 @@ sequence:
       speed_colour: >-
         {% set p = state_attr('fan.master_bedroom_ceiling_fan', 'percentage') | int(0) %}
         {{ 'Cyan' if p < 45 else ('Violet' if p >= 78 else 'Blue') }}
-      fan_intensity: "{{ '3' if is_state('input_boolean.everyone_sleeping', 'on') else '25' }}"
+      fan_intensity: "{{ '3' if is_state('input_boolean.everyone_sleeping', 'on') else '26' }}"
   - alias: Effect channel always stays Solid - skip if already set
     note: >-
       A same-value write can still trigger the switch's own transition ramp

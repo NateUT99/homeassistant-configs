@@ -659,6 +659,14 @@ A paddle-driven change (e.g. the bound ceiling light toggling on/off) shows a ~1
 
 The paddle is the one path where the switch's own internal load-control relay physically flips (that's what fires the Matter binding — see the "outgoing binding is coupled to local paddle→load control" entry above). The working theory is a local, firmware-level "paddle was pressed" acknowledgment on the relay-toggle path itself, not anything reachable from `select.select_option`. Tracked in GitHub issue #2 for re-testing after a firmware update; not fixable from the HA side today.
 
+### Inovelli VTM30-SN LED Intensity select — the step list isn't evenly spaced; a plausible-looking literal can be invalid
+
+`select.*_ceiling_fan_switch_led_intensity_on` / `_off` expose a fixed, non-uniform option list: `0, 1, 3, 5, 8, 10, 13, 16, 20, 23, 26, 30, 33, 36, 40, 45, 50, 60, 70, 80, 90, 100`. A hand-picked "reasonable" value in that range (`25`, right between the real steps `23` and `26`) is not automatically a member of the list — `select.select_option` rejects it outright: `Option 25 is not valid for entity ..., valid options are: 0, 1, 3, 5, 8, ...`.
+
+This fails loudly (a clear error in the automation trace, not a silent no-op), but only on the code path that actually writes the bad value — a value used solely in a "day" branch that only runs while a bedroom's fan happens to be on during waking hours can sit broken for a long time before anything exercises it. Caught here when `script.<prefix>_ceiling_fan_led_state` (`guides/inovelli_switches.md`) used a literal `25` for its day-time fan-running intensity, chosen without checking it against the entity's actual `options` attribute.
+
+**Fix:** before hardcoding a `select.select_option` value, read the target entity's `options` list (`ha_get_state` includes it in `attributes`) and pick a listed value — don't assume a step list is evenly spaced or continuous.
+
 ### A `binary_sensor.*_home_today`-style sensor flips at midnight, not at the moment the person leaves
 
 A calendar/schedule-derived "is so-and-so home today" sensor recalculates at the day boundary, not when the person actually leaves the house. Gating any nighttime behavior on it going instantaneously `off` — e.g. neutralizing a stale personal sleep flag once someone's "not home today" — fires hours before they've actually gone, while they may still be asleep in the house.
