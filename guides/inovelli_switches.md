@@ -417,7 +417,10 @@ binding, or to `light.averys_room_ceiling_fan_light` directly). Its state still
 flips on every paddle press — that internal-relay toggle is what fires the
 outgoing binding on the White series, so it has to stay that way (see the
 `Control of switch load` row in Step 3). Hide it from the dashboards so nobody
-taps it and concludes the install is broken.
+taps it and concludes the install is broken, and give it the display name
+"Ceiling Fan Switch Load Control" (Settings → Entities → this entity → Name)
+so it reads the same across rooms — Matter's default name is the generic
+"Switch (Load Control)".
 
 ## Step 6 — HA automation
 
