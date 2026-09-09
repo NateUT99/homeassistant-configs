@@ -2,28 +2,25 @@ alias: "Office: Ceiling Fan LED State"
 description: >-
   Sets the Office ceiling-fan switch LED bar to its correct steady state:
   the running fan's speed colour (Cyan/Blue/Violet) at intensity 25 by day
-  / 5 at night while someone is home, a white locator glow at intensity 3
-  by day / 5 at night when the fan and the ceiling light are both off and
-  someone is home, or dark when nobody is home. Night uses one shared
-  intensity (5) for both states - simpler than two different night values,
-  and it makes the locator glow brighter at night than by day for
-  findability. Day vs night is input_boolean.everyone_sleeping - identical
-  rule in every room (Office, Master Bedroom, Avery's Room); sleep no
-  longer turns the bar off anywhere, it only dims it. Recomputed entirely
-  from live state on every call - no snapshot, no timers, no animation.
-  Every write is skipped when the target already holds the desired value.
-  Called by Office: Ceiling Fan Wall Control on fan-speed and
-  ceiling-light changes, and by Household: Ceiling Fan Switch LED Locator
-  on presence/sleep changes and HA start.
+  / 3 at night while someone is home, a white locator glow at intensity 3
+  (same day or night) when the fan and the ceiling light are both off and
+  someone is home, or dark when nobody is home. Day vs night is
+  input_boolean.everyone_sleeping - identical rule in every room (Office,
+  Master Bedroom, Avery's Room); sleep no longer turns the bar off
+  anywhere, it only dims it. Recomputed entirely from live state on every
+  call - no snapshot, no timers, no animation. Every write is skipped when
+  the target already holds the desired value. Called by Office: Ceiling
+  Fan Wall Control on fan-speed and ceiling-light changes, and by
+  Household: Ceiling Fan Switch LED Locator on presence/sleep changes and
+  HA start.
 mode: restart
 sequence:
-  - alias: Resolve the current speed's colour and the day/night intensities
+  - alias: Resolve the current speed's colour and the day/night fan intensity
     variables:
       speed_colour: >-
         {% set p = state_attr('fan.office_ceiling_fan', 'percentage') | int(0) %}
         {{ 'Cyan' if p < 45 else ('Violet' if p >= 78 else 'Blue') }}
-      fan_intensity: "{{ '5' if is_state('input_boolean.everyone_sleeping', 'on') else '25' }}"
-      locator_intensity: "{{ '5' if is_state('input_boolean.everyone_sleeping', 'on') else '3' }}"
+      fan_intensity: "{{ '3' if is_state('input_boolean.everyone_sleeping', 'on') else '25' }}"
   - alias: Effect channel always stays Solid - skip if already set
     note: >-
       A same-value write can still trigger the switch's own transition ramp
@@ -84,7 +81,7 @@ sequence:
                     - select.office_ceiling_fan_switch_led_intensity_off
                 data:
                   option: "{{ fan_intensity }}"
-      - alias: Fan and light both off, someone home - locator glow, brighter at night
+      - alias: Fan and light both off, someone home - locator glow
         conditions:
           - condition: state
             entity_id: fan.office_ceiling_fan
@@ -114,11 +111,15 @@ sequence:
                   entity_id: select.office_ceiling_fan_switch_led_color
                 data:
                   option: "White"
-          - alias: Set both intensities together at the day/night locator level - skip if already correct
+          - alias: Set both intensities together at the locator level - skip if already correct
             if:
-              - condition: template
-                value_template: "{{ states('select.office_ceiling_fan_switch_led_intensity_on') != locator_intensity }}"
-                alias: Intensity needs to change
+              - condition: not
+                conditions:
+                  - condition: and
+                    conditions:
+                      - condition: state
+                        entity_id: select.office_ceiling_fan_switch_led_intensity_on
+                        state: "3"
             then:
               - action: select.select_option
                 target:
@@ -126,7 +127,7 @@ sequence:
                     - select.office_ceiling_fan_switch_led_intensity_on
                     - select.office_ceiling_fan_switch_led_intensity_off
                 data:
-                  option: "{{ locator_intensity }}"
+                  option: "3"
     default:
       - alias: Otherwise dark - ceiling light is on, or nobody home
         if:

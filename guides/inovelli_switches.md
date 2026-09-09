@@ -63,15 +63,14 @@ per-room classification to get right at install time:
 
 | Condition | Colour | Intensity |
 |---|---|---|
-| Someone home, switch "active" | device-pattern-defined (e.g. fan speed colour) | `25` by day, `5` at night |
-| Someone home, switch idle | `White` (locator glow) | `3` by day, `5` at night |
+| Someone home, switch "active" | device-pattern-defined (e.g. fan speed colour) | `25` by day, `3` at night |
+| Someone home, switch idle | `White` (locator glow) | `3`, day or night |
 | Nobody home | — | `0` (dark) |
 
-Night uses one shared intensity (`5`) for both the "active" and "idle" states, rather than two
-different night values — simpler, and it makes the locator glow *brighter* at night than by
-day, which is the point: a dark room is exactly when finding the switch matters most. "Idle"
-is device-pattern-defined the same way "active" is — see
-[What's device-pattern-specific](#whats-device-pattern-specific).
+Night intensity (`3`) is the same value as the idle locator glow's constant `3` — one number to
+remember, not two. The locator glow itself doesn't need a day/night split at all: `3` is already
+faint enough by day and visible enough by night. "Idle" is device-pattern-defined the same way
+"active" is — see [What's device-pattern-specific](#whats-device-pattern-specific).
 
 **Day vs. night is `input_boolean.everyone_sleeping`, plus any person-specific sleep flag
 layered on for that switch.** A person-specific flag makes the switch dim as soon as *that
@@ -464,8 +463,8 @@ Matter fan's percentage rounding.
 | high | `Violet` |
 
 Intensity levels are the [Shared: LED Bar](#shared-led-bar) pattern's, unchanged
-by this device pattern: `25` by day / `5` at night while the fan is running, `3`
-by day / `5` at night for the resting locator glow, `0` dark when nobody's home.
+by this device pattern: `25` by day / `3` at night while the fan is running, `3`
+(day or night) for the resting locator glow, `0` dark when nobody's home.
 
 ## Replicating for another room
 
@@ -565,9 +564,9 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
    shows the speed's colour at day intensity (`25`) almost immediately; a config
    double-tap off returns the bar to the locator glow; the triple-tap peek
    re-asserts the current LED state without moving the fan; toggling the room's
-   day/night gate drops both the running-fan colour and the locator glow to
-   intensity `5`; and the light riding down to `1%` on the HA slider without
-   cutting out.
+   day/night gate drops the running-fan colour to intensity `3` (the locator
+   glow is already `3` at all times); and the light riding down to `1%` on the
+   HA slider without cutting out.
 
 ## Security summary
 
