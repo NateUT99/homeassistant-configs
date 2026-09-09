@@ -8,15 +8,12 @@ description: >-
   the last speed (fan off) or advances low->medium->high->low (fan on); double tap
   turns it off; triple tap peeks at the current LED state without changing the fan.
   Fan-percentage and ceiling-light changes each recompute the switch's LED bar via
-  script.master_bedroom_ceiling_fan_led_state (persistent speed colour at 50%
-  while home and awake, a faint white locator glow when the fan and light are
-  both off, dark otherwise) - or script.master_bedroom_ceiling_fan_led_blip_dim
-  instead when the fan is running but nobody is home and awake, which flashes
-  the speed colour dim for ~2s then rests dark rather than glowing all night.
-  Master Bedroom is a bedroom room (see guides/inovelli_switches.md), so this
-  gate depends on input_boolean.everyone_sleeping - the Office does not. None of
-  this works while HA is down; paddle tap -> light on/off (cluster 6) and paddle
-  hold -> dim (cluster 8) are Matter bindings and are independent.
+  script.master_bedroom_ceiling_fan_led_state - the running fan's speed colour, a
+  white locator glow when idle, or dark when nobody's home, dimmer at night in
+  every case. The bar always shows something whenever someone's home, day or
+  night, identically to Office and Avery's Room - see guides/inovelli_switches.md.
+  None of this works while HA is down; paddle tap -> light on/off (cluster 6) and
+  paddle hold -> dim (cluster 8) are Matter bindings and are independent.
 triggers:
   - alias: Config button gesture
     trigger: state
@@ -112,32 +109,8 @@ actions:
                     state: multi_press_3
                     alias: Triple tap
                 sequence:
-                  - alias: Dispatch the LED update
-                    if:
-                      - condition: state
-                        entity_id: fan.master_bedroom_ceiling_fan
-                        state: "on"
-                        alias: Fan is on
-                      - condition: not
-                        alias: Nobody home and awake
-                        conditions:
-                          - condition: and
-                            alias: Currently home and awake
-                            conditions:
-                              - condition: numeric_state
-                                entity_id: zone.home
-                                above: 0
-                                alias: Someone home
-                              - condition: state
-                                entity_id: input_boolean.everyone_sleeping
-                                state: "off"
-                                alias: Everyone awake
-                    then:
-                      - alias: Flash the dim acknowledgement
-                        action: script.master_bedroom_ceiling_fan_led_blip_dim
-                    else:
-                      - alias: Recompute the steady LED state
-                        action: script.master_bedroom_ceiling_fan_led_state
+                  - alias: Recompute the LED state
+                    action: script.master_bedroom_ceiling_fan_led_state
       - alias: Down paddle double-tapped - turn the fan and light off
         conditions:
           - condition: trigger
@@ -200,32 +173,8 @@ actions:
                   entity_id: input_select.master_bedroom_ceiling_fan_last_speed
                 data:
                   option: "{{ speed }}"
-          - alias: Dispatch the LED update
-            if:
-              - condition: state
-                entity_id: fan.master_bedroom_ceiling_fan
-                state: "on"
-                alias: Fan is on
-              - condition: not
-                alias: Nobody home and awake
-                conditions:
-                  - condition: and
-                    alias: Currently home and awake
-                    conditions:
-                      - condition: numeric_state
-                        entity_id: zone.home
-                        above: 0
-                        alias: Someone home
-                      - condition: state
-                        entity_id: input_boolean.everyone_sleeping
-                        state: "off"
-                        alias: Everyone awake
-            then:
-              - alias: Flash the dim acknowledgement
-                action: script.master_bedroom_ceiling_fan_led_blip_dim
-            else:
-              - alias: Recompute the steady LED state
-                action: script.master_bedroom_ceiling_fan_led_state
+          - alias: Recompute the LED state
+            action: script.master_bedroom_ceiling_fan_led_state
       - alias: Ceiling light changed - recompute the LED bar
         conditions:
           - condition: trigger

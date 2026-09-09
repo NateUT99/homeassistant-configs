@@ -663,7 +663,9 @@ The paddle is the one path where the switch's own internal load-control relay ph
 
 A calendar/schedule-derived "is so-and-so home today" sensor recalculates at the day boundary, not when the person actually leaves the house. Gating any nighttime behavior on it going instantaneously `off` — e.g. neutralizing a stale personal sleep flag once someone's "not home today" — fires hours before they've actually gone, while they may still be asleep in the house.
 
-Fix: require the `off` state to have held for a **minimum duration** (`condition: state` with `for:`) long enough to span the person's usual overnight-to-departure window, not an instantaneous check. The Inovelli LED-bar design (`guides/inovelli_switches.md`, Avery's Room) uses `for: "08:00:00"` against `binary_sensor.avery_home_today` for exactly this reason.
+Fix: require the `off` state to have held for a **minimum duration** (`condition: state` with `for:`) long enough to span the person's usual overnight-to-departure window, not an instantaneous check.
+
+(The Inovelli LED-bar design briefly used `for: "08:00:00"` against `binary_sensor.avery_home_today` for exactly this reason, then dropped the sensor from that feature entirely — see `guides/inovelli_switches.md` — once the design changed so a stale personal sleep flag could only ever pick the wrong *dim* brightness, never leave a switch fully dark. The general lesson (minimum-duration gating on any midnight-boundary sensor) still applies to the next place this pattern is needed.)
 
 ---
 

@@ -54,59 +54,61 @@ see the canopy pattern's Step 3) and the bar tracks whichever of the two matches
 relay state. Writing them in lockstep is what keeps the bar from blinking every time the
 paddle is pressed.
 
-### Bedroom vs. non-bedroom classification
+### Presence gates on/off; sleep only dims
 
-**A per-switch decision made at install time: does anyone sleep in this room?** It changes
-what the resting state depends on.
+**Every switch shows something whenever someone is home — day or night.** Sleep never turns
+the bar off; it only picks a dimmer intensity. This applies identically to every switch in
+the house — Office, Master Bedroom, and Avery's Room all follow the exact same rule, with no
+per-room classification to get right at install time:
 
-| | Bedroom | Non-bedroom |
+| Condition | Colour | Intensity |
 |---|---|---|
-| Gate | Presence **and** awake | Presence only |
-| Example | Master Bedroom, Avery's Room | Office |
-| Rationale | A persistent glow next to someone trying to sleep is worse than the brief flash it replaces — the fan is often left running overnight for white noise | Nobody sleeps here; someone up at night benefits from the glow, and there's no one to disturb |
+| Someone home, switch "active" | device-pattern-defined (e.g. fan speed colour) | `25` by day, `5` at night |
+| Someone home, switch idle | `White` (locator glow) | `3` by day, `5` at night |
+| Nobody home | — | `0` (dark) |
 
-A bedroom switch may also carry a **person-specific** sleep flag layered on top of the
-household one — see Avery's Room in the per-room table under
-[Replicating for another room](#replicating-for-another-room) for the worked example,
-including the stale-flag trap: a personal sleep boolean must be ignored once that person
-hasn't been home for a while, via a paired `binary_sensor.<person>_home_today`, or it holds
-the room dark indefinitely while they're away. That sensor flips at the calendar-day
-boundary, not at the moment the person actually leaves, so gate on it having read `off` for a
-**minimum duration** (`for: "08:00:00"` for Avery, matched to her routine — everyone in the
-house is up by ~7-8am on any day she's here) rather than instantaneously — otherwise a
-midnight rollover neutralizes the flag while she's still asleep, and someone else waking
-early enough to clear the household sleep boolean would light her room to full brightness.
+Night uses one shared intensity (`5`) for both the "active" and "idle" states, rather than two
+different night values — simpler, and it makes the locator glow *brighter* at night than by
+day, which is the point: a dark room is exactly when finding the switch matters most. "Idle"
+is device-pattern-defined the same way "active" is — see
+[What's device-pattern-specific](#whats-device-pattern-specific).
+
+**Day vs. night is `input_boolean.everyone_sleeping`, plus any person-specific sleep flag
+layered on for that switch.** A person-specific flag makes the switch dim as soon as *that
+person* goes to bed, without waiting for the whole household — Avery's Room ORs in
+`input_boolean.avery_sleeping` for exactly this reason (see
+[Replicating for another room](#replicating-for-another-room)). A person-specific flag only
+ever picks between two *dim* values here, never between lit and dark, so a stale flag (that
+person away for days, nobody home to clear it) costs nothing worse than the wrong shade of
+dim while everyone else is home and awake. No `binary_sensor.<person>_home_today` style
+staleness guard is needed, since presence (`zone.home`) alone is what decides dark vs. lit.
 
 ### Resting-state script pattern
 
-Two scripts per switch, both `mode: restart`, neither taking any parameters — everything is
-read from live state:
-
-- **`script.<prefix>_..._led_state`** — idempotent. Recomputed from scratch on every call, so
-  there is no snapshot and none of the `scene.create` failure modes a snapshot/restore
-  approach would carry (captured mid-transition, or suppressing the next colour command —
-  `LESSONS.md`). Resolves to one of: an "active" colour at a device-pattern-defined
-  intensity while home-awake, a locator glow (`White` @ intensity `3`) while home-awake and
-  otherwise idle, or dark. Every `select.select_option` call is guarded to skip when the
-  target already holds the desired value.
-- **`script.<prefix>_..._led_blip_dim`** — the one genuinely transient piece: a ~2s flash at
-  intensity `8` when something changes while the switch is *not* home-awake, then dark. No
-  animation, no "last value" memory — it reads current state and flashes that.
+One script per switch, `script.<prefix>_..._led_state`, `mode: restart`, taking no
+parameters — everything is read from live state. Fully idempotent: recomputed from scratch on
+every call, so there is no snapshot and none of the `scene.create` failure modes a
+snapshot/restore approach would carry (captured mid-transition, or suppressing the next
+colour command — `LESSONS.md`). Every `select.select_option` call is guarded to skip when the
+target already holds the desired value, both to avoid a wasted Matter round-trip and to dodge
+a possible spurious transition flicker on a no-op recompute.
 
 A **household gating automation** (`automation.household_ceiling_fan_switch_led_locator` for
 the current canopy-paired switches) reacts to presence and sleep-boolean changes and calls
-`led_state` for each affected switch — or `led_blip_dim` instead, when a change that newly
-makes a switch not-home-awake fires while that switch's "active" condition is already true
-(one flash to acknowledge, then dark, rather than an abrupt silent cut). Which switches a
-given trigger affects depends on their bedroom/non-bedroom classification — a household sleep
-boolean never touches a non-bedroom switch's dispatch at all.
+`led_state` for each affected switch. Household-wide triggers (presence,
+`everyone_sleeping`) recompute every switch; a person-specific sleep flag recomputes only the
+switch(es) that flag applies to. There is no branching decision to make here — no flash, no
+"is this switch currently active" check — every trigger is just "recompute now," which is
+also why the household automation carries no bug surface: the whole thing is idempotent
+recomputation, nothing timing-sensitive.
 
 ### What's device-pattern-specific
 
 This section deliberately says nothing about *what* the "active" colour is or what makes a
-switch "active" — that's supplied by whatever the switch controls. The Ceiling Fan Canopy
-pattern's addition is exactly one thing: map the fan's current speed onto a colour. A future
-canopy-less switch would have no "active" branch at all — just the locator glow and dark.
+switch "active" vs. "idle" — that's supplied by whatever the switch controls. The Ceiling Fan
+Canopy pattern's addition is exactly one thing: map the fan's current speed onto a colour, and
+call the switch "active" while the fan runs. A future canopy-less switch would have no
+"active" state at all — just the locator glow while home, and dark while away.
 
 ### Known hardware quirk
 
@@ -169,18 +171,17 @@ hold → light are Matter bindings and are independent of it.
                        │  event.*_button_down/up    │──► automation: double-tap → fan/light off / on
                        │  event.*_button_config     │──► automation: Ceiling Fan Wall Control
                        │  light.*_switch_led (unused)│
-                       │  select.*_switch_led_*      │◄── script.<prefix>_ceiling_fan_led_state /
-                       └────────────────────────────┘     _led_blip_dim (Shared: LED Bar)
+                       │  select.*_switch_led_*      │◄── script.<prefix>_ceiling_fan_led_state
+                       └────────────────────────────┘     (Shared: LED Bar)
 
   automation.<prefix>_ceiling_fan_wall_control   (one automation, five triggers)
       event.*_button_config        ──►  fan.set_percentage / fan.turn_off   (1 / 2 taps)
-                                   └─►  LED dispatch                        (3 taps: peek)
+                                   └─►  script.<prefix>_ceiling_fan_led_state (3 taps: peek)
       event.*_button_down (multi_press_2) ─►  fan.turn_off + light.turn_off
       event.*_button_up   (multi_press_2) ─►  fan.set_percentage (last speed) + light.turn_on
       fan.<prefix>_ceiling_fan      ──►  input_select.<prefix>_ceiling_fan_last_speed
-                                   └─►  LED dispatch (script.<prefix>_ceiling_fan_led_state
-                                        or _led_blip_dim, by home-awake gate)
-      light.<prefix>_ceiling_fan_light ─► LED dispatch (script.<prefix>_ceiling_fan_led_state)
+                                   └─►  script.<prefix>_ceiling_fan_led_state
+      light.<prefix>_ceiling_fan_light ─► script.<prefix>_ceiling_fan_led_state
 ```
 
 ### Key design decisions
@@ -232,9 +233,9 @@ hold → light are Matter bindings and are independent of it.
   order. This keeps each room a single reviewable unit with identical behaviour.
 
 - **The LED bar's "active" colour maps the fan's current speed — nothing else about
-  the bar is canopy-specific.** Everything else (the resting-state/blip-dim script
-  pattern, the bedroom/non-bedroom gate, the household dispatch automation) is
-  the [Shared: LED Bar](#shared-led-bar) pattern, unmodified.
+  the bar is canopy-specific.** Everything else (the resting-state script pattern,
+  the presence/day-night rule, the household dispatch automation) is the
+  [Shared: LED Bar](#shared-led-bar) pattern, unmodified.
 
 - **The LED bar reacts to settled state, not button presses.** With no per-change
   animation to time precisely, dispatching from the button-gesture branches ahead
@@ -303,10 +304,10 @@ back to the clean slug:
   `…_led_effect`, and the `light.<prefix>_ceiling_fan_switch_led` bar.
 
 Only the `select.<prefix>_ceiling_fan_switch_led_*` entities (colour, intensity
-on/off, effect) are referenced by config — the LED scripts drive them, see
+on/off, effect) are referenced by config — the LED script drives them, see
 [Shared: LED Bar](#shared-led-bar) — so if any of their slugs change, update
-`script.<prefix>_ceiling_fan_led_state` / `_led_blip_dim` and their `ha/` mirrors
-in the same pass. The rest are config entities nothing depends on, so those
+`script.<prefix>_ceiling_fan_led_state` and its `ha/` mirror in the same pass.
+The rest are config entities nothing depends on, so those
 renames are safe on their own. The Office device carries a **stale duplicate**
 entity set at a different Matter endpoint (`select.office_matter_thread_on_off_switch_vtm30_sn_*`)
 left over from before its clean rename — nothing references it, but don't
@@ -356,7 +357,7 @@ Set physically during the install (paddle + config taps) and confirmed in HA:
 | Smart Bulb Mode | Enabled | Keeps the load permanently powered so the paddle emits Matter commands (events / bindings) instead of chasing the empty local relay. Required for the binding to fire. Live entity: `select.*_ceiling_fan_switch_smart_bulb_mode` = `Smart Bulb Enable`. |
 | Control of switch load | `Remote & paddle control` (default — **do not** change) | On the White series the outgoing On/Off binding is triggered by the paddle's local load action. Setting this to `Remote control only` (to stop the phantom `switch.*_ceiling_fan_switch_load_control` toggle) also kills the paddle → light binding, even with Smart Bulb Mode on. Leave it and accept the internal-relay toggle as the cost of a working binding. See `LESSONS.md`. Live entity: `select.*_ceiling_fan_switch_control_of_switch_load`. |
 | Dimming Speed (Simulated) | `2s` | End-to-end ramp time for a paddle press-and-hold over the cluster 8 (Level Control) binding — see [Step 4](#step-4--matter-binding-paddle--light). At `Instant` (default) a paddle hold emits no Move/Step and cluster 8 dimming does nothing. `2s` is the tested value on both rooms; see `LESSONS.md` for values tried and rejected. Live entity: `select.*_ceiling_fan_switch_dimming_speed_simulated`. |
-| `LED Color`, `LED Intensity(On)` / `(Off)`, `LED Effect` | Automation-managed — see [Shared: LED Bar](#shared-led-bar) | Not set once and left; `script.<prefix>_ceiling_fan_led_state` / `_led_blip_dim` write these continuously in response to fan/light/presence/sleep state. Nothing about them is a fixed installer setting on this device. |
+| `LED Color`, `LED Intensity(On)` / `(Off)`, `LED Effect` | Automation-managed — see [Shared: LED Bar](#shared-led-bar) | Not set once and left; `script.<prefix>_ceiling_fan_led_state` writes these continuously in response to fan/light/presence/sleep state. Nothing about them is a fixed installer setting on this device. |
 
 ## Step 4 — Matter binding: paddle → light
 
@@ -415,7 +416,7 @@ duplicate event (see design decisions), then branches on `event_type`:
 | Single tap (`multi_press_1`) | off | Resume `input_select.averys_room_ceiling_fan_last_speed` |
 | Single tap (`multi_press_1`) | on | Advance low → medium → high → low |
 | Double tap (`multi_press_2`) | any | Off |
-| Triple tap (`multi_press_3`) | any | Peek: dispatch an LED update without touching the fan |
+| Triple tap (`multi_press_3`) | any | Peek: recompute the LED bar without touching the fan |
 
 **Paddle double-tap** (`event.*_button_down` / `event.*_button_up`) — each branch
 fires on the entity changing and gates on its `event_type` attribute being
@@ -437,16 +438,16 @@ needed):
    (`off`/`low`/`medium`/`high`).
 2. If the fan is on, write `speed` to `input_select.*_ceiling_fan_last_speed`
    (skipped when off, so the memory survives an off/on cycle).
-3. Dispatch the LED update: if the fan is on and the switch is not currently
-   home-awake, call `script.*_ceiling_fan_led_blip_dim`; otherwise call
-   `script.*_ceiling_fan_led_state`. See [Shared: LED Bar](#shared-led-bar).
+3. Call `script.*_ceiling_fan_led_state` to recompute the bar. See
+   [Shared: LED Bar](#shared-led-bar).
 
 **Ceiling light state change** — any change to `light.*_ceiling_fan_light`
 (including one driven by the paddle binding, which HA still observes) calls
 `script.*_ceiling_fan_led_state` to recompute the bar.
 
-**Triple-tap peek** dispatches the same way as the fan-settled branch, without
-touching the fan — a way to check the bar's state on demand.
+**Triple-tap peek** calls the same script, without touching the fan — a way to
+force a resync on demand (normally a no-op, since the bar already reflects
+current state continuously).
 
 `mode: queued`, `max: 10` — runs process in order.
 
@@ -463,8 +464,8 @@ Matter fan's percentage rounding.
 | high | `Violet` |
 
 Intensity levels are the [Shared: LED Bar](#shared-led-bar) pattern's, unchanged
-by this device pattern: `25` while home-awake and the fan is running, `3` for the
-resting locator glow, `8` for the away/asleep acknowledgement flash, `0` dark.
+by this device pattern: `25` by day / `5` at night while the fan is running, `3`
+by day / `5` at night for the resting locator glow, `0` dark when nobody's home.
 
 ## Replicating for another room
 
@@ -483,44 +484,42 @@ substitutions.
 | Switch device name | `Ceiling Fan Switch` | `Ceiling Fan Switch` | `Ceiling Fan Switch` | `Ceiling Fan Switch` |
 | Canopy Matter node | 10 | 12 | TBD | 15 |
 | Switch Matter node | 11 | 13 | TBD | 16 |
-| Room classification ([Shared: LED Bar](#shared-led-bar)) | Bedroom | Bedroom | Bedroom (assumed) | Non-bedroom |
-| Sleep gate | `input_boolean.everyone_sleeping` **and** `input_boolean.avery_sleeping` (ignored once `binary_sensor.avery_home_today` has read off for 8+ continuous hours) | `input_boolean.everyone_sleeping` | `input_boolean.everyone_sleeping` (assumed) | none |
+| Extra day/night gate ([Shared: LED Bar](#shared-led-bar)) | `input_boolean.avery_sleeping` ORed in | none | none (assumed) | none |
 
-Only Avery's Room has a person-specific sleep toggle, and only because she's a
-child with her own bedroom; the other bedrooms use just the household
-`input_boolean.everyone_sleeping`. The stale-flag trap her room works around —
-a personal sleep boolean holding a room dark on a day that person isn't home —
-only applies to a person-specific gate, not the household one.
+Every switch uses the same presence-gates-on/off, sleep-only-dims rule — there is
+no bedroom/non-bedroom classification to decide at install time any more. Only
+Avery's Room ORs in a person-specific flag on top of the household
+`input_boolean.everyone_sleeping`, and only because she's a child with her own
+bedroom whose bedtime doesn't line up with the rest of the household's; the other
+rooms use just the household boolean. A person-specific flag only ever picks
+between two *dim* values (never lit vs. dark), so there's no stale-flag trap to
+guard against here — no `binary_sensor.<person>_home_today` involvement needed.
 
 **Everything else is identical across rooms** — every parameter value in Steps
 2–3, the two bindings, the automation shape (one
 `automation.<prefix>_ceiling_fan_wall_control`, category Climate, labels
 `int_inovelli_fan_canopy` + `int_inovelli_led_bar`, `mode: queued` max 10, five
-triggers), the two LED scripts (`script.<prefix>_ceiling_fan_led_state`,
-`_led_blip_dim`, both `mode: restart`), and the speed bands. Two values are easy
-to get wrong and worth re-checking per room: `Control of switch load` left at
-`Remote & paddle control`, and the room's classification (bedroom vs.
-non-bedroom) decided *before* writing the LED scripts, since it changes which
-conditions their `choose` blocks carry.
+triggers), the LED script (`script.<prefix>_ceiling_fan_led_state`,
+`mode: restart`), and the speed bands. One value is easy to get wrong and worth
+re-checking per room: `Control of switch load` left at `Remote & paddle control`.
 
-Each room gets its own copies with the prefix, sleep gate, and classification
+Each room gets its own copies with the prefix and any extra day/night gate
 substituted:
 
 - `automation.<prefix>_ceiling_fan_wall_control`
 - `script.<prefix>_ceiling_fan_led_state`
-- `script.<prefix>_ceiling_fan_led_blip_dim`
 - `input_select.<prefix>_ceiling_fan_last_speed`
 
 `automation.household_ceiling_fan_switch_led_locator` is **shared**, not
-per-room — adding a room means adding that room's triggers and dispatch branch
-to it, not creating a new copy. The `int_inovelli_fan_canopy` and
+per-room — adding a room means adding that room's presence/sleep triggers and a
+dispatch branch to it, not creating a new copy. The `int_inovelli_fan_canopy` and
 `int_inovelli_led_bar` labels and this guide are shared.
 
 **Parity check.** The per-room automation and script copies must differ *only* by
-the entity prefix, the sleep gate, the room classification, the automation `id`,
-and the friendly-name prefix in `alias` / `description`. After editing any room,
-`diff` its `ha/` mirror against another room's to confirm nothing else diverged
-— any other difference is a bug.
+the entity prefix, any extra day/night gate, the automation `id`, and the
+friendly-name prefix in `alias` / `description`. After editing any room, `diff`
+its `ha/` mirror against another room's to confirm nothing else diverged — any
+other difference is a bug.
 
 Per-room copies, not a blueprint: a templated `target.entity_id` in a shared
 automation leaves the GUI editor showing only an inputs form, and the
@@ -563,12 +562,12 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
    light transition-time numbers too and reset them to `0.5` s if the flash
    returned them to `2.5`.
 8. **Verify**: paddle on/off; config-button speed cycle (1 tap) — the LED bar
-   shows the speed's colour at full (home-awake) intensity almost immediately;
-   a config double-tap off returns the bar to its resting state; the triple-tap
-   peek re-asserts the current LED state without moving the fan; a change made
-   while the room's sleep gate is active shows the dim (intensity 8)
-   acknowledgement instead; and the light riding down to `1%` on the HA slider
-   without cutting out.
+   shows the speed's colour at day intensity (`25`) almost immediately; a config
+   double-tap off returns the bar to the locator glow; the triple-tap peek
+   re-asserts the current LED state without moving the fan; toggling the room's
+   day/night gate drops both the running-fan colour and the locator glow to
+   intensity `5`; and the light riding down to `1%` on the HA slider without
+   cutting out.
 
 ## Security summary
 
@@ -587,9 +586,9 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 | Master Bedroom: Ceiling Fan Wall Control | `automation.master_bedroom_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar`) |
 | Office: Ceiling Fan Wall Control | `automation.office_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar`) |
 | Household: Ceiling Fan Switch LED Locator | `automation.household_ceiling_fan_switch_led_locator` | Automation (Lighting, `int_inovelli_led_bar`, `scope_multi_area`, `presence`) |
-| Avery's Room: Ceiling Fan LED State / LED Blip (dim) | `script.averys_room_ceiling_fan_led_state` / `_led_blip_dim` | Scripts (`mode: restart`) |
-| Master Bedroom: Ceiling Fan LED State / LED Blip (dim) | `script.master_bedroom_ceiling_fan_led_state` / `_led_blip_dim` | Scripts (`mode: restart`) |
-| Office: Ceiling Fan LED State / LED Blip (dim) | `script.office_ceiling_fan_led_state` / `_led_blip_dim` | Scripts (`mode: restart`) |
+| Avery's Room: Ceiling Fan LED State | `script.averys_room_ceiling_fan_led_state` | Script (`mode: restart`) |
+| Master Bedroom: Ceiling Fan LED State | `script.master_bedroom_ceiling_fan_led_state` | Script (`mode: restart`) |
+| Office: Ceiling Fan LED State | `script.office_ceiling_fan_led_state` | Script (`mode: restart`) |
 | Avery's Room Ceiling Fan Last Speed | `input_select.averys_room_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
 | Master Bedroom Ceiling Fan Last Speed | `input_select.master_bedroom_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
 | Office Ceiling Fan Last Speed | `input_select.office_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
@@ -604,9 +603,9 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 | `ha/automations/automation.master_bedroom_ceiling_fan_wall_control.yaml` | HA automation registry | Mirror — Master Bedroom wall-control automation |
 | `ha/automations/automation.office_ceiling_fan_wall_control.yaml` | HA automation registry | Mirror — Office wall-control automation |
 | `ha/automations/automation.household_ceiling_fan_switch_led_locator.yaml` | HA automation registry | Mirror — shared presence/sleep LED dispatch |
-| `ha/scripts/script.averys_room_ceiling_fan_led_state.yaml` / `_led_blip_dim.yaml` | HA script registry | Mirror — Avery's Room LED scripts |
-| `ha/scripts/script.master_bedroom_ceiling_fan_led_state.yaml` / `_led_blip_dim.yaml` | HA script registry | Mirror — Master Bedroom LED scripts |
-| `ha/scripts/script.office_ceiling_fan_led_state.yaml` / `_led_blip_dim.yaml` | HA script registry | Mirror — Office LED scripts |
+| `ha/scripts/script.averys_room_ceiling_fan_led_state.yaml` | HA script registry | Mirror — Avery's Room LED script |
+| `ha/scripts/script.master_bedroom_ceiling_fan_led_state.yaml` | HA script registry | Mirror — Master Bedroom LED script |
+| `ha/scripts/script.office_ceiling_fan_led_state.yaml` | HA script registry | Mirror — Office LED script |
 | `scripts/matter_write_attribute.py` | run from a LAN machine (Mac Mini) | Reads vendor-cluster attributes HA doesn't expose; `--dump-node` / `--dump-modes` for discovery |
 
 ## Related documents
@@ -649,16 +648,16 @@ config button emits its event twice per tap; the config branch's guard condition
 duplicate. If the resumed speed lands one step low, confirm the fan trigger is on
 the `percentage` **attribute**, not a bare `state` trigger.
 
-**LED bar shows the wrong colour, doesn't update, or won't go dark.** Confirm
-the room's classification and sleep gate match what [Shared: LED Bar](#shared-led-bar)
-and the per-room table under [Replicating for another room](#replicating-for-another-room)
-say they should be — a bedroom room accidentally missing its sleep condition (or
-a non-bedroom room carrying one it shouldn't) is the most common cause. If the
-bar is stuck at intensity 8 or mid-transition, the blip-dim script was
-restarted and killed before its tail — clear it by hand:
-`select.select_option` both intensity entities to `0`; the next fan or light
-change corrects it. A brief downward-wipe visual specifically on a **paddle**
-press is the known hardware quirk — see [Known hardware quirk](#known-hardware-quirk).
+**LED bar shows the wrong colour, doesn't update, or stays dark with someone
+home.** Confirm the room's day/night gate matches the per-room table under
+[Replicating for another room](#replicating-for-another-room) — a room missing
+`everyone_sleeping` from its `led_state` script, or Avery's Room missing the OR
+against `avery_sleeping`, is the most common cause. Also check for `condition:
+not` wrapping more than one sub-condition anywhere in the automation without an
+explicit `and` nested inside it — that's a NOR, not a negated AND, and fails
+silently (`LESSONS.md`). A brief downward-wipe visual specifically on a
+**paddle** press is the known hardware quirk — see
+[Known hardware quirk](#known-hardware-quirk).
 
 **Paddle does nothing after a firmware update.** Two causes. (1) Smart Bulb Mode
 reset — confirm `select.*_ceiling_fan_switch_smart_bulb_mode` still reads

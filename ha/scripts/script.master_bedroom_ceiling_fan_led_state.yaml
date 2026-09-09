@@ -2,24 +2,28 @@ alias: "Master Bedroom: Ceiling Fan LED State"
 description: >-
   Sets the Master Bedroom ceiling-fan switch LED bar to its correct steady
   state: the running fan's speed colour (Cyan/Blue/Violet) at intensity 25
-  while someone is home and awake, a faint white locator glow at intensity
-  3 when the fan and the ceiling light are both off and someone is home and
-  awake, or dark otherwise. Recomputed entirely from live state on every
-  call - no snapshot, no timers, no animation. Every write is skipped when
-  the target already holds the desired value, to avoid a wasted Matter
-  round-trip and a possible spurious transition flicker on a no-op
-  recompute. Called by Master Bedroom: Ceiling Fan Wall Control on
-  fan-speed and ceiling-light changes (a fan-on change while nobody is home
-  and awake defers to script.master_bedroom_ceiling_fan_led_blip_dim
-  instead), and by Household: Ceiling Fan Switch LED Locator on
-  presence/sleep changes and HA start.
+  by day / 5 at night while someone is home, a white locator glow at
+  intensity 3 by day / 5 at night when the fan and the ceiling light are
+  both off and someone is home, or dark when nobody is home. Night uses
+  one shared intensity (5) for both states - simpler than two different
+  night values, and it makes the locator glow brighter at night than by
+  day for findability. Day vs night is input_boolean.everyone_sleeping -
+  identical rule in every room (Office, Master Bedroom, Avery's Room);
+  sleep no longer turns the bar off anywhere, it only dims it. Recomputed
+  entirely from live state on every call - no snapshot, no timers, no
+  animation. Every write is skipped when the target already holds the
+  desired value. Called by Master Bedroom: Ceiling Fan Wall Control on
+  fan-speed and ceiling-light changes, and by Household: Ceiling Fan
+  Switch LED Locator on presence/sleep changes and HA start.
 mode: restart
 sequence:
-  - alias: Resolve the current speed's colour
+  - alias: Resolve the current speed's colour and the day/night intensities
     variables:
       speed_colour: >-
         {% set p = state_attr('fan.master_bedroom_ceiling_fan', 'percentage') | int(0) %}
         {{ 'Cyan' if p < 45 else ('Violet' if p >= 78 else 'Blue') }}
+      fan_intensity: "{{ '5' if is_state('input_boolean.everyone_sleeping', 'on') else '25' }}"
+      locator_intensity: "{{ '5' if is_state('input_boolean.everyone_sleeping', 'on') else '3' }}"
   - alias: Effect channel always stays Solid - skip if already set
     note: >-
       A same-value write can still trigger the switch's own transition ramp
@@ -28,9 +32,11 @@ sequence:
     if:
       - condition: not
         conditions:
-          - condition: state
-            entity_id: select.master_bedroom_ceiling_fan_switch_led_effect
-            state: "Solid"
+          - condition: and
+            conditions:
+              - condition: state
+                entity_id: select.master_bedroom_ceiling_fan_switch_led_effect
+                state: "Solid"
     then:
       - action: select.select_option
         target:
@@ -39,7 +45,7 @@ sequence:
           option: "Solid"
   - alias: Apply the resting state
     choose:
-      - alias: Fan running and someone home and awake - persistent speed colour
+      - alias: Fan running and someone home - persistent speed colour, dimmer at night
         conditions:
           - condition: state
             entity_id: fan.master_bedroom_ceiling_fan
@@ -49,10 +55,6 @@ sequence:
             entity_id: zone.home
             above: 0
             alias: Someone home
-          - condition: state
-            entity_id: input_boolean.everyone_sleeping
-            state: "off"
-            alias: Everyone awake
         sequence:
           - alias: Speed colour on the native LED channel - skip if already correct
             if:
@@ -65,17 +67,15 @@ sequence:
                   entity_id: select.master_bedroom_ceiling_fan_switch_led_color
                 data:
                   option: "{{ speed_colour }}"
-          - alias: Set both intensities together at the awake level - skip if already correct
+          - alias: Set both intensities together at the day/night fan level - skip if already correct
             note: >-
               Intensity(On) and (Off) always move together - the switch's
               internal relay toggles on every paddle press and picks between
               them, so a split value would make the bar blink.
             if:
-              - condition: not
-                conditions:
-                  - condition: state
-                    entity_id: select.master_bedroom_ceiling_fan_switch_led_intensity_on
-                    state: "25"
+              - condition: template
+                value_template: "{{ states('select.master_bedroom_ceiling_fan_switch_led_intensity_on') != fan_intensity }}"
+                alias: Intensity needs to change
             then:
               - action: select.select_option
                 target:
@@ -83,8 +83,8 @@ sequence:
                     - select.master_bedroom_ceiling_fan_switch_led_intensity_on
                     - select.master_bedroom_ceiling_fan_switch_led_intensity_off
                 data:
-                  option: "25"
-      - alias: Fan and light both off, someone home and awake - faint locator glow
+                  option: "{{ fan_intensity }}"
+      - alias: Fan and light both off, someone home - locator glow, brighter at night
         conditions:
           - condition: state
             entity_id: fan.master_bedroom_ceiling_fan
@@ -98,31 +98,27 @@ sequence:
             entity_id: zone.home
             above: 0
             alias: Someone home
-          - condition: state
-            entity_id: input_boolean.everyone_sleeping
-            state: "off"
-            alias: Everyone awake
         sequence:
           - alias: Resting colour is white - skip if already correct
             if:
               - condition: not
                 conditions:
-                  - condition: state
-                    entity_id: select.master_bedroom_ceiling_fan_switch_led_color
-                    state: "White"
+                  - condition: and
+                    conditions:
+                      - condition: state
+                        entity_id: select.master_bedroom_ceiling_fan_switch_led_color
+                        state: "White"
             then:
               - action: select.select_option
                 target:
                   entity_id: select.master_bedroom_ceiling_fan_switch_led_color
                 data:
                   option: "White"
-          - alias: Set both intensities together at the locator level - skip if already correct
+          - alias: Set both intensities together at the day/night locator level - skip if already correct
             if:
-              - condition: not
-                conditions:
-                  - condition: state
-                    entity_id: select.master_bedroom_ceiling_fan_switch_led_intensity_on
-                    state: "3"
+              - condition: template
+                value_template: "{{ states('select.master_bedroom_ceiling_fan_switch_led_intensity_on') != locator_intensity }}"
+                alias: Intensity needs to change
             then:
               - action: select.select_option
                 target:
@@ -130,15 +126,17 @@ sequence:
                     - select.master_bedroom_ceiling_fan_switch_led_intensity_on
                     - select.master_bedroom_ceiling_fan_switch_led_intensity_off
                 data:
-                  option: "3"
+                  option: "{{ locator_intensity }}"
     default:
-      - alias: Otherwise dark - skip if already correct
+      - alias: Otherwise dark - ceiling light is on, or nobody home
         if:
           - condition: not
             conditions:
-              - condition: state
-                entity_id: select.master_bedroom_ceiling_fan_switch_led_intensity_on
-                state: "0"
+              - condition: and
+                conditions:
+                  - condition: state
+                    entity_id: select.master_bedroom_ceiling_fan_switch_led_intensity_on
+                    state: "0"
         then:
           - action: select.select_option
             target:
