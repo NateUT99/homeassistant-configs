@@ -404,11 +404,15 @@ Templates work inside `message`. Do not call `chime_tts.say` (or `media_player.p
 
 `sensor.<appliance>_current_status` (via `lg_thinq`) transitions `... → end → power_off`, but measured across three real cycles the `end` state lasted only 31–44 seconds before moving on. A state trigger on `to: end` alone is a narrow target — an HA restart or a momentarily missed state-change event during that window loses the transition entirely. Pair it with a second, independent signal (in this instance, the appliance's `event.*_notification` entity, whose `event_type` attribute carries the same information) rather than relying on the state trigger alone. See `guides/laundry_automation.md` for the full pattern, including the recency guard the event-trigger path needs (below).
 
-### `event` entities re-fire their trigger on every HA restart, with a stale value
+### `event` entities re-fire their trigger on every HA restart or integration reload, with a stale value
 
 An `event` entity's `state` is the ISO timestamp of the last real event it saw. On HA restart, that value is restored — but the restore itself is a `state_changed` event (from `None` to the restored value), which fires any `state` trigger with no `to`/`from` filter, exactly as if a new event had just happened. A trigger built naively on such an entity will re-fire on every restart with the last event it ever saw, however old.
 
-Guard against this with a recency check comparing the entity's own state (parsed as a datetime) to `now()`:
+The same replay happens on an **integration reload or transport reconnect**, not just a full HA restart. A Matter Server disconnect (`matter_server.client.exceptions.InvalidState: Not connected`) took every entity on the three Inovelli LightFan switches `unavailable` and then restored them; the `event.*_switch_button_*` entities came back at their last-held timestamp, `from: unavailable` (not `None`), replaying a ~1h-old config-button single-tap that turned the Avery's Room fan on via `automation.averys_room_ceiling_fan_wall_control`. Crucially, `not_to: [unavailable, unknown]` does **not** catch this — the destination is a valid timestamp. The transition is `unavailable → <timestamp>`, so the guard that works is **`not_from: [unavailable, unknown]`** (add it alongside the existing `not_to`). All five triggers on the three `*_ceiling_fan_wall_control` automations now carry both.
+
+Use `not_from` when the intent is simply "ignore restore transitions." Use the recency check below instead (or as well) when a genuine-but-delayed event must also be rejected — `not_from` can't tell a fresh event from a stale one, only a restore from a non-restore.
+
+Guard against a stale value with a recency check comparing the entity's own state (parsed as a datetime) to `now()`:
 
 ```yaml
 condition: template

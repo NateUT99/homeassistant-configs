@@ -18,6 +18,9 @@ triggers:
   - alias: Config button gesture
     trigger: state
     entity_id: event.office_ceiling_fan_switch_button_config
+    not_from:
+      - unavailable
+      - unknown
     not_to:
       - unavailable
       - unknown
@@ -26,10 +29,16 @@ triggers:
     trigger: state
     entity_id: fan.office_ceiling_fan
     attribute: percentage
+    not_from:
+      - unavailable
+      - unknown
     id: fan
   - alias: Down paddle double tap
     trigger: state
     entity_id: event.office_ceiling_fan_switch_button_down
+    not_from:
+      - unavailable
+      - unknown
     not_to:
       - unavailable
       - unknown
@@ -37,6 +46,9 @@ triggers:
   - alias: Up paddle double tap
     trigger: state
     entity_id: event.office_ceiling_fan_switch_button_up
+    not_from:
+      - unavailable
+      - unknown
     not_to:
       - unavailable
       - unknown
@@ -44,6 +56,9 @@ triggers:
   - alias: Ceiling light changed (paddle-bound)
     trigger: state
     entity_id: light.office_ceiling_fan_light
+    not_from:
+      - unavailable
+      - unknown
     id: light
 conditions: []
 actions:

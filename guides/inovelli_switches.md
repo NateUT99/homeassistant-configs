@@ -470,6 +470,13 @@ needed):
 force a resync on demand (normally a no-op, since the bar already reflects
 current state continuously).
 
+All five triggers carry `not_from: [unavailable, unknown]` (the `event.*` ones
+also keep `not_to`). A Matter Server reconnect restores every entity on the
+switch from `unavailable` to its last-held value; without the `not_from` guard
+that restore transition replays the last button gesture and drives the fan. See
+`LESSONS.md` → "`event` entities re-fire their trigger on every HA restart or
+integration reload."
+
 `mode: queued`, `max: 10` — runs process in order.
 
 ## Scale reference
