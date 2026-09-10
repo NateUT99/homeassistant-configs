@@ -1,0 +1,152 @@
+id: "1789070771813"
+alias: "Household: Vacuum Mop Pad Reminders"
+description: >-
+  Brackets the weekly mop pass (folded into Household: Vacuum Evening Cleaning)
+  with two human-in-the-loop reminders, since the Roborock's mop pad and 350 ml
+  water tank are both filled and fitted by hand. Prep: at 20:00 on mop night,
+  and again when Everyone Sleeping is set that night, announce that the pad and
+  water need fitting -- suppressed once the pad is on. Cleanup: when Everyone
+  Sleeping is cleared the next morning (with a 17:00 backstop), announce that
+  the pad should come off to rinse and the tank be emptied. Attaching or
+  removing the pad clears the matching reminder banner on its own --
+  binary_sensor.living_room_vacuum_mop_attached is the acknowledgement, so there
+  are no action buttons. TTS runs through script.household_tts_announce; the
+  bedtime prep nudge and the wake cleanup nudge target the master bedroom, the
+  20:00 and 17:00 nudges the kitchen. TEST MODE: weekday conditions are set to
+  Thursday night / Friday morning; promote them to Wednesday / Thursday once a
+  run is verified. See guides/vacuum_cleaning_routine.md.
+triggers:
+  - trigger: time
+    at: "20:00:00"
+    id: prep_early
+    alias: 20:00 on mop night -- well before bed
+  - trigger: state
+    entity_id: input_boolean.everyone_sleeping
+    from: "off"
+    to: "on"
+    id: prep_bedtime
+    alias: Everyone Sleeping set for the night
+  - trigger: state
+    entity_id: binary_sensor.living_room_vacuum_mop_attached
+    from: "off"
+    to: "on"
+    id: prep_done
+    alias: Mop pad was attached
+  - trigger: state
+    entity_id: input_boolean.everyone_sleeping
+    from: "on"
+    to: "off"
+    id: cleanup_wake
+    alias: Everyone Sleeping cleared -- someone is up for the day
+  - trigger: time
+    at: "17:00:00"
+    id: cleanup_nag
+    alias: 17:00 backstop -- pad still attached late in the day
+  - trigger: state
+    entity_id: binary_sensor.living_room_vacuum_mop_attached
+    from: "on"
+    to: "off"
+    id: cleanup_done
+    alias: Mop pad was removed
+conditions: []
+actions:
+  - choose:
+      - alias: Prep nudge -- 20:00 or bedtime, pad not yet on
+        conditions:
+          - condition: trigger
+            id: [prep_early, prep_bedtime]
+          - condition: state
+            entity_id: binary_sensor.living_room_vacuum_mop_attached
+            state: "off"
+            alias: Mop pad is not already attached
+          - condition: state
+            entity_id: input_boolean.vacuum_routine_pause
+            state: "off"
+            alias: Vacuum routine is not paused
+          - condition: or
+            alias: "It is mop night (TEST MODE: Thursday night; promote to Wednesday)"
+            conditions:
+              - condition: time
+                weekday: [thu]
+                alias: Thursday (TEST; promote to wed)
+              - condition: time
+                weekday: [fri]
+                before: "08:00:00"
+                alias: Early Friday, still Thursday's night (TEST; promote to thu)
+          - condition: or
+            alias: 20:00 nudge needs someone home; the bedtime nudge implies it
+            conditions:
+              - condition: trigger
+                id: prep_bedtime
+              - condition: numeric_state
+                entity_id: zone.home
+                above: 0
+                alias: Someone is home
+        sequence:
+          - alias: Announce the prep reminder
+            action: script.household_tts_announce
+            data:
+              message: Tonight is mop night. Fill the robot's water tank and clip on the mop pad.
+              target: "{{ 'master_bedroom' if (trigger is defined and trigger.id == 'prep_bedtime') else 'kitchen' }}"
+              notification_title: Vacuum Mop Prep
+              critical_fallback: false
+          - alias: Push the prep reminder
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: Vacuum Mop Prep
+              message: Tonight is mop night -- fill the water tank and clip on the mop pad.
+              data:
+                tag: vacuum_mop_prep
+      - alias: Prep done -- clear the prep banner
+        conditions:
+          - condition: trigger
+            id: prep_done
+        sequence:
+          - alias: Clear the prep push
+            action: notify.mobile_app_nates_iphone
+            data:
+              message: clear_notification
+              data:
+                tag: vacuum_mop_prep
+      - alias: Cleanup nudge -- wake or 17:00 backstop, pad still on
+        conditions:
+          - condition: trigger
+            id: [cleanup_wake, cleanup_nag]
+          - condition: state
+            entity_id: binary_sensor.living_room_vacuum_mop_attached
+            state: "on"
+            alias: Mop pad is still attached
+          - condition: or
+            alias: "Morning after mop night (TEST MODE: Friday; promote to Thursday)"
+            conditions:
+              - condition: time
+                weekday: [fri]
+                alias: Friday (TEST; promote to thu)
+        sequence:
+          - alias: Announce the cleanup reminder
+            action: script.household_tts_announce
+            data:
+              message: Pull the mop pad off the robot to rinse it, and empty the water tank.
+              target: "{{ 'master_bedroom' if (trigger is defined and trigger.id == 'cleanup_wake') else 'kitchen' }}"
+              notification_title: Vacuum Mop Cleanup
+              critical_fallback: false
+          - alias: Push the cleanup reminder
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: Vacuum Mop Cleanup
+              message: Pull the mop pad off to rinse it, and empty the water tank.
+              data:
+                tag: vacuum_mop_cleanup
+      - alias: Cleanup done -- clear the cleanup banner
+        conditions:
+          - condition: trigger
+            id: cleanup_done
+        sequence:
+          - alias: Clear the cleanup push
+            action: notify.mobile_app_nates_iphone
+            data:
+              message: clear_notification
+              data:
+                tag: vacuum_mop_cleanup
+mode: single
+category: 01M0XF7RJK5EX3A4YPNEX7X3DG
