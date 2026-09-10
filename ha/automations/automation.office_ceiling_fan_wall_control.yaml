@@ -14,8 +14,9 @@ description: >-
   see guides/inovelli_switches.md. None of this works while HA is down; paddle
   tap -> light on/off (cluster 6) and paddle hold -> dim (cluster 8) are Matter
   bindings that run regardless. On the hold's release HA marks the ceiling light
-  manually controlled so Adaptive Lighting leaves the wall-set brightness alone
-  until the light next turns off or 30 min passes.
+  manually controlled so Adaptive Lighting leaves the wall-set brightness alone;
+  any observed turn-off (single-tap, double-tap, HA) hands it back to Adaptive
+  Lighting, and the 30-min autoreset is the backstop.
 triggers:
   - alias: Config button gesture
     trigger: state
@@ -210,7 +211,7 @@ actions:
                   option: "{{ speed }}"
           - alias: Recompute the LED state
             action: script.office_ceiling_fan_led_state
-      - alias: Ceiling light changed - recompute the LED bar
+      - alias: Ceiling light changed - recompute the LED bar, release AL if it turned off
         conditions:
           - condition: trigger
             id: light
@@ -218,6 +219,27 @@ actions:
         sequence:
           - alias: Recompute the steady LED state
             action: script.office_ceiling_fan_led_state
+          - alias: If the light is now off, hand its brightness back to Adaptive Lighting
+            note: >-
+              A single paddle tap turns the light off via the cluster-6 Matter
+              binding, which AL does not see (detect_non_ha_changes is off), so a
+              light wall-dimmed earlier would stay manually controlled through an
+              off/on. HA does see the resulting off state, so clear AL manual
+              control here. Harmless no-op when the light was not manually
+              controlled.
+            if:
+              - alias: Ceiling light is now off
+                condition: state
+                entity_id: light.office_ceiling_fan_light
+                state: "off"
+            then:
+              - alias: Release Adaptive Lighting manual control
+                action: adaptive_lighting.set_manual_control
+                data:
+                  entity_id: switch.adaptive_lighting_standard
+                  lights:
+                    - light.office_ceiling_fan_light
+                  manual_control: false
 mode: queued
 max: 10
 category: 01M0BFFGNX30MJNVWS58ZKEH3H
