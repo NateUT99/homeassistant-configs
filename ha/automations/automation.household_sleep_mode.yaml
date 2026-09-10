@@ -5,12 +5,14 @@ description: >-
   everyone wakes. Sleep: sets the living room thermostat to Sleep preset,
   turns on the bathroom ambient lamp, master bedroom nightstand lamp, and
   kitchen sink light (dim nav light), turns off lights labeled "Sleeping",
-  dims the master bedroom ceiling fan light to 25% if it is on above 25%,
-  turns on the master bedroom Apple TV, closes the garage door, and locks
-  the front door -- these actions are independent of each other and run in
-  parallel so the bedroom is ready without waiting on the garage/lock
-  actuation time. Wake: sets the thermostat back to Home preset and turns
-  off the kitchen sink light. Merged from the previously separate Configure
+  puts the Standard Adaptive Lighting instance into sleep mode (its
+  sleep_brightness owns the master bedroom and office ceiling fan lights
+  now), turns on the master bedroom Apple TV, closes the garage door, and
+  locks the front door -- these actions are independent of each other and
+  run in parallel so the bedroom is ready without waiting on the
+  garage/lock actuation time. Wake: sets the thermostat back to Home
+  preset, clears Adaptive Lighting sleep mode, and turns off the kitchen
+  sink light. Merged from the previously separate Configure
   Home for Sleep / Configure Home for Wake automations, matching the
   pattern already used by Avery's Room: Sleep Mode.
 triggers:
@@ -41,7 +43,7 @@ actions:
           - alias: Run night-prep actions in parallel
             note: >-
               Nine independent actions (thermostat, 3 lights, label
-              turn-off, ceiling fan light dim, garage, lock, media player)
+              turn-off, AL sleep mode, garage, lock, media player)
               with no ordering dependency -- parallel avoids serializing
               the garage/lock actuation time ahead of the bedroom actions.
               Small, fixed action count; no meaningful HA Green load.
@@ -64,31 +66,19 @@ actions:
                 target:
                   label_id: sleeping
                 data: {}
-              - alias: Dim master bedroom ceiling fan light for sleep
+              - alias: Put the Standard Adaptive Lighting instance into sleep mode
                 note: >-
-                  Was labeled "Sleeping" (turned fully off); now dimmed to
-                  25% instead, but only if it is already on AND currently
-                  brighter than 25% -- sleep should not switch on a dark
-                  ceiling light or brighten one that is already dim.
-                  brightness attribute is 0-255; 63.75 = 25%. Plain
-                  dimmable Matter light, brightness only.
-                if:
-                  - alias: Ceiling fan light is on
-                    condition: state
-                    entity_id: light.master_bedroom_ceiling_fan_light
-                    state: "on"
-                  - alias: Currently brighter than 25%
-                    condition: numeric_state
-                    entity_id: light.master_bedroom_ceiling_fan_light
-                    attribute: brightness
-                    above: 63.75
-                then:
-                  - alias: Set ceiling fan light to 25%
-                    action: light.turn_on
-                    target:
-                      entity_id: light.master_bedroom_ceiling_fan_light
-                    data:
-                      brightness_pct: 25
+                  Replaces the old dim-to-25% leg. AL's sleep_brightness
+                  now owns the master bedroom and office ceiling fan
+                  lights, and AL only commands lights that are already on
+                  -- so the old "only if on and above 25%" guard is
+                  preserved implicitly. The pre-stage automation writes the
+                  sleep level into each fixture's OnLevel off this same
+                  switch flip, so a middle-of-the-night wall tap comes on
+                  dim.
+                action: switch.turn_on
+                target:
+                  entity_id: switch.adaptive_lighting_standard_sleep_mode
               - alias: Ensure garage door is closed
                 action: cover.close_cover
                 target:
@@ -124,8 +114,8 @@ actions:
         sequence:
           - alias: Run wake-restore actions in parallel
             note: >-
-              Two independent actions (thermostat, kitchen nav light) with
-              no ordering dependency.
+              Three independent actions (thermostat, kitchen nav light, AL
+              sleep mode) with no ordering dependency.
             parallel:
               - alias: Set living room thermostat to Home preset
                 action: climate.set_preset_mode
@@ -137,5 +127,9 @@ actions:
                 action: light.turn_off
                 target:
                   entity_id: light.kitchen_overhead_sink
+              - alias: Clear Adaptive Lighting sleep mode on the Standard instance
+                action: switch.turn_off
+                target:
+                  entity_id: switch.adaptive_lighting_standard_sleep_mode
 mode: single
 category: 01M08R77W9A83G7DDA33MT8R09

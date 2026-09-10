@@ -1,13 +1,13 @@
 id: '1787016226204'
 alias: 'Avery''s Room: Sleep Mode'
-description: >-
-  Reacts to the Avery Sleeping toggle. Turning it on turns on the dresser lamp
-  (nightlight), fades the ceiling fan light off over ~30s, and turns off the
-  Living Room Soundbar subwoofer. Turning it off turns the dresser lamp back off,
-  turns the subwoofer back on, pauses the HomePod, turns on the Living Room Apple
-  TV, fades the ceiling fan light up to 100% over 120s — snapping straight to
-  100% if Avery's door opens mid-fade — and clears the Everyone Sleeping flag if
-  the household was still marked all-asleep.
+description: Reacts to the Avery Sleeping toggle. Turning it on turns on the dresser lamp
+  (nightlight), fades the ceiling fan light off over ~30s and puts her Adaptive Lighting instance
+  into sleep mode, and turns off the Living Room Soundbar subwoofer. Turning it off turns
+  the dresser lamp back off, turns the subwoofer back on, pauses the HomePod, turns on the
+  Living Room Apple TV, clears AL sleep mode and runs a 120s Adaptive Lighting sunrise on
+  the ceiling fan light toward the morning curve target — snapping to the current target if
+  Avery's door opens mid-fade, then handing brightness back to AL — and clears the Everyone
+  Sleeping flag if the household was still marked all-asleep.
 triggers:
 - trigger: state
   entity_id: input_boolean.avery_sleeping
@@ -43,6 +43,13 @@ actions:
         entity_id: light.averys_room_ceiling_fan_light
         state: 'on'
       then:
+      - action: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_avery_schedule
+          lights:
+          - light.averys_room_ceiling_fan_light
+          manual_control: true
+        alias: Pause Adaptive Lighting on the ceiling light so it does not fight the fade
       - action: light.turn_on
         target:
           entity_id: light.averys_room_ceiling_fan_light
@@ -50,10 +57,9 @@ actions:
           brightness_pct: 1
           transition: 30
         alias: Ramp ceiling fan light down to minimum over 30s
-        note: >-
-          light.turn_off ignores transition on this Matter device (HA sends a
-          bare Off; the module then uses its own ~2.5s off ramp). Ramp down with
-          turn_on, then cut at the bottom.
+        note: light.turn_off ignores transition on this Matter device (HA sends a bare Off;
+          the module then uses its own ~2.5s off ramp). Ramp down with turn_on, then cut at
+          the bottom.
       - delay:
           seconds: 30
         alias: Wait out the 30s ramp-down
@@ -62,8 +68,15 @@ actions:
           entity_id: light.averys_room_ceiling_fan_light
         alias: Cut the ceiling fan light off at the bottom of the ramp
       alias: Fade the ceiling fan light off, only if it is currently on
-    alias: Avery Sleeping turned ON — dresser lamp on, subwoofer off, ceiling fan light
-      fades off
+    - action: switch.turn_on
+      target:
+        entity_id: switch.adaptive_lighting_avery_schedule_sleep_mode
+      alias: Enable Adaptive Lighting sleep mode for Avery's ceiling
+      note: Runs after the fade so the light is already off before reset_manual_control_on_sleep_mode_change
+        clears the pause set above. The pre-stage automation writes the sleep level into the
+        ceiling fan's OnLevel off this flip, so a night wall tap comes on dim.
+    alias: Avery Sleeping turned ON — dresser lamp on, subwoofer off, ceiling fan light fades
+      off, AL sleep mode on
   - conditions:
     - condition: trigger
       id:
@@ -97,16 +110,33 @@ actions:
       target:
         entity_id: media_player.living_room_appletv
       alias: Turn on Living Room Apple TV
-    - action: light.turn_on
+    - action: switch.turn_off
       target:
-        entity_id: light.averys_room_ceiling_fan_light
+        entity_id: switch.adaptive_lighting_avery_schedule_sleep_mode
+      alias: Clear Adaptive Lighting sleep mode on Avery's ceiling
+      note: Must come before set_manual_control below -- with reset_manual_control_on_sleep_mode_change
+        on, flipping sleep mode clears manual control, so the lock has to be taken after the
+        flip.
+    - action: adaptive_lighting.set_manual_control
       data:
-        brightness_pct: 100
+        entity_id: switch.adaptive_lighting_avery_schedule
+        lights:
+        - light.averys_room_ceiling_fan_light
+        manual_control: true
+      alias: Lock manual control so the sunrise apply is not overridden by the 90s cycle
+    - action: adaptive_lighting.apply
+      data:
+        entity_id: switch.adaptive_lighting_avery_schedule
+        lights:
+        - light.averys_room_ceiling_fan_light
         transition: 120
-      alias: Start 120s fade of the ceiling fan light up to 100%
-      note: >-
-        Runs last in this branch so the quick actions above aren't held up by the
-        wait below.
+        turn_on_lights: true
+        adapt_brightness: true
+        adapt_color: false
+      alias: Run a 120s Adaptive Lighting sunrise toward the morning curve target
+      note: Replaces the old fixed fade to 100%. Runs last among the wake actions so the quick
+        ones above are not held up by the wait below. adapt_color is off -- brightness-only
+        fixture.
     - wait_for_trigger:
       - trigger: state
         entity_id: binary_sensor.averys_room_door
@@ -117,22 +147,31 @@ actions:
         seconds: 120
       continue_on_timeout: true
       alias: Wait for Avery's door to open during the fade-up
-      note: >-
-        Fires only on a genuine closed->open change, so a door already open when
-        sleep mode ends does not cut the fade short.
+      note: Fires only on a genuine closed->open change, so a door already open when sleep
+        mode ends does not cut the fade short.
     - if:
       - '{{ wait.completed }}'
       then:
-      - action: light.turn_on
-        target:
-          entity_id: light.averys_room_ceiling_fan_light
+      - action: adaptive_lighting.apply
         data:
-          brightness_pct: 100
-          transition: 0
-        alias: Snap ceiling fan light straight to 100%
-      alias: If the door opened mid-fade, jump to full brightness now
-    alias: Avery Sleeping turned OFF — Everyone Sleeping cleared if still on, dresser
-      lamp off, subwoofer on, HomePod paused, Apple TV on, ceiling fan light fades up
-      (snaps to 100% if the door opens)
+          entity_id: switch.adaptive_lighting_avery_schedule
+          lights:
+          - light.averys_room_ceiling_fan_light
+          transition: 2
+          turn_on_lights: true
+          adapt_brightness: true
+          adapt_color: false
+        alias: Door opened mid-fade -- snap to the current curve target
+      alias: If the door opened mid-fade, jump to the current target now
+    - action: adaptive_lighting.set_manual_control
+      data:
+        entity_id: switch.adaptive_lighting_avery_schedule
+        lights:
+        - light.averys_room_ceiling_fan_light
+        manual_control: false
+      alias: Hand the ceiling light's brightness back to Adaptive Lighting
+    alias: Avery Sleeping turned OFF — Everyone Sleeping cleared if still on, dresser lamp
+      off, subwoofer on, HomePod paused, Apple TV on, AL sleep mode cleared and a 120s sunrise
+      runs on the ceiling (snaps to target if the door opens), brightness handed back to AL
 mode: restart
 category: 01M08R77W9A83G7DDA33MT8R09
