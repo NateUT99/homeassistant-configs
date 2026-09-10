@@ -46,12 +46,13 @@ Mode` can flip independently of `input_boolean.everyone_sleeping`. Every other a
 joins Standard. There is no Colour-Only instance because nothing under AL supports colour
 temperature.
 
-#### Brightness only; `adapt_color` left on
+#### Brightness only; `adapt_color` off
 
-The canopy light kits report `supported_color_modes: ["brightness"]`. AL checks that per light
-and skips colour for a brightness-only fixture, so the `adapt_color` switches are inert and
-are left **on** — nothing to change if a colour-capable light is ever enrolled. The
-`*_color_temp` settings are given sane values for the same reason.
+The canopy light kits report `supported_color_modes: ["brightness"]`, so there is nothing for
+AL to colour-adapt. Both instances' `adapt_color` sub-switches are **off** — AL would skip
+colour on these lights regardless, but off is the accurate reading of what the system does.
+Re-enable it per instance if a colour-capable light is ever enrolled; the `*_color_temp`
+settings are given sane values so that switch is the only change needed.
 
 #### `manual_control_on_external_turn_on` stays off
 
@@ -148,8 +149,9 @@ take identical values. The advanced options are behind collapsible sections in v
 | Send split delay / Adapt delay | `0` | |
 | Min / Max / Sleep color temp | `2000` / `5500` / `2000` | Inert on brightness-only fixtures; set for future use. |
 
-Leave `adapt_brightness`, `adapt_color`, and the main switch **on** for both instances. The
-`_sleep_mode` sub-switches stay **off** — the sleep automations drive them (Step 3).
+Leave `adapt_brightness` and the main switch **on** for both instances; `adapt_color` is
+**off** (see Design Decisions). The `_sleep_mode` sub-switches stay **off** — the sleep
+automations drive them (Step 3).
 
 ## Step 3 — Sleep-mode wiring
 
