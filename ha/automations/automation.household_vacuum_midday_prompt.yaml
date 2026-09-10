@@ -12,8 +12,10 @@ description: >-
   window, so either leaves the daytime zone uncleaned all day with no second
   edge to catch it. Tapping "No" here is also how a longer trip is flagged --
   it skips the partial daytime-only clean so the next morning's whole-house
-  Away Catch-Up becomes the day's one cleaning cycle. See
-  guides/vacuum_cleaning_routine.md.
+  Away Catch-Up becomes the day's one cleaning cycle. Skipped while the mop
+  pad is attached (weekly mop pass in progress) -- a wet pad must not run the
+  carpeted daytime rooms; once the pad comes off, the noon check picks the
+  daytime clean back up. See guides/vacuum_cleaning_routine.md.
 triggers:
   - trigger: time
     at: "12:00:00"
@@ -43,6 +45,10 @@ conditions:
     entity_id: binary_sensor.living_room_vacuum_cleaning
     state: "off"
     alias: Vacuum is not currently cleaning
+  - condition: state
+    entity_id: binary_sensor.living_room_vacuum_mop_attached
+    state: "off"
+    alias: Mop pad is not attached -- a wet pad must not run the carpeted daytime rooms
 actions:
   - alias: Send actionable notification to Nate's iPhone
     action: notify.mobile_app_nates_iphone

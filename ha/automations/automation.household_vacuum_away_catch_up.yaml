@@ -6,12 +6,13 @@ description: >-
   everyone_sleeping is only ever set at real bedtime, and the daytime pass
   only fires on a departure edge, which is long gone by day 2 of a trip. Runs
   at 11:00 daily for as long as the house stays empty -- max fan speed,
-  mopping disabled (the dock can't refill its water tank unattended),
-  covering the entire map via vacuum.start rather than a segment list. Marks
-  both zones' daily-ran flags on command, since nothing docks a run when no
-  one is home to interrupt it. Stops on its own the moment anyone is home; no
-  separate handoff back to the normal schedule is needed. See
-  guides/vacuum_cleaning_routine.md.
+  mopping disabled (the onboard 350 ml water tank can't be refilled
+  unattended), covering the entire map via vacuum.start rather than a segment
+  list. Marks both zones' daily-ran flags on command, since nothing docks a run
+  when no one is home to interrupt it. Stops on its own the moment anyone is
+  home; no separate handoff back to the normal schedule is needed. Skipped
+  while the mop pad is attached -- a whole-house run would drag a hand-fitted
+  wet pad across every bedroom. See guides/vacuum_cleaning_routine.md.
 triggers:
   - trigger: time
     at: "11:00:00"
@@ -35,6 +36,10 @@ conditions:
     entity_id: binary_sensor.living_room_vacuum_cleaning
     state: "off"
     alias: Vacuum isn't mid-clean (e.g. an autonomous recharge)
+  - condition: state
+    entity_id: binary_sensor.living_room_vacuum_mop_attached
+    state: "off"
+    alias: Mop pad is not attached -- a whole-house run would wet-mop the bedrooms
 actions:
   - alias: Set active zone to away
     action: input_select.select_option
@@ -48,7 +53,7 @@ actions:
       entity_id: vacuum.living_room_vacuum
     data:
       fan_speed: max
-  - alias: Disable mopping -- dock can't refill water unattended
+  - alias: Disable mopping -- onboard tank can't be refilled unattended
     action: select.select_option
     target:
       entity_id: select.living_room_vacuum_mop_intensity

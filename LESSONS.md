@@ -516,6 +516,17 @@ When two rooms are merged in the Roborock app (tested 2026-08-26, Kitchen + Dini
 
 The reliable check is functional, not observational: send `app_segment_clean` targeting a candidate ID and watch `vacuum.<x>` state. A live ID flips to `cleaning` within seconds; a retired one silently no-ops (no error, no state change) — same signature as any other dead segment ID. Confirm this immediately before editing an automation's segment list, and re-confirm if significant time passed since the last check, since the answer can change again as the sync continues to converge (a "27 still works" result checked once may not hold an hour later).
 
+### Q8 Max Plus has no mop lift and no dock wash/dry — rug protection is drawn zones, not a setting
+
+The Roborock Q8 Max Plus (RockDock Plus) has no mopping features beyond a hand-fitted pad on a manual 350 ml water tank. Confirmed against Roborock's own docs:
+
+- **No mop lift.** Ultrasonic carpet recognition — the app's "Rise" / "Avoid" carpet-mopping behavior — ships only on the S7 / S7 MaxV / S7 Max Ultra / S8 / S8+ / S8 Pro Ultra / Q Revo lines. The Q8 Max is not among them. Marking an area as *carpet* on the map only enables **Carpet Boost (suction)** — it does **not** stop the pad wetting the carpet. A wet pad drags straight across any rug the robot can reach.
+- **The only rug protection is a no-mop zone** drawn over each rug in the app, sized a few inches larger than the rug on every side (the pad trails the wheels and LiDAR position drifts between runs). With the pad attached the robot will not enter a no-mop zone at all, so the rug is skipped that run — there is no "mop around it" middle ground on this model.
+- **The dock is auto-empty dust only** (2.5 L E12 bag). No mop washing, no drying, no clean/dirty water tanks. So "mopping disabled to avoid a loud dock wash" is not a real constraint on this unit — the reason ordinary nights don't mop is simply that the pad and tank are fitted by hand.
+- **Dust bin and water tank are one combined 2-in-1 module.** There is no dedicated "dust bin installed" sensor; `binary_sensor.<vacuum>_water_box_attached` is the signal that the rear cavity is occupied, and it has been solidly `on` through 10+ days of vacuum-only runs (the module stays seated; only the mop cloth plate, `binary_sensor.<vacuum>_mop_attached`, gets clipped on for mopping).
+
+See `guides/vacuum_cleaning_routine.md` → *Weekly Mop Pass* for how the routine is built around these constraints.
+
 ---
 
 ## Zigbee & Lighting Groups

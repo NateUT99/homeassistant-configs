@@ -93,7 +93,9 @@ actions:
       Departure fast path. The "not already cleaning" and "ran_daytime off"
       conditions make the 5-minute trigger's idempotent re-run after an
       immediate departure a no-op here. Evening common-areas cleaning stays in
-      automation.household_vacuum_evening_cleaning.
+      automation.household_vacuum_evening_cleaning. The mop-attached gate keeps a
+      hand-fitted wet pad from being dragged across the carpeted Office and the
+      bedrooms -- the weekly mop pass covers hard floor only.
     if:
       - condition: state
         entity_id: input_boolean.vacuum_ran_daytime
@@ -113,6 +115,10 @@ actions:
             entity_id: vacuum.living_room_vacuum
             state: cleaning
         alias: Vacuum is not currently cleaning
+      - condition: state
+        entity_id: binary_sensor.living_room_vacuum_mop_attached
+        state: "off"
+        alias: Mop pad is not attached -- a wet pad must not run the carpeted daytime rooms
     then:
       - alias: Set active zone to daytime
         action: input_select.select_option
@@ -148,5 +154,25 @@ actions:
         data:
           title: Vacuum
           message: Started cleaning remaining rooms.
+    else:
+      - alias: If the daytime clean was blocked by the mop pad, say so
+        note: >-
+          The else branch fires for any failed condition (already ran, paused,
+          outside hours, mid-clean). Only push when the reason is specifically
+          the mop pad still being attached from the weekly mop pass -- the other
+          cases are expected and silent.
+        if:
+          - condition: state
+            entity_id: binary_sensor.living_room_vacuum_mop_attached
+            state: "on"
+            alias: Mop pad is still attached
+        then:
+          - alias: Tell Nate the daytime clean was skipped for the mop pad
+            action: notify.send_message
+            target:
+              entity_id: notify.nates_iphone
+            data:
+              title: Vacuum
+              message: Daytime clean skipped -- the mop pad is still attached.
 mode: single
 category: 01M08R77W9A83G7DDA33MT8R09
