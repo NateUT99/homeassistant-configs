@@ -67,6 +67,17 @@ Metering only mode is enabled and Power-on behavior is set to On, so it acts as 
 meter rather than a switched outlet; the `switch.kitchen_dishwasher` on/off control is disabled
 since toggling it is a no-op in this mode.
 
+**Dishwasher cycle detection.** The plug's `power_rise_threshold` / `power_drop_threshold`
+(5W / 15W) drive `binary_sensor.kitchen_dishwasher_opening` — a ZHA power-threshold-crossing
+flag repurposed from an "opening" cluster, renamed "Dishwasher Power Threshold" and hidden
+since its name no longer describes a door. Observed over a real cycle, the raw signal flips
+on/off 40+ times in ~80 minutes: the wash/drain pump load is bursty (20–90W bursts separated
+by sub-5W troughs), not flat, so the raw flag reads "off" repeatedly during troughs that are
+really just gaps between pump bursts. `binary_sensor.kitchen_dishwasher_running`
+(`ha/packages/dishwasher_running.yaml`) debounces this with `delay_off: 3m`, collapsing the
+blips into one clean on/off span per cycle. `delay_off` has no Template Helper config-flow
+field, so this is a YAML `template:` package rather than a UI-created helper.
+
 ---
 
 ## Prerequisites
@@ -170,6 +181,8 @@ dashboard's cost figure track the real bill.
 | Dishwasher | Energy Dashboard individual device | `.storage/energy` — consumed energy = `sensor.kitchen_dishwasher_summation_delivered` (ZHA, Third Reality metering plug) |
 | Dishwasher Power | `sensor.kitchen_dishwasher_power` | Sensor (ZHA) — instantaneous W |
 | Dishwasher (switch, disabled) | `switch.kitchen_dishwasher` | ZHA — relay control, disabled; metering-only mode makes toggling it a no-op |
+| Dishwasher Power Threshold (hidden) | `binary_sensor.kitchen_dishwasher_opening` | ZHA — raw power-threshold flag; flaps during a cycle, kept as input to the sensor below |
+| Dishwasher Running | `binary_sensor.kitchen_dishwasher_running` | Template sensor (package) — debounced cycle-running flag, `delay_off: 3m` |
 
 ---
 
