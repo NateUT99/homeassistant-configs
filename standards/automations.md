@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.17 — September 2026*
+*Version 1.18 — September 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.18 | September 2026 | Resolved a §4.1/§4.2 contradiction: integration-scoped entity IDs now use the integration name slugified (`adaptive_lighting`), not a hand-chosen "short code" (`al`), so the §4.2 slug-match check holds for integration scope like it does for area and household scope. Fixed the stale `al_pre_stage_standard` example and the `Adaptive Lighting: Pre-Stage Standard & Color Only` worked example |
 | 1.17 | September 2026 | Added `int_inovelli_led_bar` (LED Bar) to the §3.2 integration labels table, and a note that a guide may house more than one labelled pattern — `guides/inovelli_switches.md` now covers both the shared LED-bar pattern and the Ceiling Fan Canopy device pattern built on it |
 | 1.16 | September 2026 | Synced the §3.2 integration labels table — added `int_laundry` (Laundry), `int_vacuum_cleaning_routine` (Vacuum), and `int_inovelli_fan_canopy` (Ceiling Fan), which existed in HA but had drifted out of the table. Friendly names for the latter two are deliberately shortened from their guide names |
 | 1.15 | August 2026 | Added §5.12 (Confirmed Arrival) — generalizes §5.10's entry-evidence insight into a shared `input_boolean.arrival_confirmed`, set by `automation.household_confirm_arrival`, that any arrival-triggered automation consumes instead of `zone.home` directly |
@@ -179,8 +180,14 @@ The `<scope_prefix>` is one of three forms:
 | Scope | Prefix | Examples |
 |---|---|---|
 | Single area | The `area_id` from the area registry | `automation.kitchen_freezer_door_left_open` |
-| Integration-scoped | The integration's short code | `automation.al_pre_stage_standard`, `automation.hue_sync_stop_on_ps5_power_off` |
+| Integration-scoped | The integration's name, slugified to snake_case | `automation.adaptive_lighting_pre_stage`, `automation.hue_sync_stop_on_ps5_power_off` |
 | Whole-home / no single area | `household` | `automation.household_first_arrives_home`, `automation.household_everyone_sleeping` |
+
+The integration prefix is the guide's proper name run through the same slug rule as
+everything else (spaces → underscores, apostrophes dropped, lower-cased) — `Adaptive
+Lighting` → `adaptive_lighting`, `Hue Sync` → `hue_sync`. It is not a hand-chosen
+abbreviation; §4.2's slug-match check must hold for integration scope exactly as it does
+for area and household scope.
 
 The `<purpose_phrase>` describes *what the automation does*, not what triggers it:
 
@@ -208,7 +215,7 @@ The Scope is the human-readable form of the entity-ID scope prefix:
 | Entity ID scope | Friendly name scope |
 |---|---|
 | An `area_id` | The area's friendly name (`Kitchen`, `Living Room`, `Master Bedroom`) |
-| Integration short code | The integration's proper name (`Adaptive Lighting`, `Hue Sync`, `Litra Glow`) |
+| An integration name slug | The integration's proper name (`Adaptive Lighting`, `Hue Sync`, `Litra Glow`) |
 | `household` | `Household` |
 
 The separator is a colon followed by a space. Title Case for both halves.
@@ -216,7 +223,7 @@ The separator is a colon followed by a space. Title Case for both halves.
 ```
 Kitchen: Freezer Door Left Open
 Living Room: TV Power Handler
-Adaptive Lighting: Pre-Stage Standard & Color Only
+Adaptive Lighting: Pre-Stage
 Household: First Arrives Home
 ```
 
