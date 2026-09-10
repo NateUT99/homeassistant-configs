@@ -13,7 +13,10 @@ description: >-
   every case. The bar always shows something whenever someone's home, day or
   night, identically to Office and Avery's Room - see guides/inovelli_switches.md.
   None of this works while HA is down; paddle tap -> light on/off (cluster 6) and
-  paddle hold -> dim (cluster 8) are Matter bindings and are independent.
+  paddle hold -> dim (cluster 8) are Matter bindings that run regardless. On the
+  hold's release HA marks the ceiling light manually controlled so Adaptive
+  Lighting leaves the wall-set brightness alone until the light next turns off or
+  30 min passes.
 triggers:
   - alias: Config button gesture
     trigger: state
@@ -33,7 +36,7 @@ triggers:
       - unavailable
       - unknown
     id: fan
-  - alias: Down paddle double tap
+  - alias: Down paddle gesture
     trigger: state
     entity_id: event.master_bedroom_ceiling_fan_switch_button_down
     not_from:
@@ -42,8 +45,8 @@ triggers:
     not_to:
       - unavailable
       - unknown
-    id: down_double
-  - alias: Up paddle double tap
+    id: down_paddle
+  - alias: Up paddle gesture
     trigger: state
     entity_id: event.master_bedroom_ceiling_fan_switch_button_up
     not_from:
@@ -52,7 +55,7 @@ triggers:
     not_to:
       - unavailable
       - unknown
-    id: up_double
+    id: up_paddle
   - alias: Ceiling light changed (paddle-bound)
     trigger: state
     entity_id: light.master_bedroom_ceiling_fan_light
@@ -129,7 +132,7 @@ actions:
       - alias: Down paddle double-tapped - turn the fan and light off
         conditions:
           - condition: trigger
-            id: down_double
+            id: down_paddle
             alias: Triggered by the down paddle
           - alias: Gesture was a double tap (multi_press_2), not a single tap or hold
             condition: state
@@ -148,7 +151,7 @@ actions:
       - alias: Up paddle double-tapped - turn the fan and light on
         conditions:
           - condition: trigger
-            id: up_double
+            id: up_paddle
             alias: Triggered by the up paddle
           - alias: Gesture was a double tap (multi_press_2), not a single tap or hold
             condition: state
@@ -166,6 +169,24 @@ actions:
             action: light.turn_on
             target:
               entity_id: light.master_bedroom_ceiling_fan_light
+      - alias: Paddle held then released - hand the ceiling light's brightness to Adaptive Lighting
+        conditions:
+          - condition: trigger
+            id:
+              - up_paddle
+              - down_paddle
+            alias: Triggered by either paddle
+          - alias: Gesture was a hold-release (long_release), not a tap
+            condition: template
+            value_template: "{{ trigger.to_state.attributes.event_type == 'long_release' }}"
+        sequence:
+          - alias: Mark the ceiling light manually controlled so AL stops adapting its brightness
+            action: adaptive_lighting.set_manual_control
+            data:
+              entity_id: switch.adaptive_lighting_standard
+              lights:
+                - light.master_bedroom_ceiling_fan_light
+              manual_control: true
       - alias: Fan speed settled - record it and update the LED bar
         conditions:
           - condition: trigger
