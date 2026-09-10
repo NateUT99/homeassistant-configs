@@ -651,6 +651,14 @@ A cluster 8 binding (switch Binding endpoint → canopy light endpoint 1) for pa
 
 **Whole-room off/on is a paddle double-tap, not a hold** (September 2026) — the cluster 8 hold-to-dim binding was briefly removed to free the hold gesture for whole-room off/on, then restored once it was clear `multi_press_2` fires on the paddle (Button Delay already `300ms` for the config button). Hold = dim (binding); double-tap = whole-room (automation). Guide `guides/inovelli_switches.md` Steps 4 and 6.
 
+### Adaptive Lighting `detect_non_ha_changes: false` — a Matter-binding light change is invisible to AL
+
+`detect_non_ha_changes` off is the correct setting for a Matter dimmer: the device's 0–254 level quantisation against HA's 0–255 range otherwise produces false-positive manual-control flags that silently freeze a light off its curve. The cost is that Adaptive Lighting then reacts only to `light.turn_on` / `light.turn_off` **service calls** routed through HA. A wall paddle driving an Inovelli canopy light over the cluster 6 binding turns it off/on in firmware — HA's Matter subscription reports the resulting state change, but there is no service call, so AL ignores it.
+
+Consequence: a light wall-dimmed earlier (paddle hold → AL manual control set by the room's wall-control automation on `long_release`) stays manually controlled straight through a wall-paddle off/on. AL resumes adapting it only on an HA-routed `light.turn_off` (e.g. the double-tap-down branch), the `autoreset_control_seconds` timer (30 min here), an explicit `adaptive_lighting.set_manual_control` false call, or a sleep-mode switch flip (`reset_manual_control_on_sleep_mode_change`).
+
+Fix applied: each room's wall-control automation (`guides/inovelli_switches.md` Step 6) clears AL manual control whenever HA observes the ceiling light turn `off`, from any source — HA sees the binding-driven off even though AL doesn't. `guides/adaptive_lighting.md` has the instance config.
+
 ### Inovelli VTM30-SN LED bar — only a saturated `hs_color` renders reliably; white / colour-temp are dropped
 
 The switch's RGB notification bar (`light.*_ceiling_fan_switch_led`) advertises `supported_color_modes: [color_temp, hs, xy]` with a nonsense range (`min_color_temp_kelvin` 15, `max` 1000000). In practice, from inside a `script` / automation run: `color_temp_kelvin` and a low-saturation / white `hs_color` or `rgb_color` all flip the entity to `on`, trace cleanly, and show `on` in state history for the full hold — but **emit no visible light**. A fully-saturated `hs_color` (e.g. the fan speed hues `[175/220/265, 100]`) renders every time. A *direct* `light.turn_on` with white does render, which made this maddening to isolate. Fan speed blips work because they use saturated hues; a "warm white 3000 K" canopy-light cue was chased for hours and abandoned (September 2026) — the light turning on/off is its own feedback. If you ever need a non-speed colour on this bar, keep saturation at 100.

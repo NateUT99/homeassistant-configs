@@ -19,7 +19,7 @@ Version-controlled documentation, standards, and supporting scripts for a person
 
 | Document | Description |
 |---|---|
-| [Adaptive Lighting](guides/adaptive_lighting.md) | AL configuration, curve design, and MQTT-based pre-staging procedure for Zigbee bulbs |
+| [Adaptive Lighting](guides/adaptive_lighting.md) | Two-instance AL setup for the Inovelli canopy ceiling-fan lights, with Matter `OnLevel` pre-staging for wall-paddle turn-ons |
 | [Chime TTS](guides/chime_tts.md) | HACS-based chime-prefixed TTS via HomePod notify services; standard delivery mechanism for all TTS announcements |
 | [Home Alarm](guides/home_alarm.md) | Alarm perimeter detection, camera siren, contextual push notifications, and camera snapshot on person detection |
 | [Hue Sync & TV Bias Lighting](guides/hue_sync.md) | Living Room bias light and Hue Sync Box automation system |

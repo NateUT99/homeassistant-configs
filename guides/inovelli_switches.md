@@ -139,7 +139,7 @@ the Home Assistant side once both devices are paired.
 
 ### Architecture
 
-Five mechanisms connect the wall switch to the fan/light:
+Six mechanisms connect the wall switch to the fan/light:
 
 | Function | Mechanism | Works with HA down? |
 |---|---|---|
@@ -148,6 +148,7 @@ Five mechanisms connect the wall switch to the fan/light:
 | Paddle double-tap down → fan + light off; double-tap up → fan on (last speed) + light on | HA automation | No |
 | Config button taps → fan speed (1 tap cycle, 2 taps off, 3 taps peek) | HA automation | No |
 | Fan/light state change → switch LED bar update | HA automation ([Shared: LED Bar](#shared-led-bar)) | No |
+| Paddle hold release, or any observed light turn-off → Adaptive Lighting manual-control handoff | HA automation ([Step 6](#step-6--ha-automation), `guides/adaptive_lighting.md`) | No |
 
 The whole-room off/on gesture is a paddle **double-tap** (`multi_press_2` on the
 up/down paddle event entity), handled by the HA automation. Tap → light and
@@ -178,9 +179,11 @@ hold → light are Matter bindings and are independent of it.
                                    └─►  script.<prefix>_ceiling_fan_led_state (3 taps: peek)
       event.*_button_down (multi_press_2) ─►  fan.turn_off + light.turn_off
       event.*_button_up   (multi_press_2) ─►  fan.set_percentage (last speed) + light.turn_on
+      event.*_button_up/down (long_release) ─►  adaptive_lighting.set_manual_control (true)
       fan.<prefix>_ceiling_fan      ──►  input_select.<prefix>_ceiling_fan_last_speed
                                    └─►  script.<prefix>_ceiling_fan_led_state
-      light.<prefix>_ceiling_fan_light ─► script.<prefix>_ceiling_fan_led_state
+      light.<prefix>_ceiling_fan_light ─►  script.<prefix>_ceiling_fan_led_state
+                                   └─►  adaptive_lighting.set_manual_control (false, when → off)
 ```
 
 ### Key design decisions
@@ -243,6 +246,13 @@ hold → light are Matter bindings and are independent of it.
   `light.<prefix>_ceiling_fan_light` state triggers alone, reacting within the
   fan's normal ~0.3–0.6s settle time. The button-gesture branches contain no LED
   code at all.
+
+- **Adaptive Lighting owns steady-state ceiling brightness.** The three fan lights
+  are enrolled in Adaptive Lighting (`guides/adaptive_lighting.md`); `On level`
+  (Step 2) is written by its pre-stage automation, not set here. A paddle hold
+  dims locally over the cluster 8 binding, and on `long_release` this automation
+  pins that level against AL's curve; any turn-off HA observes hands brightness
+  back to AL.
 
 ## Prerequisites
 
@@ -342,13 +352,19 @@ post-update rename — see [Step 1](#step-1--device-and-entity-naming)):
 | Fan Mode | `select.averys_room_ceiling_fan_fan_mode` | `Ceiling (3 Speed)` | Matches the fan; gives HA a 3-speed `fan` entity (low 33 / medium 66 / high 100). |
 | Minimum dim level | `select.averys_room_ceiling_fan_ligh_min_level` | `13%` | Lowest step that holds without the driver dropping the light; `1%` on the HA brightness slider maps to this floor. (Friendly name reads "Ligh Min Level" — an Inovelli typo.) |
 | Maximum dim level | `select.averys_room_ceiling_fan_ligh_max_level` | `70%` | The light kit attached to the fan plateaus well below full phase-cut — above ~70% it is already at maximum output, so the top third of the HA brightness slider produces no visible change. Capping here maps the slider's full travel onto the range the eye can actually see. Mirror of the Minimum dim level floor at the other end. This is a property of the fixture, not the VTM36 — retest if a fan's light kit is ever changed. `70%` is the tested value; all rooms use identical fixtures, so it is uniform. The options list is coarse (`60/65/70/75/80…`). (Friendly name reads "Ligh Max Level" — an Inovelli typo.) |
-| On level (endpoint 1, light) | `number.averys_room_ceiling_fan_on_level_1` | `254` | `255` is the "restore previous brightness" sentinel — an On command (paddle *or* HA) returns to the last level. `254` forces every On to 100%. The binding sends a plain On, so this is what makes paddle-up give full brightness. Trade-off: all On commands go to 100%; an explicit brightness from HA is not remembered as the on-level. |
+| On level (endpoint 1, light) | `number.averys_room_ceiling_fan_on_level_1` | Adaptive Lighting-managed | `255` is the "restore previous brightness" sentinel; `254` forces every On to 100%. This value is not set by hand: `automation.adaptive_lighting_pre_stage` writes the current Adaptive Lighting brightness target here while the light is off, so a binding-driven paddle-up comes on near the adapted level (`guides/adaptive_lighting.md`). Set it to `254` only if Adaptive Lighting is removed. |
 | Power-on behavior (both endpoints) | `select.averys_room_ceiling_fan_power_on_behavior_1` / `_2` | `previous` (default) | After a breaker/mains restore, fan and light return to their prior state. The breaker is now the only disconnect for the ceiling, so this is worth setting deliberately. |
 | Fan Min / Max Speed | `select.averys_room_ceiling_fan_fan_min_speed` / `_fan_max_speed` | `Low` / `High` (default) | Full range; leave unless a fan needs a narrower band. |
 | Light transition time (On / Off / On-Off) | `number.averys_room_ceiling_fan_on_transition_time`, `…_off_transition_time`, `…_on_off_transition_time` | `0.5` s (all three) | Factory default is 2.5 s — a slow mood-fade that feels wrong on a bedroom light next to the ~0.4–1 s fade of the Hue / IKEA bulbs elsewhere. Set all three: HA on/off and some command paths read the combined `On/Off` value; the split `On` / `Off` pair covers the rest and takes precedence when set. Because `light.turn_off` drops any `transition:` HA passes (see `LESSONS.md`), these numbers are what actually control the fade. |
 
 Leave `Fan Breeze Mode` (`Off`) and `FanQuick Start` (`Quick Start Disable`) at
 their defaults.
+
+> **Coordinated change:** `On level` (endpoint 1) is written by
+> `automation.adaptive_lighting_pre_stage` — see `guides/adaptive_lighting.md`. If
+> Adaptive Lighting is removed, set it back to `254`. If Minimum / Maximum dim
+> level change, re-check the brightness → `OnLevel` scale in that guide, which
+> assumes the ~13–70% window those two values define.
 
 ### Config parameters over Matter
 
@@ -394,9 +410,10 @@ Done in the Matter Server Web UI.
 5. Set `Dimming Speed (Simulated)` = `2s` ([Step 3](#step-3--switch-vtm30-sn-parameters)).
    Without a non-`Instant` value the cluster 8 bind emits nothing on a paddle
    hold and the dim half of this step will look broken.
-6. Test at the wall: tap up → light on (full, per the On level parameter), tap
-   down → light off; hold up → smooth ramp up, hold down → ramp down, release →
-   stop mid-ramp. Confirm all of it still works with Home Assistant stopped.
+6. Test at the wall: tap up → light on (at the `On level` — pre-staged by
+   Adaptive Lighting, or 100% if `number.*_on_level_1` is `254`), tap down →
+   light off; hold up → smooth ramp up, hold down → ramp down, release → stop
+   mid-ramp. Confirm all of it still works with Home Assistant stopped.
 
 The paddle **double-tap** (whole-room off/on) is not bound — it is an HA
 automation ([Step 6](#step-6--ha-automation)), independent of these bindings.
@@ -425,9 +442,9 @@ so it reads the same across rooms — Matter's default name is the generic
 ## Step 6 — HA automation
 
 One automation per room — `automation.averys_room_ceiling_fan_wall_control`
-(category Climate, labels `int_inovelli_fan_canopy` + `int_inovelli_led_bar`).
-YAML lives in the `ha/` mirror. Five triggers, top-level `choose` on which one
-fired:
+(category Climate, labels `int_inovelli_fan_canopy` + `int_inovelli_led_bar` +
+`int_adaptive_lighting`). YAML lives in the `ha/` mirror. Five triggers, top-level
+`choose` on which one fired:
 
 **Config button** (`event.*_button_config`) — guarded to skip the ~8 ms
 duplicate event (see design decisions), then branches on `event_type`:
@@ -439,18 +456,21 @@ duplicate event (see design decisions), then branches on `event_type`:
 | Double tap (`multi_press_2`) | any | Off |
 | Triple tap (`multi_press_3`) | any | Peek: recompute the LED bar without touching the fan |
 
-**Paddle double-tap** (`event.*_button_down` / `event.*_button_up`) — each branch
-fires on the entity changing and gates on its `event_type` attribute being
-`multi_press_2`, so a single tap (cluster 6 binding) or a hold (cluster 8
-binding) on the same paddle doesn't match:
+**Paddle gestures** (`event.*_button_down` / `event.*_button_up`, trigger ids
+`down_paddle` / `up_paddle`) — each branch gates on the `event_type` attribute, so
+a single tap (cluster 6 binding) and a hold ramp (cluster 8 binding) fall through
+to the firmware without matching an automation branch:
 
 | Paddle gesture | Result |
 |---|---|
 | Double-tap down (`multi_press_2`) | `fan.turn_off` + `light.turn_off` |
-| Double-tap up (`multi_press_2`) | `fan.set_percentage` to the remembered speed + `light.turn_on` (full, per On level 254) |
+| Double-tap up (`multi_press_2`) | `fan.set_percentage` to the remembered speed + `light.turn_on` (comes on at the `On level`, which Adaptive Lighting pre-stages — `guides/adaptive_lighting.md`) |
+| Hold release, either paddle (`long_release`) | `adaptive_lighting.set_manual_control(true)` for the ceiling light — pins the wall-set dim level against AL's curve until the light next turns off or the 30-minute autoreset fires |
 
-No de-dup guard: `mode: queued` plus idempotent actions make a repeat
-`multi_press_2` a no-op.
+Gated on `trigger.to_state.attributes.event_type == 'long_release'`, which reads
+the triggering entity, so the other paddle's stale attribute cannot match. No
+de-dup guard on the double-tap branches: `mode: queued` plus idempotent actions
+make a repeat `multi_press_2` a no-op.
 
 **Fan `percentage` attribute change** (the value is already settled — no delay
 needed):
@@ -463,8 +483,13 @@ needed):
    [Shared: LED Bar](#shared-led-bar).
 
 **Ceiling light state change** — any change to `light.*_ceiling_fan_light`
-(including one driven by the paddle binding, which HA still observes) calls
-`script.*_ceiling_fan_led_state` to recompute the bar.
+(including one driven by the paddle binding, which HA still observes) recomputes
+the LED bar via `script.*_ceiling_fan_led_state`, and if the light is now **off**,
+calls `adaptive_lighting.set_manual_control(false)` to hand its brightness back to
+Adaptive Lighting. A single paddle down-tap turns the light off through the
+cluster 6 binding, which AL ignores (`detect_non_ha_changes` off) — without this
+step a ceiling that was dimmed at the wall would stay manually controlled through
+an off/on. See `guides/adaptive_lighting.md` and `LESSONS.md`.
 
 **Triple-tap peek** calls the same script, without touching the fan — a way to
 force a resync on demand (normally a no-op, since the bar already reflects
@@ -526,8 +551,9 @@ guard against here — no `binary_sensor.<person>_home_today` involvement needed
 **Everything else is identical across rooms** — every parameter value in Steps
 2–3, the two bindings, the automation shape (one
 `automation.<prefix>_ceiling_fan_wall_control`, category Climate, labels
-`int_inovelli_fan_canopy` + `int_inovelli_led_bar`, `mode: queued` max 10, five
-triggers), the LED script (`script.<prefix>_ceiling_fan_led_state`,
+`int_inovelli_fan_canopy` + `int_inovelli_led_bar` + `int_adaptive_lighting`,
+`mode: queued` max 10, five triggers), the LED script
+(`script.<prefix>_ceiling_fan_led_state`,
 `mode: restart`), and the speed bands. One value is easy to get wrong and worth
 re-checking per room: `Control of switch load` left at `Remote & paddle control`.
 
@@ -610,9 +636,9 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 
 | Friendly name | Entity ID | Type |
 |---|---|---|
-| Avery's Room: Ceiling Fan Wall Control | `automation.averys_room_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar`) |
-| Master Bedroom: Ceiling Fan Wall Control | `automation.master_bedroom_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar`) |
-| Office: Ceiling Fan Wall Control | `automation.office_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar`) |
+| Avery's Room: Ceiling Fan Wall Control | `automation.averys_room_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar` + `int_adaptive_lighting`) |
+| Master Bedroom: Ceiling Fan Wall Control | `automation.master_bedroom_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar` + `int_adaptive_lighting`) |
+| Office: Ceiling Fan Wall Control | `automation.office_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar` + `int_adaptive_lighting`) |
 | Household: Ceiling Fan Switch LED Locator | `automation.household_ceiling_fan_switch_led_locator` | Automation (Lighting, `int_inovelli_led_bar`, `scope_multi_area`, `presence`) |
 | Avery's Room: Ceiling Fan LED State | `script.averys_room_ceiling_fan_led_state` | Script (`mode: restart`) |
 | Master Bedroom: Ceiling Fan LED State | `script.master_bedroom_ceiling_fan_led_state` | Script (`mode: restart`) |
@@ -640,6 +666,8 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 
 - `standards/automations.md` — automation naming, category, and label rules
 - `standards/naming.md` — entity/device naming (the `avery_s` slug gotcha)
+- `guides/adaptive_lighting.md` — the three ceiling fan lights' brightness curve, and the
+  `On level` pre-staging that this guide's `long_release` and turn-off branches coordinate with
 - `LESSONS.md` — Matter binding and VTM3x parameter gotchas (dimming speed values,
   `scene.create` inside a restart script, `light.turn_off` dropping `transition`,
   the RGB-channel colour-rendering quirk this design retired)
@@ -653,9 +681,21 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 
 ## Troubleshooting
 
-**Paddle turns the light on at the last brightness instead of full.**
-`number.averys_room_ceiling_fan_on_level_1` is at `255` (the restore-previous
-sentinel). Set it to `254`. The change takes effect on the next off → on cycle.
+**Paddle turns the light on at an unexpected brightness.** `On level`
+(`number.*_ceiling_fan_on_level_1`) is what a binding turn-on uses.
+`automation.adaptive_lighting_pre_stage` keeps it at the current Adaptive Lighting
+target while the light is off (`guides/adaptive_lighting.md`); `255` is the
+restore-previous sentinel and `254` is a fixed 100%. If it is stuck at the wrong
+value, check that automation's last run and that the light's AL instance switch
+reports a `brightness_pct` attribute. Any change takes effect on the next
+off → on cycle.
+
+**A wall-dimmed ceiling won't go back to adapting.** With `detect_non_ha_changes`
+off on the AL instance, a binding-driven paddle off/on does not clear AL manual
+control — only an HA-observed turn-off (this automation's "Ceiling light state
+change" branch), the 30-minute autoreset, or an explicit
+`adaptive_lighting.set_manual_control(false)` does. `LESSONS.md` has the
+mechanism.
 
 **Paddle tap works but paddle hold doesn't dim.** Two things must both be in
 place: a cluster 8 (Level Control) binding on the switch → canopy light endpoint
