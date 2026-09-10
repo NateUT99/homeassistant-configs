@@ -1,9 +1,11 @@
 alias: "Household: TTS Announce"
 description: >-
   Shared entry point for every HomePod TTS announcement. Resolves the target
-  room (or auto-picks based on everyone_sleeping), checks for an active
-  video call on Nate's Mac Mini or work laptop, and either speaks via
-  Chime TTS or falls back to a push notification if a call is in progress.
+  room (or auto-picks based on everyone_sleeping) and speaks via Chime TTS.
+  Falls back to a push notification to Nate's iPhone when TTS can't land — an
+  active video call on the Mac Mini or work laptop, or the resolved HomePod
+  being unavailable. Pass critical_fallback to send that fallback push as an
+  iOS critical alert.
 fields:
   message:
     name: Message
@@ -27,19 +29,38 @@ fields:
   notification_title:
     name: Notification Title
     description: >-
-      Title for the push notification sent when TTS is suppressed by an
-      active video call.
+      Title for the push notification sent when TTS falls back to a push
+      (active video call, or the target HomePod is offline).
     required: false
     default: Missed Announcement
     selector:
       text: {}
+  critical_fallback:
+    name: Critical Fallback
+    description: >-
+      When TTS cannot be delivered and the script falls back to a push, send
+      it as an iOS critical alert (breaks through silent mode and Focus).
+      Applies to both fallback paths. Default false.
+    required: false
+    default: false
+    selector:
+      boolean: {}
 variables:
   resolved_target: >-
     {{ ('master_bedroom' if is_state('input_boolean.everyone_sleeping', 'on')
     else 'kitchen') if (target | default('auto')) == 'auto' else target }}
   notification_title_resolved: "{{ notification_title | default('Missed Announcement') }}"
+  target_speaker: >-
+    {{ {'kitchen': 'media_player.kitchen_homepod',
+    'master_bedroom': 'media_player.master_bedroom_homepod',
+    'office': 'media_player.office_homepod',
+    'averys_room': 'media_player.averys_room_homepod'}.get(resolved_target, '') }}
+  fallback_push_data: >-
+    {{ {'push': {'interruption-level': 'critical',
+    'sound': {'name': 'default', 'critical': 1, 'volume': 1}}}
+    if (critical_fallback | default(false)) else {} }}
 sequence:
-  - alias: "Suppress TTS during a video call, else speak to the resolved room"
+  - alias: "Route the announcement, or push instead when TTS cannot land"
     choose:
       - alias: "Video call active on Mac Mini or work laptop"
         conditions:
@@ -59,13 +80,32 @@ sequence:
           - alias: "Push fallback (video call active)"
             note: >-
               TTS would interrupt a work call, so suppress it and push
-              instead. Checked before the room is resolved because the
-              suppression applies regardless of which speaker would have
-              been used.
+              instead. Checked first, ahead of the per-room routing, because
+              the suppression applies no matter which speaker would have been
+              used.
             action: notify.mobile_app_nates_iphone
             data:
               title: "{{ notification_title_resolved }}"
               message: "{{ message }}"
+              data: "{{ fallback_push_data }}"
+      - alias: "Resolved HomePod is offline"
+        note: >-
+          `entity_id` in a native state condition cannot be templated and the
+          target speaker is resolved at runtime, so the availability check is
+          a template. Consistent with the per-room routing conditions below.
+        conditions:
+          - "{{ target_speaker != '' and states(target_speaker) in ['unavailable', 'unknown'] }}"
+        sequence:
+          - alias: "Push fallback (HomePod offline)"
+            note: >-
+              chime_tts.say against an unavailable media_player fails silently
+              at any log level, so a dead target HomePod drops the
+              announcement with no trace. Detect it here and push instead.
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: "{{ notification_title_resolved }}"
+              message: "{{ message }}"
+              data: "{{ fallback_push_data }}"
       - alias: "Target: kitchen"
         conditions:
           - "{{ resolved_target == 'kitchen' }}"

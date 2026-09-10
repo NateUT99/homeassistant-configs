@@ -1,12 +1,12 @@
 # Chime TTS Integration
 
-*Last updated: August 2026*
+*Last updated: September 2026*
 
 ## Overview
 
 Chime TTS is a HACS integration that wraps Home Assistant's cloud TTS service with a configurable chime sound prefix. Announcements open with a brief soft chime before the spoken message, making them instantly recognizable as home automation alerts rather than unexpected audio playback. This instance runs `derekcentrico/chime_tts`, a maintained fork of the (no-longer-updated) original — installed via HACS as a custom repository.
 
-`script.household_tts_announce` calls `chime_tts.say` directly, targeting the resolved speaker per call. There is no `notify:` platform configuration — see the design decision below for why.
+`script.household_tts_announce` calls `chime_tts.say` directly, targeting the resolved speaker per call. There is no `notify:` platform configuration — see the design decision below for why. When TTS can't land — an active video call, or the resolved HomePod being `unavailable` — the script falls back to a push notification to Nate's iPhone, optionally as an iOS critical alert.
 
 ---
 
@@ -17,8 +17,10 @@ automations
           │
           ▼
 script.household_tts_announce
-  │  (checks camera sensors for active video call)
-  ├─ on call → notify.mobile_app_nates_iphone  (push fallback)
+  │  fallback guards, checked in order:
+  ├─ active video call (Mac Mini / work laptop camera sensor)  ─┐
+  ├─ resolved HomePod is unavailable / unknown                  ─┼─► notify.mobile_app_nates_iphone
+  │                                    (critical payload when critical_fallback: true)
   └─ routing (target: kitchen / master_bedroom / office / averys_room / auto)
           │
           ▼
@@ -98,18 +100,25 @@ action: script.household_tts_announce
 data:
   message: "Your message here."
   target: auto                    # optional: kitchen / master_bedroom / office / averys_room / auto
-  notification_title: "My Alert"  # optional: push title when TTS is suppressed
+  notification_title: "My Alert"  # optional: push title used on either fallback
+  critical_fallback: true         # optional: send the fallback push as an iOS critical alert
 ```
 
 | Field | Required | Default | Description |
 |---|---|---|---|
 | `message` | Yes | — | Text to speak. Templates are supported. |
 | `target` | No | `auto` | `kitchen`, `master_bedroom`, `office`, `averys_room`, or `auto` — picks master bedroom when `everyone_sleeping` is on, kitchen otherwise |
-| `notification_title` | No | `Missed Announcement` | Title for the push notification sent when TTS is suppressed |
+| `notification_title` | No | `Missed Announcement` | Title for the push notification sent on either fallback path |
+| `critical_fallback` | No | `false` | When a fallback push fires, add the iOS `push.sound.critical` / `interruption-level: critical` payload so it breaks through silent mode and Focus |
 
-**Video call check:** Before routing to a speaker, the script checks `sensor.nates_mac_mini_active_camera` and `sensor.nates_work_laptop_active_camera`. If either is not `Inactive`, the announcement is suppressed and a push notification is sent to `notify.mobile_app_nates_iphone` instead. This keeps TTS from interrupting work calls.
+**Fallback guards.** Two conditions send a push to `notify.mobile_app_nates_iphone` instead of speaking, checked in this order:
 
-Do not call `chime_tts.say` directly from automations — use the script so the video call check and per-room volume stay in one place. All four targets (kitchen, master bedroom, office, Avery's room) are individually confirmed working end-to-end.
+1. **Active video call** — `sensor.nates_mac_mini_active_camera` or `sensor.nates_work_laptop_active_camera` is not `Inactive`. Suppresses TTS so it can't interrupt a work call.
+2. **Target HomePod offline** — the resolved room's `media_player` is `unavailable` or `unknown`. `chime_tts.say` against a dead speaker fails silently at every log level, so the announcement would vanish with no trace; the push is the only way it lands.
+
+Both paths reuse `message` and `notification_title`. `critical_fallback: true` upgrades whichever push fires to a critical alert; callers that just want the message delivered leave it unset.
+
+Do not call `chime_tts.say` directly from automations — use the script so the fallback guards and per-room volume stay in one place. All four targets (kitchen, master bedroom, office, Avery's room) are individually confirmed working end-to-end.
 
 ---
 
