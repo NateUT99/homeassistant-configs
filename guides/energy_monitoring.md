@@ -68,7 +68,7 @@ meter rather than a switched outlet; the `switch.kitchen_dishwasher` on/off cont
 since toggling it is a no-op in this mode.
 
 **Dishwasher cycle detection.** The plug's `power_rise_threshold` / `power_drop_threshold`
-(5W / 15W) drive `binary_sensor.kitchen_dishwasher_opening` — a ZHA power-threshold-crossing
+(15W / 5W) drive `binary_sensor.kitchen_dishwasher_opening` — a ZHA power-threshold-crossing
 flag repurposed from an "opening" cluster, renamed "Dishwasher Power Threshold" and hidden
 since its name no longer describes a door. Observed over a real cycle, the raw signal flips
 on/off 40+ times in ~80 minutes: the wash/drain pump load is bursty (20–90W bursts separated
@@ -80,7 +80,15 @@ field, so this is a YAML `template:` package rather than a UI-created helper.
 
 **Refrigerator.** Same plug model and configuration as the dishwasher — Metering only mode
 enabled, Power-on behavior On, `sensor.kitchen_refrigerator_summation_delivered` feeding the
-dashboard directly. No cycle-detection package; the fridge doesn't need one.
+dashboard directly. `power_rise_threshold` / `power_drop_threshold` are set symmetrically to
+15W / 15W — comfortably above idle/board-only draw and comfortably below a compressor's
+running draw, so a crossing reliably flags the compressor starting or stopping. The resulting
+`binary_sensor.kitchen_refrigerator_opening` is renamed **Refrigerator Compressor** with a
+`running` device-class override (not hidden — unlike the dishwasher's threshold flag, this one
+is meant to be looked at directly). No debounce package yet: a compressor's load is a single
+sustained draw, not the dishwasher pump's bursty on/off pattern, so the raw signal is expected
+to give one clean transition per cycle rather than dozens. If real-world behavior proves
+noisier, add a `delay_off` template package matching `ha/packages/dishwasher_running.yaml`.
 
 `switch.kitchen_refrigerator` is **hidden, not disabled**, unlike the dishwasher's identical
 control. A disabled entity is removed from the state machine entirely, and
@@ -216,6 +224,7 @@ dashboard's cost figure track the real bill.
 | Refrigerator | Energy Dashboard individual device | `.storage/energy` — consumed energy = `sensor.kitchen_refrigerator_summation_delivered` (ZHA, Third Reality metering plug) |
 | Refrigerator Power | `sensor.kitchen_refrigerator_power` | Sensor (ZHA) — instantaneous W |
 | Refrigerator (switch, hidden) | `switch.kitchen_refrigerator` | ZHA — relay control, hidden not disabled; watched by Keep Powered below |
+| Refrigerator Compressor | `binary_sensor.kitchen_refrigerator_opening` | ZHA — power-threshold-crossing flag (15W rise/drop), renamed and re-classed `running`; not hidden |
 | Refrigerator Power Monitor | `automation.kitchen_refrigerator_power_monitor` | Automation — offline/no-draw alerting |
 | Refrigerator Keep Powered | `automation.kitchen_refrigerator_keep_powered` | Automation — self-heals an unexpected relay/metering-only-mode off |
 | Refrigerator Maintenance | `input_boolean.kitchen_refrigerator_maintenance` | Helper — suppresses Keep Powered during deliberate plug work |
