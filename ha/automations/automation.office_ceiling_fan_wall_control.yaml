@@ -16,7 +16,12 @@ description: >-
   bindings that run regardless. On the hold's release HA marks the ceiling light
   manually controlled so Adaptive Lighting leaves the wall-set brightness alone;
   any observed turn-off (single-tap, double-tap, HA) hands it back to Adaptive
-  Lighting, and the 30-min autoreset is the backstop.
+  Lighting, and the 30-min autoreset is the backstop. Any observed turn-on that
+  is not manually controlled gets snapped to the current Adaptive Lighting
+  target over 2s -- OnLevel pre-staging is not reliably honored for every
+  turn-on path (confirmed here: this light has landed at full brightness even
+  with a correctly pre-staged OnLevel), so this is a fast backstop rather than
+  a redundant check.
 triggers:
   - alias: Config button gesture
     trigger: state
@@ -211,7 +216,7 @@ actions:
                   option: "{{ speed }}"
           - alias: Recompute the LED state
             action: script.office_ceiling_fan_led_state
-      - alias: Ceiling light changed - recompute the LED bar, release AL if it turned off
+      - alias: Ceiling light changed - recompute the LED bar, release AL if off, snap AL if on
         conditions:
           - condition: trigger
             id: light
@@ -222,11 +227,11 @@ actions:
           - alias: If the light is now off, hand its brightness back to Adaptive Lighting
             note: >-
               A single paddle tap turns the light off via the cluster-6 Matter
-              binding, which AL does not see (detect_non_ha_changes is off), so a
-              light wall-dimmed earlier would stay manually controlled through an
-              off/on. HA does see the resulting off state, so clear AL manual
-              control here. Harmless no-op when the light was not manually
-              controlled.
+              binding, which AL does not see as a light.turn_off service call,
+              so a light wall-dimmed earlier would stay manually controlled
+              through an off/on. HA does see the resulting off state, so clear
+              AL manual control here. Harmless no-op when the light was not
+              manually controlled.
             if:
               - alias: Ceiling light is now off
                 condition: state
@@ -240,6 +245,32 @@ actions:
                   lights:
                     - light.office_ceiling_fan_light
                   manual_control: false
+          - alias: If the light just turned on and is not manually controlled, snap it to the curve
+            note: >-
+              Closes the gap for a turn-on that lands away from the current
+              Adaptive Lighting target -- confirmed on this light turning on
+              to full brightness even with a correctly pre-staged OnLevel,
+              then only fading down over AL's normal ~45s cycle. Forces a
+              fast 2s correction instead of waiting on that cycle.
+            if:
+              - alias: Ceiling light is now on
+                condition: state
+                entity_id: light.office_ceiling_fan_light
+                state: "on"
+              - alias: Not manually controlled
+                condition: template
+                value_template: "{{ 'light.office_ceiling_fan_light' not in (state_attr('switch.adaptive_lighting_standard', 'manual_control_brightness') or []) }}"
+            then:
+              - alias: Snap to the current Adaptive Lighting target over 2s
+                action: adaptive_lighting.apply
+                data:
+                  entity_id: switch.adaptive_lighting_standard
+                  lights:
+                    - light.office_ceiling_fan_light
+                  transition: 2
+                  turn_on_lights: false
+                  adapt_brightness: true
+                  adapt_color: false
 mode: queued
 max: 10
 category: 01M0BFFGNX30MJNVWS58ZKEH3H

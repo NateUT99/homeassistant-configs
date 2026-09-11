@@ -9,8 +9,10 @@ the day on a sun-position curve. Two instances run here, **Standard** and **Aver
 covering the three Inovelli canopy ceiling-fan light kits (Master Bedroom, Office, Avery's
 Room). Those fixtures are dumb LED loads on a Matter/Thread dimmer, so AL adapts brightness
 only — colour temperature is not available on the hardware. A companion automation pre-stages
-each fixture's Matter `OnLevel` so a wall-paddle turn-on, which runs entirely in switch
-firmware and is invisible to AL, comes up near the adapted level instead of jumping to full.
+each fixture's Matter `OnLevel` so a turn-on that bypasses HA (a wall-paddle tap, another
+Matter controller) lands closer to the adapted level; the wall-control automations add a fast
+2-second correction on every observed turn-on as a backstop, since pre-staging alone has not
+proven reliable for every turn-on path (see Design Decisions).
 
 ## Architecture
 
@@ -27,8 +29,9 @@ Avery Schedule    switch.adaptive_lighting_avery_schedule
 
 Both instances
   intercept       a bare light.turn_on is adapted to the curve at turn-on
-  wall dim        paddle hold → long_release → set_manual_control(true)      ┐  per-room
-  turn-off        light → off → set_manual_control(false)                    ┘  wall-control automation
+  wall dim        paddle hold → long_release → set_manual_control(true)      ┐
+  turn-off        light → off → set_manual_control(false)                    │  per-room
+  turn-on         light → on (not manual) → adaptive_lighting.apply, 2s      ┘  wall-control automation
 
 automation.adaptive_lighting_pre_stage
   every 15 min + on light→off + on sleep-mode flip + on HA start
@@ -79,6 +82,18 @@ AL only commands lights that are on. A wall-paddle turn-on runs in the switch/ca
 the only value that governs that turn-on level is the canopy's Level Control `OnLevel`
 attribute (`number.<room>_ceiling_fan_on_level_1`). `automation.adaptive_lighting_pre_stage`
 writes the current curve target there while the light is off. See [Step 4](#step-4--pre-staging).
+
+#### Every observed turn-on gets a fast 2s correction, not just a pre-staged one
+
+`OnLevel` pre-staging is not reliably honored on every turn-on path: confirmed live on Office
+and Avery's Room landing at full brightness with a correctly pre-staged, stable `OnLevel` —
+including a plain Apple Home on-command with no wall-paddle or hold involved. The exact
+mechanism is unconfirmed (device firmware behaviour on rapid re-triggering is one candidate;
+it does not explain every case observed). Rather than chase the root cause further, each
+wall-control automation's "Ceiling light changed" branch now calls `adaptive_lighting.apply`
+with a 2s transition on any observed turn-on that isn't manually controlled, snapping it to
+the curve within 2s instead of waiting on AL's normal ~45s adaptation cycle. Pre-staging still
+runs — it minimizes the gap on the paths where it does work — but it is not trusted alone.
 
 #### `autoreset_control_seconds` with `pause_changed` needs AL ≥ 1.32.0
 
@@ -205,6 +220,20 @@ Standard drives Master Bedroom and Office; Avery Schedule drives Avery's Room. E
 row in the automation names its own instance switch, so the two curves stay independent.
 Adding a fourth fixture is one `for_each` row plus enrolment in an instance.
 
+## Step 5 — Turn-on correction
+
+Each `automation.<room>_ceiling_fan_wall_control`'s "Ceiling light changed" branch (shared
+with the turn-off release logic — `guides/inovelli_switches.md` Step 6) adds: whenever that
+room's light is observed **on** and is not in its instance's `manual_control_brightness` list,
+call `adaptive_lighting.apply` with `transition: 2` to snap it to the current curve target.
+
+**Why this exists in addition to pre-staging.** `OnLevel` pre-staging is not reliably honored
+on every turn-on path — confirmed live on Office and Avery's Room turning on to full
+brightness with a correctly pre-staged, stable `OnLevel`, including on a plain Apple Home
+on-command with no wall paddle involved. Rather than chase the exact mechanism further, this
+forces a 2-second correction on every turn-on regardless of cause, closing the gap pre-staging
+leaves open instead of waiting on AL's normal ~45s adaptation cycle.
+
 ## Scale Reference
 
 **Brightness percent → raw `OnLevel`:** `round(brightness_pct / 100 × 254)`, then clamp to
@@ -237,7 +266,8 @@ Held in the automation's `variables` block for one-place tuning.
 
 The three `light.*_ceiling_fan_light` entities carry the `int_adaptive_lighting` label as
 enrolled members, as do the three `automation.*_ceiling_fan_wall_control` automations (whose
-`long_release` and turn-off branches call `adaptive_lighting.set_manual_control`).
+`long_release`, turn-off, and turn-on-snap branches call `adaptive_lighting.set_manual_control`
+/ `adaptive_lighting.apply`).
 
 ## Related Files
 
@@ -279,6 +309,15 @@ check what else writes that entity.
 **A paddle tap still comes on at full.** `number.<room>_ceiling_fan_on_level_1` is at `254`
 and the curve target is near 100%, so `254` is correct — pre-staging only lowers it once the
 curve drops. Confirm at a lower point on the curve (evening, or with sleep mode on).
+
+**A ceiling flashes bright, then corrects within ~2s.** Expected — Step 5's turn-on snap
+working as designed; pre-staging did not land it on the curve, so the fast correction did.
+
+**A ceiling flashes bright and stays there for longer than ~2s.** The turn-on snap didn't
+fire. Check the wall-control automation's trace for the "Ceiling light changed" run: either
+the light was already in `manual_control_brightness` (so the snap correctly stood down — check
+whether that's right), or the `adaptive_lighting.apply` call itself errored (check the trace's
+action result).
 
 **Diagnosing AL itself.** The config entry's **Download diagnostics** action (v1.32.0) dumps
 the full instance state — prefer it over reading logs.

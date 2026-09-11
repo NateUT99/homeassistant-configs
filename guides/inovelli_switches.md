@@ -148,7 +148,7 @@ Six mechanisms connect the wall switch to the fan/light:
 | Paddle double-tap down → fan + light off; double-tap up → fan on (last speed) + light on | HA automation | No |
 | Config button taps → fan speed (1 tap cycle, 2 taps off, 3 taps peek) | HA automation | No |
 | Fan/light state change → switch LED bar update | HA automation ([Shared: LED Bar](#shared-led-bar)) | No |
-| Paddle hold release, or any observed light turn-off → Adaptive Lighting manual-control handoff | HA automation ([Step 6](#step-6--ha-automation), `guides/adaptive_lighting.md`) | No |
+| Paddle hold release, any observed light turn-off, or any observed light turn-on → Adaptive Lighting manual-control handoff / correction | HA automation ([Step 6](#step-6--ha-automation), `guides/adaptive_lighting.md`) | No |
 
 The whole-room off/on gesture is a paddle **double-tap** (`multi_press_2` on the
 up/down paddle event entity), handled by the HA automation. Tap → light and
@@ -183,7 +183,8 @@ hold → light are Matter bindings and are independent of it.
       fan.<prefix>_ceiling_fan      ──►  input_select.<prefix>_ceiling_fan_last_speed
                                    └─►  script.<prefix>_ceiling_fan_led_state
       light.<prefix>_ceiling_fan_light ─►  script.<prefix>_ceiling_fan_led_state
-                                   └─►  adaptive_lighting.set_manual_control (false, when → off)
+                                   ├─►  adaptive_lighting.set_manual_control (false, when → off)
+                                   └─►  adaptive_lighting.apply, 2s (when → on, not manual)
 ```
 
 ### Key design decisions
@@ -252,7 +253,8 @@ hold → light are Matter bindings and are independent of it.
   (Step 2) is written by its pre-stage automation, not set here. A paddle hold
   dims locally over the cluster 8 binding, and on `long_release` this automation
   pins that level against AL's curve; any turn-off HA observes hands brightness
-  back to AL.
+  back to AL, and any turn-on HA observes gets a fast 2s snap to the curve since
+  pre-staging alone is not reliably honored on every turn-on path.
 
 ## Prerequisites
 
@@ -484,13 +486,21 @@ needed):
 
 **Ceiling light state change** — any change to `light.*_ceiling_fan_light`
 (including one driven by the paddle binding, which HA still observes) recomputes
-the LED bar via `script.*_ceiling_fan_led_state`, and if the light is now **off**,
-calls `adaptive_lighting.set_manual_control(false)` to hand its brightness back to
-Adaptive Lighting. A single paddle down-tap turns the light off through the
-cluster 6 binding — a state change, not a `light.turn_off` service call — so
-AL's own turn-off listener never sees it; without this step a ceiling that was
-dimmed at the wall would stay manually controlled through an off/on. See
-`guides/adaptive_lighting.md` and `LESSONS.md`.
+the LED bar via `script.*_ceiling_fan_led_state`, then:
+
+- if the light is now **off**, calls `adaptive_lighting.set_manual_control(false)`
+  to hand its brightness back to Adaptive Lighting. A single paddle down-tap turns
+  the light off through the cluster 6 binding — a state change, not a
+  `light.turn_off` service call — so AL's own turn-off listener never sees it;
+  without this step a ceiling that was dimmed at the wall would stay manually
+  controlled through an off/on.
+- if the light is now **on** and not manually controlled, calls
+  `adaptive_lighting.apply` with a 2s transition to snap it to the curve.
+  `OnLevel` pre-staging is not reliably honored on every turn-on path, so this is
+  a fast backstop rather than a redundant check — see `guides/adaptive_lighting.md`
+  Step 5.
+
+See `guides/adaptive_lighting.md` and `LESSONS.md`.
 
 **Triple-tap peek** calls the same script, without touching the fan — a way to
 force a resync on demand (normally a no-op, since the bar already reflects
