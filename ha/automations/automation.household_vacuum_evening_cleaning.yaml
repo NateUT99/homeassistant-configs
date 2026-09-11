@@ -15,14 +15,16 @@ description: >-
 
   Once a week (Wednesday night) this same run becomes the mop pass: when the mop
   pad is attached, the 2-in-1 dustbin + water module is seated and the tank has
-  water, it vacuums and mops the common areas at medium mop intensity, adding the
+  water, it vacuums and mops the common areas at high mop intensity, adding the
   Entrance (segment 26) on nights Avery is not home. Household: Vacuum Mop Pad
   Reminders brackets that night with prep and cleanup nudges. If the pad is not
   fitted (or the module is out, or the tank is dry) the run silently falls back
   to the vacuum-only pass, and the push message says which pass ran. Intensity
-  is held at medium rather than pushed higher, to leave tank margin for
-  Household: Vacuum Master Mop Pass, which reuses this same fill Thursday
-  morning on the master bedroom and bathroom.
+  is set to high -- a live run at medium plus Household: Vacuum Master Mop
+  Pass's own high-intensity Thursday run on the same fill both left water in
+  the tank, so this tests whether high still leaves enough for Thursday to
+  finish. Unverified until watched on a live run; drop back to medium if the
+  tank runs dry before Thursday's pass completes.
 
 
   Marks the evening zone done (input_boolean.vacuum_ran_evening) the moment it
@@ -95,17 +97,20 @@ actions:
             state: "off"
             alias: Water tank is not empty
         sequence:
-          - alias: Set medium mop intensity
+          - alias: Set high mop intensity
             action: select.select_option
             target:
               entity_id: select.living_room_vacuum_mop_intensity
             data:
-              option: medium
+              option: high
             note: >-
-              Held at medium rather than pushed higher -- leaves tank margin
-              on the same fill for Household: Vacuum Master Mop Pass
-              Thursday morning, which mops the master bedroom and bathroom
-              off the water left over from this run.
+              Bumped back to high on 2026-09-11 -- the first medium-intensity
+              Wednesday run plus the first Thursday master-mop pass (also on
+              this fill) both left water in the tank, so this tests whether
+              high still leaves enough for Thursday to finish. Watch
+              water_shortage on both runs before treating this as settled;
+              drop back to medium if the tank runs dry before Thursday's
+              pass completes.
           - alias: Vacuum and mop in a single pass
             action: select.select_option
             target:

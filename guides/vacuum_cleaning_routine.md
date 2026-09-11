@@ -248,12 +248,17 @@ as the check that the rear cavity is occupied.
 Entrance (`26`) on nights `binary_sensor.avery_home_today` is `off`. The Entrance is otherwise
 daytime-only because it borders Avery's room; the segment list is built in a `variables:` step
 so the Avery gate is a one-line change, not a second branch. Segment 28 (Stairs) is never
-included. Settings for the branch: `select.living_room_vacuum_mop_intensity` → `medium`,
+included. Settings for the branch: `select.living_room_vacuum_mop_intensity` → `high`,
 `select.living_room_vacuum_cleaning_mode` → `vac_and_mop`; `mop_mode` is left at its `standard`
 default. Fan stays `quiet` — the house is asleep — and this dock only empties dust, so there
-is no wash/dry cycle to worry about. Intensity is held at `medium` rather than pushed higher so
-this fill leaves margin for [Household: Vacuum Master Mop Pass](#master-mop-pass-thursday-morning)
-the next morning, which mops on whatever water this run doesn't use.
+is no wash/dry cycle to worry about.
+
+The intensity here and [Household: Vacuum Master Mop Pass](#master-mop-pass-thursday-morning)'s
+own intensity both draw on the same 350 ml fill, and there is no fill-level sensor — only the
+binary `water_shortage` flag. A run at `medium` here plus a `high` Thursday pass both cleared
+without tripping it, so this is now `high` on both nights to see whether one fill still
+covers both; watch `water_shortage` across the full Wednesday-to-Thursday cycle and drop back
+to `medium` here if the tank runs dry before Thursday's pass finishes.
 
 **Why weekly, not more often.** Robot mopping is maintenance-level: it keeps a film from
 building on hard floor, it does not replace an occasional real mop. Weekly is also the most
