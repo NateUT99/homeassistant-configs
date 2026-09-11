@@ -127,7 +127,7 @@ take identical values. The advanced options are behind collapsible sections in v
 | Interval | `90` | |
 | Transition | `45` | |
 | Initial transition | `1` | |
-| Min brightness | `50` | Evening floor. |
+| Min brightness | `35` | Evening / pre-sleep floor. |
 | Max brightness | `100` | The canopy light kit already caps physical output at ~70% (`guides/inovelli_switches.md` Step 2), so HA's full range is used. |
 | Sleep brightness | `10` | Also the middle-of-the-night wall-tap level, via pre-staging. |
 | Brightness mode | `tanh` | S-curve; ramp shape decoupled from sun elevation. |
@@ -211,7 +211,7 @@ Adding a fourth fixture is one `for_each` row plus enrolment in an instance.
 | AL `brightness_pct` | raw `OnLevel` written | Physical light output\* |
 |---|---|---|
 | 10 (sleep) | 25 | ~19% |
-| 50 (evening floor) | 127 | ~42% |
+| 35 (evening floor) | 89 | ~33% |
 | 90 | 229 | ~64% |
 | 100 (daytime peak) | 254 | ~70% |
 
