@@ -15,13 +15,16 @@ description: >-
 
   Once a week (Wednesday night) this same run becomes the mop pass: when the mop
   pad is attached, the 2-in-1 dustbin + water module is seated and the tank has
-  water, it vacuums and mops the common areas at medium mop intensity, adding the
+  water, it vacuums and mops the common areas at high mop intensity, adding the
   Entrance (segment 26) on nights Avery is not home. Household: Vacuum Mop Pad
   Reminders brackets that night with prep and cleanup nudges. If the pad is not
   fitted (or the module is out, or the tank is dry) the run silently falls back
   to the vacuum-only pass, and the push message says which pass ran. Verified
   against a live supervised run on Thu 2026-09-10 before promoting from that test
-  night to Wednesday.
+  night to Wednesday. Mop intensity bumped from medium to high on 2026-09-11 to
+  use more of the 350 ml tank per run and leave less standing water behind --
+  watch water_shortage and final coverage % on the next run before treating this
+  as settled.
 
 
   Marks the evening zone done (input_boolean.vacuum_ran_evening) the moment it
@@ -94,12 +97,21 @@ actions:
             state: "off"
             alias: Water tank is not empty
         sequence:
-          - alias: Set medium mop intensity
+          - alias: Set high mop intensity
             action: select.select_option
             target:
               entity_id: select.living_room_vacuum_mop_intensity
             data:
-              option: medium
+              option: high
+            note: >-
+              Bumped from medium on 2026-09-11 to use more of the 350 ml tank per
+              run and leave less standing clean water behind between mop nights.
+              Experimental -- last night's medium run never tripped
+              water_shortage across 5 segments, but the actual margin is unknown
+              (no fill-level sensor, only the binary empty flag). Check
+              water_shortage and final coverage % after the first high-intensity
+              run; drop back to medium if the tank runs dry before covering the
+              Entrance.
           - alias: Vacuum and mop in a single pass
             action: select.select_option
             target:
