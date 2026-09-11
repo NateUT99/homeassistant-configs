@@ -78,6 +78,36 @@ really just gaps between pump bursts. `binary_sensor.kitchen_dishwasher_running`
 blips into one clean on/off span per cycle. `delay_off` has no Template Helper config-flow
 field, so this is a YAML `template:` package rather than a UI-created helper.
 
+**Refrigerator.** Same plug model and configuration as the dishwasher — Metering only mode
+enabled, Power-on behavior On, `sensor.kitchen_refrigerator_summation_delivered` feeding the
+dashboard directly. No cycle-detection package; the fridge doesn't need one.
+
+`switch.kitchen_refrigerator` is **hidden, not disabled**, unlike the dishwasher's identical
+control. A disabled entity is removed from the state machine entirely, and
+Kitchen: Refrigerator Keep Powered (`automation.kitchen_refrigerator_keep_powered`) needs to
+watch this entity's state to catch the relay ever actually switching off — something Metering
+only mode should make impossible, which is exactly why it's worth watching for. Hidden keeps
+it off dashboards while staying live for the automation.
+
+Two automations guard the plug, both category Maintenance:
+
+- **Kitchen: Refrigerator Power Monitor**
+  (`automation.kitchen_refrigerator_power_monitor`) — alerts if
+  `sensor.kitchen_refrigerator_power` goes `unavailable` for 10 minutes (the plug dropped off
+  the network) or reads under 5W for 2 hours (breaker trip, unplugged cord, or a dead
+  compressor — outages are covered by the whole-house generator, so this branch is only
+  catching faults HA can still see). Alerts route by presence and sleep state through
+  `script.household_tts_announce`: critical push when no one is home, TTS to the kitchen
+  when someone is home and awake, TTS to the master bedroom with `critical_fallback: true`
+  when everyone is asleep.
+- **Kitchen: Refrigerator Keep Powered**
+  (`automation.kitchen_refrigerator_keep_powered`) — if Metering only mode itself turns off,
+  re-enables it immediately; if the relay reports `off`, waits 2 minutes (debounce) and then
+  restores the relay, Metering only mode, and Power-on behavior together, since an `off`
+  relay means the whole protective config likely broke, not just the switch. Always critical,
+  regardless of presence — self-healing doesn't make the underlying fault less worth seeing.
+  Suppressed by `input_boolean.kitchen_refrigerator_maintenance`.
+
 ---
 
 ## Prerequisites
@@ -183,6 +213,12 @@ dashboard's cost figure track the real bill.
 | Dishwasher (switch, disabled) | `switch.kitchen_dishwasher` | ZHA — relay control, disabled; metering-only mode makes toggling it a no-op |
 | Dishwasher Power Threshold (hidden) | `binary_sensor.kitchen_dishwasher_opening` | ZHA — raw power-threshold flag; flaps during a cycle, kept as input to the sensor below |
 | Dishwasher Running | `binary_sensor.kitchen_dishwasher_running` | Template sensor (package) — debounced cycle-running flag, `delay_off: 3m` |
+| Refrigerator | Energy Dashboard individual device | `.storage/energy` — consumed energy = `sensor.kitchen_refrigerator_summation_delivered` (ZHA, Third Reality metering plug) |
+| Refrigerator Power | `sensor.kitchen_refrigerator_power` | Sensor (ZHA) — instantaneous W |
+| Refrigerator (switch, hidden) | `switch.kitchen_refrigerator` | ZHA — relay control, hidden not disabled; watched by Keep Powered below |
+| Refrigerator Power Monitor | `automation.kitchen_refrigerator_power_monitor` | Automation — offline/no-draw alerting |
+| Refrigerator Keep Powered | `automation.kitchen_refrigerator_keep_powered` | Automation — self-heals an unexpected relay/metering-only-mode off |
+| Refrigerator Maintenance | `input_boolean.kitchen_refrigerator_maintenance` | Helper — suppresses Keep Powered during deliberate plug work |
 
 ---
 

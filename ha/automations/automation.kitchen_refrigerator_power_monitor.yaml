@@ -1,0 +1,167 @@
+id: "1789169024670"
+alias: "Kitchen: Refrigerator Power Monitor"
+description: >-
+  Watches the refrigerator's Third Reality metering plug
+  (sensor.kitchen_refrigerator_power) for two faults: the plug itself going
+  unavailable for 10 minutes, or the fridge drawing under 5W for 2 hours
+  (breaker trip, unplugged cord, or dead compressor -- the whole-house
+  generator covers grid outages, so a sustained zero-draw here means
+  something HA can still see). Alerts route by presence: critical push when
+  nobody home, TTS to the kitchen when someone is home and awake, TTS to the
+  master bedroom with a critical push fallback when everyone is asleep.
+  Sends a quiet recovery notice once the fault clears.
+triggers:
+  - trigger: state
+    entity_id: sensor.kitchen_refrigerator_power
+    to:
+      - unavailable
+      - unknown
+    for:
+      minutes: 10
+    id: plug_offline
+    alias: Refrigerator power sensor unavailable for 10 minutes
+  - trigger: numeric_state
+    entity_id: sensor.kitchen_refrigerator_power
+    below: 5
+    for:
+      hours: 2
+    id: no_draw
+    alias: Refrigerator power under 5W for 2 hours
+actions:
+  - alias: Handle whichever fault triggered this run
+    choose:
+      - alias: Plug offline
+        conditions:
+          - condition: trigger
+            id: plug_offline
+        sequence:
+          - alias: Set the alert message
+            variables:
+              alert_message: >-
+                The refrigerator's Zigbee plug has been unavailable for over
+                10 minutes. It may have dropped off the network.
+          - alias: Route the alert by presence and sleep state
+            choose:
+              - alias: "Nobody home — critical push only"
+                conditions:
+                  - condition: numeric_state
+                    entity_id: zone.home
+                    below: 1
+                sequence:
+                  - alias: Critical push to Nate's iPhone
+                    action: notify.mobile_app_nates_iphone
+                    data:
+                      title: "🧊 Refrigerator Alert"
+                      message: "{{ alert_message }}"
+                      data:
+                        push:
+                          interruption-level: critical
+                          sound:
+                            name: default
+                            critical: 1
+                            volume: 1
+              - alias: "Someone home, everyone sleeping — TTS to master bedroom, critical fallback"
+                conditions:
+                  - condition: numeric_state
+                    entity_id: zone.home
+                    above: 0
+                  - condition: state
+                    entity_id: input_boolean.everyone_sleeping
+                    state: "on"
+                sequence:
+                  - alias: TTS via household announce script (master bedroom, critical fallback)
+                    action: script.household_tts_announce
+                    data:
+                      message: "{{ alert_message }}"
+                      target: master_bedroom
+                      notification_title: "🧊 Refrigerator Alert"
+                      critical_fallback: true
+            default:
+              - alias: "Someone home, awake — TTS to kitchen"
+                action: script.household_tts_announce
+                data:
+                  message: "{{ alert_message }}"
+                  target: kitchen
+                  notification_title: "🧊 Refrigerator Alert"
+          - alias: Wait for the plug to come back online
+            wait_for_trigger:
+              - trigger: state
+                entity_id: sensor.kitchen_refrigerator_power
+                from:
+                  - unavailable
+                  - unknown
+          - alias: Send quiet recovery notification
+            action: notify.send_message
+            target:
+              entity_id: notify.nates_iphone
+            data:
+              title: Refrigerator Monitor
+              message: The refrigerator plug is back online.
+      - alias: Not drawing power
+        conditions:
+          - condition: trigger
+            id: no_draw
+        sequence:
+          - alias: Set the alert message
+            variables:
+              alert_message: >-
+                The refrigerator has drawn under 5W for over 2 hours. It may
+                have lost power, tripped a breaker, or the compressor may
+                have failed.
+          - alias: Route the alert by presence and sleep state
+            choose:
+              - alias: "Nobody home — critical push only"
+                conditions:
+                  - condition: numeric_state
+                    entity_id: zone.home
+                    below: 1
+                sequence:
+                  - alias: Critical push to Nate's iPhone
+                    action: notify.mobile_app_nates_iphone
+                    data:
+                      title: "🧊 Refrigerator Alert"
+                      message: "{{ alert_message }}"
+                      data:
+                        push:
+                          interruption-level: critical
+                          sound:
+                            name: default
+                            critical: 1
+                            volume: 1
+              - alias: "Someone home, everyone sleeping — TTS to master bedroom, critical fallback"
+                conditions:
+                  - condition: numeric_state
+                    entity_id: zone.home
+                    above: 0
+                  - condition: state
+                    entity_id: input_boolean.everyone_sleeping
+                    state: "on"
+                sequence:
+                  - alias: TTS via household announce script (master bedroom, critical fallback)
+                    action: script.household_tts_announce
+                    data:
+                      message: "{{ alert_message }}"
+                      target: master_bedroom
+                      notification_title: "🧊 Refrigerator Alert"
+                      critical_fallback: true
+            default:
+              - alias: "Someone home, awake — TTS to kitchen"
+                action: script.household_tts_announce
+                data:
+                  message: "{{ alert_message }}"
+                  target: kitchen
+                  notification_title: "🧊 Refrigerator Alert"
+          - alias: Wait for power draw to resume
+            wait_for_trigger:
+              - trigger: numeric_state
+                entity_id: sensor.kitchen_refrigerator_power
+                above: 5
+          - alias: Send quiet recovery notification
+            action: notify.send_message
+            target:
+              entity_id: notify.nates_iphone
+            data:
+              title: Refrigerator Monitor
+              message: The refrigerator is drawing power again.
+mode: restart
+category: 01M0SZBV5BGDGY2BQ2GBB5NA4C

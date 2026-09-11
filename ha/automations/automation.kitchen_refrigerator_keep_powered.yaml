@@ -1,0 +1,109 @@
+id: "1789169047548"
+alias: "Kitchen: Refrigerator Keep Powered"
+description: >-
+  Guards the refrigerator's plug against ever actually cutting power.
+  Metering only mode should make switch.kitchen_refrigerator's relay
+  unswitchable, so an off reading on either entity means the protective
+  config broke. If metering only mode turns off, it is re-enabled
+  immediately. If the relay itself reports off, it is restored after a
+  2-minute debounce along with metering only mode and the power-on behavior
+  select -- putting the whole protective config back, not just the relay.
+  Always sends a critical push since this indicates a real fault, even
+  though it self-heals. Stands down while
+  input_boolean.kitchen_refrigerator_maintenance is on.
+triggers:
+  - trigger: state
+    entity_id: switch.kitchen_refrigerator_metering_only_mode
+    to: "off"
+    id: metering_disabled
+    alias: Metering only mode turned off
+  - trigger: state
+    entity_id: switch.kitchen_refrigerator
+    to: "off"
+    id: relay_off
+    alias: Refrigerator relay turned off
+conditions:
+  - alias: Not in refrigerator plug maintenance mode
+    condition: state
+    entity_id: input_boolean.kitchen_refrigerator_maintenance
+    state: "off"
+actions:
+  - alias: Handle whichever fault triggered this run
+    choose:
+      - alias: "Metering only mode disabled — re-enable immediately"
+        conditions:
+          - condition: trigger
+            id: metering_disabled
+        sequence:
+          - alias: Re-enable metering only mode
+            action: switch.turn_on
+            target:
+              entity_id: switch.kitchen_refrigerator_metering_only_mode
+          - alias: "Critical push — metering only mode was disabled"
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: "🧊 Refrigerator Plug Fault"
+              message: >-
+                Metering only mode on the refrigerator plug was turned off
+                and has been re-enabled. This is the setting that keeps the
+                relay from ever switching the fridge off -- find out what
+                disabled it.
+              data:
+                push:
+                  interruption-level: critical
+                  sound:
+                    name: default
+                    critical: 1
+                    volume: 1
+      - alias: "Relay reports off — debounce then restore"
+        conditions:
+          - condition: trigger
+            id: relay_off
+        sequence:
+          - alias: Wait 2 minutes to see if this is a real, sustained off
+            delay:
+              minutes: 2
+          - alias: Restore only if still off and still not suppressed
+            note: >-
+              Re-checks after the wait -- the relay may have come back, or
+              maintenance mode may have been enabled, during the 2 minutes.
+            if:
+              - condition: state
+                entity_id: switch.kitchen_refrigerator
+                state: "off"
+              - condition: state
+                entity_id: input_boolean.kitchen_refrigerator_maintenance
+                state: "off"
+            then:
+              - alias: Turn the refrigerator relay back on
+                action: switch.turn_on
+                target:
+                  entity_id: switch.kitchen_refrigerator
+              - alias: Re-enable metering only mode
+                action: switch.turn_on
+                target:
+                  entity_id: switch.kitchen_refrigerator_metering_only_mode
+              - alias: Re-set power-on behavior to On
+                action: select.select_option
+                target:
+                  entity_id: select.kitchen_refrigerator_power_on_behavior
+                data:
+                  option: "On"
+              - alias: "Critical push — relay was off and has been restored"
+                action: notify.mobile_app_nates_iphone
+                data:
+                  title: "🧊 Refrigerator Plug Fault"
+                  message: >-
+                    The refrigerator plug's relay was off and has been
+                    switched back on, with metering only mode and power-on
+                    behavior re-asserted. Turn on Refrigerator Maintenance
+                    mode first if you meant to cut power.
+                  data:
+                    push:
+                      interruption-level: critical
+                      sound:
+                        name: default
+                        critical: 1
+                        volume: 1
+mode: restart
+category: 01M0SZBV5BGDGY2BQ2GBB5NA4C
