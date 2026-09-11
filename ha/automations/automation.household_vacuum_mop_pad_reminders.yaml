@@ -5,16 +5,16 @@ description: >-
   with two human-in-the-loop reminders, since the Roborock's mop pad and 350 ml
   water tank are both filled and fitted by hand. Prep: at 20:00 Wednesday, and
   again when Everyone Sleeping is set that night, announce that the pad and
-  water need fitting -- suppressed once the pad is on. Cleanup: when Everyone
-  Sleeping is cleared Thursday morning (with a 17:00 backstop), announce that
-  the pad should come off to rinse and the tank be emptied. Attaching or
-  removing the pad clears the matching reminder banner on its own --
-  binary_sensor.living_room_vacuum_mop_attached is the acknowledgement, so there
-  are no action buttons. TTS runs through script.household_tts_announce; the
-  bedtime prep nudge and the wake cleanup nudge target the master bedroom, the
-  20:00 and 17:00 nudges the kitchen. Verified against a live supervised run on
-  Thu 2026-09-10 (test night) before promoting to Wednesday/Thursday. See
-  guides/vacuum_cleaning_routine.md.
+  water need fitting -- suppressed once the pad is on. Cleanup: once the
+  vacuum re-docks after the Thursday morning master mop pass (Household:
+  Vacuum Master Mop Pass), with a 17:00 backstop, announce that the pad should
+  come off to rinse and the tank be emptied. Attaching or removing the pad
+  clears the matching reminder banner on its own --
+  binary_sensor.living_room_vacuum_mop_attached is the acknowledgement, so
+  there are no action buttons. TTS runs through script.household_tts_announce;
+  the bedtime prep nudge targets the master bedroom, the post-mop cleanup
+  nudge auto-resolves (kitchen, since everyone is awake by then), and the
+  20:00/17:00 nudges the kitchen. See guides/vacuum_cleaning_routine.md.
 triggers:
   - trigger: time
     at: "20:00:00"
@@ -33,11 +33,12 @@ triggers:
     id: prep_done
     alias: Mop pad was attached
   - trigger: state
-    entity_id: input_boolean.everyone_sleeping
-    from: "on"
-    to: "off"
-    id: cleanup_wake
-    alias: Everyone Sleeping cleared -- someone is up for the day
+    entity_id: vacuum.living_room_vacuum
+    to: docked
+    for:
+      minutes: 1
+    id: cleanup_docked
+    alias: Vacuum re-docked -- the master mop pass has finished
   - trigger: time
     at: "17:00:00"
     id: cleanup_nag
@@ -108,10 +109,10 @@ actions:
               message: clear_notification
               data:
                 tag: vacuum_mop_prep
-      - alias: Cleanup nudge -- wake or 17:00 backstop, pad still on
+      - alias: Cleanup nudge -- re-docked after the master mop pass, or 17:00 backstop, pad still on
         conditions:
           - condition: trigger
-            id: [cleanup_wake, cleanup_nag]
+            id: [cleanup_docked, cleanup_nag]
           - condition: state
             entity_id: binary_sensor.living_room_vacuum_mop_attached
             state: "on"
@@ -127,7 +128,7 @@ actions:
             action: script.household_tts_announce
             data:
               message: Pull the mop pad off the robot to rinse it, and empty the water tank.
-              target: "{{ 'master_bedroom' if (trigger is defined and trigger.id == 'cleanup_wake') else 'kitchen' }}"
+              target: "{{ 'auto' if (trigger is defined and trigger.id == 'cleanup_docked') else 'kitchen' }}"
               notification_title: Vacuum Mop Cleanup
               critical_fallback: false
           - alias: Push the cleanup reminder

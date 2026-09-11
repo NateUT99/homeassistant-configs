@@ -1,0 +1,160 @@
+id: "1789166132431"
+alias: "Household: Vacuum Master Mop Pass"
+description: >-
+  Reuses the mop pad and water still fitted from Wednesday night's weekly mop
+  pass to also mop the Master bedroom (segment 19) and Master bathroom
+  (segment 21) Thursday morning -- both hard floor, with rugs no-mop-zoned in
+  the Roborock app. The Master closet (segment 20) is carpeted and stays out
+  of this pass. Fires when Everyone Sleeping clears Thursday morning;
+  announces a 5-minute grace window to pick things up off the floor before
+  the robot starts. Runs at balanced fan (hard floor, house is awake) and
+  high mop intensity (two small segments). Skipped if the pad has come off,
+  the water box isn't seated, or the tank is already empty -- Wednesday's mop
+  intensity was dropped back to medium specifically to leave margin for this
+  pass on the same fill; unverified until watched on a live run. Marks
+  input_select.vacuum_active_zone as master_mop so Vacuum Track Max Progress
+  and Vacuum Mark Area Complete (both gated on daytime) ignore it, and so the
+  daytime block in Household: Last Leaves Home and Household: Vacuum Midday
+  Prompt can drop segments 19 and 21 from their own run. See
+  guides/vacuum_cleaning_routine.md.
+triggers:
+  - trigger: state
+    entity_id: input_boolean.everyone_sleeping
+    from: "on"
+    to: "off"
+    alias: Everyone Sleeping cleared -- someone is up for the day
+conditions:
+  - condition: time
+    weekday: [thu]
+    alias: Thursday -- the morning after mop night
+  - condition: state
+    entity_id: binary_sensor.living_room_vacuum_mop_attached
+    state: "on"
+    alias: Mop pad is still attached from last night
+  - condition: state
+    entity_id: binary_sensor.living_room_vacuum_water_box_attached
+    state: "on"
+    alias: 2-in-1 dustbin + water module is seated
+  - condition: state
+    entity_id: binary_sensor.living_room_vacuum_water_shortage
+    state: "off"
+    alias: Water tank is not empty
+  - condition: state
+    entity_id: input_boolean.vacuum_routine_pause
+    state: "off"
+    alias: Vacuum routine is not paused
+  - condition: state
+    entity_id: binary_sensor.living_room_vacuum_cleaning
+    state: "off"
+    alias: Vacuum is not currently mid-job
+actions:
+  - alias: Announce the master mop pass is coming
+    action: script.household_tts_announce
+    data:
+      message: The master bedroom and master bathroom will be mopped in five minutes. Pick anything up off the floor.
+      target: master_bedroom
+      notification_title: Vacuum Master Mop
+      critical_fallback: false
+  - alias: Push the master mop prep reminder
+    action: notify.mobile_app_nates_iphone
+    data:
+      title: Vacuum Master Mop
+      message: Mopping the master bedroom and bathroom in five minutes -- pick anything up off the floor.
+      data:
+        tag: vacuum_master_mop
+  - alias: Wait 5 minutes for the floor to be cleared
+    delay:
+      minutes: 5
+  - alias: Start the pass if the pad, water, and pause state still allow it
+    if:
+      - condition: state
+        entity_id: binary_sensor.living_room_vacuum_mop_attached
+        state: "on"
+        alias: Mop pad is still attached
+      - condition: state
+        entity_id: binary_sensor.living_room_vacuum_water_shortage
+        state: "off"
+        alias: Water tank is still not empty
+      - condition: state
+        entity_id: input_boolean.vacuum_routine_pause
+        state: "off"
+        alias: Vacuum routine is still not paused
+      - condition: state
+        entity_id: binary_sensor.living_room_vacuum_cleaning
+        state: "off"
+        alias: Vacuum still is not mid-job
+    then:
+      - alias: Set active zone to master_mop
+        action: input_select.select_option
+        target:
+          entity_id: input_select.vacuum_active_zone
+        data:
+          option: master_mop
+      - alias: Set balanced fan speed
+        action: vacuum.set_fan_speed
+        target:
+          entity_id: vacuum.living_room_vacuum
+        data:
+          fan_speed: balanced
+        note: >-
+          Both rooms are hard floor and the house is awake -- max fan
+          (daytime pass) is unnecessary noise here.
+      - alias: Set high mop intensity
+        action: select.select_option
+        target:
+          entity_id: select.living_room_vacuum_mop_intensity
+        data:
+          option: high
+        note: >-
+          Only two small segments -- the tank margin comes from Wednesday
+          night's intensity dropping to medium, not from a refill here.
+          Unverified until watched on a live run; watch water_shortage.
+      - alias: Vacuum and mop in a single pass
+        action: select.select_option
+        target:
+          entity_id: select.living_room_vacuum_cleaning_mode
+        data:
+          option: vac_and_mop
+      - alias: Start the segment clean of the master bedroom and bathroom
+        action: vacuum.send_command
+        target:
+          entity_id: vacuum.living_room_vacuum
+        data:
+          command: app_segment_clean
+          params:
+            - segments: [19, 21]
+              repeat: 1
+        note: >-
+          Segment 20 (Master closet, carpeted) is deliberately excluded.
+          Segment 28 (Stairs) never appears in this routine -- fall hazard,
+          backstopped by an app virtual wall.
+      - alias: Notify that the master mop pass started
+        action: notify.send_message
+        target:
+          entity_id: notify.nates_iphone
+        data:
+          title: Vacuum
+          message: Started the master bedroom mop pass.
+    else:
+      - alias: Tell Nate the master mop pass was skipped, and why
+        action: notify.send_message
+        target:
+          entity_id: notify.nates_iphone
+        data:
+          title: Vacuum
+          message: >-
+            Master mop pass skipped -- {{ 'the mop pad came off' if
+            is_state('binary_sensor.living_room_vacuum_mop_attached', 'off')
+            else ('the water tank is empty' if
+            is_state('binary_sensor.living_room_vacuum_water_shortage', 'on')
+            else ('the routine is paused' if
+            is_state('input_boolean.vacuum_routine_pause', 'on') else 'the
+            vacuum is already mid-job')) }}.
+  - alias: Clear the master mop prep push
+    action: notify.mobile_app_nates_iphone
+    data:
+      message: clear_notification
+      data:
+        tag: vacuum_master_mop
+mode: single
+category: 01M0XF7RJK5EX3A4YPNEX7X3DG

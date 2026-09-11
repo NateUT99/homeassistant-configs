@@ -120,6 +120,18 @@ actions:
         state: "off"
         alias: Mop pad is not attached -- a wet pad must not run the carpeted daytime rooms
     then:
+      - alias: Build the daytime segment list -- drop the master suite if this week's master mop pass already covered it
+        variables:
+          daytime_segments: >-
+            {{ [16, 17, 18, 20, 26] if
+            is_state('input_select.vacuum_active_zone', 'master_mop') else
+            [16, 17, 18, 19, 20, 21, 26] }}
+        note: >-
+          Reads active_zone before the next step overwrites it -- variables
+          render top-to-bottom, so this must stay ahead of the daytime
+          select. Segments 19/21 (Master bedroom/bathroom) drop out on a
+          Thursday whose morning master mop pass already ran; 20 (Master
+          closet) always stays, it's carpeted and outside the mop pass.
       - alias: Set active zone to daytime
         action: input_select.select_option
         target:
@@ -145,7 +157,7 @@ actions:
         data:
           command: app_segment_clean
           params:
-            - segments: [16, 17, 18, 19, 20, 21, 26]
+            - segments: "{{ daytime_segments }}"
               repeat: 1
       - alias: Notify that daytime cleaning started
         action: notify.send_message
