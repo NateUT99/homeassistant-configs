@@ -3,18 +3,18 @@ alias: "Household: Vacuum Mop Pad Reminders"
 description: >-
   Brackets the weekly mop pass (folded into Household: Vacuum Evening Cleaning)
   with two human-in-the-loop reminders, since the Roborock's mop pad and 350 ml
-  water tank are both filled and fitted by hand. Prep: at 20:00 on mop night,
-  and again when Everyone Sleeping is set that night, announce that the pad and
+  water tank are both filled and fitted by hand. Prep: at 20:00 Wednesday, and
+  again when Everyone Sleeping is set that night, announce that the pad and
   water need fitting -- suppressed once the pad is on. Cleanup: when Everyone
-  Sleeping is cleared the next morning (with a 17:00 backstop), announce that
+  Sleeping is cleared Thursday morning (with a 17:00 backstop), announce that
   the pad should come off to rinse and the tank be emptied. Attaching or
   removing the pad clears the matching reminder banner on its own --
   binary_sensor.living_room_vacuum_mop_attached is the acknowledgement, so there
   are no action buttons. TTS runs through script.household_tts_announce; the
   bedtime prep nudge and the wake cleanup nudge target the master bedroom, the
-  20:00 and 17:00 nudges the kitchen. TEST MODE: weekday conditions are set to
-  Thursday night / Friday morning; promote them to Wednesday / Thursday once a
-  run is verified. See guides/vacuum_cleaning_routine.md.
+  20:00 and 17:00 nudges the kitchen. Verified against a live supervised run on
+  Thu 2026-09-10 (test night) before promoting to Wednesday/Thursday. See
+  guides/vacuum_cleaning_routine.md.
 triggers:
   - trigger: time
     at: "20:00:00"
@@ -64,15 +64,15 @@ actions:
             state: "off"
             alias: Vacuum routine is not paused
           - condition: or
-            alias: "It is mop night (TEST MODE: Thursday night; promote to Wednesday)"
+            alias: It is Wednesday night, through the 8am daily-reset boundary
             conditions:
               - condition: time
-                weekday: [thu]
-                alias: Thursday (TEST; promote to wed)
+                weekday: [wed]
+                alias: Wednesday
               - condition: time
-                weekday: [fri]
+                weekday: [thu]
                 before: "08:00:00"
-                alias: Early Friday, still Thursday's night (TEST; promote to thu)
+                alias: Early Thursday, still Wednesday's night
           - condition: or
             alias: 20:00 nudge needs someone home; the bedtime nudge implies it
             conditions:
@@ -117,11 +117,11 @@ actions:
             state: "on"
             alias: Mop pad is still attached
           - condition: or
-            alias: "Morning after mop night (TEST MODE: Friday; promote to Thursday)"
+            alias: Morning after mop night (Thursday)
             conditions:
               - condition: time
-                weekday: [fri]
-                alias: Friday (TEST; promote to thu)
+                weekday: [thu]
+                alias: Thursday
         sequence:
           - alias: Announce the cleanup reminder
             action: script.household_tts_announce
