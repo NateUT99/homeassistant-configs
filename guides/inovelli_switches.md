@@ -487,9 +487,10 @@ needed):
 the LED bar via `script.*_ceiling_fan_led_state`, and if the light is now **off**,
 calls `adaptive_lighting.set_manual_control(false)` to hand its brightness back to
 Adaptive Lighting. A single paddle down-tap turns the light off through the
-cluster 6 binding, which AL ignores (`detect_non_ha_changes` off) — without this
-step a ceiling that was dimmed at the wall would stay manually controlled through
-an off/on. See `guides/adaptive_lighting.md` and `LESSONS.md`.
+cluster 6 binding — a state change, not a `light.turn_off` service call — so
+AL's own turn-off listener never sees it; without this step a ceiling that was
+dimmed at the wall would stay manually controlled through an off/on. See
+`guides/adaptive_lighting.md` and `LESSONS.md`.
 
 **Triple-tap peek** calls the same script, without touching the fan — a way to
 force a resync on demand (normally a no-op, since the bar already reflects
@@ -690,12 +691,12 @@ value, check that automation's last run and that the light's AL instance switch
 reports a `brightness_pct` attribute. Any change takes effect on the next
 off → on cycle.
 
-**A wall-dimmed ceiling won't go back to adapting.** With `detect_non_ha_changes`
-off on the AL instance, a binding-driven paddle off/on does not clear AL manual
-control — only an HA-observed turn-off (this automation's "Ceiling light state
-change" branch), the 30-minute autoreset, or an explicit
-`adaptive_lighting.set_manual_control(false)` does. `LESSONS.md` has the
-mechanism.
+**A wall-dimmed ceiling won't go back to adapting.** A binding-driven paddle off
+never reaches AL as a `light.turn_off` service call, so AL's own listener can't
+clear manual control from it — only this automation's "Ceiling light state
+change" branch (which reacts to the light's observed state, not the call), the
+30-minute autoreset, or an explicit `adaptive_lighting.set_manual_control(false)`
+does. `LESSONS.md` has the mechanism.
 
 **Paddle tap works but paddle hold doesn't dim.** Two things must both be in
 place: a cluster 8 (Level Control) binding on the switch → canopy light endpoint

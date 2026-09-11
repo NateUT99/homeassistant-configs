@@ -61,14 +61,16 @@ A binding-driven wall-paddle tap is exactly that, so enabling it would freeze ev
 paddle-lit ceiling off-curve for the autoreset window. It must stay `false`; pre-staging is
 what makes a bare paddle turn-on land near the curve instead.
 
-#### Wall dim is caught explicitly, not detected
+#### `detect_non_ha_changes` is on
 
-`detect_non_ha_changes` is `false` — Matter's 0–254 level quantisation against HA's 0–255
-range otherwise produces false-positive manual-control flags that silently freeze a light
-off-curve. Instead, each room's wall-control automation catches the paddle hold's
-`long_release` event and calls `set_manual_control` directly, and clears it again on any
-turn-off HA observes. `guides/inovelli_switches.md` Step 6 owns those branches; `LESSONS.md`
-has why a wall-paddle off/on alone does not clear the flag.
+AL's own off→on handler treats a binding-driven turn-on as manual unconditionally whenever
+this is off — a wall-paddle tap never calls `light.turn_on`, so every tap would be flagged
+regardless of how close pre-staging landed it to the curve, defeating pre-staging entirely.
+With it on, AL instead compares the light's actual value against its target and only flags a
+genuine mismatch (`LESSONS.md` has the source-level detail). The wall-control automations'
+`long_release`/turn-off branches (`guides/inovelli_switches.md` Step 6) still separately
+handle a mid-hold dim of an already-on light and a binding-driven turn-off, neither of which
+this setting reaches on its own.
 
 #### Pre-staging via Matter `OnLevel`, not MQTT
 
@@ -138,7 +140,7 @@ take identical values. The advanced options are behind collapsible sections in v
 | Take over control | on | |
 | Take over control mode | `pause_changed` | Default is `pause_all`. Pauses only the attribute that changed. |
 | Adapt only on bare turn on | on | A `light.turn_on` carrying brightness or colour skips adaptation. |
-| Detect non-HA changes | off | See Design Decisions. |
+| Detect non-HA changes | on | See Design Decisions. |
 | Manual control on external turn on | off | Default. Load-bearing — see Design Decisions. |
 | Reset manual control on sleep mode change | on | Default. A sleep-mode flip clears a stale evening wall-dim. |
 | Autoreset control seconds | `1800` | Default is `0`. Hands a wall-dimmed light back after 30 min. |
@@ -252,16 +254,19 @@ Step 2 is the record of them.
   parameters, and the wall-control automations that carry the `long_release` and turn-off AL
   branches
 - `standards/automations.md` — category and label rules; the `int_adaptive_lighting` label
-- `LESSONS.md` — Matter level quantisation vs. `detect_non_ha_changes`, and why a wall-paddle
-  off/on does not clear AL manual control
+- `LESSONS.md` — why `detect_non_ha_changes: false` blanket-flags every untracked turn-on as
+  manual, and why a binding-driven turn-off needs the wall-control automation to release it
 
 ## Troubleshooting
 
-**A wall-dimmed ceiling stays at the wall level through an off/on and never re-adapts.**
-Expected: with `detect_non_ha_changes` off, AL does not see a binding-driven off. The room's
-wall-control automation clears manual control on any turn-off HA observes; if it hasn't, the
-30-minute autoreset is the backstop, or call `adaptive_lighting.set_manual_control` with
-`manual_control: false`. `LESSONS.md` has the mechanism.
+**A ceiling comes on at a wall-driven brightness and stays there.** Check
+`manual_control_brightness` on the instance switch. A binding-driven turn-off never reaches AL
+as a `light.turn_off` service call, so only the room's wall-control automation (which reacts to
+the light's observed state, not the call), the 30-minute autoreset, or an explicit
+`adaptive_lighting.set_manual_control` false clears it — confirm the wall-control automation's
+last trace ran. If this happens on a plain turn-on with no preceding hold, confirm
+`detect_non_ha_changes` reads **on** for that instance; off blanket-flags every untracked
+turn-on regardless of the resulting brightness. `LESSONS.md` has the mechanism.
 
 **Pre-staging never writes.** The instance switch must expose `brightness_pct` — check
 Developer Tools → States on `switch.adaptive_lighting_standard`. If it is absent, the instance

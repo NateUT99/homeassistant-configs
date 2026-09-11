@@ -662,13 +662,22 @@ A cluster 8 binding (switch Binding endpoint → canopy light endpoint 1) for pa
 
 **Whole-room off/on is a paddle double-tap, not a hold** (September 2026) — the cluster 8 hold-to-dim binding was briefly removed to free the hold gesture for whole-room off/on, then restored once it was clear `multi_press_2` fires on the paddle (Button Delay already `300ms` for the config button). Hold = dim (binding); double-tap = whole-room (automation). Guide `guides/inovelli_switches.md` Steps 4 and 6.
 
-### Adaptive Lighting `detect_non_ha_changes: false` — a Matter-binding light change is invisible to AL
+### Adaptive Lighting `detect_non_ha_changes: false` blanket-flags every untracked turn-on as manual, not just genuine ones
 
-`detect_non_ha_changes` off is the correct setting for a Matter dimmer: the device's 0–254 level quantisation against HA's 0–255 range otherwise produces false-positive manual-control flags that silently freeze a light off its curve. The cost is that Adaptive Lighting then reacts only to `light.turn_on` / `light.turn_off` **service calls** routed through HA. A wall paddle driving an Inovelli canopy light over the cluster 6 binding turns it off/on in firmware — HA's Matter subscription reports the resulting state change, but there is no service call, so AL ignores it.
+The initial assumption here was that `detect_non_ha_changes: false` makes AL *ignore* a light change it didn't route itself — e.g. a wall-paddle turn-on over a Matter binding. That's wrong. AL's `_respond_to_off_to_on_event` handler (`basnijholt/adaptive-lighting`, `switch.py`) marks *any* off→on transition manual whenever the event isn't tied to a tracked `light.turn_on` context — unconditionally, without checking what brightness the light actually landed on:
 
-Consequence: a light wall-dimmed earlier (paddle hold → AL manual control set by the room's wall-control automation on `long_release`) stays manually controlled straight through a wall-paddle off/on. AL resumes adapting it only on an HA-routed `light.turn_off` (e.g. the double-tap-down branch), the `autoreset_control_seconds` timer (30 min here), an explicit `adaptive_lighting.set_manual_control` false call, or a sleep-mode switch flip (`reset_manual_control_on_sleep_mode_change`).
+```python
+if (self._take_over_control
+    and (not self._detect_non_ha_changes or self._manual_control_on_external_turn_on)
+    and not from_turn_on):
+    self.manager.set_manual_control_attributes(entity_id)
+```
 
-Fix applied: each room's wall-control automation (`guides/inovelli_switches.md` Step 6) clears AL manual control whenever HA observes the ceiling light turn `off`, from any source — HA sees the binding-driven off even though AL doesn't. `guides/adaptive_lighting.md` has the instance config.
+A wall-paddle tap never calls `light.turn_on` (it's a Matter binding, not a service call), so with `detect_non_ha_changes` off, *every* paddle turn-on gets flagged manual — regardless of how precisely Matter `OnLevel` pre-staging landed it on the curve. This defeated pre-staging's entire purpose: two Inovelli canopy lights turned on at the wall and stuck at whatever brightness they came up at, confirmed via `manual_control_brightness` on the instance switch with no corresponding hold (`long_release`) anywhere in the paddle's event history — a plain tap alone was enough to trigger it.
+
+**Fix:** set `detect_non_ha_changes: true` instead. That routes turn-on detection through AL's real value-comparison logic (`significant_change()`) — a light landing at or near its curve target isn't flagged; only a genuine deliberate value is. `guides/adaptive_lighting.md` has the instance config.
+
+**Separately**, a binding-driven turn-*off* is invisible to AL regardless of this setting — `turn_on_off_event_listener` (the code path that resets manual control on turn-off) only fires on `light.turn_off` **service calls**, and a paddle-off is a state change with no service call behind it. The wall-control automations (`guides/inovelli_switches.md` Step 6) cover this by reacting to the light's *observed* state going `off`, not the call — that branch is still required with `detect_non_ha_changes` on.
 
 ### Inovelli VTM30-SN LED bar — only a saturated `hs_color` renders reliably; white / colour-temp are dropped
 
