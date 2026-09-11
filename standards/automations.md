@@ -351,17 +351,18 @@ Place this block before the main action or repeat block, gated on the arrival tr
   then:
     - alias: "Wait for entry via garage or front door"
       note: >-
-        Garage path: door opens then closes behind them. Front door
-        path: no contact sensor exists on this house, so the lock
-        unlocking is the signal instead.
+        Both paths wait for the door to open then close behind the
+        person -- the "they're inside now" signal, not just "the door
+        moved."
       wait_for_trigger:
         - trigger: state
           entity_id: binary_sensor.garage_interior_door
           from: "on"
           to: "off"
         - trigger: state
-          entity_id: lock.entrance_front_door
-          to: "unlocked"
+          entity_id: binary_sensor.entrance_front_door
+          from: "on"
+          to: "off"
       timeout:
         minutes: 10
       continue_on_timeout: true
@@ -370,7 +371,7 @@ Place this block before the main action or repeat block, gated on the arrival tr
         seconds: 30
 ```
 
-`continue_on_timeout: true` ensures the automation never hangs if neither trigger fires (e.g., a garage-remote departure with no matching return, or a side-door entry this pattern doesn't cover). Adjust the entity IDs to the house's actual interior garage door and front door lock.
+`continue_on_timeout: true` ensures the automation never hangs if neither trigger fires (e.g., a garage-remote departure with no matching return, or a side-door entry this pattern doesn't cover). Adjust the entity IDs to the house's actual interior garage door and front door contact sensor.
 
 **When to skip this pattern:**
 - The automation only sends push notifications, not TTS — push delivers to the phone regardless of physical location.

@@ -21,6 +21,11 @@ triggers:
     alias: Front door unlocked
   - trigger: door.opened
     target:
+      entity_id: binary_sensor.entrance_front_door
+    id: entry_evidence
+    alias: Front door opened
+  - trigger: door.opened
+    target:
       entity_id: binary_sensor.garage_interior_door
     id: entry_evidence
     alias: Garage interior door opened

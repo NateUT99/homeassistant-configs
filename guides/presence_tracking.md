@@ -133,7 +133,8 @@ docking the vacuum, setting the thermostat preset — trigger on this helper goi
   zone.home rises above 0 ──── AND activity = Automotive ───┐   (fast path: real drive-home)
                                                             │
   lock.entrance_front_door → unlocked ───────────┐          │
-  binary_sensor.garage_interior_door opened ─────┤          │   (evidence path — CONFIRMS only,
+  binary_sensor.entrance_front_door opened ──────┤          │   (evidence path — CONFIRMS only,
+  binary_sensor.garage_interior_door opened ─────┤          │
   binary_sensor.kitchen_patio_door opened ───────┼── AND ───┤    never originates: requires a
   cover.garage_door_opener_door → open ──────────┘ zone.home│    tracked person already home)
                                                      > 0    │

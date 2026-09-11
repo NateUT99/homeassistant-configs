@@ -4,8 +4,9 @@ description: 'Sends a critical push notification to Nate''s iPhone when a perime
   entry point is opened while the house is in sleep mode.
 
 
-  Fires when the front door lock (`lock.entrance_front_door`) reports `unlocked` or
-  the garage door (`cover.garage_door_opener_door`) reports `open`, and only while
+  Fires when the front door lock (`lock.entrance_front_door`) reports `unlocked`,
+  the front door contact sensor (`binary_sensor.entrance_front_door`) reports opened,
+  or the garage door (`cover.garage_door_opener_door`) reports `open`, and only while
   `input_boolean.everyone_sleeping` is on.
 
 
@@ -17,6 +18,11 @@ triggers:
   to: unlocked
   id: front_door_unlocked
   alias: Front door unlocked
+- trigger: door.opened
+  target:
+    entity_id: binary_sensor.entrance_front_door
+  id: front_door_opened
+  alias: Front door opened
 - trigger: state
   entity_id: cover.garage_door_opener_door
   to: open
@@ -36,8 +42,9 @@ actions:
   data:
     title: 🚨 Sleep Mode — Entry Point Opened
     message: '{{ ''The FRONT DOOR was unlocked'' if trigger.id == ''front_door_unlocked''
-      else ''The GARAGE DOOR opened'' }} at {{ now().strftime(''%-I:%M %p'') }} while
-      everyone is asleep.'
+      else ''The FRONT DOOR was opened'' if trigger.id == ''front_door_opened'' else
+      ''The GARAGE DOOR opened'' }} at {{ now().strftime(''%-I:%M %p'') }} while everyone
+      is asleep.'
     data:
       push:
         interruption-level: critical

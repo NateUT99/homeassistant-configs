@@ -57,16 +57,17 @@ actions:
       - alias: "Wait for entry via garage or front door"
         note: >-
           Garage path: door opens then closes behind them. Front door path:
-          no contact sensor exists on this house, so the lock unlocking is
-          the signal instead.
+          mirrors the same opens-then-closes signal now that a contact
+          sensor exists (binary_sensor.entrance_front_door).
         wait_for_trigger:
           - trigger: state
             entity_id: binary_sensor.garage_interior_door
             from: "on"
             to: "off"
           - trigger: state
-            entity_id: lock.entrance_front_door
-            to: unlocked
+            entity_id: binary_sensor.entrance_front_door
+            from: "on"
+            to: "off"
         timeout:
           minutes: 10
         continue_on_timeout: true
