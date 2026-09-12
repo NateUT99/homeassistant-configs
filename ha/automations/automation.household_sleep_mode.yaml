@@ -106,7 +106,7 @@ actions:
                   entity_id: light.kitchen_overhead_sink
                 data:
                   color_temp_kelvin: 2000
-                  brightness_pct: 5
+                  brightness_pct: 10
       - alias: Everyone Sleeping turned OFF -- restore the home for day
         conditions:
           - condition: trigger
