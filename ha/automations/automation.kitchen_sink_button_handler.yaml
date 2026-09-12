@@ -2,8 +2,10 @@ id: "1787508819081"
 alias: "Kitchen: Sink Button Handler"
 description: >-
   Handles button presses on the kitchen sink remote: short press toggles
-  the overhead sink light, long press turns it off. Double press is
-  reserved for future use.
+  the overhead sink light (to 100%/3000K normally, or to the sleep
+  nav-light level of 10%/2000K while everyone is sleeping), long press
+  turns it off (or dims it to the same nav-light level while everyone is
+  sleeping). Double press is reserved for future use.
 triggers:
   - alias: Short press
     trigger: event
@@ -30,6 +32,23 @@ conditions: []
 actions:
   - alias: Handle button press
     choose:
+      - alias: "Short press while sleeping: toggle to nav-light level"
+        conditions:
+          - alias: Trigger was short press
+            condition: trigger
+            id: ["short_press"]
+          - alias: Everyone is sleeping
+            condition: state
+            entity_id: input_boolean.everyone_sleeping
+            state: "on"
+        sequence:
+          - alias: Toggle overhead sink light to nav-light level
+            action: light.toggle
+            target:
+              entity_id: light.kitchen_overhead_sink
+            data:
+              brightness_pct: 10
+              color_temp_kelvin: 2000
       - alias: "Short press: toggle light"
         conditions:
           - alias: Trigger was short press
@@ -43,6 +62,23 @@ actions:
             data:
               brightness_pct: 100
               color_temp_kelvin: 3000
+      - alias: "Long press while sleeping: dim to nav-light level"
+        conditions:
+          - alias: Trigger was long press
+            condition: trigger
+            id: ["long_press"]
+          - alias: Everyone is sleeping
+            condition: state
+            entity_id: input_boolean.everyone_sleeping
+            state: "on"
+        sequence:
+          - alias: Set overhead sink light to nav-light level
+            action: light.turn_on
+            target:
+              entity_id: light.kitchen_overhead_sink
+            data:
+              brightness_pct: 10
+              color_temp_kelvin: 2000
       - alias: "Long press: turn off light"
         conditions:
           - alias: Trigger was long press
