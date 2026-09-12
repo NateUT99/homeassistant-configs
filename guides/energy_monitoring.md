@@ -81,14 +81,19 @@ field, so this is a YAML `template:` package rather than a UI-created helper.
 **Refrigerator.** Same plug model and configuration as the dishwasher — Metering only mode
 enabled, Power-on behavior On, `sensor.kitchen_refrigerator_summation_delivered` feeding the
 dashboard directly. `power_rise_threshold` / `power_drop_threshold` are set symmetrically to
-15W / 15W — comfortably above idle/board-only draw and comfortably below a compressor's
-running draw, so a crossing reliably flags the compressor starting or stopping. The resulting
-`binary_sensor.kitchen_refrigerator_opening` is renamed **Refrigerator Compressor** with a
-`running` device-class override (not hidden — unlike the dishwasher's threshold flag, this one
-is meant to be looked at directly). No debounce package yet: a compressor's load is a single
-sustained draw, not the dishwasher pump's bursty on/off pattern, so the raw signal is expected
-to give one clean transition per cycle rather than dozens. If real-world behavior proves
-noisier, add a `delay_off` template package matching `ha/packages/dishwasher_running.yaml`.
+15W / 15W. The resulting `binary_sensor.kitchen_refrigerator_compressor` (originally registered as
+`_opening`, renamed **Refrigerator Compressor** with a `running` device-class override; a
+later manual device reinterview regenerated the entity_id to match the already-set custom
+name) is a **momentary edge pulse, not a level sensor** — confirmed by
+live testing (dropping both thresholds to the minimum, 1W, produced zero additional events
+during 2+ minutes of steady ~55W running, because the device simply stops emitting power
+reports once nothing is changing enough to report). It fires briefly on a rise or fall and
+then reverts to `off` regardless of whether the load is still present, so no rise/drop
+threshold value makes it hold a sustained "compressor is running" state — that isn't what this
+cluster measures. It's left visible as a "something just changed" pulse, not a running/idle
+indicator. A real running/idle signal would need a `threshold` helper on
+`sensor.kitchen_refrigerator_power` instead (native HA level detector with hysteresis) —
+not yet built.
 
 `switch.kitchen_refrigerator` is **hidden, not disabled**, unlike the dishwasher's identical
 control. A disabled entity is removed from the state machine entirely, and
@@ -224,7 +229,7 @@ dashboard's cost figure track the real bill.
 | Refrigerator | Energy Dashboard individual device | `.storage/energy` — consumed energy = `sensor.kitchen_refrigerator_summation_delivered` (ZHA, Third Reality metering plug) |
 | Refrigerator Power | `sensor.kitchen_refrigerator_power` | Sensor (ZHA) — instantaneous W |
 | Refrigerator (switch, hidden) | `switch.kitchen_refrigerator` | ZHA — relay control, hidden not disabled; watched by Keep Powered below |
-| Refrigerator Compressor | `binary_sensor.kitchen_refrigerator_opening` | ZHA — power-threshold-crossing flag (15W rise/drop), renamed and re-classed `running`; not hidden |
+| Refrigerator Compressor | `binary_sensor.kitchen_refrigerator_compressor` | ZHA — power-threshold-crossing edge pulse (15W rise/drop), renamed and re-classed `running`; momentary, not a running/idle level indicator |
 | Refrigerator Power Monitor | `automation.kitchen_refrigerator_power_monitor` | Automation — offline/no-draw alerting |
 | Refrigerator Keep Powered | `automation.kitchen_refrigerator_keep_powered` | Automation — self-heals an unexpected relay/metering-only-mode off |
 | Refrigerator Maintenance | `input_boolean.kitchen_refrigerator_maintenance` | Helper — suppresses Keep Powered during deliberate plug work |
