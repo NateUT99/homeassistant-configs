@@ -82,9 +82,9 @@ field, so this is a YAML `template:` package rather than a UI-created helper.
 enabled, Power-on behavior On, `sensor.kitchen_refrigerator_summation_delivered` feeding the
 dashboard directly. `power_rise_threshold` / `power_drop_threshold` are set symmetrically to
 15W / 15W. The resulting `binary_sensor.kitchen_refrigerator_compressor` (originally registered as
-`_opening`, renamed **Refrigerator Compressor** with a `running` device-class override; a
-later manual device reinterview regenerated the entity_id to match the already-set custom
-name) is a **momentary edge pulse, not a level sensor** — confirmed by
+`_opening`; renamed to **Refrigerator Compressor** with a `running` device-class override,
+and its entity_id manually renamed to match) is a **momentary edge pulse, not a level
+sensor** — confirmed by
 live testing (dropping both thresholds to the minimum, 1W, produced zero additional events
 during 2+ minutes of steady ~55W running, because the device simply stops emitting power
 reports once nothing is changing enough to report). It fires briefly on a rise or fall and
