@@ -1,18 +1,19 @@
 id: '1788313028192'
 alias: 'Household: Sleep Mode Entry Alert'
-description: 'Sends a critical push notification to Nate''s iPhone when a perimeter
-  entry point is opened while the house is in sleep mode.
+description: 'Sends a critical push notification to Nate''s iPhone when a perimeter entry
+  point is opened while the house is in sleep mode.
 
 
-  Fires when the front door lock (`lock.entrance_front_door`) reports `unlocked`,
-  the front door contact sensor (`binary_sensor.entrance_front_door`) reports opened,
-  the kitchen patio door (`binary_sensor.kitchen_patio_door`) reports opened, or the
-  garage door (`cover.garage_door_opener_door`) reports `open`, and only while
-  `input_boolean.everyone_sleeping` is on.
+  Fires when the front door lock (`lock.entrance_front_door`) reports `unlocked`, the front
+  door contact sensor (`binary_sensor.entrance_front_door`) reports opened, the kitchen patio
+  door (`binary_sensor.kitchen_patio_door`) reports opened, either window in Avery''s Room
+  (`binary_sensor.averys_room_windows`) reports opened, the office window (`binary_sensor.office_window`)
+  reports opened, or the garage door (`cover.garage_door_opener_door`) reports `open`, and
+  only while `input_boolean.everyone_sleeping` is on.
 
 
-  Sent as an iOS critical alert so it breaks through the silent switch and the sleep
-  / Do Not Disturb focus — the point is to wake Nate if a door opens overnight.'
+  Sent as an iOS critical alert so it breaks through the silent switch and the sleep / Do
+  Not Disturb focus — the point is to wake Nate if a door opens overnight.'
 triggers:
 - trigger: state
   entity_id: lock.entrance_front_door
@@ -29,6 +30,16 @@ triggers:
     entity_id: binary_sensor.kitchen_patio_door
   id: patio_door_opened
   alias: Patio door opened
+- trigger: window.opened
+  target:
+    entity_id: binary_sensor.averys_room_windows
+  id: averys_room_windows_opened
+  alias: Avery's Room windows opened
+- trigger: window.opened
+  target:
+    entity_id: binary_sensor.office_window
+  id: office_window_opened
+  alias: Office window opened
 - trigger: state
   entity_id: cover.garage_door_opener_door
   to: open
@@ -42,16 +53,17 @@ conditions:
 actions:
 - action: notify.mobile_app_nates_iphone
   alias: Send critical alert to Nate's iPhone
-  note: Uses the legacy mobile_app_* notify service rather than notify.send_message
-    because only it passes the platform-specific data.push payload an iOS critical alert
-    requires (critical: 1 and interruption-level: critical).
+  note: 'Uses the legacy mobile_app_* notify service rather than notify.send_message because
+    only it passes the platform-specific data.push payload an iOS critical alert requires
+    (critical: 1 and interruption-level: critical).'
   data:
     title: 🚨 Sleep Mode — Entry Point Opened
     message: '{{ ''The FRONT DOOR was unlocked'' if trigger.id == ''front_door_unlocked''
-      else ''The FRONT DOOR was opened'' if trigger.id == ''front_door_opened'' else
-      ''The PATIO DOOR was opened'' if trigger.id == ''patio_door_opened'' else ''The
-      GARAGE DOOR opened'' }} at {{ now().strftime(''%-I:%M %p'') }} while everyone is
-      asleep.'
+      else ''The FRONT DOOR was opened'' if trigger.id == ''front_door_opened'' else ''The
+      PATIO DOOR was opened'' if trigger.id == ''patio_door_opened'' else ''A WINDOW IN AVERY\''S
+      ROOM was opened'' if trigger.id == ''averys_room_windows_opened'' else ''THE OFFICE
+      WINDOW was opened'' if trigger.id == ''office_window_opened'' else ''The GARAGE DOOR
+      opened'' }} at {{ now().strftime(''%-I:%M %p'') }} while everyone is asleep.'
     data:
       push:
         interruption-level: critical
