@@ -8,11 +8,15 @@ Adaptive Lighting (AL — HACS, `basnijholt/adaptive-lighting`) adjusts light br
 the day on a sun-position curve. Two instances run here, **Standard** and **Avery Schedule**,
 covering the three Inovelli canopy ceiling-fan light kits (Master Bedroom, Office, Avery's
 Room). Those fixtures are dumb LED loads on a Matter/Thread dimmer, so AL adapts brightness
-only — colour temperature is not available on the hardware. A companion automation pre-stages
-each fixture's Matter `OnLevel` so a turn-on that bypasses HA (a wall-paddle tap, another
-Matter controller) lands closer to the adapted level; the wall-control automations add a fast
-2-second correction on every observed turn-on as a backstop, since pre-staging alone has not
-proven reliable for every turn-on path (see Design Decisions).
+only — colour temperature is not available on the hardware. All three lights (and their paired
+fan entities) are exposed to Apple Home through Home-Assistant-Matter-Hub bridging rather than
+direct Matter commissioning, so an Apple Home turn-on is a real `light.turn_on` call AL's
+`intercept` adapts immediately, the same as HA's own dashboard or a script. Only a wall-paddle
+tap — a Matter binding written into the switch firmware that never reaches HA — falls outside
+`intercept`'s reach; a companion automation pre-stages each fixture's Matter `OnLevel` so that
+binding-driven turn-on lands closer to the adapted level, and the wall-control automations add
+a fast 2-second correction on every observed turn-on as a backstop regardless of source (see
+Design Decisions).
 
 ## Architecture
 
@@ -85,15 +89,16 @@ writes the current curve target there while the light is off. See [Step 4](#step
 
 #### Every observed turn-on gets a fast 2s correction, not just a pre-staged one
 
-`OnLevel` pre-staging is not reliably honored on every turn-on path: confirmed live on Office
-and Avery's Room landing at full brightness with a correctly pre-staged, stable `OnLevel` —
-including a plain Apple Home on-command with no wall-paddle or hold involved. The exact
-mechanism is unconfirmed (device firmware behaviour on rapid re-triggering is one candidate;
-it does not explain every case observed). Rather than chase the root cause further, each
-wall-control automation's "Ceiling light changed" branch now calls `adaptive_lighting.apply`
-with a 2s transition on any observed turn-on that isn't manually controlled, snapping it to
-the curve within 2s instead of waiting on AL's normal ~45s adaptation cycle. Pre-staging still
-runs — it minimizes the gap on the paths where it does work — but it is not trusted alone.
+Only the wall-paddle path depends on `OnLevel` pre-staging — it's a Matter binding in switch
+firmware that never calls `light.turn_on`, so AL's `intercept` cannot touch it, and pre-staging
+narrows but does not guarantee the gap between the paddle's actual turn-on and the current
+curve target. Every other turn-on path (HA dashboard, scripts, Apple Home via the
+Home-Assistant-Matter-Hub bridge) is a real `light.turn_on` call `intercept` adapts directly, so
+it lands on the curve without needing a correction. Rather than special-case the paddle path,
+each wall-control automation's "Ceiling light changed" branch calls `adaptive_lighting.apply`
+with a 2s transition on **any** observed turn-on that isn't manually controlled, regardless of
+source — a fast backstop for the paddle, and a no-op everywhere `intercept` already landed it
+correctly.
 
 #### `autoreset_control_seconds` with `pause_changed` needs AL ≥ 1.32.0
 
@@ -227,12 +232,12 @@ with the turn-off release logic — `guides/inovelli_switches.md` Step 6) adds: 
 room's light is observed **on** and is not in its instance's `manual_control_brightness` list,
 call `adaptive_lighting.apply` with `transition: 2` to snap it to the current curve target.
 
-**Why this exists in addition to pre-staging.** `OnLevel` pre-staging is not reliably honored
-on every turn-on path — confirmed live on Office and Avery's Room turning on to full
-brightness with a correctly pre-staged, stable `OnLevel`, including on a plain Apple Home
-on-command with no wall paddle involved. Rather than chase the exact mechanism further, this
-forces a 2-second correction on every turn-on regardless of cause, closing the gap pre-staging
-leaves open instead of waiting on AL's normal ~45s adaptation cycle.
+**Why this exists in addition to pre-staging.** Pre-staging only narrows the gap on a
+wall-paddle turn-on; it does not guarantee an exact landing, since `OnLevel` is a coarse
+0–254 value re-staged periodically rather than a live command. Rather than accept that gap,
+this forces a 2-second correction on every turn-on regardless of source, closing it instead of
+waiting on AL's normal ~45s adaptation cycle. On a turn-on `intercept` already caught (HA
+dashboard, scripts, Apple Home via Matter Hub), the call is a no-op.
 
 ## Scale Reference
 
@@ -317,7 +322,11 @@ working as designed; pre-staging did not land it on the curve, so the fast corre
 fire. Check the wall-control automation's trace for the "Ceiling light changed" run: either
 the light was already in `manual_control_brightness` (so the snap correctly stood down — check
 whether that's right), or the `adaptive_lighting.apply` call itself errored (check the trace's
-action result).
+action result). If this happens on an Apple Home turn-on specifically, confirm the light and
+fan still carry the `matterhub` label and that Apple Home is commanding the Matter Hub-bridged
+accessory, not a stale direct-Matter one — a turn-on that bypasses HA's `light.turn_on`
+entirely depends on the same `OnLevel` pre-staging as the wall paddle and won't be caught by
+`intercept`.
 
 **Diagnosing AL itself.** The config entry's **Download diagnostics** action (v1.32.0) dumps
 the full instance state — prefer it over reading logs.
