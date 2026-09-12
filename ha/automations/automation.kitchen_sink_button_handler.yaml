@@ -40,6 +40,9 @@ actions:
             action: light.toggle
             target:
               entity_id: light.kitchen_overhead_sink
+            data:
+              brightness_pct: 100
+              color_temp_kelvin: 3000
       - alias: "Long press: turn off light"
         conditions:
           - alias: Trigger was long press
