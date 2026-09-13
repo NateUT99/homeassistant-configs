@@ -1,0 +1,89 @@
+id: "1789261062600"
+alias: "Living Room: TV Accent Controller"
+description: >-
+  Sole owner of `light.living_room_tv_accent` during TV sessions. Maintains
+  the invariant: accent light is ON only when the TV is on AND the room is
+  dim (per `sensor.living_room_status_lamp_illuminance`).
+
+
+  - Dual-threshold hysteresis prevents flapping near a single cutoff: room
+  counts as "dim" below 15 lux, "lit" above 20 lux. Between 15–20 lux the
+  light holds whatever state it was already in.
+
+  - No Hue Sync Box in this setup (static gradient lightstrip, not
+  content-synced) — nothing else contends for control of the strip, so the
+  invariant depends only on TV state and room brightness.
+
+  - Accent settings are inlined here: 30% brightness, 6500K (D65 reference
+  white to match video color grading).
+
+
+  Off-TV protection (catching manual turn-ons while the TV is off) is
+  handled by a separate automation — `automation.living_room_tv_accent_off_tv_guard`
+  — to avoid a feedback loop where the light's own state change re-triggers
+  this controller.
+triggers:
+  - alias: TV turned off
+    id: tv_off
+    trigger: state
+    entity_id: media_player.living_room_tv
+    from: "on"
+  - alias: TV turned on
+    id: tv_on
+    trigger: state
+    entity_id: media_player.living_room_tv
+    to: "on"
+  - alias: Room became dim (below 15 lux)
+    id: room_dim
+    trigger: numeric_state
+    entity_id: sensor.living_room_status_lamp_illuminance
+    below: 15
+  - alias: Room became lit (above 20 lux)
+    id: room_lit
+    trigger: numeric_state
+    entity_id: sensor.living_room_status_lamp_illuminance
+    above: 20
+conditions: []
+actions:
+  - alias: Determine accent light state
+    choose:
+      - alias: "Accent should be ON (TV on, room dim)"
+        conditions:
+          - alias: TV is on
+            condition: state
+            entity_id: media_player.living_room_tv
+            state: "on"
+          - alias: Room is dim (below 15 lux)
+            condition: numeric_state
+            entity_id: sensor.living_room_status_lamp_illuminance
+            below: 15
+        sequence:
+          - alias: Set accent light to 30% / 6500K
+            action: light.turn_on
+            target:
+              entity_id: light.living_room_tv_accent
+            data:
+              brightness_pct: 30
+              color_temp_kelvin: 6500
+      - alias: "Accent stays ON in deadband (already on, illuminance between 15 and 20)"
+        conditions:
+          - alias: TV is on
+            condition: state
+            entity_id: media_player.living_room_tv
+            state: "on"
+          - alias: Accent light is already on
+            condition: state
+            entity_id: light.living_room_tv_accent
+            state: "on"
+          - alias: Room is in hysteresis deadband (below 20 lux)
+            condition: numeric_state
+            entity_id: sensor.living_room_status_lamp_illuminance
+            below: 20
+        sequence: []
+    default:
+      - alias: Accent should be OFF
+        action: light.turn_off
+        target:
+          entity_id: light.living_room_tv_accent
+mode: restart
+category: 01M2C49AVVEG94R66QZA8BTV2Y

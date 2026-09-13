@@ -1,0 +1,35 @@
+id: "1789261066375"
+alias: "Living Room: TV Accent Off-TV Guard"
+description: >-
+  If the accent light turns on while the TV is off (or unavailable), turn
+  it back off. This lighting has no off-TV use case, so this catches
+  accidental manual turn-ons (Hue app, voice command, etc.) without
+  involving the main Accent Controller.
+
+
+  LG WebOS TVs report "unavailable" rather than "off" when powered off, so
+  both states count as "TV is off" here.
+
+
+  Kept as a separate automation from the Accent Controller so it cannot
+  create a feedback loop with the controller's own actions — it only acts
+  when the TV is off, so it never fires during TV sessions.
+triggers:
+  - alias: Accent light turned on
+    trigger: state
+    entity_id: light.living_room_tv_accent
+    to: "on"
+conditions:
+  - alias: TV is off or unavailable
+    condition: state
+    entity_id: media_player.living_room_tv
+    state:
+      - "off"
+      - unavailable
+actions:
+  - alias: Turn off accent light
+    action: light.turn_off
+    target:
+      entity_id: light.living_room_tv_accent
+mode: single
+category: 01M2C49AVVEG94R66QZA8BTV2Y
