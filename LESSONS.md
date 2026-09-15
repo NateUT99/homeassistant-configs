@@ -494,6 +494,23 @@ From the integration's `async_start()`: if `status.in_returning == 1` (robot is 
 
 Progress also dips slightly rather than climbing strictly monotonically (observed: 35→34→30→29, 79→78→79 in the same run). A `numeric_state: above` threshold tolerates this; a `state: to: "100"` trigger does not.
 
+### `sensor.<vacuum>_last_clean_begin` updates at job *end*, not job *start* — unusable as a running-job elapsed timer
+
+Confirmed via a real run on 2026-09-15: the vacuum entered `cleaning` at 11:37 local, but
+`sensor.<vacuum>_last_clean_begin` still held the *previous* day's clean's begin timestamp until
+12:28 local, when the job finished and the sensor jumped straight from yesterday's value to
+today's — both `last_clean_begin` and `last_clean_end` update together, at completion, as a
+matched pair describing the job that just finished. There is no sensor that reports a job's
+start time while that job is still running.
+
+A Live Activity chronometer built on `last_clean_begin` as a count-up "elapsed time" therefore
+computes elapsed time against whatever job last completed, not the one in progress — in this
+case it read ~24 hours elapsed a few minutes into a new run, because the sensor was still
+holding the prior day's timestamp. If a running job's elapsed time is needed, capture `now()`
+into a purpose-built helper at the moment the job starts (e.g. an `input_datetime`, following
+the pattern `guides/laundry_automation.md` uses for its own cycle-start capture) — don't trust
+any Roborock-exposed timestamp sensor to reflect the in-progress job.
+
 ### `sensor.<vacuum>_current_room` cannot be used to infer "this room is finished"
 
 For a house with open-plan adjacent rooms, `current_room` flips back and forth between the two rooms every 30 seconds to a couple of minutes as the robot works the shared boundary, rather than settling on one room, finishing it, and moving to the next. A rule like "mark the room the robot just left as done" produces false completions almost immediately. There is no per-room completion signal exposed by the integration — only whole-job progress. If per-room granularity is needed, it has to come from a fixed, hand-defined zone (a specific list of vendor room IDs sent to `app_segment_clean`), not from watching robot position.

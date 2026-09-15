@@ -25,10 +25,10 @@ variables:
   zone_label: "{{ zone_labels.get(states('input_select.vacuum_active_zone'), 'Cleaning') }}"
   vac_area: "{{ states('sensor.living_room_vacuum_cleaning_area') }}"
   vac_minutes: "{{ states('sensor.living_room_vacuum_cleaning_time') | float(0) | round(0) | int }}"
-  vac_started_at: >-
-    {{ states('sensor.living_room_vacuum_last_clean_begin')
-    if states('sensor.living_room_vacuum_last_clean_begin') not in
-    ['unknown', 'unavailable'] else '' }}
+  current_room: >-
+    {{ states('sensor.living_room_vacuum_current_room')
+    if states('sensor.living_room_vacuum_current_room') not in
+    ['unknown', 'unavailable'] else 'Cleaning' }}
 actions:
   - alias: "Reconcile vacuum live activity from current state"
     choose:
@@ -71,10 +71,10 @@ actions:
               tag: household-vacuum
               status: running
               title: Vacuum
-              message: "{{ zone_label }} · {{ vac_area }} m² cleaned"
+              message: "{{ zone_label }} · {{ current_room }}"
               icon: mdi:robot-vacuum
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
-              started_at: "{{ vac_started_at }}"
+              critical_text: "{{ vac_area }} m²"
       - alias: "Paused"
         conditions:
           - condition: state

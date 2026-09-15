@@ -66,12 +66,13 @@ iOS Lock Screen / Dynamic Island
   the script's target-validation guard exist so a second iOS device is a one-line addition to the
   `choose` block, not a redesign — the same extensibility `script.household_tts_announce` keeps for
   its per-room targets.
-- **`ends_at`/`started_at` are read from source sensors as-is, guarded against `unknown`/
-  `unavailable`.** Both ThinQ's remaining-time sensor and the Roborock last-clean-begin sensor
-  already report ISO 8601 timestamps (`device_class: timestamp`), so no conversion happens in the
-  consumer — only a guard that substitutes an empty string when the source is not yet populated,
-  which the script's `chronometer_ref` logic treats as "no chronometer" rather than passing a bad
-  value into `as_timestamp()`.
+- **`ends_at` is read from the source sensor as-is, guarded against `unknown`/`unavailable`.**
+  ThinQ's remaining-time sensor already reports an ISO 8601 timestamp (`device_class: timestamp`),
+  so no conversion happens in the laundry consumers — only a guard that substitutes an empty
+  string when the source is not yet populated, which the script's `chronometer_ref` logic treats
+  as "no chronometer" rather than passing a bad value into `as_timestamp()`. `started_at` exists
+  in the script for the same purpose on a future consumer with a reliable start timestamp; the
+  vacuum consumer tried one and dropped it — see its Design Decisions below.
 
 ## Prerequisites
 
@@ -193,7 +194,7 @@ with nothing to keep in sync as that routine evolves.
 | Live state | Card |
 |---|---|
 | `vacuum.living_room_vacuum` = `error`, or `sensor.living_room_vacuum_vacuum_error` ≠ `none` | `error` |
-| `cleaning`, `everyone_sleeping` off | `running` — `"{{ zone }} · {{ area }} m² cleaned"`, `progress` from `cleaning_progress`, `started_at` from `last_clean_begin` (count-up) |
+| `cleaning`, `everyone_sleeping` off | `running` — `"{{ zone }} · {{ current_room }}"`, `progress` from `cleaning_progress`, area cleaned as `critical_text` (Dynamic Island) |
 | `paused` | `paused` |
 | `returning`, `everyone_sleeping` off | `running` — "Returning to dock" |
 | `docked`, held for less than 10 minutes | `done` — `"Cleaning finished · {{ area }} m² in {{ minutes }} min"` |
@@ -206,9 +207,16 @@ with nothing to keep in sync as that routine evolves.
   any card still showing from before bedtime clears itself once the vacuum docks, rather than
   needing an explicit sleeping-edge teardown.
 - **Zone name** comes from `input_select.vacuum_active_zone` (`evening`/`daytime`/`away`/
-  `master_mop`) mapped to a human label. **Not `sensor.living_room_vacuum_current_room`** —
-  `LESSONS.md` → *Vacuum & Roborock* records it as too noisy to display; area cleaned (m²) is
-  monotonic and meaningful instead.
+  `master_mop`) mapped to a human label, paired with `sensor.living_room_vacuum_current_room` for
+  the room the robot is in right now. `LESSONS.md` → *Vacuum & Roborock* documents that this
+  sensor flips every 30s–2min at open-plan room boundaries, which is fine here — a display-only
+  read updated at most every 5 minutes — but is exactly why `current_room` was ruled out for
+  *inferring room completion* elsewhere in this routine.
+- **No chronometer.** The integration exposes no start-of-job timestamp usable for a count-up
+  timer — see `LESSONS.md` → *Vacuum & Roborock* for why `last_clean_begin` doesn't work. Area
+  cleaned (`critical_text`) and progress % substitute for a timer instead, rather than capturing
+  our own start time into a new helper — the percentage already conveys progress and the room
+  name conveys location, so a third data point wasn't worth the added state.
 - **The done card always shows a full bar, with the truth in the message.** A commanded dock
   (someone arriving home mid-run, per `guides/vacuum_cleaning_routine.md`) resets Roborock's live
   progress to 0, so reading `cleaning_progress` at dock time would report a false 0%.
@@ -298,8 +306,10 @@ usually means the entity it watches went `unavailable` and the automation's cond
 falling to the `default: []` no-op branch rather than any status branch. The next 5-minute tick
 self-heals once the entity recovers.
 
-**The countdown or count-up timer looks wrong.** Confirm the source sensor
-(`sensor.utility_room_<appliance>_remaining_time` or `sensor.living_room_vacuum_last_clean_begin`)
-holds a valid ISO 8601 timestamp in **Developer Tools → States**, not `unknown`/`unavailable` —
-the consumer's guard substitutes an empty string in that case, which disables the chronometer
-entirely rather than passing a bad value to the script.
+**The laundry countdown looks wrong.** Confirm
+`sensor.utility_room_<appliance>_remaining_time` holds a valid ISO 8601 timestamp in
+**Developer Tools → States**, not `unknown`/`unavailable` — the consumer's guard substitutes an
+empty string in that case, which disables the chronometer entirely rather than passing a bad
+value to the script. Before trusting any other sensor as a chronometer source for a new
+consumer, confirm it updates at the *start* of the thing it's timing, not the end — see the
+vacuum's Design Decisions above for a sensor that looked right and wasn't.
