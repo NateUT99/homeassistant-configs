@@ -1,3 +1,4 @@
+id: "1789476662654"
 alias: "Household: Vacuum Live Activity"
 description: >-
   Drives the iOS Live Activity for the Roborock vacuum across all five
@@ -26,10 +27,6 @@ triggers:
     minutes: "/5"
 variables:
   vacuum_error: "{{ states('sensor.living_room_vacuum_vacuum_error') }}"
-  zone_labels: >-
-    {{ {'evening': 'Evening pass', 'daytime': 'Daytime pass',
-    'away': 'Away catch-up', 'master_mop': 'Master mop pass'} }}
-  zone_label: "{{ zone_labels.get(states('input_select.vacuum_active_zone'), 'Cleaning') }}"
   vac_area: "{{ states('sensor.living_room_vacuum_cleaning_area') }}"
   vac_minutes: "{{ states('sensor.living_room_vacuum_cleaning_time') | float(0) | round(0) | int }}"
   current_room: >-
@@ -78,10 +75,22 @@ actions:
               tag: household-vacuum
               status: running
               title: Vacuum
-              message: "{{ zone_label }} · {{ current_room }}"
+              message: >-
+                {{ 'Mop & Vacuum' if is_state('select.living_room_vacuum_cleaning_mode', 'vac_and_mop')
+                else 'Vacuum' }} · {{ current_room }}
               icon: mdi:robot-vacuum
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
-              critical_text: "{{ vac_area }} m²"
+            note: >-
+              critical_text (area cleaned) deliberately dropped here —
+              paired with progress and no chronometer, it displaced the
+              progress bar on the actual Lock Screen card instead of
+              staying confined to the Dynamic Island as assumed. See
+              LESSONS.md -> Live Activities. Area cleaned still surfaces
+              on the done card's message. Message reads live mop state off
+              cleaning_mode rather than the active_zone label — the zone
+              name described which schedule started the job, not what it's
+              doing, and couldn't represent an ad hoc manual run or a
+              silent mop-to-vacuum-only fallback.
       - alias: "Paused"
         conditions:
           - condition: state
@@ -144,3 +153,4 @@ actions:
     default: []
 mode: queued
 max: 10
+category: 01M0XF7RJK5EX3A4YPNEX7X3DG

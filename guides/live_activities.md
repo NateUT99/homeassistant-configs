@@ -206,12 +206,24 @@ with nothing to keep in sync as that routine evolves.
   which starts an hour after `everyone_sleeping` goes on — never creates a Lock Screen card, and
   any card still showing from before bedtime clears itself once the vacuum docks, rather than
   needing an explicit sleeping-edge teardown.
-- **Zone name** comes from `input_select.vacuum_active_zone` (`evening`/`daytime`/`away`/
-  `master_mop`) mapped to a human label, paired with `sensor.living_room_vacuum_current_room` for
-  the room the robot is in right now. `LESSONS.md` → *Vacuum & Roborock* documents that this
-  sensor flips every 30s–2min at open-plan room boundaries, which is fine here — a display-only
-  read updated at most every 5 minutes — but is exactly why `current_room` was ruled out for
-  *inferring room completion* elsewhere in this routine.
+- **The running message describes what the robot is doing, not which schedule started it.**
+  `"{{ 'Mop & Vacuum' or 'Vacuum' }} · {{ current_room }}"` reads live off
+  `select.living_room_vacuum_cleaning_mode`, paired with `sensor.living_room_vacuum_current_room`
+  for the room the robot is in right now. An earlier version mapped `input_select.vacuum_active_zone`
+  (`evening`/`daytime`/`away`/`master_mop`) to a human label instead — that broke down twice: it
+  couldn't represent an ad hoc manual run (no zone value fits "someone just started this from the
+  app"), and it didn't reflect an automated pass silently falling back from mop to vacuum-only when
+  the pad wasn't fitted, so the card could say "Evening pass" while dry-vacuuming. Reading
+  `cleaning_mode` directly is correct in every case, automated or manual, with no label map to keep
+  in sync. `LESSONS.md` → *Vacuum & Roborock* documents that `current_room` flips every 30s–2min at
+  open-plan room boundaries, which is fine here — a display-only read updated at most every 5
+  minutes — but is exactly why `current_room` was ruled out for *inferring room completion*
+  elsewhere in this routine.
+- **`critical_text` (area cleaned) is deliberately absent from the running card.** Paired with
+  `progress` and no chronometer, it displaced the progress bar on the actual Lock Screen card
+  instead of staying confined to the Dynamic Island as the field's own description assumes — see
+  `LESSONS.md` → *iOS Live Activities*. The area figure still surfaces on the `done` card's message
+  once the job finishes.
 - **No chronometer.** The integration exposes no start-of-job timestamp usable for a count-up
   timer — see `LESSONS.md` → *Vacuum & Roborock* for why `last_clean_begin` doesn't work. Area
   cleaned (`critical_text`) and progress % substitute for a timer instead, rather than capturing

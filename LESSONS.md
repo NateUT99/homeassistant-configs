@@ -770,6 +770,32 @@ Fix: require the `off` state to have held for a **minimum duration** (`condition
 
 ---
 
+## iOS Live Activities
+
+### `critical_text` paired with `progress` and no chronometer displaces the progress bar, not just the Dynamic Island
+
+`script.household_live_activity`'s field contract documents `critical_text` as "short Dynamic
+Island text," implying it's harmless to send alongside a `progress` bar on the Lock Screen card.
+That combination was untested until the vacuum's running card shipped it: both laundry consumers
+also pass `critical_text`, but always alongside `ends_at` (a chronometer), and the script's own
+logic drops `critical_text` outright whenever a chronometer is active — so the pairing of
+`progress` + `critical_text` with *no* chronometer had never actually been exercised.
+
+Confirmed live on 2026-09-15: running the vacuum's master-mop-pass card this way showed the area
+figure (e.g. "52.2 m²") sitting where the percentage/progress readout should be, and no progress
+bar rendered at all. The iOS Companion App's generic Live Activity view apparently shares layout
+between the Lock Screen card and the Dynamic Island's expanded region rather than keeping
+`critical_text` confined to a separate Dynamic-Island-only slot as the field's own description
+assumes.
+
+Fix: don't pass `critical_text` on any card that also carries a numeric `progress` and no
+chronometer. `automation.household_vacuum_live_activity`'s "Cleaning, everyone awake" branch now
+omits it — the bar renders correctly, and the area figure still surfaces on the `done` card's
+message text instead. If a future consumer needs both a live percentage and a short text stat on
+the same running card, treat that as an open design question, not an assumed-safe combination.
+
+---
+
 ## Shell Command Integration
 
 ### Poll for state on command-line lights that can change out-of-band
