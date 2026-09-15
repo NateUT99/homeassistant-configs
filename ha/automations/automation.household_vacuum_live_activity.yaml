@@ -11,7 +11,10 @@ description: >-
   refresh with silent: true -- lower APNs priority, no alert/peek -- so the
   card content stays current without the Dynamic Island re-expanding every
   interval; genuine transitions (start, pause, return, error, finish) still
-  send a normal update.
+  send a normal update. A dedicated progress_complete trigger
+  (cleaning_progress crosses 99%) also always sends non-silent, in case that
+  moment lands before the returning-transition -- both it and the returning
+  transition are real triggers, not coarse_tick, so neither gets silenced.
 triggers:
   - alias: "Vacuum entered an active or error state"
     trigger: state
@@ -32,6 +35,11 @@ triggers:
     trigger: time_pattern
     minutes: "/5"
     id: coarse_tick
+  - alias: "Progress crossed 99% -- job is essentially done"
+    trigger: numeric_state
+    entity_id: sensor.living_room_vacuum_cleaning_progress
+    above: 99
+    id: progress_complete
 variables:
   vacuum_error: "{{ states('sensor.living_room_vacuum_vacuum_error') }}"
   vac_area: "{{ states('sensor.living_room_vacuum_cleaning_area') }}"

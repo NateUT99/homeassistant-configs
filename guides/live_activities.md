@@ -229,14 +229,22 @@ with nothing to keep in sync as that routine evolves.
   timer — see `LESSONS.md` → *Vacuum & Roborock* for why `last_clean_begin` doesn't work. Progress
   % and the mop/vacuum + room message substitute for a timer instead, rather than capturing our
   own start time into a new helper.
-- **The recurring 5-minute tick sends `silent: true`; genuine transitions don't.** All four
-  trigger IDs are named (`state_change`, `job_finished`, `error_change`, `coarse_tick`), and the
-  running/paused/returning branches pass `silent: "{{ trigger.id == 'coarse_tick' }}"`. iOS treats
-  a `silent` update as lower-priority (APNs 5, not 10) with no alert, so the Lock Screen and
-  Dynamic Island content still refreshes every 5 minutes, but only a genuine state change (job
-  starts, pauses, returns, errors, or finishes) triggers the peek/expand animation. Confirmed live
-  on 2026-09-15 — the un-silenced tick was re-expanding the Dynamic Island every 5 minutes for the
-  whole duration of a run, which read as excessive.
+- **The recurring 5-minute tick sends `silent: true`; genuine transitions don't.** All five
+  trigger IDs are named (`state_change`, `job_finished`, `error_change`, `coarse_tick`,
+  `progress_complete`), and the running/paused/returning branches pass
+  `silent: "{{ trigger.id == 'coarse_tick' }}"`. iOS treats a `silent` update as lower-priority
+  (APNs 5, not 10) with no alert, so the Lock Screen and Dynamic Island content still refreshes
+  every 5 minutes, but only a genuine state change (job starts, pauses, returns, errors, or
+  finishes) triggers the peek/expand animation. Confirmed live on 2026-09-15 — the un-silenced
+  tick was re-expanding the Dynamic Island every 5 minutes for the whole duration of a run, which
+  read as excessive.
+- **A dedicated `progress_complete` trigger guarantees a non-silent update near job end, even
+  before the robot starts returning.** `cleaning_progress` crossing 99% (`numeric_state`, not
+  `state: to: "100"` — progress is non-monotonic, see `LESSONS.md` → *Vacuum & Roborock*) fires
+  its own trigger, landing in whichever branch matches the vacuum's state at that instant. Since
+  its ID isn't `coarse_tick`, the same silencing rule above already makes it non-silent with no
+  extra logic — it only exists so "job's basically done" isn't stuck waiting for the next
+  scheduled tick if it lands before the robot's real transition into `returning`.
 - **The done card always shows a full bar, with the truth in the message.** A commanded dock
   (someone arriving home mid-run, per `guides/vacuum_cleaning_routine.md`) resets Roborock's live
   progress to 0, so reading `cleaning_progress` at dock time would report a false 0%.
