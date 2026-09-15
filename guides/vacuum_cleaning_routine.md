@@ -40,14 +40,14 @@ The two zones are fixed and non-overlapping because the constraint is physical: 
 pass runs at quiet fan speed with the house asleep, so it covers only rooms that clean well
 at that speed and sit clear of the bedroom hall — Kitchen, Living room, Pantry, Utility Room
 — and it runs regardless of who is home. The daytime pass runs at max fan speed and takes
-everything else: the bedrooms and bathrooms, the Entrance (the one common-area room within
-earshot of the bedroom hall, and specifically Avery's), and the Office (carpeted, so it needs
-max suction — too loud for the evening pass). The Entrance is the one room that moves between
-zones: it stays in the daytime pass on a day Avery is home, and moves to the evening pass
-instead on a night she is not — each zone's segment list reads the same
-`binary_sensor.avery_home_today` gate, so the two passes never both claim it the same
-vacuum-day. It can still go uncleaned on a day she's home and the house never empties, same
-as the Office — that's the accepted cost of a gate-free evening run, described below.
+everything else: the Bedroom and Master suite, the Bathroom and Entrance (the two common-area
+rooms within earshot of the bedroom hall, and specifically Avery's), and the Office (carpeted,
+so it needs max suction — too loud for the evening pass). The Bathroom and Entrance are the
+two rooms that move between zones: both stay in the daytime pass on a day Avery is home, and
+move to the evening pass instead on a night she is not — each zone's segment list reads the
+same `binary_sensor.avery_home_today` gate, so the two passes never both claim either room the
+same vacuum-day. Both can still go uncleaned on a day she's home and the house never empties,
+same as the Office — that's the accepted cost of a gate-free evening run, described below.
 Interrupted jobs restart rather than
 resume: a commanded dock always cancels the active Roborock job, and
 `sensor.<vacuum>_current_room` is too noisy to track room-level completion — see
@@ -156,9 +156,9 @@ resume: a commanded dock always cancels the active Roborock job, and
 The helpers, `active_zone` values, and automation aliases use time-of-day naming — **evening**
 = the rooms that clean well at quiet fan speed and sit clear of the bedroom hall (Kitchen,
 Living room, Pantry, Utility Room), **daytime** = the rest (Bedroom, Bathroom, Office, Master
-bedroom, Master Bathroom, Master Closet, Entrance). The Entrance is the exception to a fixed
-zone assignment — it belongs to daytime by default but joins evening's segment list instead on
-a night Avery is away (see [Map rooms to zones](#1-map-rooms-to-zones) below). Which physical
+bedroom, Master Bathroom, Master Closet, Entrance). The Bathroom and Entrance are the exception
+to a fixed zone assignment — both belong to daytime by default but join evening's segment list
+instead on a night Avery is away (see [Map rooms to zones](#1-map-rooms-to-zones) below). Which physical
 rooms each zone covers lives in this guide and in each
 automation's `description`, not in the entity names — a room-set name like "remaining rooms"
 carries no meaning on its own.
@@ -179,13 +179,13 @@ Room segment IDs are read from the Roborock app's map, not derived from anything
 
 | Zone | Rooms (in segment-ID order) | Segment IDs |
 |---|---|---|
-| Evening (common areas) | Kitchen (absorbed the former Dining room), Utility Room, Pantry, Living room, + Entrance (26) on a night Avery is away | 22, 23, 24, 25, [26] |
-| Daytime (remaining rooms) | Bedroom, Bathroom, Office, Master bedroom, Master closet, Master Bathroom, + Entrance (26) on a day Avery is home | 16, 17, 18, 19, 20, 21, [26] |
+| Evening (common areas) | Kitchen (absorbed the former Dining room), Utility Room, Pantry, Living room, + Bathroom (17) and Entrance (26) on a night Avery is away | 22, 23, 24, 25, [17, 26] |
+| Daytime (remaining rooms) | Bedroom, Office, Master bedroom, Master closet, Master Bathroom, + Bathroom (17) and Entrance (26) on a day Avery is home | 16, 18, 19, 20, 21, [17, 26] |
 | Master mop (Thursday morning, subset of daytime) | Master bedroom, Master Bathroom | 19, 21 |
 
-The Entrance (26) is never in both lists on the same vacuum-day — both zones read
-`binary_sensor.avery_home_today`, and it settles once, by ~08:03, before either pass runs that
-day.
+The Bathroom (17) and Entrance (26) are never in both lists on the same vacuum-day — both
+zones read `binary_sensor.avery_home_today`, and it settles once, by ~08:03, before either
+pass runs that day.
 
 These IDs are confirmed against `roborock.get_maps`; the app's numbering runs Kitchen 22, Utility Room 23, Pantry 24, Living room 25, Entrance 26.
 
@@ -210,7 +210,7 @@ by testing whether `app_segment_clean` targeting it actually starts a job (`stat
 room dict until renamed — send a single-segment test clean and watch the robot to verify.
 See `LESSONS.md` → *Vacuum & Roborock*.
 
-> **Coordinated change:** if the map is rebuilt or rooms are re-split in the Roborock app, segment IDs can change. Re-run `roborock.get_maps` and update the `segments:`/`daytime_segments:` list everywhere a segment ID is hardcoded — the evening list in *Household: Vacuum Evening Cleaning*, the daytime list in the "Start daytime vacuum" block of *Household: Last Leaves Home*, the identical daytime list in *Household: Vacuum Midday Prompt*, and the two-segment list in *Household: Vacuum Master Mop Pass*. A stale ID silently cleans the wrong room or nothing at all.
+> **Coordinated change:** if the map is rebuilt or rooms are re-split in the Roborock app, segment IDs can change. Re-run `roborock.get_maps` and update the `segments:`/`daytime_segments:` list everywhere a segment ID is hardcoded — the evening list in *Household: Vacuum Evening Cleaning*, the daytime list in the "Start daytime vacuum" block of *Household: Last Leaves Home*, the daytime list in *Household: Vacuum Midday Prompt* (must stay identical to Last Leaves Home's — see the Design Decisions note above about the drift that was found and fixed here), and the two-segment list in *Household: Vacuum Master Mop Pass*. A stale ID silently cleans the wrong room or nothing at all.
 
 ### 2. Create the helpers
 
@@ -228,7 +228,7 @@ Eight standalone vacuum automations (*Vacuum Evening Cleaning*, *Vacuum Track Ma
 - **The two starts are split, not combined.** Evening cleaning is its own automation (single `everyone_sleeping` trigger). Daytime cleaning is a block inside *Household: Last Leaves Home* — it shares nothing operationally with the evening run (different trigger, zone, settings, completion flag) and everything with the rest of the leave-home routine, so it lives there and inherits that automation's 5-minute departure debounce and Immediate Departure override.
 - **The daytime block's guards double as re-run protection.** *Last Leaves Home* fires twice on an immediate departure (once instantly, once when the 5-minute trigger elapses). The daytime block's `vacuum_ran_daytime` off + "not currently cleaning" conditions make the second pass a no-op — no second job, no duplicate notification.
 - **The evening trigger is just "everyone's been asleep for 1 hour," with no clock-time window.** `everyone_sleeping` is only ever used at actual bedtime, never naps, so a time window would only risk blocking a genuinely early or late bedtime.
-- **The evening run has no presence gate on its four fixed segments.** Kitchen, Living room, Pantry, and Utility Room are on hard flooring that cleans well at quiet fan speed and sits clear of the bedroom hall, so those four run every night regardless of who is home. The Office sits in the daytime zone unconditionally — carpeted, needs max suction, too loud to run with the house asleep — so it only gets cleaned on a day the house empties out; that gap is accepted as the price of a gate-free evening run. The Entrance is the one segment gated on presence rather than fixed to either zone: both *Vacuum Evening Cleaning* (both its branches) and *Last Leaves Home*'s daytime block read `binary_sensor.avery_home_today` to build their segment lists, so the Entrance (segment 26, bordering Avery's room) lands in the daytime pass on a day she's home and in the evening pass on a night she's away — one gate, read in three places, keeping it out of both lists only when she's home and the house never empties.
+- **The evening run has no presence gate on its four fixed segments.** Kitchen, Living room, Pantry, and Utility Room are on hard flooring that cleans well at quiet fan speed and sits clear of the bedroom hall, so those four run every night regardless of who is home. The Office sits in the daytime zone unconditionally — carpeted, needs max suction, too loud to run with the house asleep — so it only gets cleaned on a day the house empties out; that gap is accepted as the price of a gate-free evening run. The Bathroom and Entrance are the two segments gated on presence rather than fixed to either zone: *Vacuum Evening Cleaning* (both its branches), *Last Leaves Home*'s daytime block, and *Vacuum Midday Prompt*'s daytime block all read `binary_sensor.avery_home_today` to build their segment lists, so segments 17 (Bathroom) and 26 (Entrance) — both within earshot of the bedroom hall, and Entrance specifically bordering Avery's room — land in the daytime pass on a day she's home and in the evening pass on a night she's away — one gate, read in four places, keeping them out of both lists only when she's home and the house never empties. *Midday Prompt* previously carried segment 26 unconditionally, drifted from the other two lists; fixed to match when the Bathroom gate was added.
 - **The arrival dock** (in *Household: First Arrives Home*) does not call `vacuum.pause` before `vacuum.return_to_base` — pausing first makes no difference to whether the job survives a dock (it doesn't, either way).
 - **Docking only happens on a confirmed arrival.** There is no "someone woke mid-evening-run" dock: the window it would cover (someone up within the ~40 min quiet common-areas pass) is rare and low-noise, and a manual dock from the app or a voice command handles it when it matters.
 - **The routine-pause clear is a standalone automation, not part of the confirmed-arrival block.** *Vacuum Pause Auto-Clear* triggers on any increase in `zone.home` occupancy, so it fires on a plain arrival even when another person was already home and no house-empty / confirmed-first-arrival edge ever occurred — the case a solo errand with a guest at home would otherwise miss, leaving the flag to wrongly suppress the next full-household departure. A pause is meant to cover exactly one departure; this guarantees it. `Vacuum Daily Reset`'s 08:00 clear stays as the backstop for a pause set on a day nobody comes home. HA has no native "value increased" trigger, so the "occupancy went up" check is a one-line template comparing `trigger.to_state` to `trigger.from_state`.
@@ -264,10 +264,10 @@ integration exposes no dedicated "dust bin installed" sensor, so `water_box_atta
 as the check that the rear cavity is occupied.
 
 **Rooms.** Segments `[22, 23, 24, 25]` — Kitchen, Utility Room, Pantry, Living room — plus the
-Entrance (`26`) on nights `binary_sensor.avery_home_today` is `off`, same gate as the non-mop
-vacuum-only branch (see [3. Build the automations](#3-build-the-automations) above). The
-segment list is built in a `variables:` step so the Avery gate is a one-line change, not a
-second branch. Segment 28 (Stairs) is never included. Settings for the branch:
+Bathroom (`17`) and Entrance (`26`) on nights `binary_sensor.avery_home_today` is `off`, same
+gate as the non-mop vacuum-only branch (see [3. Build the automations](#3-build-the-automations)
+above). The segment list is built in a `variables:` step so the Avery gate is a one-line change,
+not a second branch. Segment 28 (Stairs) is never included. Settings for the branch:
 `select.living_room_vacuum_mop_intensity` → `high`,
 `select.living_room_vacuum_cleaning_mode` → `vac_and_mop`; `mop_mode` is left at its `standard`
 default. Fan stays `quiet` — the house is asleep — and this dock only empties dust, so there
@@ -278,7 +278,10 @@ own intensity both draw on the same 350 ml fill, and there is no fill-level sens
 binary `water_shortage` flag. A run at `medium` here plus a `high` Thursday pass both cleared
 without tripping it, so this is now `high` on both nights to see whether one fill still
 covers both; watch `water_shortage` across the full Wednesday-to-Thursday cycle and drop back
-to `medium` here if the tank runs dry before Thursday's pass finishes.
+to `medium` here if the tank runs dry before Thursday's pass finishes. The Bathroom joining
+this branch's segment list on a night Avery is away adds a fifth mopped room to the same fill
+(sixth alongside the Entrance) — one more reason to watch `water_shortage` closely on those
+nights specifically, not just the plain Wednesday case.
 
 **Why weekly, not more often.** Robot mopping is maintenance-level: it keeps a film from
 building on hard floor, it does not replace an occasional real mop. Weekly is also the most

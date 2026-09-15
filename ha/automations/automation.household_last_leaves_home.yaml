@@ -4,7 +4,9 @@ description: >-
   Runs the whole-house departure routine: closes the garage, locks the front
   door, sets the living room thermostat to Away, turns off lights/fans/switches
   labeled "No One Is Home", and starts the daytime vacuum clean of the remaining
-  rooms (9am-7pm, if it hasn't run today). Normally fires 5 minutes after
+  rooms (9am-7pm, if it hasn't run today) -- the Bathroom and Entrance drop out
+  of that list on a night Avery is away, since Household: Vacuum Evening
+  Cleaning picks them up instead. Normally fires 5 minutes after
   zone.home drops to 0 -- long enough to absorb a walk to the community mailbox.
   When the Immediate Departure override (input_boolean.immediate_departure) is
   armed before leaving -- typically via Siri for a longer absence -- it fires
@@ -122,13 +124,13 @@ actions:
     then:
       - alias: >-
           Build the daytime segment list -- drop the master suite if this
-          week's master mop pass already covered it, and drop the Entrance
-          when Avery is away
+          week's master mop pass already covered it, and drop the Bathroom
+          and Entrance when Avery is away
         variables:
           daytime_segments: >-
-            {{ ([16, 17, 18, 20] if
+            {{ ([16, 18, 20] if
             is_state('input_select.vacuum_active_zone', 'master_mop') else
-            [16, 17, 18, 19, 20, 21]) + ([26] if
+            [16, 18, 19, 20, 21]) + ([17, 26] if
             is_state('binary_sensor.avery_home_today', 'on') else []) }}
         note: >-
           Reads active_zone before the next step overwrites it -- variables
@@ -136,10 +138,11 @@ actions:
           select. Segments 19/21 (Master bedroom/bathroom) drop out on a
           Thursday whose morning master mop pass already ran; 20 (Master
           closet) always stays, it's carpeted and outside the mop pass.
-          Segment 26 (Entrance) only stays in this list when Avery is home
-          -- on a night she's away, Household: Vacuum Evening Cleaning adds
-          it to the evening pass instead, so including it here too would
-          clean it twice the same vacuum-day.
+          Segments 17 (Bathroom) and 26 (Entrance) only stay in this list
+          when Avery is home -- both sit within earshot of the bedroom
+          hall, so on a night she's away, Household: Vacuum Evening
+          Cleaning adds them to the evening pass instead, so including
+          them here too would clean them twice the same vacuum-day.
       - alias: Set active zone to daytime
         action: input_select.select_option
         target:

@@ -91,18 +91,25 @@ actions:
           'START_VACUUM' }}
         alias: No was not tapped (yes or timeout)
     then:
-      - alias: Build the daytime segment list -- drop the master suite if this week's master mop pass already covered it
+      - alias: >-
+          Build the daytime segment list -- drop the master suite if this
+          week's master mop pass already covered it, and drop the Bathroom
+          and Entrance when Avery is away
         variables:
           daytime_segments: >-
-            {{ [16, 17, 18, 20, 26] if
+            {{ ([16, 18, 20] if
             is_state('input_select.vacuum_active_zone', 'master_mop') else
-            [16, 17, 18, 19, 20, 21, 26] }}
+            [16, 18, 19, 20, 21]) + ([17, 26] if
+            is_state('binary_sensor.avery_home_today', 'on') else []) }}
         note: >-
-          Reads active_zone before the next step overwrites it -- variables
-          render top-to-bottom, so this must stay ahead of the daytime
-          select. Segments 19/21 (Master bedroom/bathroom) drop out on a
-          Thursday whose morning master mop pass already ran; 20 (Master
-          closet) always stays, it's carpeted and outside the mop pass.
+          Mirrors Household: Last Leaves Home's daytime segment list exactly
+          -- segments 19/21 (Master bedroom/bathroom) drop out when this
+          week's master mop pass already ran; 17 (Bathroom) and 26 (Entrance)
+          only stay in this list when Avery is home, otherwise Household:
+          Vacuum Evening Cleaning covers them instead. This previously
+          included 26 unconditionally, which could double-clean the Entrance
+          on a night Avery was away -- fixed to match Last Leaves Home when
+          the Bathroom gate was added.
       - alias: Set active zone to daytime
         action: input_select.select_option
         target:
