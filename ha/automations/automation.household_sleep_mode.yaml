@@ -2,19 +2,22 @@ id: "1787696240763"
 alias: "Household: Sleep Mode"
 description: >-
   Prepares the home when everyone goes to sleep and restores it when
-  everyone wakes. Sleep: sets the living room thermostat to Sleep preset,
-  turns on the bathroom ambient lamp, master bedroom nightstand lamp, and
-  kitchen sink light (dim nav light), turns off lights labeled "Sleeping",
-  puts the Standard Adaptive Lighting instance into sleep mode (its
-  sleep_brightness owns the master bedroom and office ceiling fan lights
-  now), turns on the master bedroom Apple TV, closes the garage door, and
-  locks the front door -- these actions are independent of each other and
-  run in parallel so the bedroom is ready without waiting on the
-  garage/lock actuation time. Wake: sets the thermostat back to Home
-  preset, clears Adaptive Lighting sleep mode, and turns off the kitchen
-  sink light. Merged from the previously separate Configure
-  Home for Sleep / Configure Home for Wake automations, matching the
-  pattern already used by Avery's Room: Sleep Mode.
+  everyone wakes. Sleep: puts the Standard Adaptive Lighting instance
+  into sleep mode first (its sleep_brightness owns the master bedroom
+  and office ceiling fan lights for any later turn-on), then in
+  parallel sets the living room thermostat to Sleep preset, turns on
+  the bathroom ambient lamp, master bedroom nightstand lamp, and
+  kitchen sink light (dim nav light), turns on the master bedroom
+  Apple TV, closes the garage door, and locks the front door, and
+  finally turns off every light labeled "Sleeping" (including the
+  office ceiling fan light, which stays AL-enrolled for a later
+  wall-tap to land dim, but must end up fully off now) -- last, so it
+  always wins over AL's own reaction to the sleep-mode flip instead of
+  racing it. Wake: sets the thermostat back to Home preset, clears
+  Adaptive Lighting sleep mode, and turns off the kitchen sink light.
+  Merged from the previously separate Configure Home for Sleep /
+  Configure Home for Wake automations, matching the pattern already
+  used by Avery's Room: Sleep Mode.
 triggers:
   - trigger: switch.turned_on
     target:
@@ -40,13 +43,28 @@ actions:
           - condition: trigger
             id: sleep_on
         sequence:
-          - alias: Run night-prep actions in parallel
+          - alias: Put the Standard Adaptive Lighting instance into sleep mode
             note: >-
-              Nine independent actions (thermostat, 3 lights, label
-              turn-off, AL sleep mode, garage, lock, media player)
-              with no ordering dependency -- parallel avoids serializing
-              the garage/lock actuation time ahead of the bedroom actions.
-              Small, fixed action count; no meaningful HA Green load.
+              Runs first, on its own, so it is unambiguously dispatched
+              before the "Sleeping"-label turn-off at the end of this
+              sequence. AL reacts to this flip by pushing sleep_brightness
+              to every currently-on light in the instance -- including the
+              office ceiling fan light, which is also labeled "Sleeping"
+              and needs to end up OFF, not dimmed. Confirmed via
+              trace/logbook that having the label turn-off race this flip
+              in the same parallel block loses reliably (no off-transition
+              recorded at all). AL still owns the sleep level for any
+              later turn-on via pre-staging.
+            action: switch.turn_on
+            target:
+              entity_id: switch.adaptive_lighting_standard_sleep_mode
+          - alias: Run independent night-prep actions in parallel
+            note: >-
+              Seven independent actions (thermostat, 3 lights, garage,
+              lock, media player) with no ordering dependency -- parallel
+              avoids serializing the garage/lock actuation time ahead of
+              the bedroom actions. The "Sleeping"-label turn-off is
+              deliberately NOT in here -- see the final step below.
             parallel:
               - alias: Set living room thermostat to Sleep preset
                 action: climate.set_preset_mode
@@ -61,24 +79,6 @@ actions:
                 data:
                   color_temp_kelvin: 2350
                   brightness_pct: 65
-              - alias: Turn off lights labeled "Sleeping"
-                action: light.turn_off
-                target:
-                  label_id: sleeping
-                data: {}
-              - alias: Put the Standard Adaptive Lighting instance into sleep mode
-                note: >-
-                  Replaces the old dim-to-25% leg. AL's sleep_brightness
-                  now owns the master bedroom and office ceiling fan
-                  lights, and AL only commands lights that are already on
-                  -- so the old "only if on and above 25%" guard is
-                  preserved implicitly. The pre-stage automation writes the
-                  sleep level into each fixture's OnLevel off this same
-                  switch flip, so a middle-of-the-night wall tap comes on
-                  dim.
-                action: switch.turn_on
-                target:
-                  entity_id: switch.adaptive_lighting_standard_sleep_mode
               - alias: Ensure garage door is closed
                 action: cover.close_cover
                 target:
@@ -107,6 +107,17 @@ actions:
                 data:
                   color_temp_kelvin: 2000
                   brightness_pct: 10
+          - alias: Turn off lights labeled "Sleeping"
+            action: light.turn_off
+            target:
+              label_id: sleeping
+            data: {}
+            note: >-
+              Runs last, after the AL flip and the parallel block, so this
+              is always the last word -- wins cleanly over AL's push
+              instead of racing it. Covers the office ceiling fan light
+              (AL-enrolled but must end up off, not dimmed) plus every
+              plain accent/decorative light labeled Sleeping.
       - alias: Everyone Sleeping turned OFF -- restore the home for day
         conditions:
           - condition: trigger
