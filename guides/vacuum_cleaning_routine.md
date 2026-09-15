@@ -126,6 +126,11 @@ resume: a commanded dock always cancels the active Roborock job, and
   trigger: zone.home occupancy rises
   clears vacuum_routine_pause on any arrival
 
+  Household: Vacuum Live Activity
+  trigger: vacuum.living_room_vacuum state change, error sensor, every 5 min
+  reconciles → running/paused/done/error/clear, suppressed while everyone_sleeping
+  independent of which of the five paths above started the job — see guides/live_activities.md
+
      ┌──────────────────────────┐   ┌────────────────────────────────┐
      │ Household: Vacuum         │   │ Household: Vacuum Away          │
      │ Midday Prompt             │   │ Catch-Up                        │
@@ -240,6 +245,7 @@ Eight standalone vacuum automations (*Vacuum Evening Cleaning*, *Vacuum Track Ma
 - **Away Catch-Up uses `vacuum.start`, not `app_segment_clean`, and deliberately carries no segment list.** It is the only job in the routine that wants the entire map, and per `LESSONS.md` an app-side map merge *retires* a segment ID rather than aliasing it — a stale list would silently clean nothing on a day nobody is there to notice. `vacuum.start` is immune to that drift. Segment 28 ("Stairs") is excluded from this run by the virtual wall placed in front of it in the Roborock app, not by software — the same wall that already backstops both segment lists above. Because `vacuum.start` is otherwise state-overloaded (see above, `APP_CHARGE` on `returning`), the automation additionally requires `vacuum.living_room_vacuum` to be `docked`; that alone doesn't rule out a mid-job autonomous recharge, which also reads `docked`, so `binary_sensor.living_room_vacuum_cleaning` (reflects `status.in_cleaning`, survives a recharge per `LESSONS.md`) gates alongside it.
 - **Vacuum Master Mop Pass is its own automation, not a third branch of Evening Cleaning**, because its trigger (`everyone_sleeping` off, not on) and its zone (a two-room subset of daytime, not evening) share nothing with that automation's structure. It announces a 5-minute grace window before starting — the only pass in the routine that warns ahead of time, since it is the only one that starts while people are awake and might have things on the floor. It re-checks the pad/water/pause conditions after the delay, not only before, since five minutes is enough time for someone to pull the pad off. `fan: balanced` (not `quiet`, not `max`) reflects that the house is awake but both rooms are hard floor; `mop: high` reflects that it is only two small segments, with the actual tank margin resting on Wednesday's intensity, not a Thursday refill — unverified until watched on a live run.
 - **The daytime block's segment-list template is the only thing that knows about the master mop pass**, not a condition on the block itself. `Household: Last Leaves Home` and `Household: Vacuum Midday Prompt` each build `daytime_segments` from `active_zone` immediately before setting `active_zone` to `daytime` — order matters, since a `variables:` step renders once, top-to-bottom, and reading `active_zone` after it's been overwritten would always see `daytime`.
+- **Household: Vacuum Live Activity is one automation covering all five job-start paths**, rather than a card-start action folded into each one. It watches `vacuum.living_room_vacuum`'s own domain state and the shared error sensor instead of any zone-specific helper, so it needs no changes when a sixth path is added later. Full behavior, the status palette, and why the "done" card always shows a full bar despite a commanded dock resetting live progress to 0 are in `guides/live_activities.md`, which owns the shared dispatch script this automation calls.
 
 ## Weekly Mop Pass
 
@@ -362,6 +368,8 @@ reuse one tag per phase so a repeat replaces the banner rather than stacking.
 | Household: Vacuum Away Catch-Up | `automation.household_vacuum_away_catch_up` | Automation |
 | Household: Vacuum Master Mop Pass | `automation.household_vacuum_master_mop_pass` | Automation |
 | Household: Vacuum Mop Pad Reminders | `automation.household_vacuum_mop_pad_reminders` | Automation (prep + cleanup nudges for the weekly mop pass) |
+| Household: Vacuum Live Activity | `automation.household_vacuum_live_activity` | Automation (iOS Lock Screen card, covers all five job-start paths) |
+| Live Activity dispatch | `script.household_live_activity` | Script |
 | Vacuum Daytime Max Progress | `input_number.vacuum_daytime_max_progress` | Helper |
 | Vacuum Ran Evening | `input_boolean.vacuum_ran_evening` | Helper |
 | Vacuum Ran Daytime | `input_boolean.vacuum_ran_daytime` | Helper |
@@ -371,6 +379,7 @@ reuse one tag per phase so a repeat replaces the banner rather than stacking.
 ## Related Documents
 
 - `standards/automations.md` — automation naming, category, and label conventions applied here
+- `guides/live_activities.md` — `script.household_live_activity` field contract and status palette used by *Household: Vacuum Live Activity*
 - `LESSONS.md` → *Vacuum & Roborock* — the underlying Roborock behavior (dock-cancels-job, job-relative progress, `current_room` unreliability, `get_maps` merge lag) this design is built around
 - `snapshot/2026-07-27-pre-move/automations/automation.household_vacuum_daily_max_progress.yaml` — the max-progress tracking pattern this routine revives for the daytime zone
 

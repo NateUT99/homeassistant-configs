@@ -1,6 +1,6 @@
 # Laundry Automation
 
-*Last updated: August 2026*
+*Last updated: September 2026*
 
 ---
 
@@ -57,6 +57,11 @@ TTS inputs:
   zone.home (0 → 1)                         ──► re-trigger if alerting
                                                 (waits for garage/front-door entry first)
   → stop: neither alerting │ everyone_sleeping on │ nobody home
+
+Live Activity inputs (per appliance, independent of the TTS path above):
+  current_status, input_select, every 5 min ──► reconcile → running/paused/done/error/clear
+                                                 automation.utility_room_<appliance>_live_activity
+                                                 see guides/live_activities.md
 ```
 
 **Design decisions:**
@@ -140,6 +145,10 @@ All ten are assigned to the Utility Room area with the `int_laundry` label.
 
 `automation.utility_room_laundry_done_announcement` — Maintenance category, Utility Room area, labels `int_laundry` + `notification` + `text_to_speech`, `mode: restart`. See `ha/automations/automation.utility_room_laundry_done_announcement.yaml` for the full config.
 
+### 7. Live Activity automations
+
+`automation.utility_room_washer_live_activity` and `automation.utility_room_dryer_live_activity` — Maintenance category, Utility Room area, labels `int_laundry` + `notification` + `live_activity`, `mode: queued`. Each drives an iOS Lock Screen card by reconciling its appliance's `current_status` sensor and retrieval `input_select` on every status change and a 5-minute tick — reusing the retrieval `input_select` means the card clears on the same occupancy/door signal that stops the TTS nag, with no new state machine. Full field contract, status palette, and the phase-label conversion table are in `guides/live_activities.md`, which owns the shared dispatch script; this guide only owns the two automations' triggers and the ThinQ entities they read.
+
 ---
 
 ## Not built — deferred
@@ -171,7 +180,10 @@ When dashboard work starts, `sensor.utility_room_washer_cycles`, `sensor.utility
 | Washer status manager | `automation.utility_room_washer_status_manager` | Automation |
 | Dryer status manager | `automation.utility_room_dryer_status_manager` | Automation |
 | Laundry done announcement | `automation.utility_room_laundry_done_announcement` | Automation |
+| Washer Live Activity | `automation.utility_room_washer_live_activity` | Automation |
+| Dryer Live Activity | `automation.utility_room_dryer_live_activity` | Automation |
 | TTS dispatch | `script.household_tts_announce` | Script |
+| Live Activity dispatch | `script.household_live_activity` | Script |
 | Laundry integration label | `int_laundry` | Label |
 | Utility room door | `binary_sensor.utility_room_door` | Entity |
 | Utility room occupancy | `binary_sensor.utility_room_motion_occupancy` | Entity |
@@ -182,6 +194,7 @@ When dashboard work starts, `sensor.utility_room_washer_cycles`, `sensor.utility
 ## Related Documents
 
 - `guides/chime_tts.md` — `script.household_tts_announce` field contract, per-room volumes, and why family room isn't a script target
+- `guides/live_activities.md` — `script.household_live_activity` field contract, status palette, and the phase-label conversion tables for both appliances
 - `guides/mobile_dashboard.md` — future home of the laundry chips and `#laundry` pop-up (not yet built)
 - `guides/reminders.md` — why `ha-chore-calendar` isn't installed in this instance, blocking cycles-since-cleaned
 - `standards/automations.md` — §5.10 (arrival entry-grace, used by the announcement automation), §5.11 (semantic triggers, used by both status managers), category/label/alias requirements

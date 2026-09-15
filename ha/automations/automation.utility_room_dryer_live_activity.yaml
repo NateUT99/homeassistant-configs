@@ -1,0 +1,110 @@
+alias: "Utility Room: Dryer Live Activity"
+description: >-
+  Drives the iOS Live Activity for the dryer. Reconciles the ThinQ status
+  sensor and the retrieval input_select into one of running/paused/done/
+  error/clear on every status change and every 5 minutes while a cycle is
+  active, so the card always reflects live state rather than the edge that
+  triggered it.
+triggers:
+  - alias: "Dryer cycle status changed"
+    trigger: state
+    entity_id: sensor.utility_room_dryer_current_status
+  - alias: "Retrieval status changed"
+    trigger: state
+    entity_id: input_select.utility_room_dryer_status
+  - alias: "Coarse progress tick while a cycle may be active"
+    trigger: time_pattern
+    minutes: "/5"
+variables:
+  dryer_status: "{{ states('sensor.utility_room_dryer_current_status') }}"
+  dryer_phase_labels: >-
+    {{ {'cooling': 'Cooling Down', 'wrinkle_care': 'Wrinkle Care',
+    'running': 'Drying', 'end': 'Cycle Complete', 'power_off': 'Off',
+    'error': 'Error', 'initial': 'Ready', 'pause': 'Paused'} }}
+  dryer_phase_message: "{{ dryer_phase_labels.get(dryer_status, dryer_status | replace('_', ' ') | title) }}"
+  dryer_ends_at: >-
+    {{ states('sensor.utility_room_dryer_remaining_time')
+    if states('sensor.utility_room_dryer_remaining_time') not in
+    ['unknown', 'unavailable'] else '' }}
+actions:
+  - alias: "Reconcile dryer live activity from current state"
+    choose:
+      - alias: "Cycle complete — ready to unload"
+        conditions:
+          - condition: state
+            entity_id: input_select.utility_room_dryer_status
+            state: "alerting"
+        sequence:
+          - alias: "Show done card"
+            action: script.household_live_activity
+            data:
+              tag: utility-room-dryer
+              status: done
+              title: Dryer
+              message: "Cycle complete — ready to unload"
+              icon: mdi:tumble-dryer
+              color: "#FF7043"
+              critical_text: "Done"
+      - alias: "Dryer error"
+        conditions:
+          - condition: state
+            entity_id: sensor.utility_room_dryer_current_status
+            state: "error"
+        sequence:
+          - alias: "Show error card"
+            action: script.household_live_activity
+            data:
+              tag: utility-room-dryer
+              status: error
+              title: Dryer
+              message: "Check the dryer — error reported"
+              icon: mdi:tumble-dryer-alert
+              color: "#FF7043"
+      - alias: "Dryer paused"
+        conditions:
+          - condition: state
+            entity_id: sensor.utility_room_dryer_current_status
+            state: "pause"
+        sequence:
+          - alias: "Show paused card"
+            action: script.household_live_activity
+            data:
+              tag: utility-room-dryer
+              status: paused
+              title: Dryer
+              message: "Paused"
+              icon: mdi:tumble-dryer
+              color: "#FF7043"
+      - alias: "Dryer actively cycling"
+        conditions:
+          - condition: not
+            conditions:
+              - condition: state
+                entity_id: sensor.utility_room_dryer_current_status
+                state: ["end", "pause", "power_off", "error", "initial"]
+        sequence:
+          - alias: "Show running card"
+            action: script.household_live_activity
+            data:
+              tag: utility-room-dryer
+              status: running
+              title: Dryer
+              message: "{{ dryer_phase_message }}"
+              icon: mdi:tumble-dryer
+              color: "#FF7043"
+              progress: "{{ states('sensor.utility_room_dryer_progress') }}"
+              ends_at: "{{ dryer_ends_at }}"
+      - alias: "Retrieved — clear the card"
+        conditions:
+          - condition: state
+            entity_id: input_select.utility_room_dryer_status
+            state: "idle"
+        sequence:
+          - alias: "Clear activity"
+            action: script.household_live_activity
+            data:
+              tag: utility-room-dryer
+              status: clear
+    default: []
+mode: queued
+max: 10

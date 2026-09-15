@@ -1,0 +1,147 @@
+alias: "Household: Vacuum Live Activity"
+description: >-
+  Drives the iOS Live Activity for the Roborock vacuum across all five
+  job-start paths (evening, daytime, midday prompt, away catch-up, master
+  mop). Reconciles the vacuum domain state, the error sensor, and the sleep
+  flag into running/paused/done/error/clear on every state change and every
+  5 minutes, so one automation covers every job without duplicating logic
+  per start path. Suppressed while everyone is asleep so the nightly quiet
+  pass stays off the Lock Screen.
+triggers:
+  - alias: "Vacuum state changed"
+    trigger: state
+    entity_id: vacuum.living_room_vacuum
+  - alias: "Vacuum error changed"
+    trigger: state
+    entity_id: sensor.living_room_vacuum_vacuum_error
+  - alias: "Coarse progress tick while a job may be active"
+    trigger: time_pattern
+    minutes: "/5"
+variables:
+  vacuum_error: "{{ states('sensor.living_room_vacuum_vacuum_error') }}"
+  zone_labels: >-
+    {{ {'evening': 'Evening pass', 'daytime': 'Daytime pass',
+    'away': 'Away catch-up', 'master_mop': 'Master mop pass'} }}
+  zone_label: "{{ zone_labels.get(states('input_select.vacuum_active_zone'), 'Cleaning') }}"
+  vac_area: "{{ states('sensor.living_room_vacuum_cleaning_area') }}"
+  vac_minutes: "{{ states('sensor.living_room_vacuum_cleaning_time') | float(0) | round(0) | int }}"
+  vac_started_at: >-
+    {{ states('sensor.living_room_vacuum_last_clean_begin')
+    if states('sensor.living_room_vacuum_last_clean_begin') not in
+    ['unknown', 'unavailable'] else '' }}
+actions:
+  - alias: "Reconcile vacuum live activity from current state"
+    choose:
+      - alias: "Vacuum error"
+        conditions:
+          - condition: or
+            conditions:
+              - condition: state
+                entity_id: vacuum.living_room_vacuum
+                state: "error"
+              - condition: not
+                conditions:
+                  - condition: state
+                    entity_id: sensor.living_room_vacuum_vacuum_error
+                    state: "none"
+        sequence:
+          - alias: "Show error card"
+            action: script.household_live_activity
+            data:
+              tag: household-vacuum
+              status: error
+              title: Vacuum
+              message: >-
+                {{ 'Vacuum error — ' ~ (vacuum_error | replace('_', ' ') | title)
+                if vacuum_error not in ['none', 'unknown', 'unavailable']
+                else 'Vacuum error — check the app' }}
+              icon: mdi:robot-vacuum-alert
+      - alias: "Cleaning, everyone awake"
+        conditions:
+          - condition: state
+            entity_id: vacuum.living_room_vacuum
+            state: "cleaning"
+          - condition: state
+            entity_id: input_boolean.everyone_sleeping
+            state: "off"
+        sequence:
+          - alias: "Show running card"
+            action: script.household_live_activity
+            data:
+              tag: household-vacuum
+              status: running
+              title: Vacuum
+              message: "{{ zone_label }} · {{ vac_area }} m² cleaned"
+              icon: mdi:robot-vacuum
+              progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
+              started_at: "{{ vac_started_at }}"
+      - alias: "Paused"
+        conditions:
+          - condition: state
+            entity_id: vacuum.living_room_vacuum
+            state: "paused"
+        sequence:
+          - alias: "Show paused card"
+            action: script.household_live_activity
+            data:
+              tag: household-vacuum
+              status: paused
+              title: Vacuum
+              message: "Paused"
+              icon: mdi:robot-vacuum
+              progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
+      - alias: "Returning to dock, everyone awake"
+        conditions:
+          - condition: state
+            entity_id: vacuum.living_room_vacuum
+            state: "returning"
+          - condition: state
+            entity_id: input_boolean.everyone_sleeping
+            state: "off"
+        sequence:
+          - alias: "Show running card (returning)"
+            action: script.household_live_activity
+            data:
+              tag: household-vacuum
+              status: running
+              title: Vacuum
+              message: "Returning to dock"
+              icon: mdi:robot-vacuum
+              progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
+      - alias: "Just finished — done"
+        conditions:
+          - condition: state
+            entity_id: vacuum.living_room_vacuum
+            state: "docked"
+          - condition: not
+            conditions:
+              - condition: state
+                entity_id: vacuum.living_room_vacuum
+                state: "docked"
+                for:
+                  minutes: 10
+        sequence:
+          - alias: "Show done card"
+            action: script.household_live_activity
+            data:
+              tag: household-vacuum
+              status: done
+              title: Vacuum
+              message: "Cleaning finished · {{ vac_area }} m² in {{ vac_minutes }} min"
+              icon: mdi:robot-vacuum
+      - alias: "Long since docked — clear the card"
+        conditions:
+          - condition: state
+            entity_id: vacuum.living_room_vacuum
+            state: "docked"
+            for:
+              minutes: 10
+        sequence:
+          - alias: "Clear activity"
+            action: script.household_live_activity
+            data:
+              tag: household-vacuum
+              status: clear
+    default: []
+mode: queued
+max: 10
