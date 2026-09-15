@@ -105,6 +105,22 @@ TTS announcements in this instance are delivered via `script.household_tts_annou
 |---|---|---|
 | `text_to_speech` | Text to Speech | Any automation with a `script.household_tts_announce` action |
 
+#### Live Activity label — color `green`, icon `mdi:cellphone-arrow-down`
+
+Applied to every automation that drives an iOS Live Activity, regardless of its primary category.
+Carries alongside `notification` — Live Activity automations should have both labels, since the
+underlying script calls `notify.*` transitively.
+
+Live Activities in this instance are dispatched via `script.household_live_activity`, which owns
+the status palette (color/icon per status) and the live_update/clear_notification payload shape.
+Automations should call the script rather than assembling a `live_update` payload directly — the
+script is what keeps every card's look and update-budget behavior consistent. See
+`guides/live_activities.md` for the script's field contract and behavior.
+
+| Label ID | Friendly Name | When to apply |
+|---|---|---|
+| `live_activity` | Live Activity | Any automation with a `script.household_live_activity` action |
+
 #### Device Tracker label — color `green`, icon `mdi:map-marker-account`
 
 Applied to every automation that updates device tracker state, regardless of its primary category. Use this to find all automations that participate in the presence tracking pipeline — useful when debugging presence issues or auditing what breaks if the tracking architecture changes.

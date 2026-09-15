@@ -1,0 +1,166 @@
+alias: "Household: Live Activity"
+description: >-
+  Shared entry point for every iOS Live Activity in this instance. Resolves
+  the status palette (color/icon), assembles the live_update payload, and
+  dispatches to the target device's mobile_app notify service, or sends
+  clear_notification when status is clear. Automations describe what is
+  happening; this script owns what the card looks like.
+fields:
+  tag:
+    name: Tag
+    description: >-
+      Stable activity identifier (kebab-case, max 64 chars). Reusing it
+      updates the existing card instead of creating a new one.
+    required: true
+    selector:
+      text: {}
+  status:
+    name: Status
+    description: >-
+      Card state. clear removes the activity entirely; every other value
+      creates or updates it.
+    required: true
+    selector:
+      select:
+        options:
+          - running
+          - paused
+          - done
+          - attention
+          - error
+          - clear
+  title:
+    name: Title
+    description: >-
+      Static header. iOS ignores changes after the activity starts — pass
+      the same value on every call.
+    required: false
+    selector:
+      text: {}
+  message:
+    name: Message
+    description: >-
+      Body line — the current phase (e.g. "Spinning", "Returning to dock").
+    required: false
+    selector:
+      text: {}
+  icon:
+    name: Icon
+    description: Material Design Icon slug.
+    required: false
+    default: mdi:home-assistant
+    selector:
+      text: {}
+  progress:
+    name: Progress
+    description: >-
+      0-100. Omit for no progress bar. Forced to 100 when status is done.
+    required: false
+    selector:
+      number:
+        min: 0
+        max: 100
+        mode: box
+  ends_at:
+    name: Ends At
+    description: >-
+      ISO 8601 datetime the task finishes. Drives a countdown chronometer
+      while status is running.
+    required: false
+    selector:
+      text: {}
+  started_at:
+    name: Started At
+    description: >-
+      ISO 8601 datetime the task began. Used only if ends_at is not set —
+      drives a count-up chronometer while status is running.
+    required: false
+    selector:
+      text: {}
+  critical_text:
+    name: Critical Text
+    description: >-
+      Short Dynamic Island text. Ignored whenever a chronometer is active —
+      the timer replaces it.
+    required: false
+    selector:
+      text: {}
+  color:
+    name: Color
+    description: >-
+      Hex color overriding the status palette (e.g. per-appliance identity).
+    required: false
+    selector:
+      text: {}
+  url:
+    name: URL
+    description: Tap destination. Defaults to the primary dashboard.
+    required: false
+    default: /lovelace/0
+    selector:
+      text: {}
+  target:
+    name: Target
+    description: Which iOS device to push to. Only one is registered today.
+    required: false
+    default: nates_iphone
+    selector:
+      select:
+        options:
+          - nates_iphone
+variables:
+  status_colors: >-
+    {{ {'running': '#2196F3', 'paused': '#9E9E9E', 'done': '#4CAF50',
+    'attention': '#FFA726', 'error': '#EF5350'} }}
+  resolved_color: "{{ color | default(status_colors.get(status, '#2196F3'), true) }}"
+  resolved_icon: "{{ icon | default('mdi:home-assistant', true) }}"
+  chronometer_ref: "{{ ends_at | default(started_at | default('', true), true) }}"
+  chronometer_active: "{{ status == 'running' and chronometer_ref != '' }}"
+  resolved_progress: "{{ 100 if status == 'done' else progress | default(none, true) }}"
+  payload: >-
+    {{ ({'tag': tag, 'live_update': true, 'notification_icon': resolved_icon,
+    'notification_icon_color': resolved_color, 'color': resolved_color,
+    'background_color': '#101820', 'progress_bar_color': resolved_color,
+    'progress_bar_direction': 'increasing',
+    'url': url | default('/lovelace/0', true)})
+    | combine(({'progress': resolved_progress | int, 'progress_max': 100})
+    if resolved_progress is not none else {})
+    | combine(({'chronometer': true, 'when': as_timestamp(chronometer_ref) | int})
+    if chronometer_active else {})
+    | combine(({'critical_text': critical_text | default('', true)})
+    if (critical_text | default('', true) != '' and not chronometer_active)
+    else {}) }}
+sequence:
+  - alias: "Validate target"
+    choose:
+      - alias: "Unknown target — stop"
+        conditions:
+          - "{{ (target | default('nates_iphone', true)) not in ['nates_iphone'] }}"
+        sequence:
+          - stop: Unrecognized live activity target
+  - alias: "Route by status"
+    choose:
+      - alias: "Clear the activity"
+        conditions:
+          - "{{ status == 'clear' }}"
+        sequence:
+          - alias: "Send clear_notification for this tag"
+            action: notify.mobile_app_nates_iphone
+            data:
+              message: clear_notification
+              data:
+                tag: "{{ tag }}"
+      - alias: "Send or update the live activity"
+        conditions:
+          - "{{ status in ['running', 'paused', 'done', 'attention', 'error'] }}"
+        sequence:
+          - alias: "Dispatch live_update payload"
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: "{{ title | default('', true) }}"
+              message: "{{ message | default('', true) }}"
+              data: "{{ payload }}"
+    default:
+      - stop: Unrecognized live activity status
+mode: queued
+max: 10
