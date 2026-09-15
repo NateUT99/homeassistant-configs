@@ -108,6 +108,17 @@ fields:
       select:
         options:
           - nates_iphone
+  silent:
+    name: Silent
+    description: >-
+      Lower-priority, no-alert update -- refreshes the Lock Screen/Dynamic
+      Island content in place without the peek/expand animation. Per
+      companion.home-assistant.io, has no effect when starting a new
+      activity, only on updates to an existing one.
+    required: false
+    default: false
+    selector:
+      boolean: {}
 variables:
   status_colors: >-
     {{ {'running': '#2196F3', 'paused': '#9E9E9E', 'done': '#4CAF50',
@@ -118,7 +129,8 @@ variables:
   chronometer_active: "{{ status == 'running' and chronometer_ref != '' }}"
   resolved_progress: "{{ 100 if status == 'done' else progress | default(none, true) }}"
   payload: >-
-    {{ ({'tag': tag, 'live_update': true, 'notification_icon': resolved_icon,
+    {{ ({'tag': tag, 'live_update': true, 'silent': silent | default(false, true),
+    'notification_icon': resolved_icon,
     'notification_icon_color': resolved_color, 'color': resolved_color,
     'background_color': '#101820', 'progress_bar_color': resolved_color,
     'progress_bar_direction': 'increasing',

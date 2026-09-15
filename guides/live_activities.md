@@ -102,6 +102,7 @@ Built once as the shared dispatch point. Full field contract:
 | `color` | No | palette | Hex override of the status palette, for per-consumer identity. |
 | `url` | No | `/lovelace/0` | Tap destination — the primary dashboard's auto-generated Overview, until custom dashboard pop-ups exist (see Deferred below). |
 | `target` | No | `nates_iphone` | Which iOS device to push to — one option registered today. |
+| `silent` | No | `false` | Lower-priority (APNs 5, not 10), no-alert update — refreshes the Lock Screen/Dynamic Island content in place without the peek/expand animation. Per [companion.home-assistant.io](https://companion.home-assistant.io/docs/notifications/live-activities/), has no effect when starting a new activity, only on updates to an existing one. |
 
 Status palette:
 
@@ -225,10 +226,17 @@ with nothing to keep in sync as that routine evolves.
   `LESSONS.md` → *iOS Live Activities*. The area figure still surfaces on the `done` card's message
   once the job finishes.
 - **No chronometer.** The integration exposes no start-of-job timestamp usable for a count-up
-  timer — see `LESSONS.md` → *Vacuum & Roborock* for why `last_clean_begin` doesn't work. Area
-  cleaned (`critical_text`) and progress % substitute for a timer instead, rather than capturing
-  our own start time into a new helper — the percentage already conveys progress and the room
-  name conveys location, so a third data point wasn't worth the added state.
+  timer — see `LESSONS.md` → *Vacuum & Roborock* for why `last_clean_begin` doesn't work. Progress
+  % and the mop/vacuum + room message substitute for a timer instead, rather than capturing our
+  own start time into a new helper.
+- **The recurring 5-minute tick sends `silent: true`; genuine transitions don't.** All four
+  trigger IDs are named (`state_change`, `job_finished`, `error_change`, `coarse_tick`), and the
+  running/paused/returning branches pass `silent: "{{ trigger.id == 'coarse_tick' }}"`. iOS treats
+  a `silent` update as lower-priority (APNs 5, not 10) with no alert, so the Lock Screen and
+  Dynamic Island content still refreshes every 5 minutes, but only a genuine state change (job
+  starts, pauses, returns, errors, or finishes) triggers the peek/expand animation. Confirmed live
+  on 2026-09-15 — the un-silenced tick was re-expanding the Dynamic Island every 5 minutes for the
+  whole duration of a run, which read as excessive.
 - **The done card always shows a full bar, with the truth in the message.** A commanded dock
   (someone arriving home mid-run, per `guides/vacuum_cleaning_routine.md`) resets Roborock's live
   progress to 0, so reading `cleaning_progress` at dock time would report a false 0%.

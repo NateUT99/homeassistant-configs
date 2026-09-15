@@ -7,12 +7,17 @@ description: >-
   flag into running/paused/done/error/clear on every state change and every
   5 minutes, so one automation covers every job without duplicating logic
   per start path. Suppressed while everyone is asleep so the nightly quiet
-  pass stays off the Lock Screen.
+  pass stays off the Lock Screen. The recurring 5-minute tick sends its
+  refresh with silent: true -- lower APNs priority, no alert/peek -- so the
+  card content stays current without the Dynamic Island re-expanding every
+  interval; genuine transitions (start, pause, return, error, finish) still
+  send a normal update.
 triggers:
   - alias: "Vacuum entered an active or error state"
     trigger: state
     entity_id: vacuum.living_room_vacuum
     to: ["cleaning", "paused", "returning", "error"]
+    id: state_change
   - alias: "Vacuum job finished"
     id: job_finished
     trigger: state
@@ -22,9 +27,11 @@ triggers:
   - alias: "Vacuum error changed"
     trigger: state
     entity_id: sensor.living_room_vacuum_vacuum_error
+    id: error_change
   - alias: "Coarse progress tick while a job may be active"
     trigger: time_pattern
     minutes: "/5"
+    id: coarse_tick
 variables:
   vacuum_error: "{{ states('sensor.living_room_vacuum_vacuum_error') }}"
   vac_area: "{{ states('sensor.living_room_vacuum_cleaning_area') }}"
@@ -80,6 +87,7 @@ actions:
                 else 'Vacuum' }} · {{ current_room }}
               icon: mdi:robot-vacuum
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
+              silent: "{{ trigger.id == 'coarse_tick' }}"
             note: >-
               critical_text (area cleaned) deliberately dropped here —
               paired with progress and no chronometer, it displaced the
@@ -106,6 +114,7 @@ actions:
               message: "Paused"
               icon: mdi:robot-vacuum
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
+              silent: "{{ trigger.id == 'coarse_tick' }}"
       - alias: "Returning to dock, everyone awake"
         conditions:
           - condition: state
@@ -124,6 +133,7 @@ actions:
               message: "Returning to dock"
               icon: mdi:robot-vacuum
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
+              silent: "{{ trigger.id == 'coarse_tick' }}"
       - alias: "Just finished — done"
         conditions:
           - condition: trigger
