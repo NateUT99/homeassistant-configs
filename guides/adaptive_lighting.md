@@ -151,7 +151,7 @@ take identical values. The advanced options are behind collapsible sections in v
 | Initial transition | `1` | |
 | Min brightness | `35` | Evening / pre-sleep floor. |
 | Max brightness | `100` | The canopy light kit already caps physical output at ~70% (`guides/inovelli_switches.md` Step 2), so HA's full range is used. |
-| Sleep brightness | `10` | Also the middle-of-the-night wall-tap level, via pre-staging. |
+| Sleep brightness | `5` | Also the middle-of-the-night wall-tap level, via pre-staging. |
 | Brightness mode | `tanh` | S-curve; ramp shape decoupled from sun elevation. |
 | Brightness mode time dark | `1800` | |
 | Brightness mode time light | `5400` | |
@@ -182,7 +182,7 @@ Sleep mode is not scheduled; it is driven by the two existing sleep automations.
 | Instance sleep switch | Driven by |
 |---|---|
 | `switch.adaptive_lighting_standard_sleep_mode` | `Household: Sleep Mode` — `switch.turn_on` in the night-prep parallel block, `switch.turn_off` in the wake block. Replaces the old hand-dim of the master bedroom ceiling to 25%; AL's `sleep_brightness` owns it now, and AL only commands lights that are already on, so the "only if on" guard is implicit. |
-| `switch.adaptive_lighting_avery_schedule_sleep_mode` | `Avery's Room: Sleep Mode` — enabled after the ceiling-light fade-off at bedtime; cleared first thing on wake, before the sunrise below. |
+| `switch.adaptive_lighting_avery_schedule_sleep_mode` | `Avery's Room: Sleep Mode` — enabled at bedtime before a 30s `adaptive_lighting.apply` fades the ceiling straight to the sleep level (it stays lit dim, turned off manually at the wall); cleared first thing on wake, before the sunrise below. |
 
 On wake, `Avery's Room: Sleep Mode` runs an Adaptive Lighting sunrise on her ceiling:
 `set_manual_control(true)` → `adaptive_lighting.apply` over 120 s toward the morning target →
@@ -246,7 +246,7 @@ dashboard, scripts, Apple Home via Matter Hub), the call is a no-op.
 
 | AL `brightness_pct` | raw `OnLevel` written | Physical light output\* |
 |---|---|---|
-| 10 (sleep) | 25 | ~19% |
+| 5 (sleep) | 13 | ~15% |
 | 35 (evening floor) | 89 | ~33% |
 | 90 | 229 | ~64% |
 | 100 (daytime peak) | 254 | ~70% |
