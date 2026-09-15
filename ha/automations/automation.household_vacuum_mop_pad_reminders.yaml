@@ -1,48 +1,41 @@
 id: "1789070771813"
 alias: "Household: Vacuum Mop Pad Reminders"
 description: >-
-  Brackets the weekly mop pass (folded into Household: Vacuum Evening Cleaning)
-  with two human-in-the-loop reminders, since the Roborock's mop pad and 350 ml
-  water tank are both filled and fitted by hand. Prep: at 20:00 Wednesday, and
-  again when Everyone Sleeping is set that night, announce that the pad and
-  water need fitting -- suppressed once the pad is on. Cleanup: once the
-  vacuum re-docks after the Thursday morning master mop pass (Household:
-  Vacuum Master Mop Pass), with a 17:00 backstop, announce that the pad should
-  come off to rinse and the tank be emptied. Attaching or removing the pad
-  clears the matching reminder banner on its own --
-  binary_sensor.living_room_vacuum_mop_attached is the acknowledgement, so
-  there are no action buttons. TTS runs through script.household_tts_announce;
-  the bedtime prep nudge targets the master bedroom, the post-mop cleanup
-  nudge auto-resolves (kitchen, since everyone is awake by then), and the
-  20:00/17:00 nudges the kitchen. See guides/vacuum_cleaning_routine.md.
+  Brackets the weekly mop pass (folded into Household: Vacuum Evening
+  Cleaning) with two human-in-the-loop reminders, since the Roborock's mop
+  pad and 350 ml water tank are both filled and fitted by hand. Prep: every
+  30 minutes from 20:00 onward, on any night that's mop-eligible (Avery away,
+  week not yet mopped) and someone is home, a TTS-only reminder repeats until
+  the pad goes on -- no push, no banner, since attaching the pad is what
+  stops the loop. input_boolean.vacuum_mop_skip_today cancels it for the rest
+  of the day; Household: Vacuum Daily Reset clears that flag at 8am. Cleanup:
+  once the vacuum re-docks after Household: Vacuum Master Mop Pass finishes
+  (gated on input_boolean.vacuum_mop_master_suite_done_this_week rather than
+  a fixed weekday), with a daily 17:00 backstop that repeats until the pad
+  comes off, announce that the pad should come off to rinse and the tank be
+  emptied. Attaching or removing the pad clears the matching state on its own
+  -- binary_sensor.living_room_vacuum_mop_attached is the acknowledgement, so
+  there are no action buttons for either half. TTS runs through
+  script.household_tts_announce; the prep nudge auto-targets whoever's home,
+  the post-mop cleanup nudge auto-resolves (kitchen, since everyone is awake
+  by then), and the 17:00 backstop nudges the kitchen. See
+  guides/vacuum_cleaning_routine.md.
 triggers:
-  - trigger: time
-    at: "20:00:00"
-    id: prep_early
-    alias: 20:00 on mop night -- well before bed
-  - trigger: state
-    entity_id: input_boolean.everyone_sleeping
-    from: "off"
-    to: "on"
-    id: prep_bedtime
-    alias: Everyone Sleeping set for the night
-  - trigger: state
-    entity_id: binary_sensor.living_room_vacuum_mop_attached
-    from: "off"
-    to: "on"
-    id: prep_done
-    alias: Mop pad was attached
+  - trigger: time_pattern
+    minutes: "/30"
+    id: prep_check
+    alias: Every 30 minutes -- checks whether tonight's prep reminder should fire
   - trigger: state
     entity_id: vacuum.living_room_vacuum
     to: docked
     for:
       minutes: 1
     id: cleanup_docked
-    alias: Vacuum re-docked -- the master mop pass has finished
+    alias: Vacuum re-docked -- possibly the master mop pass finishing
   - trigger: time
     at: "17:00:00"
     id: cleanup_nag
-    alias: 17:00 backstop -- pad still attached late in the day
+    alias: 17:00 daily backstop -- pad still attached
   - trigger: state
     entity_id: binary_sensor.living_room_vacuum_mop_attached
     from: "on"
@@ -52,63 +45,49 @@ triggers:
 conditions: []
 actions:
   - choose:
-      - alias: Prep nudge -- 20:00 or bedtime, pad not yet on
+      - alias: Prep nudge -- mop-eligible night, someone home, pad not yet on, not skipped
         conditions:
           - condition: trigger
-            id: [prep_early, prep_bedtime]
+            id: prep_check
+          - condition: time
+            after: "20:00:00"
+            alias: 20:00 or later
+          - condition: state
+            entity_id: input_boolean.everyone_sleeping
+            state: "off"
+            alias: Not bedtime yet
+          - condition: state
+            entity_id: binary_sensor.avery_home_today
+            state: "off"
+            alias: Avery is not home today
+          - condition: state
+            entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
+            state: "off"
+            alias: Common-area mop hasn't run yet this week
           - condition: state
             entity_id: binary_sensor.living_room_vacuum_mop_attached
             state: "off"
             alias: Mop pad is not already attached
+          - condition: numeric_state
+            entity_id: zone.home
+            above: 0
+            alias: Someone is home
+          - condition: state
+            entity_id: input_boolean.vacuum_mop_skip_today
+            state: "off"
+            alias: Not canceled for today
           - condition: state
             entity_id: input_boolean.vacuum_routine_pause
             state: "off"
             alias: Vacuum routine is not paused
-          - condition: or
-            alias: It is Wednesday night, through the 8am daily-reset boundary
-            conditions:
-              - condition: time
-                weekday: [wed]
-                alias: Wednesday
-              - condition: time
-                weekday: [thu]
-                before: "08:00:00"
-                alias: Early Thursday, still Wednesday's night
-          - condition: or
-            alias: 20:00 nudge needs someone home; the bedtime nudge implies it
-            conditions:
-              - condition: trigger
-                id: prep_bedtime
-              - condition: numeric_state
-                entity_id: zone.home
-                above: 0
-                alias: Someone is home
         sequence:
           - alias: Announce the prep reminder
             action: script.household_tts_announce
             data:
               message: Tonight is mop night. Fill the robot's water tank and clip on the mop pad.
-              target: "{{ 'master_bedroom' if (trigger is defined and trigger.id == 'prep_bedtime') else 'kitchen' }}"
+              target: auto
               notification_title: Vacuum Mop Prep
               critical_fallback: false
-          - alias: Push the prep reminder
-            action: notify.mobile_app_nates_iphone
-            data:
-              title: Vacuum Mop Prep
-              message: Tonight is mop night -- fill the water tank and clip on the mop pad.
-              data:
-                tag: vacuum_mop_prep
-      - alias: Prep done -- clear the prep banner
-        conditions:
-          - condition: trigger
-            id: prep_done
-        sequence:
-          - alias: Clear the prep push
-            action: notify.mobile_app_nates_iphone
-            data:
-              message: clear_notification
-              data:
-                tag: vacuum_mop_prep
       - alias: Cleanup nudge -- re-docked after the master mop pass, or 17:00 backstop, pad still on
         conditions:
           - condition: trigger
@@ -117,12 +96,10 @@ actions:
             entity_id: binary_sensor.living_room_vacuum_mop_attached
             state: "on"
             alias: Mop pad is still attached
-          - condition: or
-            alias: Morning after mop night (Thursday)
-            conditions:
-              - condition: time
-                weekday: [thu]
-                alias: Thursday
+          - condition: state
+            entity_id: input_boolean.vacuum_mop_master_suite_done_this_week
+            state: "on"
+            alias: This week's master suite mop already ran
         sequence:
           - alias: Announce the cleanup reminder
             action: script.household_tts_announce

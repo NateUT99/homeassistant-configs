@@ -1,32 +1,45 @@
 id: "1789166132431"
 alias: "Household: Vacuum Master Mop Pass"
 description: >-
-  Reuses the mop pad and water still fitted from Wednesday night's weekly mop
-  pass to also mop the Master bedroom (segment 19) and Master bathroom
-  (segment 21) Thursday morning -- both hard floor, with rugs no-mop-zoned in
-  the Roborock app. The Master closet (segment 20) is carpeted and stays out
-  of this pass. Fires when Everyone Sleeping clears Thursday morning;
-  announces a 5-minute grace window to pick things up off the floor before
-  the robot starts. Runs at balanced fan (hard floor, house is awake) and
-  high mop intensity (two small segments). Skipped if the pad has come off,
-  the water box isn't seated, or the tank is already empty -- Wednesday's mop
-  intensity was dropped back to medium specifically to leave margin for this
-  pass on the same fill; unverified until watched on a live run. Marks
+  Reuses the mop pad and water still fitted from last night's weekly mop pass
+  (Household: Vacuum Evening Cleaning) to also mop the Master bedroom (segment
+  19) and Master bathroom (segment 21) the next morning -- both hard floor,
+  with rugs no-mop-zoned in the Roborock app. The Master closet (segment 20)
+  is carpeted and stays out of this pass. Fires 20 seconds after Everyone
+  Sleeping clears, day-agnostic -- gated on
+  input_boolean.vacuum_mop_common_areas_done_this_week (last night's
+  common-area mop actually happened) rather than a fixed weekday, so it
+  follows whichever night Avery was away. Announces a 15-minute grace window
+  to pick things up off the floor and refill the water tank before the robot
+  starts, then re-checks pad/water/pause state (not just before the delay)
+  since 15 minutes is enough time for someone to pull the pad off. Runs at
+  balanced fan (hard floor, house is awake) and high mop intensity (two small
+  segments). Skipped if the pad has come off, the water box isn't seated, the
+  tank is already empty, or this week's master pass already ran. Marks
   input_select.vacuum_active_zone as master_mop so Vacuum Track Max Progress
   and Vacuum Mark Area Complete (both gated on daytime) ignore it, and so the
   daytime block in Household: Last Leaves Home and Household: Vacuum Midday
-  Prompt can drop segments 19 and 21 from their own run. See
+  Prompt can drop segments 19 and 21 from their own run. Marks
+  input_boolean.vacuum_mop_master_suite_done_this_week on success -- cleared
+  weekly by Household: Vacuum Mop Weekly Reset. See
   guides/vacuum_cleaning_routine.md.
 triggers:
   - trigger: state
     entity_id: input_boolean.everyone_sleeping
     from: "on"
     to: "off"
-    alias: Everyone Sleeping cleared -- someone is up for the day
+    for:
+      seconds: 20
+    alias: Everyone Sleeping cleared for 20 seconds -- someone is up for the day
 conditions:
-  - condition: time
-    weekday: [thu]
-    alias: Thursday -- the morning after mop night
+  - condition: state
+    entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
+    state: "on"
+    alias: This week's common-area mop pass already ran
+  - condition: state
+    entity_id: input_boolean.vacuum_mop_master_suite_done_this_week
+    state: "off"
+    alias: This week's master suite mop hasn't run yet
   - condition: state
     entity_id: binary_sensor.living_room_vacuum_mop_attached
     state: "on"
@@ -51,20 +64,16 @@ actions:
   - alias: Announce the master mop pass is coming
     action: script.household_tts_announce
     data:
-      message: The master bedroom and master bathroom will be mopped in five minutes. Pick anything up off the floor.
+      message: >-
+        Refill the robot's water tank. The master bedroom and master
+        bathroom will be mopped in 15 minutes -- pick anything up off the
+        floor.
       target: master_bedroom
       notification_title: Vacuum Master Mop
       critical_fallback: false
-  - alias: Push the master mop prep reminder
-    action: notify.mobile_app_nates_iphone
-    data:
-      title: Vacuum Master Mop
-      message: Mopping the master bedroom and bathroom in five minutes -- pick anything up off the floor.
-      data:
-        tag: vacuum_master_mop
-  - alias: Wait 5 minutes for the floor to be cleared
+  - alias: Wait 15 minutes for the water tank to be refilled and the floor cleared
     delay:
-      minutes: 5
+      minutes: 15
   - alias: Start the pass if the pad, water, and pause state still allow it
     if:
       - condition: state
@@ -106,9 +115,9 @@ actions:
         data:
           option: high
         note: >-
-          Only two small segments -- the tank margin comes from Wednesday
-          night's intensity dropping to medium, not from a refill here.
-          Unverified until watched on a live run; watch water_shortage.
+          Only two small segments -- the tank margin comes from the prior
+          night's intensity, not from a refill here. Unverified until
+          watched on a live run; watch water_shortage.
       - alias: Vacuum and mop in a single pass
         action: select.select_option
         target:
@@ -128,6 +137,10 @@ actions:
           Segment 20 (Master closet, carpeted) is deliberately excluded.
           Segment 28 (Stairs) never appears in this routine -- fall hazard,
           backstopped by an app virtual wall.
+      - alias: Mark master suite mop done this week
+        action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.vacuum_mop_master_suite_done_this_week
       - alias: Notify that the master mop pass started
         action: notify.send_message
         target:
@@ -150,11 +163,5 @@ actions:
             else ('the routine is paused' if
             is_state('input_boolean.vacuum_routine_pause', 'on') else 'the
             vacuum is already mid-job')) }}.
-  - alias: Clear the master mop prep push
-    action: notify.mobile_app_nates_iphone
-    data:
-      message: clear_notification
-      data:
-        tag: vacuum_master_mop
 mode: single
 category: 01M0XF7RJK5EX3A4YPNEX7X3DG

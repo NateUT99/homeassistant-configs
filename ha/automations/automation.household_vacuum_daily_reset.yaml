@@ -5,7 +5,8 @@ description: >-
   not midnight -- an evening run just after midnight must still evaluate against
   yesterday's flags, and this boundary keeps that intact. Also clears the
   routine-pause flag as a backstop for the rare case where it was set but no
-  arrival followed to clear it naturally. The evening zone has no max-progress
+  arrival followed to clear it naturally, and the mop-skip-today flag so a
+  cancel never bleeds into the next day. The evening zone has no max-progress
   helper -- Vacuum Evening Cleaning marks it done on command.
 triggers:
   - trigger: time
@@ -25,6 +26,10 @@ actions:
     action: input_boolean.turn_off
     target:
       entity_id: input_boolean.vacuum_routine_pause
+  - alias: Clear the mop-skip-today flag
+    action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.vacuum_mop_skip_today
   - alias: Reset daytime max progress to 0
     action: input_number.set_value
     target:
