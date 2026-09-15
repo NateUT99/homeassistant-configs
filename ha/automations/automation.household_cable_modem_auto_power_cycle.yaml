@@ -3,25 +3,33 @@ alias: "Household: Cable Modem Auto Power-Cycle"
 description: |-
   Recovers a dead internet connection by power-cycling the cable modem (switch.utility_room_cable_modem).
 
-  **Fires** when binary_sensor.utility_room_firewalla_gold_se_system_status reads `unavailable` continuously for 15 minutes. Up to 4 times: turns the modem plug off, waits 10 seconds, turns it back on, and waits up to 8 minutes for connectivity. Stops early on recovery; after 4 failed attempts (~40 min of cycling) it stops and posts an escalation notice for manual intervention.
+  **Fires** when binary_sensor.utility_room_firewalla_gold_se_wan_buckeye_broadband_status (the Buckeye Broadband WAN link) reads `off` or `unavailable` continuously for 15 minutes. Up to 4 times: turns the modem plug off, waits 10 seconds, turns it back on, and waits up to 8 minutes for connectivity. Stops early on recovery; after 4 failed attempts (~40 min of cycling) it stops and posts an escalation notice for manual intervention.
 
   Housekeeping: connectivity healthy for 6 hours resets the power-cycle counter and clears the failure notice; HA startup clears the guard flag in case a restart interrupted a previous run. A circuit breaker halts power-cycling once the counter reaches 8 within a window.
 
   **Why:** the cable service dropped three times overnight (33-54 min each) and needed a manual modem reboot. The 15-minute delay rides out transient WAN blips; the 4-attempt cap and circuit breaker prevent indefinite power-cycling on a fault a reboot cannot fix. The connection-lost path is skipped while Cable Modem Maintenance mode is on.
+
+  Uses the WAN-specific status sensor (added by the September 2026 Firewalla integration update) rather than the device-level System Status sensor, since it reports the actual link state directly instead of inferring an outage from Firewalla API reachability.
 triggers:
   - trigger: state
-    entity_id: binary_sensor.utility_room_firewalla_gold_se_system_status
-    to: "unavailable"
+    entity_id: binary_sensor.utility_room_firewalla_gold_se_wan_buckeye_broadband_status
+    to:
+      - "off"
+      - "unavailable"
     for:
       minutes: 15
     id: connection_lost
-    alias: Firewalla connectivity lost for 15 minutes
+    alias: Buckeye Broadband WAN link down for 15 minutes
     note: >-
-      `unavailable` (not `off`) is the state observed during last night's
-      outages - the Firewalla local API stops responding when the WAN is down.
-      A HA restart also blips this unavailable, but never for a full 15 minutes.
+      `off` is a genuine WAN-down reading from this sensor. `unavailable` is
+      kept too because the sibling System Status sensor (same Firewalla
+      device/platform) has shown brief unavailable blips (~3 min) when the
+      local API drops - this sensor likely shares that failure mode. Caveat:
+      if the sensor flips between off and unavailable within the window, HA's
+      `for:` timer resets on each raw value change, so a real outage that
+      flaps between those two states could delay the trigger past 15 minutes.
   - trigger: state
-    entity_id: binary_sensor.utility_room_firewalla_gold_se_system_status
+    entity_id: binary_sensor.utility_room_firewalla_gold_se_wan_buckeye_broadband_status
     to: "on"
     for:
       hours: 6
@@ -139,7 +147,7 @@ actions:
                     immediately if connectivity is already back (e.g. it
                     recovered during the 10-second power-off). Modem resync plus
                     Firewalla reconnect is typically 2-5 minutes.
-                  wait_template: "{{ is_state('binary_sensor.utility_room_firewalla_gold_se_system_status', 'on') }}"
+                  wait_template: "{{ is_state('binary_sensor.utility_room_firewalla_gold_se_wan_buckeye_broadband_status', 'on') }}"
                   timeout:
                     minutes: 8
                 - alias: Buffer before the next attempt
@@ -153,7 +161,7 @@ actions:
                   condition: or
                   conditions:
                     - condition: state
-                      entity_id: binary_sensor.utility_room_firewalla_gold_se_system_status
+                      entity_id: binary_sensor.utility_room_firewalla_gold_se_wan_buckeye_broadband_status
                       state: "on"
                     - "{{ repeat.index >= 4 }}"
           - alias: Re-enable the keep-powered guardian
@@ -169,7 +177,7 @@ actions:
               - alias: Connectivity restored
                 conditions:
                   - condition: state
-                    entity_id: binary_sensor.utility_room_firewalla_gold_se_system_status
+                    entity_id: binary_sensor.utility_room_firewalla_gold_se_wan_buckeye_broadband_status
                     state: "on"
                 sequence:
                   - action: notify.send_message
