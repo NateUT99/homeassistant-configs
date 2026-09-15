@@ -511,6 +511,27 @@ into a purpose-built helper at the moment the job starts (e.g. an `input_datetim
 the pattern `guides/laundry_automation.md` uses for its own cycle-start capture) — don't trust
 any Roborock-exposed timestamp sensor to reflect the in-progress job.
 
+### `vacuum.<x>` re-enters `docked` after already being docked — don't gate a "just finished" action on "currently docked, recently"
+
+Confirmed via real history on 2026-09-15: the vacuum genuinely completed a job and docked at
+12:29, then showed a *second*, independent transition into `docked` (a real `last_changed`
+update, not just an attribute tick) at 13:23 — 54 minutes later, with no new job commanded. The
+likely cause is the dock's own smart auto-empty cycle (`select.<vacuum>_dock_empty_mode`) or a
+similar self-service action that briefly moves the vacuum's reported state away from `docked`
+and back.
+
+An automation gating a one-time "job just finished" action on `condition: state, state: docked,
+for: {minutes: N}` being *false* (i.e. "docked, but not for very long") will fire again on this
+second transition, indistinguishable from a real job ending. In this instance it recreated an
+already-dismissed iOS Live Activity, making a card the user had dismissed reappear with no
+apparent trigger (see `guides/live_activities.md`). Use a dedicated edge trigger instead —
+`trigger: state, from: [<active states>], to: docked` plus `condition: trigger, id: [...]` — so
+the action only fires on a transition *out of* an active state, not on any re-entry into the
+terminal one. A duration-based `for:` condition is still fine for the inverse case (clearing
+something once a state has held long enough), since resending a clear/no-op action on a spurious
+re-dock has no visible side effect — the risk is specific to actions that create or recreate
+something.
+
 ### `sensor.<vacuum>_current_room` cannot be used to infer "this room is finished"
 
 For a house with open-plan adjacent rooms, `current_room` flips back and forth between the two rooms every 30 seconds to a couple of minutes as the robot works the shared boundary, rather than settling on one room, finishing it, and moving to the next. A rule like "mark the room the robot just left as done" produces false completions almost immediately. There is no per-room completion signal exposed by the integration — only whole-job progress. If per-room granularity is needed, it has to come from a fixed, hand-defined zone (a specific list of vendor room IDs sent to `app_segment_clean`), not from watching robot position.

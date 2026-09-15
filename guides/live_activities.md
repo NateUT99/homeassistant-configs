@@ -197,7 +197,7 @@ with nothing to keep in sync as that routine evolves.
 | `cleaning`, `everyone_sleeping` off | `running` — `"{{ zone }} · {{ current_room }}"`, `progress` from `cleaning_progress`, area cleaned as `critical_text` (Dynamic Island) |
 | `paused` | `paused` |
 | `returning`, `everyone_sleeping` off | `running` — "Returning to dock" |
-| `docked`, held for less than 10 minutes | `done` — `"Cleaning finished · {{ area }} m² in {{ minutes }} min"` |
+| transition *into* `docked` from `cleaning`/`returning`/`paused`/`error` | `done` — `"Cleaning finished · {{ area }} m² in {{ minutes }} min"` (edge-triggered — see below) |
 | `docked`, held for 10+ minutes | `clear` |
 | `cleaning` or `returning` while `everyone_sleeping` is on | no card (branch does not match; falls through) |
 
@@ -223,10 +223,19 @@ with nothing to keep in sync as that routine evolves.
   `cleaning_area` and `cleaning_time` hold the finished job's real totals regardless, and
   `status: done` forcing the bar to 100 (a framework-level behavior, not something this consumer
   had to implement) means the card never contradicts its own message.
-- **The 10-minute done window uses a native `condition: state` with `for:`, not a `delay:` inside
-  the run.** A `delay:` would hold the `queued` mode's run slot open and could fight a new job
-  starting during that window; a `for:` condition, re-evaluated by the 5-minute tick and the next
-  state change, has no such side effect.
+- **The `done` card is edge-triggered off a dedicated `job_finished` trigger, not off "currently
+  docked."** A named `state` trigger (`from: [cleaning, returning, paused, error]`, `to: docked`)
+  plus a `condition: trigger, id: [job_finished]` guard on the `done` branch means the card is
+  only (re)created on a genuine job-end transition. An earlier version gated `done` on "state is
+  `docked` and hasn't been for 10 minutes yet," which re-fired every time anything — observed:
+  the dock's smart auto-empty cycle — knocked the vacuum out of `docked` and back into it; each
+  such blip looked like a fresh job finishing and recreated the card after it had already been
+  dismissed. See `LESSONS.md` → *Vacuum & Roborock*.
+- **The 10-minute clear window still uses a native `condition: state` with `for:`**, not a
+  `delay:` inside the run — a `delay:` would hold the `queued` mode's run slot open and could
+  fight a new job starting during that window. Unlike the old `done` guard, resending
+  `clear_notification` on a spurious re-dock is harmless (it's a no-op against an already-cleared
+  tag), so the `for:` heuristic is fine here even though it wasn't safe for `done`.
 
 ### 5. Verifying a consumer
 
@@ -246,6 +255,12 @@ real appliance cycle.
    underlying process runs longer) tick while the process may be active.
 3. Call `script.household_live_activity` from every branch, including a `clear` branch for the
    terminal/idle state — don't rely on the 8-hour iOS expiry as the only way a card goes away.
+   **Gate any one-time "just finished" card on a dedicated edge trigger** (`from: [active states],
+   to: terminal state` plus `condition: trigger, id: [...]`), not on "currently in the terminal
+   state, recently" — the latter re-fires (and recreates an already-dismissed card) on any blip
+   that briefly leaves and re-enters the terminal state. A duration-based `for:` condition is
+   fine for a `clear` branch, where resending is a harmless no-op, but not for one that creates
+   or updates a card. See the vacuum consumer's Design Decisions above for the concrete failure.
 4. Apply the `live_activity` label plus `notification` plus the consumer's own `int_*` label.
 5. Add the automation to `ha/automations/`, and add a Related HA Config row plus a short
    Architecture note to the guide that owns the underlying process — this guide only owns the

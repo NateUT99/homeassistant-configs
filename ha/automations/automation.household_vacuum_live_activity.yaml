@@ -8,9 +8,16 @@ description: >-
   per start path. Suppressed while everyone is asleep so the nightly quiet
   pass stays off the Lock Screen.
 triggers:
-  - alias: "Vacuum state changed"
+  - alias: "Vacuum entered an active or error state"
     trigger: state
     entity_id: vacuum.living_room_vacuum
+    to: ["cleaning", "paused", "returning", "error"]
+  - alias: "Vacuum job finished"
+    id: job_finished
+    trigger: state
+    entity_id: vacuum.living_room_vacuum
+    from: ["cleaning", "returning", "paused", "error"]
+    to: "docked"
   - alias: "Vacuum error changed"
     trigger: state
     entity_id: sensor.living_room_vacuum_vacuum_error
@@ -110,16 +117,8 @@ actions:
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
       - alias: "Just finished — done"
         conditions:
-          - condition: state
-            entity_id: vacuum.living_room_vacuum
-            state: "docked"
-          - condition: not
-            conditions:
-              - condition: state
-                entity_id: vacuum.living_room_vacuum
-                state: "docked"
-                for:
-                  minutes: 10
+          - condition: trigger
+            id: ["job_finished"]
         sequence:
           - alias: "Show done card"
             action: script.household_live_activity
