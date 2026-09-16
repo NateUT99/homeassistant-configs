@@ -46,16 +46,6 @@ actions:
             target:
               entity_id: switch.living_room_soundbar_subwoofer_enabled
             alias: Turn off Living Room Soundbar subwoofer
-          - action: switch.turn_on
-            target:
-              entity_id: switch.adaptive_lighting_avery_schedule_sleep_mode
-            alias: Enable Adaptive Lighting sleep mode for Avery's ceiling
-            note: >-
-              The ceiling fade below now drives the dimmer directly instead
-              of going through Adaptive Lighting's apply call, so this
-              switch's only remaining purpose here is what the pre-stage
-              automation reacts to for staging OnLevel once the light is
-              later turned off at the wall -- a night wall tap comes on dim.
           - if:
               - condition: state
                 entity_id: light.averys_room_ceiling_fan_light
@@ -80,6 +70,18 @@ actions:
                   milliseconds: 0
                 alias: Hold 1s past the transition so the fade finishes before the sequence continues
             alias: Fade the ceiling fan light down to the sleep level, only if it is currently on
+          - action: switch.turn_on
+            target:
+              entity_id: switch.adaptive_lighting_avery_schedule_sleep_mode
+            alias: Enable Adaptive Lighting sleep mode for Avery's ceiling
+            note: >-
+              Must run after the fade above finishes, not before -- turning
+              this switch on while AL still tracks the light unlocked
+              triggers an immediate AL apply, snapping the light straight to
+              the sleep-mode target instead of letting the 30s direct fade
+              play out. Also what the pre-stage automation reacts to for
+              staging OnLevel once the light is later turned off at the
+              wall, so a night wall tap comes on dim.
         alias: >-
           Avery Sleeping turned ON — dresser lamp on, desk lamp off, subwoofer
           off, AL sleep mode on, ceiling fan light fades down to sleep level
