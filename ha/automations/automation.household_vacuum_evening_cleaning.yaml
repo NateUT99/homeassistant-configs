@@ -1,29 +1,10 @@
 id: "1787695541380"
 alias: "Household: Vacuum Evening Cleaning"
 description: >-
-  Runs both halves of the weekly mop event plus the ordinary nightly
-  common-area pass -- merged into one automation since both halves share the
-  same pad/tank cycle. Tonight's common-area pass: a segment clean of Kitchen,
-  Living room, Pantry, and Utility Room once everyone has been asleep for an
-  hour, at quiet fan speed. Once a week -- any night Avery is away, read from
-  input_boolean.vacuum_avery_home_tonight (latched at 19:55 by Household:
-  Vacuum Mop Pad Reminders so a post-midnight run doesn't read tomorrow's
-  calendar date) rather than the live binary_sensor.avery_home_today -- this
-  becomes the mop pass over all six common-area rooms plus Bathroom and
-  Entrance at high mop intensity, gated on the pad/water-module/tank hardware
-  sensors. A second, restart-recovery trigger re-checks whether tonight's pass
-  was missed (a config reload while everyone_sleeping was already on leaves
-  the state trigger unarmed) -- the vacuum_ran_evening guard makes it a no-op
-  once the pass has actually run. Tomorrow morning's master-suite follow-up:
-  20 seconds after everyone wakes, if last night was a mop night not yet
-  followed up, reuses the still-fitted pad to mop the Master bedroom and
-  Master bathroom, after a 15-minute grace window to refill the tank and
-  clear the floor -- re-checked after the delay (pad, water module, tank,
-  pause, not-mid-job). Marks vacuum_ran_evening on command on the nightly
-  branch (nothing docks that run mid-way) and stamps
-  input_datetime.vacuum_master_mop_last_run on the follow-up's success, which
-  Household: Last Leaves Home reads to drop the master suite from that day's
-  daytime pass. See guides/vacuum_cleaning_routine.md.
+  Runs the nightly common-area vacuum pass (and, once a week, the mop pass)
+  once everyone's been asleep for an hour, plus the next-morning master-suite
+  mop follow-up once everyone wakes -- two branches in one automation since
+  both are the same weekly pad/tank cycle. See guides/vacuum_cleaning_routine.md.
 triggers:
   - trigger: state
     entity_id: input_boolean.everyone_sleeping
@@ -36,6 +17,11 @@ triggers:
     event: start
     id: ha_restart_recheck
     alias: HA started -- re-check whether tonight's pass was missed
+    note: >-
+      Backstops a restart during the bedtime_hold trigger's 1-hour wait -- a
+      state trigger's `for:` needs the entity to change state while armed,
+      and a restart clears that arming, so the pass could otherwise be
+      silently skipped for the night.
   - trigger: state
     entity_id: input_boolean.everyone_sleeping
     from: "on"
@@ -104,6 +90,12 @@ actions:
                         entity_id: input_boolean.vacuum_avery_home_tonight
                         state: "off"
                         alias: Avery is not home tonight
+                        note: >-
+                          Reads the 19:55-latched helper, not the live
+                          binary_sensor.avery_home_today -- that sensor is
+                          calendar-derived and flips at exactly midnight, and
+                          this run can land after it. See LESSONS.md ->
+                          Presence & Device Trackers.
                       - condition: state
                         entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
                         state: "off"
@@ -128,9 +120,9 @@ actions:
                         data:
                           option: high
                         note: >-
-                          Draws more from the 350 ml tank per run than medium.
-                          The next morning's master-suite follow-up shares
-                          this same fill -- watch
+                          Draws more from the 350 ml tank per run than
+                          medium. The next morning's master-suite follow-up
+                          shares this same fill -- watch
                           binary_sensor.living_room_vacuum_water_shortage
                           across both runs; drop back to medium here if the
                           tank runs dry before the follow-up finishes. See
@@ -218,9 +210,8 @@ actions:
                     note: >-
                       Set on command, not on verified completion -- nothing
                       docks the evening run mid-way, so there is no partial
-                      run to distinguish. Guards against a missed run being
-                      retried twice. Cleared at 8am by Household: Vacuum
-                      Reset.
+                      run to distinguish. Cleared at 8am by Household:
+                      Vacuum Reset.
                   - alias: Notify that evening cleaning started
                     action: notify.send_message
                     target:
@@ -282,6 +273,10 @@ actions:
                 delay:
                   minutes: 15
               - alias: Start the follow-up if the pad, water module, tank, and pause state still allow it
+                note: >-
+                  Re-checked here, not just before the delay -- 15 minutes is
+                  enough time to pull the water module for a refill and not
+                  reseat it, or pull the pad off.
                 if:
                   - condition: state
                     entity_id: binary_sensor.living_room_vacuum_mop_attached
@@ -363,9 +358,8 @@ actions:
                     note: >-
                       Read by Household: Last Leaves Home to drop the master
                       suite from today's daytime pass -- a date compare
-                      rather than input_select.vacuum_active_zone, which gets
-                      overwritten by the very next job and is unreliable
-                      across an arrival-interrupted daytime run.
+                      rather than input_select.vacuum_active_zone, which the
+                      next job commanded always overwrites.
                   - alias: Notify that the master mop pass started
                     action: notify.send_message
                     target:

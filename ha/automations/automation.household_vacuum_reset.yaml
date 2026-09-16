@@ -1,17 +1,11 @@
 id: "1789523181266"
 alias: "Household: Vacuum Reset"
 description: >-
-  Clears the routine's flags at 08:00 -- merged from two automations that
-  fired at the identical time and did nothing but flip flags off. Every day:
-  resets both zones' ran-today flags, the routine-pause flag (a backstop for
-  the rare case where it was set but no arrival followed to clear it
-  naturally), the mop-skip-today flag, and the daytime max-progress number.
-  8am, not midnight, because an evening or mop run just after midnight must
-  still evaluate against yesterday's flags. Mondays only, same 08:00
-  boundary for the same reason: also clears both weekly mop-completion
-  flags, opening the coming week's mop opportunity -- mop night itself
-  floats to whatever night Avery is away, so this is the only fixed schedule
-  point in the weekly mop design. See guides/vacuum_cleaning_routine.md.
+  Clears both zones' ran-today flags, routine-pause, mop-skip-today, and
+  daytime max-progress every day at 08:00; both weekly mop-completion flags
+  additionally on Mondays. 08:00, not midnight, since an overnight run must
+  still evaluate against yesterday's/last week's flags. Merged from two
+  automations that fired at the same boundary. See guides/vacuum_cleaning_routine.md.
 triggers:
   - trigger: time
     at: "08:00:00"

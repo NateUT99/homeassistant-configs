@@ -1,51 +1,26 @@
 id: "1789070771813"
 alias: "Household: Vacuum Mop Pad Reminders"
 description: >-
-  Brackets the weekly mop pass (folded into Household: Vacuum Evening
-  Cleaning, along with its next-morning master-suite follow-up) with two
-  human-in-the-loop reminders, since the Roborock's mop pad and 350 ml water
-  tank are both filled and fitted by hand. Also latches tonight's Avery-home
-  answer: every prep_check tick between 19:55 and 23:59,
-  input_boolean.vacuum_avery_home_tonight is snapshotted from
-  binary_sensor.avery_home_today -- since that sensor is calendar-derived and
-  flips at midnight, a post-midnight evening pass needs the pre-midnight
-  answer, not the live one. Re-snapshotting every 30 minutes in that window
-  (rather than a single fixed-time trigger) makes it self-healing across an
-  HA restart landing on any one tick. Prep: every 30 minutes from 20:00
-  onward, on any night that's mop-eligible (Avery away tonight, week not yet
-  mopped) and someone is home, a TTS-only reminder repeats until the pad
-  goes on -- no push, no banner, since attaching the pad is what stops the
-  loop. input_boolean.vacuum_mop_skip_today cancels it for the rest of the
-  day; Household: Vacuum Reset clears that flag at 8am. Cleanup: once the
-  vacuum re-docks after the master-suite follow-up finishes (gated on
-  input_boolean.vacuum_mop_master_suite_done_this_week rather than a fixed
-  weekday), with a daily 17:00 backstop that repeats until the pad comes
-  off, announce that the pad should come off to rinse and the tank be
-  emptied. Attaching or removing the pad clears the matching state on its
-  own -- binary_sensor.living_room_vacuum_mop_attached is the
-  acknowledgement, so there are no action buttons for either half. TTS runs
-  through script.household_tts_announce; the prep nudge auto-targets
-  whoever's home, the post-mop cleanup nudge auto-resolves (kitchen, since
-  everyone is awake by then), and the 17:00 backstop nudges the kitchen. See
-  guides/vacuum_cleaning_routine.md.
+  Brackets the weekly mop pass with prep and cleanup reminders, since the pad
+  and 350 ml tank are fitted by hand. Also latches tonight's Avery-home
+  answer for Vacuum Evening Cleaning to read, piggybacked on this
+  automation's own 30-minute trigger. See guides/vacuum_cleaning_routine.md.
 triggers:
   - trigger: time_pattern
     minutes: "/30"
     id: prep_check
-    alias: >-
-      Every 30 minutes -- checks whether tonight's prep reminder should
-      fire, and re-latches the Avery-tonight snapshot in the evening window
+    alias: Every 30 minutes
   - trigger: state
     entity_id: vacuum.living_room_vacuum
     to: docked
     for:
       minutes: 1
     id: cleanup_docked
-    alias: Vacuum re-docked -- possibly the master-suite follow-up finishing
+    alias: Vacuum re-docked
   - trigger: time
     at: "17:00:00"
     id: cleanup_nag
-    alias: 17:00 daily backstop -- pad still attached
+    alias: 17:00 daily backstop
   - trigger: state
     entity_id: binary_sensor.living_room_vacuum_mop_attached
     from: "on"
@@ -54,7 +29,11 @@ triggers:
     alias: Mop pad was removed
 conditions: []
 actions:
-  - alias: Latch tonight's Avery-home answer before the calendar date rolls over at midnight
+  - alias: Latch tonight's Avery-home answer
+    note: >-
+      Between 19:55 and 23:59 only, so the value holds steady once the
+      calendar date rolls over at midnight -- see LESSONS.md -> Presence &
+      Device Trackers.
     if:
       - condition: trigger
         id: [prep_check]

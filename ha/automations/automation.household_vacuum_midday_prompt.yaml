@@ -1,32 +1,11 @@
 id: "1788805236629"
 alias: "Household: Vacuum Midday Prompt"
 description: >-
-  At 12:00pm, if no one is home and the daytime zone hasn't run today, sends
-  an actionable notification asking whether to start a whole-house clean.
-  Starts it unless "No" is explicitly tapped within 5 minutes -- timeout
-  counts as Yes. Serves as the daily backstop for two gaps at once, merged
-  from what used to be two separate automations: a missed departure edge
-  (Household: Last Leaves Home's daytime block only fires on a departure -- a
-  departure before 08:00 is blocked by yesterday's still-set ran-flag, and
-  one between 08:00-09:00 falls outside that block's time window) and an
-  extended absence (this prompt simply keeps firing and re-prompting every
-  day the house stays empty, since vacuum_ran_daytime stays off). Tapping
-  "No" skips the day's cleaning entirely -- there is no other automation to
-  hand off to, so the next day's noon prompt asks again. Runs the whole
-  house via vacuum.start rather than a segmented daytime-only clean: a
-  partial clean made sense when this only covered the departure-edge gap,
-  but once it's also the sole mechanism for an absence of unknown length, a
-  full pass every time it fires is simpler than tracking how many days have
-  elapsed. vacuum.start requires the vacuum to be docked (not just idle) --
-  LESSONS.md documents that this service sends a dock command when the
-  vacuum is returning, so this and Household: Vacuum Away Catch-Up (now
-  folded in here) both guard on it. Mopping is disabled -- the onboard
-  350 ml tank can't be refilled unattended over a run that may repeat daily.
-  Marks both zones' ran-today flags on success, since a whole-house pass
-  supersedes that night's evening pass too. Skipped while the mop pad is
-  attached (weekly mop pass in progress) -- a wet pad must not run the
-  carpeted daytime rooms; once the pad comes off, the noon check picks the
-  whole-house clean back up. See guides/vacuum_cleaning_routine.md.
+  At noon daily, if no one's home and the daytime zone hasn't run, prompts to
+  start a whole-house clean (5-minute timeout counts as Yes). One check
+  covers both a missed departure edge and an extended absence, since nothing
+  else clears vacuum_ran_daytime. Skipped while the mop pad is attached. See
+  guides/vacuum_cleaning_routine.md.
 triggers:
   - trigger: time
     at: "12:00:00"
@@ -47,15 +26,18 @@ conditions:
   - condition: state
     entity_id: vacuum.living_room_vacuum
     state: docked
-    alias: Vacuum is docked -- vacuum.start would send a dock command instead of cleaning if it were returning
+    alias: Vacuum is docked
+    note: "vacuum.start sends a dock command instead of cleaning if the vacuum is returning -- see LESSONS.md."
   - condition: state
     entity_id: binary_sensor.living_room_vacuum_cleaning
     state: "off"
-    alias: Vacuum isn't mid-clean (e.g. an autonomous recharge, which also reads docked)
+    alias: Vacuum isn't mid-clean
+    note: An autonomous recharge also reads docked; this catches that case.
   - condition: state
     entity_id: binary_sensor.living_room_vacuum_mop_attached
     state: "off"
-    alias: Mop pad is not attached -- a wet pad must not run the carpeted daytime rooms
+    alias: Mop pad is not attached
+    note: A wet pad must not run the carpeted daytime rooms.
 actions:
   - alias: Send actionable notification to Nate's iPhone
     action: notify.mobile_app_nates_iphone
@@ -105,10 +87,9 @@ actions:
         data:
           option: away
         note: >-
-          Not daytime -- Household: Vacuum Progress Tracking's
-          65%-of-daytime-zone threshold was built around that specific room
-          set's closed-door coverage cap and doesn't apply to a whole-map
-          job.
+          Not daytime -- Vacuum Progress Tracking's 65% threshold assumes
+          the daytime room set's closed-door coverage cap, which doesn't
+          apply to a whole-map job.
       - alias: Set max fan speed for whole-house cleaning
         action: vacuum.set_fan_speed
         target:
@@ -126,21 +107,16 @@ actions:
         target:
           entity_id: vacuum.living_room_vacuum
         note: >-
-          Deliberately not app_segment_clean -- this is the only job in the
-          routine that wants the entire map, and a stale segment list would
-          silently no-op after a Roborock app-side merge (LESSONS.md).
-          Segment 28 (Stairs) is excluded by the virtual wall placed in
-          front of it in the Roborock app, not by a segment list.
+          Not app_segment_clean -- a stale segment list silently no-ops
+          after a Roborock map merge (LESSONS.md). Stairs (28) is excluded
+          by the app's virtual wall, not by software.
       - alias: Mark both zones ran today
         action: input_boolean.turn_on
         target:
           entity_id:
             - input_boolean.vacuum_ran_daytime
             - input_boolean.vacuum_ran_evening
-        note: >-
-          A whole-house pass covers what the evening zone would have covered
-          too -- marking both prevents a redundant evening/mop pass the same
-          night.
+        note: A whole-house pass covers the evening zone too -- marking both prevents a redundant pass that night.
       - alias: Notify that whole-house cleaning started
         action: notify.send_message
         target:
