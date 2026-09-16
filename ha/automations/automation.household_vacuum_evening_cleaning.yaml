@@ -173,6 +173,7 @@ actions:
                         data:
                           title: Vacuum
                           message: Started the weekly mop pass over the common areas, bathroom, and entrance.
+                        enabled: false
                 default:
                   - alias: Build the vacuum segment list -- add the Entrance only when Avery is away tonight
                     variables:
@@ -223,6 +224,7 @@ actions:
                         the entrance and bathroom' if
                         is_state('input_boolean.vacuum_avery_home_tonight',
                         'off') else '' }}.
+                    enabled: false
       - alias: Master suite mop follow-up -- next morning after a mop night
         conditions:
           - condition: trigger
