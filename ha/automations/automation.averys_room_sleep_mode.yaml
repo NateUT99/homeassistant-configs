@@ -1,182 +1,188 @@
-id: '1787016226204'
-alias: 'Avery''s Room: Sleep Mode'
-description: Reacts to the Avery Sleeping toggle. Turning it on turns on the dresser lamp
-  (nightlight), enables her Adaptive Lighting sleep mode and fades the ceiling fan light down
-  to that sleep level over ~30s (it stays lit dim -- turned off manually at the wall when she
-  leaves), and turns off the Living Room Soundbar subwoofer. Turning it off turns the dresser
-  lamp back off, turns the subwoofer back on, pauses the HomePod, turns on the Living Room
-  Apple TV, clears AL sleep mode and runs a 120s Adaptive Lighting sunrise on the ceiling fan
-  light toward the morning curve target — snapping to the current target if Avery's door opens
-  mid-fade, then handing brightness back to AL — and clears the Everyone Sleeping flag if the
-  household was still marked all-asleep.
+id: "1787016226204"
+alias: "Avery's Room: Sleep Mode"
+description: >-
+  Reacts to the Avery Sleeping toggle. Turning it on turns on the dresser lamp
+  (nightlight), turns off the desk lamp, turns off the Living Room Soundbar
+  subwoofer, enables her Adaptive Lighting sleep mode (so a later wall tap on
+  the ceiling light comes up at the sleep level), and fades the ceiling fan
+  light directly down to 5% over ~30s (it stays lit dim -- turned off
+  manually at the wall when she leaves). Turning it off turns the dresser
+  lamp back off, turns the subwoofer back on, pauses the HomePod, turns on
+  the Living Room Apple TV, clears AL sleep mode and runs a 120s Adaptive
+  Lighting sunrise on the ceiling fan light toward the morning curve target
+  -- snapping to the current target if Avery's door opens mid-fade, then
+  handing brightness back to AL -- and clears the Everyone Sleeping flag if
+  the household was still marked all-asleep.
 triggers:
-- trigger: state
-  entity_id: input_boolean.avery_sleeping
-  from: 'off'
-  to: 'on'
-  id: sleep_on
-  alias: Avery Sleeping turned on
-- trigger: state
-  entity_id: input_boolean.avery_sleeping
-  from: 'on'
-  to: 'off'
-  id: sleep_off
-  alias: Avery Sleeping turned off
+  - trigger: state
+    entity_id: input_boolean.avery_sleeping
+    from: "off"
+    to: "on"
+    id: sleep_on
+    alias: Avery Sleeping turned on
+  - trigger: state
+    entity_id: input_boolean.avery_sleeping
+    from: "on"
+    to: "off"
+    id: sleep_off
+    alias: Avery Sleeping turned off
 conditions: []
 actions:
-- choose:
-  - conditions:
-    - condition: trigger
-      id:
-      - sleep_on
-      alias: Triggered by Avery Sleeping turning on
-    sequence:
-    - action: light.turn_on
-      target:
-        entity_id: light.averys_room_dresser_lamp
-      alias: Turn on dresser lamp
-    - action: switch.turn_off
-      target:
-        entity_id: switch.living_room_soundbar_subwoofer_enabled
-      alias: Turn off Living Room Soundbar subwoofer
-    - action: switch.turn_on
-      target:
-        entity_id: switch.adaptive_lighting_avery_schedule_sleep_mode
-      alias: Enable Adaptive Lighting sleep mode for Avery's ceiling
-      note: Runs before the fade below so the curve target is already the sleep brightness
-        when the apply call runs. Also what the pre-stage automation reacts to for staging
-        OnLevel once the light is later turned off at the wall, so a night wall tap comes on
-        dim.
-    - if:
-      - condition: state
-        entity_id: light.averys_room_ceiling_fan_light
-        state: 'on'
-      then:
-      - action: adaptive_lighting.set_manual_control
-        data:
-          entity_id: switch.adaptive_lighting_avery_schedule
-          lights:
-          - light.averys_room_ceiling_fan_light
-          manual_control: true
-        alias: Pause Adaptive Lighting so it does not fight the fade
-      - action: adaptive_lighting.apply
-        data:
-          entity_id: switch.adaptive_lighting_avery_schedule
-          lights:
-          - light.averys_room_ceiling_fan_light
-          transition: 30
-          turn_on_lights: true
-          adapt_brightness: true
-          adapt_color: false
-        alias: Fade smoothly to the sleep brightness target over 30s
-        note: Single continuous fade straight to the sleep level -- no turn_off call, so the
-          Matter dimmer's own uncontrolled off-ramp (which can flare near its minimum before
-          cutting out) never runs.
-      - action: adaptive_lighting.set_manual_control
-        data:
-          entity_id: switch.adaptive_lighting_avery_schedule
-          lights:
-          - light.averys_room_ceiling_fan_light
-          manual_control: false
-        alias: Hand brightness back to Adaptive Lighting so it holds at the sleep level
-      alias: Fade the ceiling fan light down to the sleep level, only if it is currently on
-    alias: Avery Sleeping turned ON — dresser lamp on, subwoofer off, AL sleep mode on, ceiling
-      fan light fades down to sleep level
-  - conditions:
-    - condition: trigger
-      id:
-      - sleep_off
-      alias: Triggered by Avery Sleeping turning off
-    sequence:
-    - if:
-      - condition: state
-        entity_id: input_boolean.everyone_sleeping
-        state: 'on'
-        alias: Everyone Sleeping is currently on
-      then:
-      - action: input_boolean.turn_off
-        target:
-          entity_id: input_boolean.everyone_sleeping
-        alias: Clear the Everyone Sleeping flag
-      alias: If the household was still marked all-asleep, Avery waking clears it
-    - action: light.turn_off
-      target:
-        entity_id: light.averys_room_dresser_lamp
-      alias: Turn off dresser lamp
-    - action: switch.turn_on
-      target:
-        entity_id: switch.living_room_soundbar_subwoofer_enabled
-      alias: Turn on Living Room Soundbar subwoofer
-    - action: media_player.media_pause
-      target:
-        entity_id: media_player.averys_room_homepod
-      alias: Pause HomePod
-    - action: media_player.turn_on
-      target:
-        entity_id: media_player.living_room_appletv
-      alias: Turn on Living Room Apple TV
-    - action: switch.turn_off
-      target:
-        entity_id: switch.adaptive_lighting_avery_schedule_sleep_mode
-      alias: Clear Adaptive Lighting sleep mode on Avery's ceiling
-      note: Must come before set_manual_control below -- with reset_manual_control_on_sleep_mode_change
-        on, flipping sleep mode clears manual control, so the lock has to be taken after the
-        flip.
-    - action: adaptive_lighting.set_manual_control
-      data:
-        entity_id: switch.adaptive_lighting_avery_schedule
-        lights:
-        - light.averys_room_ceiling_fan_light
-        manual_control: true
-      alias: Lock manual control so the sunrise apply is not overridden by the 90s cycle
-    - action: adaptive_lighting.apply
-      data:
-        entity_id: switch.adaptive_lighting_avery_schedule
-        lights:
-        - light.averys_room_ceiling_fan_light
-        transition: 120
-        turn_on_lights: true
-        adapt_brightness: true
-        adapt_color: false
-      alias: Run a 120s Adaptive Lighting sunrise toward the morning curve target
-      note: Replaces the old fixed fade to 100%. Runs last among the wake actions so the quick
-        ones above are not held up by the wait below. adapt_color is off -- brightness-only
-        fixture.
-    - wait_for_trigger:
-      - trigger: state
-        entity_id: binary_sensor.averys_room_door
-        from: 'off'
-        to: 'on'
-        alias: Avery's door opens
-      timeout:
-        seconds: 120
-      continue_on_timeout: true
-      alias: Wait for Avery's door to open during the fade-up
-      note: Fires only on a genuine closed->open change, so a door already open when sleep
-        mode ends does not cut the fade short.
-    - if:
-      - '{{ wait.completed }}'
-      then:
-      - action: adaptive_lighting.apply
-        data:
-          entity_id: switch.adaptive_lighting_avery_schedule
-          lights:
-          - light.averys_room_ceiling_fan_light
-          transition: 2
-          turn_on_lights: true
-          adapt_brightness: true
-          adapt_color: false
-        alias: Door opened mid-fade -- snap to the current curve target
-      alias: If the door opened mid-fade, jump to the current target now
-    - action: adaptive_lighting.set_manual_control
-      data:
-        entity_id: switch.adaptive_lighting_avery_schedule
-        lights:
-        - light.averys_room_ceiling_fan_light
-        manual_control: false
-      alias: Hand the ceiling light's brightness back to Adaptive Lighting
-    alias: Avery Sleeping turned OFF — Everyone Sleeping cleared if still on, dresser lamp
-      off, subwoofer on, HomePod paused, Apple TV on, AL sleep mode cleared and a 120s sunrise
-      runs on the ceiling (snaps to target if the door opens), brightness handed back to AL
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: [sleep_on]
+            alias: Triggered by Avery Sleeping turning on
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: light.averys_room_dresser_lamp
+            alias: Turn on dresser lamp
+          - action: light.turn_off
+            target:
+              entity_id: light.averys_room_desk_lamp
+            alias: Turn off desk lamp
+          - action: switch.turn_off
+            target:
+              entity_id: switch.living_room_soundbar_subwoofer_enabled
+            alias: Turn off Living Room Soundbar subwoofer
+          - action: switch.turn_on
+            target:
+              entity_id: switch.adaptive_lighting_avery_schedule_sleep_mode
+            alias: Enable Adaptive Lighting sleep mode for Avery's ceiling
+            note: >-
+              The ceiling fade below now drives the dimmer directly instead
+              of going through Adaptive Lighting's apply call, so this
+              switch's only remaining purpose here is what the pre-stage
+              automation reacts to for staging OnLevel once the light is
+              later turned off at the wall -- a night wall tap comes on dim.
+          - if:
+              - condition: state
+                entity_id: light.averys_room_ceiling_fan_light
+                state: "on"
+            then:
+              - action: light.turn_on
+                target:
+                  entity_id: light.averys_room_ceiling_fan_light
+                data:
+                  transition: 30
+                  brightness_pct: 5
+                alias: Fade the ceiling fan light directly to the sleep level over 30s
+                note: >-
+                  Drives the dimmer directly with light.turn_on instead of
+                  adaptive_lighting.apply -- the AL apply call was not
+                  reliably producing a smooth fade on this fixture. See
+                  LESSONS.md if revisiting AL for this step.
+              - delay:
+                  hours: 0
+                  minutes: 0
+                  seconds: 31
+                  milliseconds: 0
+                alias: Hold 1s past the transition so the fade finishes before the sequence continues
+            alias: Fade the ceiling fan light down to the sleep level, only if it is currently on
+        alias: >-
+          Avery Sleeping turned ON — dresser lamp on, desk lamp off, subwoofer
+          off, AL sleep mode on, ceiling fan light fades down to sleep level
+      - conditions:
+          - condition: trigger
+            id: [sleep_off]
+            alias: Triggered by Avery Sleeping turning off
+        sequence:
+          - if:
+              - condition: state
+                entity_id: input_boolean.everyone_sleeping
+                state: "on"
+                alias: Everyone Sleeping is currently on
+            then:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.everyone_sleeping
+                alias: Clear the Everyone Sleeping flag
+            alias: If the household was still marked all-asleep, Avery waking clears it
+          - action: light.turn_off
+            target:
+              entity_id: light.averys_room_dresser_lamp
+            alias: Turn off dresser lamp
+          - action: switch.turn_on
+            target:
+              entity_id: switch.living_room_soundbar_subwoofer_enabled
+            alias: Turn on Living Room Soundbar subwoofer
+          - action: media_player.media_pause
+            target:
+              entity_id: media_player.averys_room_homepod
+            alias: Pause HomePod
+          - action: media_player.turn_on
+            target:
+              entity_id: media_player.living_room_appletv
+            alias: Turn on Living Room Apple TV
+          - action: switch.turn_off
+            target:
+              entity_id: switch.adaptive_lighting_avery_schedule_sleep_mode
+            alias: Clear Adaptive Lighting sleep mode on Avery's ceiling
+            note: >-
+              Must come before set_manual_control below -- with
+              reset_manual_control_on_sleep_mode_change on, flipping sleep
+              mode clears manual control, so the lock has to be taken after
+              the flip.
+          - action: adaptive_lighting.set_manual_control
+            data:
+              entity_id: switch.adaptive_lighting_avery_schedule
+              lights:
+                - light.averys_room_ceiling_fan_light
+              manual_control: true
+            alias: Lock manual control so the sunrise apply is not overridden by the 90s cycle
+          - action: adaptive_lighting.apply
+            data:
+              entity_id: switch.adaptive_lighting_avery_schedule
+              lights:
+                - light.averys_room_ceiling_fan_light
+              transition: 120
+              turn_on_lights: true
+              adapt_brightness: true
+              adapt_color: false
+            alias: Run a 120s Adaptive Lighting sunrise toward the morning curve target
+            note: >-
+              Replaces the old fixed fade to 100%. Runs last among the wake
+              actions so the quick ones above are not held up by the wait
+              below. adapt_color is off -- brightness-only fixture.
+          - wait_for_trigger:
+              - trigger: state
+                entity_id: binary_sensor.averys_room_door
+                from: "off"
+                to: "on"
+                alias: Avery's door opens
+            timeout:
+              seconds: 120
+            continue_on_timeout: true
+            alias: Wait for Avery's door to open during the fade-up
+            note: >-
+              Fires only on a genuine closed->open change, so a door already
+              open when sleep mode ends does not cut the fade short.
+          - if:
+              - "{{ wait.completed }}"
+            then:
+              - action: adaptive_lighting.apply
+                data:
+                  entity_id: switch.adaptive_lighting_avery_schedule
+                  lights:
+                    - light.averys_room_ceiling_fan_light
+                  transition: 2
+                  turn_on_lights: true
+                  adapt_brightness: true
+                  adapt_color: false
+                alias: Door opened mid-fade -- snap to the current curve target
+            alias: If the door opened mid-fade, jump to the current target now
+          - action: adaptive_lighting.set_manual_control
+            data:
+              entity_id: switch.adaptive_lighting_avery_schedule
+              lights:
+                - light.averys_room_ceiling_fan_light
+              manual_control: false
+            alias: Hand the ceiling light's brightness back to Adaptive Lighting
+        alias: >-
+          Avery Sleeping turned OFF — Everyone Sleeping cleared if still on,
+          dresser lamp off, subwoofer on, HomePod paused, Apple TV on, AL
+          sleep mode cleared and a 120s sunrise runs on the ceiling (snaps to
+          target if the door opens), brightness handed back to AL
 mode: restart
 category: 01M08R77W9A83G7DDA33MT8R09
