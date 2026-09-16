@@ -1,209 +1,394 @@
 id: "1787695541380"
 alias: "Household: Vacuum Evening Cleaning"
 description: >-
-  Starts the Roborock on a segment clean of the Common Areas (Kitchen, Living
-  room, Pantry, Utility Room -- Kitchen includes the former Dining room, merged
-  in the Roborock app) once everyone has been asleep for an hour, at quiet fan
-  speed. Mopping is off on ordinary nights because the mop pad and the 350 ml
-  water tank are both fitted by hand and cannot be prepared unattended -- not for
-  any dock-noise reason (this dock only empties dust). Runs regardless of who is
-  home: every room in this pass cleans well at quiet fan speed and sits clear of
-  the bedroom hall, so no presence gate is needed on the four common-area
-  segments. The Office (carpet, needs max suction) stays in the daytime clean.
-  The Entrance and the regular Bathroom (segment 17) normally do too -- both sit
-  within earshot of the bedroom hall -- but on a night Avery is not home they
-  move here instead, since without her home neither room is near anyone
-  sleeping. Household: Last Leaves Home and Household: Vacuum Midday Prompt both
-  drop them from that day's daytime segments so neither is cleaned twice.
-
-
-  Once a week -- any night Avery is not home, not tied to a fixed weekday -- this
-  same run becomes the mop pass: when the mop pad is attached, the 2-in-1
-  dustbin + water module is seated, the tank has water, and this week's
-  common-area mop hasn't happened yet (input_boolean.vacuum_mop_common_areas_done_this_week),
-  it vacuums and mops all six common-area rooms -- Kitchen, Living room, Pantry,
-  Utility Room, Bathroom, and Entrance -- at high mop intensity. Every room mops
-  unconditionally on mop night, since mop-night eligibility already requires
-  Avery to be away. Household: Vacuum Mop Pad Reminders brackets the night with
-  a prep nudge; Household: Vacuum Master Mop Pass follows up the next morning on
-  the Master bedroom/bathroom. If the pad is not fitted (or the module is out,
-  or the tank is dry) the run silently falls back to the vacuum-only pass -- the
-  week's mop opportunity is lost until the next night Avery is away -- and the
-  push message says which pass ran. Intensity is high; watched against
-  water_shortage per guides/vacuum_cleaning_routine.md.
-
-
-  Marks the evening zone done (input_boolean.vacuum_ran_evening) the moment it
-  commands the job, on either branch. Nothing docks this run mid-way, so there is
-  no partial-completion case worth tracking -- the flag just records that
-  tonight's clean was started, and Vacuum Daily Reset clears it at 8am. It also
-  stops an HA restart (which re-primes the 1-hour sleep timer) from kicking off a
-  second clean overnight. The daytime Remaining Rooms clean lives in
-  automation.household_last_leaves_home and rides the departure trigger; the two
-  zones never reference each other's state. See guides/vacuum_cleaning_routine.md
-  for the full reasoning.
+  Runs both halves of the weekly mop event plus the ordinary nightly
+  common-area pass -- merged into one automation since both halves share the
+  same pad/tank cycle. Tonight's common-area pass: a segment clean of Kitchen,
+  Living room, Pantry, and Utility Room once everyone has been asleep for an
+  hour, at quiet fan speed. Once a week -- any night Avery is away, read from
+  input_boolean.vacuum_avery_home_tonight (latched at 19:55 by Household:
+  Vacuum Mop Pad Reminders so a post-midnight run doesn't read tomorrow's
+  calendar date) rather than the live binary_sensor.avery_home_today -- this
+  becomes the mop pass over all six common-area rooms plus Bathroom and
+  Entrance at high mop intensity, gated on the pad/water-module/tank hardware
+  sensors. A second, restart-recovery trigger re-checks whether tonight's pass
+  was missed (a config reload while everyone_sleeping was already on leaves
+  the state trigger unarmed) -- the vacuum_ran_evening guard makes it a no-op
+  once the pass has actually run. Tomorrow morning's master-suite follow-up:
+  20 seconds after everyone wakes, if last night was a mop night not yet
+  followed up, reuses the still-fitted pad to mop the Master bedroom and
+  Master bathroom, after a 15-minute grace window to refill the tank and
+  clear the floor -- re-checked after the delay (pad, water module, tank,
+  pause, not-mid-job). Marks vacuum_ran_evening on command on the nightly
+  branch (nothing docks that run mid-way) and stamps
+  input_datetime.vacuum_master_mop_last_run on the follow-up's success, which
+  Household: Last Leaves Home reads to drop the master suite from that day's
+  daytime pass. See guides/vacuum_cleaning_routine.md.
 triggers:
   - trigger: state
     entity_id: input_boolean.everyone_sleeping
     to: "on"
     for:
       hours: 1
+    id: bedtime_hold
     alias: Everyone has been asleep for 1 hour
-conditions:
-  - condition: state
-    entity_id: input_boolean.vacuum_ran_evening
-    state: "off"
-    alias: Evening zone has not run today
-  - condition: state
-    entity_id: input_boolean.vacuum_routine_pause
-    state: "off"
-    alias: Vacuum routine is not paused
-  - condition: not
-    conditions:
-      - condition: state
-        entity_id: vacuum.living_room_vacuum
-        state: cleaning
-    alias: Vacuum is not currently cleaning
+  - trigger: homeassistant
+    event: start
+    id: ha_restart_recheck
+    alias: HA started -- re-check whether tonight's pass was missed
+  - trigger: state
+    entity_id: input_boolean.everyone_sleeping
+    from: "on"
+    to: "off"
+    for:
+      seconds: 20
+    id: wake_transition
+    alias: Everyone Sleeping cleared for 20 seconds -- someone is up for the day
+conditions: []
 actions:
-  - alias: Set active zone to evening
-    action: input_select.select_option
-    target:
-      entity_id: input_select.vacuum_active_zone
-    data:
-      option: evening
-  - alias: Set quiet fan speed for evening cleaning
-    action: vacuum.set_fan_speed
-    target:
-      entity_id: vacuum.living_room_vacuum
-    data:
-      fan_speed: quiet
   - choose:
-      - alias: Weekly mop pass -- Avery away today, not yet mopped this week, pad on, water module seated, tank not empty
+      - alias: >-
+          Evening common-area pass -- normal bedtime trigger, or a missed-run
+          recheck after an HA restart
         conditions:
-          - condition: state
-            entity_id: binary_sensor.avery_home_today
-            state: "off"
-            alias: Avery is not home today
-          - condition: state
-            entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
-            state: "off"
-            alias: Common-area mop hasn't run yet this week
-          - condition: state
-            entity_id: binary_sensor.living_room_vacuum_mop_attached
-            state: "on"
-            alias: Mop pad is clipped on
-          - condition: state
-            entity_id: binary_sensor.living_room_vacuum_water_box_attached
-            state: "on"
-            alias: 2-in-1 dustbin + water module is seated
-          - condition: state
-            entity_id: binary_sensor.living_room_vacuum_water_shortage
-            state: "off"
-            alias: Water tank is not empty
+          - condition: or
+            alias: Triggered normally, or HA restarted after sleep had already held for an hour
+            conditions:
+              - condition: trigger
+                id: [bedtime_hold]
+              - condition: and
+                conditions:
+                  - condition: trigger
+                    id: [ha_restart_recheck]
+                  - condition: state
+                    entity_id: input_boolean.everyone_sleeping
+                    state: "on"
+                    for:
+                      hours: 1
         sequence:
-          - alias: Set high mop intensity
-            action: select.select_option
-            target:
-              entity_id: select.living_room_vacuum_mop_intensity
-            data:
-              option: high
-            note: >-
-              Draws more from the 350 ml tank per run than medium. The next
-              morning's Master Mop Pass shares this same fill -- watch
-              binary_sensor.living_room_vacuum_water_shortage across both
-              runs; drop back to medium here if the tank runs dry before the
-              master pass finishes. See guides/vacuum_cleaning_routine.md.
-          - alias: Vacuum and mop in a single pass
-            action: select.select_option
-            target:
-              entity_id: select.living_room_vacuum_cleaning_mode
-            data:
-              option: vac_and_mop
-            note: >-
-              Explicit in case an earlier job left it on vacuum-only; mop_mode is
-              left at its standard default.
-          - alias: Start the vac-and-mop segment clean of all six common-area rooms
-            action: vacuum.send_command
-            target:
-              entity_id: vacuum.living_room_vacuum
-            data:
-              command: app_segment_clean
-              params:
-                - segments: [17, 22, 23, 24, 25, 26]
-                  repeat: 1
-            note: >-
-              Kitchen, Utility Room, Pantry, Living room, Bathroom, Entrance --
-              all six mop unconditionally, since mop-night eligibility already
-              requires Avery to be away. Segment 28 (Stairs) is never included
-              -- fall hazard, also backstopped by the app virtual wall. See
-              LESSONS.md before editing segment IDs.
-          - alias: Mark evening zone ran today
-            action: input_boolean.turn_on
-            target:
-              entity_id: input_boolean.vacuum_ran_evening
-          - alias: Mark common-area mop done this week
-            action: input_boolean.turn_on
-            target:
-              entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
-            note: >-
-              Blocks the mop branch from firing again this week and signals
-              Household: Vacuum Master Mop Pass that last night's common-area
-              mop happened. Cleared weekly by Household: Vacuum Mop Weekly
-              Reset.
-          - alias: Notify that the weekly mop pass started
-            action: notify.send_message
-            target:
-              entity_id: notify.nates_iphone
-            data:
-              title: Vacuum
-              message: Started the weekly mop pass over the common areas, bathroom, and entrance.
-    default:
-      - alias: Build the vacuum segment list -- add the Entrance only when Avery is away
-        variables:
-          vacuum_segments: "{{ [22, 23, 24, 25] + ([17, 26] if is_state('binary_sensor.avery_home_today', 'off') else []) }}"
-        note: >-
-          Bathroom and Entrance both border Avery's room, so both are safe on
-          any night she isn't home, not just mop night. Household: Last Leaves
-          Home and Household: Vacuum Midday Prompt both drop segments 17 and
-          26 from that day's daytime pass whenever this gate adds them here,
-          so neither room is cleaned twice.
-      - alias: Disable mopping for the vacuum-only pass
-        action: select.select_option
-        target:
-          entity_id: select.living_room_vacuum_mop_intensity
-        data:
-          option: "off"
-        note: >-
-          The pad and 350 ml tank are fitted by hand, so ordinary nights are
-          dry-vac only. This dock only empties dust -- it does not wash or dry a
-          pad.
-      - alias: Start segment clean of common areas
-        action: vacuum.send_command
-        target:
-          entity_id: vacuum.living_room_vacuum
-        data:
-          command: app_segment_clean
-          params:
-            - segments: "{{ vacuum_segments }}"
-              repeat: 1
-      - alias: Mark evening zone ran today
-        action: input_boolean.turn_on
-        target:
-          entity_id: input_boolean.vacuum_ran_evening
-        note: >-
-          Set on command, not on verified completion -- nothing docks the evening
-          run mid-way, so there is no partial run to distinguish. Guards against a
-          re-primed sleep timer (HA restart) starting a second clean the same
-          night. Cleared at 8am by Vacuum Daily Reset.
-      - alias: Notify that evening cleaning started
-        action: notify.send_message
-        target:
-          entity_id: notify.nates_iphone
-        data:
-          title: Vacuum
-          message: >-
-            Started cleaning common areas this evening{{ ' plus the entrance
-            and bathroom' if is_state('binary_sensor.avery_home_today', 'off')
-            else '' }}.
+          - alias: Start tonight's pass if the zone hasn't run yet, isn't paused, and the vacuum is free
+            if:
+              - condition: state
+                entity_id: input_boolean.vacuum_ran_evening
+                state: "off"
+                alias: Evening zone has not run today
+              - condition: state
+                entity_id: input_boolean.vacuum_routine_pause
+                state: "off"
+                alias: Vacuum routine is not paused
+              - condition: not
+                conditions:
+                  - condition: state
+                    entity_id: vacuum.living_room_vacuum
+                    state: cleaning
+                alias: Vacuum is not currently cleaning
+            then:
+              - alias: Set active zone to evening
+                action: input_select.select_option
+                target:
+                  entity_id: input_select.vacuum_active_zone
+                data:
+                  option: evening
+              - alias: Set quiet fan speed for evening cleaning
+                action: vacuum.set_fan_speed
+                target:
+                  entity_id: vacuum.living_room_vacuum
+                data:
+                  fan_speed: quiet
+              - choose:
+                  - alias: >-
+                      Weekly mop pass -- Avery away tonight, not yet mopped
+                      this week, pad on, water module seated, tank not empty
+                    conditions:
+                      - condition: state
+                        entity_id: input_boolean.vacuum_avery_home_tonight
+                        state: "off"
+                        alias: Avery is not home tonight
+                      - condition: state
+                        entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
+                        state: "off"
+                        alias: Common-area mop hasn't run yet this week
+                      - condition: state
+                        entity_id: binary_sensor.living_room_vacuum_mop_attached
+                        state: "on"
+                        alias: Mop pad is clipped on
+                      - condition: state
+                        entity_id: binary_sensor.living_room_vacuum_water_box_attached
+                        state: "on"
+                        alias: 2-in-1 dustbin + water module is seated
+                      - condition: state
+                        entity_id: binary_sensor.living_room_vacuum_water_shortage
+                        state: "off"
+                        alias: Water tank is not empty
+                    sequence:
+                      - alias: Set high mop intensity
+                        action: select.select_option
+                        target:
+                          entity_id: select.living_room_vacuum_mop_intensity
+                        data:
+                          option: high
+                        note: >-
+                          Draws more from the 350 ml tank per run than medium.
+                          The next morning's master-suite follow-up shares
+                          this same fill -- watch
+                          binary_sensor.living_room_vacuum_water_shortage
+                          across both runs; drop back to medium here if the
+                          tank runs dry before the follow-up finishes. See
+                          guides/vacuum_cleaning_routine.md.
+                      - alias: Vacuum and mop in a single pass
+                        action: select.select_option
+                        target:
+                          entity_id: select.living_room_vacuum_cleaning_mode
+                        data:
+                          option: vac_and_mop
+                        note: >-
+                          Explicit in case an earlier job left it on
+                          vacuum-only; mop_mode is left at its standard
+                          default.
+                      - alias: Start the vac-and-mop segment clean of all six common-area rooms
+                        action: vacuum.send_command
+                        target:
+                          entity_id: vacuum.living_room_vacuum
+                        data:
+                          command: app_segment_clean
+                          params:
+                            - segments: [17, 22, 23, 24, 25, 26]
+                              repeat: 1
+                        note: >-
+                          Kitchen, Utility Room, Pantry, Living room,
+                          Bathroom, Entrance -- all six mop unconditionally,
+                          since mop-night eligibility already requires Avery
+                          to be away. Segment 28 (Stairs) is never included --
+                          fall hazard, also backstopped by the app virtual
+                          wall. See LESSONS.md before editing segment IDs.
+                      - alias: Mark evening zone ran today
+                        action: input_boolean.turn_on
+                        target:
+                          entity_id: input_boolean.vacuum_ran_evening
+                      - alias: Mark common-area mop done this week
+                        action: input_boolean.turn_on
+                        target:
+                          entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
+                        note: >-
+                          Blocks the mop branch from firing again this week
+                          and signals this automation's morning follow-up
+                          branch that last night's common-area mop happened.
+                          Cleared weekly by Household: Vacuum Reset.
+                      - alias: Notify that the weekly mop pass started
+                        action: notify.send_message
+                        target:
+                          entity_id: notify.nates_iphone
+                        data:
+                          title: Vacuum
+                          message: Started the weekly mop pass over the common areas, bathroom, and entrance.
+                default:
+                  - alias: Build the vacuum segment list -- add the Entrance only when Avery is away tonight
+                    variables:
+                      vacuum_segments: "{{ [22, 23, 24, 25] + ([17, 26] if is_state('input_boolean.vacuum_avery_home_tonight', 'off') else []) }}"
+                    note: >-
+                      Bathroom and Entrance both border Avery's room, so both
+                      are safe on any night she isn't home, not just mop
+                      night. Household: Last Leaves Home and Household:
+                      Vacuum Midday Prompt both drop segments 17 and 26 from
+                      that day's daytime pass whenever this gate adds them
+                      here, so neither room is cleaned twice.
+                  - alias: Disable mopping for the vacuum-only pass
+                    action: select.select_option
+                    target:
+                      entity_id: select.living_room_vacuum_mop_intensity
+                    data:
+                      option: "off"
+                    note: >-
+                      The pad and 350 ml tank are fitted by hand, so ordinary
+                      nights are dry-vac only. This dock only empties dust --
+                      it does not wash or dry a pad.
+                  - alias: Start segment clean of common areas
+                    action: vacuum.send_command
+                    target:
+                      entity_id: vacuum.living_room_vacuum
+                    data:
+                      command: app_segment_clean
+                      params:
+                        - segments: "{{ vacuum_segments }}"
+                          repeat: 1
+                  - alias: Mark evening zone ran today
+                    action: input_boolean.turn_on
+                    target:
+                      entity_id: input_boolean.vacuum_ran_evening
+                    note: >-
+                      Set on command, not on verified completion -- nothing
+                      docks the evening run mid-way, so there is no partial
+                      run to distinguish. Guards against a missed run being
+                      retried twice. Cleared at 8am by Household: Vacuum
+                      Reset.
+                  - alias: Notify that evening cleaning started
+                    action: notify.send_message
+                    target:
+                      entity_id: notify.nates_iphone
+                    data:
+                      title: Vacuum
+                      message: >-
+                        Started cleaning common areas this evening{{ ' plus
+                        the entrance and bathroom' if
+                        is_state('input_boolean.vacuum_avery_home_tonight',
+                        'off') else '' }}.
+      - alias: Master suite mop follow-up -- next morning after a mop night
+        conditions:
+          - condition: trigger
+            id: [wake_transition]
+        sequence:
+          - alias: Proceed only if last night's mop happened and this week's follow-up hasn't
+            if:
+              - condition: state
+                entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
+                state: "on"
+                alias: This week's common-area mop pass already ran
+              - condition: state
+                entity_id: input_boolean.vacuum_mop_master_suite_done_this_week
+                state: "off"
+                alias: This week's master suite mop hasn't run yet
+              - condition: state
+                entity_id: binary_sensor.living_room_vacuum_mop_attached
+                state: "on"
+                alias: Mop pad is still attached from last night
+              - condition: state
+                entity_id: binary_sensor.living_room_vacuum_water_box_attached
+                state: "on"
+                alias: 2-in-1 dustbin + water module is seated
+              - condition: state
+                entity_id: binary_sensor.living_room_vacuum_water_shortage
+                state: "off"
+                alias: Water tank is not empty
+              - condition: state
+                entity_id: input_boolean.vacuum_routine_pause
+                state: "off"
+                alias: Vacuum routine is not paused
+              - condition: state
+                entity_id: binary_sensor.living_room_vacuum_cleaning
+                state: "off"
+                alias: Vacuum is not currently mid-job
+            then:
+              - alias: Announce the master mop pass is coming
+                action: script.household_tts_announce
+                data:
+                  message: >-
+                    Refill the robot's water tank. The master bedroom and
+                    master bathroom will be mopped in 15 minutes -- pick
+                    anything up off the floor.
+                  target: master_bedroom
+                  notification_title: Vacuum Master Mop
+                  critical_fallback: false
+              - alias: Wait 15 minutes for the water tank to be refilled and the floor cleared
+                delay:
+                  minutes: 15
+              - alias: Start the follow-up if the pad, water module, tank, and pause state still allow it
+                if:
+                  - condition: state
+                    entity_id: binary_sensor.living_room_vacuum_mop_attached
+                    state: "on"
+                    alias: Mop pad is still attached
+                  - condition: state
+                    entity_id: binary_sensor.living_room_vacuum_water_box_attached
+                    state: "on"
+                    alias: Water module is still seated
+                  - condition: state
+                    entity_id: binary_sensor.living_room_vacuum_water_shortage
+                    state: "off"
+                    alias: Water tank is still not empty
+                  - condition: state
+                    entity_id: input_boolean.vacuum_routine_pause
+                    state: "off"
+                    alias: Vacuum routine is still not paused
+                  - condition: state
+                    entity_id: binary_sensor.living_room_vacuum_cleaning
+                    state: "off"
+                    alias: Vacuum still is not mid-job
+                then:
+                  - alias: Set active zone to master_mop
+                    action: input_select.select_option
+                    target:
+                      entity_id: input_select.vacuum_active_zone
+                    data:
+                      option: master_mop
+                  - alias: Set balanced fan speed
+                    action: vacuum.set_fan_speed
+                    target:
+                      entity_id: vacuum.living_room_vacuum
+                    data:
+                      fan_speed: balanced
+                    note: >-
+                      Both rooms are hard floor and the house is awake -- max
+                      fan (daytime pass) is unnecessary noise here.
+                  - alias: Set high mop intensity
+                    action: select.select_option
+                    target:
+                      entity_id: select.living_room_vacuum_mop_intensity
+                    data:
+                      option: high
+                    note: >-
+                      Only two small segments -- the tank margin comes from
+                      the prior night's intensity, not from a refill here.
+                      Unverified until watched on a live run; watch
+                      water_shortage.
+                  - alias: Vacuum and mop in a single pass
+                    action: select.select_option
+                    target:
+                      entity_id: select.living_room_vacuum_cleaning_mode
+                    data:
+                      option: vac_and_mop
+                  - alias: Start the segment clean of the master bedroom and bathroom
+                    action: vacuum.send_command
+                    target:
+                      entity_id: vacuum.living_room_vacuum
+                    data:
+                      command: app_segment_clean
+                      params:
+                        - segments: [19, 21]
+                          repeat: 1
+                    note: >-
+                      Segment 20 (Master closet, carpeted) is deliberately
+                      excluded. Segment 28 (Stairs) never appears in this
+                      routine -- fall hazard, backstopped by an app virtual
+                      wall.
+                  - alias: Mark master suite mop done this week
+                    action: input_boolean.turn_on
+                    target:
+                      entity_id: input_boolean.vacuum_mop_master_suite_done_this_week
+                  - alias: Stamp today as the master suite's last mop date
+                    action: input_datetime.set_datetime
+                    target:
+                      entity_id: input_datetime.vacuum_master_mop_last_run
+                    data:
+                      date: "{{ now().strftime('%Y-%m-%d') }}"
+                    note: >-
+                      Read by Household: Last Leaves Home to drop the master
+                      suite from today's daytime pass -- a date compare
+                      rather than input_select.vacuum_active_zone, which gets
+                      overwritten by the very next job and is unreliable
+                      across an arrival-interrupted daytime run.
+                  - alias: Notify that the master mop pass started
+                    action: notify.send_message
+                    target:
+                      entity_id: notify.nates_iphone
+                    data:
+                      title: Vacuum
+                      message: Started the master bedroom mop pass.
+                else:
+                  - alias: Tell Nate the master mop pass was skipped, and why
+                    action: notify.send_message
+                    target:
+                      entity_id: notify.nates_iphone
+                    data:
+                      title: Vacuum
+                      message: >-
+                        Master mop pass skipped -- {{ 'the mop pad came off'
+                        if is_state('binary_sensor.living_room_vacuum_mop_attached',
+                        'off') else ("the water module isn't seated" if
+                        is_state('binary_sensor.living_room_vacuum_water_box_attached',
+                        'off') else ('the water tank is empty' if
+                        is_state('binary_sensor.living_room_vacuum_water_shortage',
+                        'on') else ('the routine is paused' if
+                        is_state('input_boolean.vacuum_routine_pause', 'on')
+                        else 'the vacuum is already mid-job'))) }}.
 mode: single
 category: 01M0XF7RJK5EX3A4YPNEX7X3DG

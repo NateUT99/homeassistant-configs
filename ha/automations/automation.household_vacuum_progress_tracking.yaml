@@ -1,0 +1,67 @@
+id: "1789523164009"
+alias: "Household: Vacuum Progress Tracking"
+description: >-
+  Tracks and consumes the daytime zone's cleaning progress -- merged from two
+  automations that were tightly coupled (one wrote the number, the other read
+  it). Tracks the highest progress percentage the daytime zone has reached
+  today: a commanded dock (someone arriving home mid-run) resets live
+  progress to 0, but this running maximum survives, so "best coverage
+  achieved today" stays knowable after an interruption. When the vacuum
+  starts returning to dock, marks vacuum_ran_daytime on if that maximum
+  cleared 65% -- the threshold sits below 100 because several daytime rooms
+  have doors that may be closed, capping achievable progress in a way
+  retrying won't fix; progress is area-weighted, so a closed small room
+  costs only a few points. Both halves are gated on
+  input_select.vacuum_active_zone = daytime so an evening clean, the master
+  mop follow-up, or a manually started job can't attribute progress to the
+  daytime zone. See guides/vacuum_cleaning_routine.md.
+triggers:
+  - trigger: state
+    entity_id: sensor.living_room_vacuum_cleaning_progress
+    id: progress_tick
+    alias: Cleaning progress updated
+  - trigger: state
+    entity_id: vacuum.living_room_vacuum
+    to: returning
+    id: returning
+    alias: Vacuum starts returning to dock
+conditions:
+  - condition: state
+    entity_id: input_select.vacuum_active_zone
+    state: daytime
+    alias: Daytime zone commanded the current job
+actions:
+  - choose:
+      - alias: Progress tick -- update the stored max if live progress beats it
+        conditions:
+          - condition: trigger
+            id: [progress_tick]
+            alias: Triggered by a progress update
+          - condition: numeric_state
+            entity_id: sensor.living_room_vacuum_cleaning_progress
+            above: input_number.vacuum_daytime_max_progress
+            alias: Live progress beats the stored daytime max
+        sequence:
+          - alias: Update stored daytime max progress
+            action: input_number.set_value
+            target:
+              entity_id: input_number.vacuum_daytime_max_progress
+            data:
+              value: "{{ states('sensor.living_room_vacuum_cleaning_progress') | float(0) }}"
+      - alias: Returning to dock -- mark the daytime zone done if its max cleared 65%
+        conditions:
+          - condition: trigger
+            id: [returning]
+            alias: Triggered by the vacuum returning to dock
+          - condition: numeric_state
+            entity_id: input_number.vacuum_daytime_max_progress
+            above: 65
+            alias: Daytime max progress cleared 65%
+        sequence:
+          - alias: Mark daytime zone ran today
+            action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.vacuum_ran_daytime
+mode: queued
+max: 10
+category: 01M0SZBV5BGDGY2BQ2GBB5NA4C

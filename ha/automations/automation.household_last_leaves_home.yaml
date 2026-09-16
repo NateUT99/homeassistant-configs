@@ -123,20 +123,23 @@ actions:
         alias: Mop pad is not attached -- a wet pad must not run the carpeted daytime rooms
     then:
       - alias: >-
-          Build the daytime segment list -- drop the master suite if this
-          week's master mop pass already covered it, and drop the Bathroom
-          and Entrance when Avery is away
+          Build the daytime segment list -- drop the master suite if today's
+          morning follow-up already covered it, and drop the Bathroom and
+          Entrance when Avery is away
         variables:
           daytime_segments: >-
             {{ ([16, 18, 20] if
-            is_state('input_select.vacuum_active_zone', 'master_mop') else
-            [16, 18, 19, 20, 21]) + ([17, 26] if
-            is_state('binary_sensor.avery_home_today', 'on') else []) }}
+            states('input_datetime.vacuum_master_mop_last_run') ==
+            now().strftime('%Y-%m-%d') else [16, 18, 19, 20, 21]) + ([17, 26]
+            if is_state('binary_sensor.avery_home_today', 'on') else []) }}
         note: >-
-          Reads active_zone before the next step overwrites it -- variables
-          render top-to-bottom, so this must stay ahead of the daytime
-          select. Segments 19/21 (Master bedroom/bathroom) drop out on a
-          Thursday whose morning master mop pass already ran; 20 (Master
+          Compares input_datetime.vacuum_master_mop_last_run against today's
+          date rather than reading input_select.vacuum_active_zone -- that
+          select gets overwritten by the very next job commanded (including
+          this automation's own next step), so it can't reliably answer "did
+          the master suite get mopped today" once a second job has started.
+          Segments 19/21 (Master bedroom/bathroom) drop out on any day whose
+          morning follow-up already ran, whatever the weekday; 20 (Master
           closet) always stays, it's carpeted and outside the mop pass.
           Segments 17 (Bathroom) and 26 (Entrance) only stay in this list
           when Avery is home -- both sit within earshot of the bedroom
@@ -155,12 +158,17 @@ actions:
           entity_id: vacuum.living_room_vacuum
         data:
           fan_speed: max
-      - alias: Set medium mop intensity
+      - alias: Disable mopping for the daytime pass
         action: select.select_option
         target:
           entity_id: select.living_room_vacuum_mop_intensity
         data:
-          option: medium
+          option: "off"
+        note: >-
+          This pass requires the pad to already be off (see the mop-attached
+          condition above), so this is defense in depth, not a live setting --
+          matches the evening vacuum-only branch and the whole-house pass,
+          both dry-vac only for the same reason.
       - alias: Start segment clean of remaining rooms
         action: vacuum.send_command
         target:

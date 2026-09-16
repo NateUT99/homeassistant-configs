@@ -656,6 +656,16 @@ Caught 2026-08-29: `binary_sensor.avery_home_today` used exactly this pattern an
 
 This is a template-helper gotcha, not an automation-YAML one — it will not surface as a load-time or trace error. The automation traces cleanly every time; the condition just never evaluates the way its name implies. If a presence-style binary sensor derived from a calendar has held one value for suspiciously long, check whether the calendar has continuous coverage before assuming the sensor is fine.
 
+### All-day calendar events flip their derived sensor at `00:00:00` — a trap for anything that can run past midnight
+
+`binary_sensor.avery_home_today` (see the entry above) is built from an all-day `calendar.avery` event, and all-day events in HA are `date`-scoped, not `dateTime`-scoped. That means the sensor's underlying event boundary — and therefore the sensor itself — transitions at exactly midnight local time, confirmed in history to the millisecond (`2026-09-09T00:00:00.004`, `2026-09-14T00:00:00.004`).
+
+Any automation whose trigger can fire after midnight but is reasoning about "today" in the sense of "the day that already started" (a bedtime routine, an overnight process) will read the *wrong* day's value if it reads the sensor live. `automation.household_vacuum_evening_cleaning` fires roughly an hour after bedtime and landed after midnight on 3 of its last 5 runs — enough for the sensor to have already rolled over to tomorrow's answer while the run still belongs to tonight.
+
+**Fix:** don't read the raw sensor from an automation that can run past midnight. Latch the value earlier in the evening, before the date can roll over, into a plain `input_boolean`, and have the late-running automation read the latch instead of the live sensor. `automation.household_vacuum_mop_pad_reminders` re-snapshots `input_boolean.vacuum_avery_home_tonight` from the live sensor on every 30-minute tick between 19:55 and 23:59 — recurring rather than a single fixed-time trigger, so it self-heals if an HA restart lands on any one tick — and stops re-snapshotting once that window closes, so the value holds steady through the night. See `guides/vacuum_cleaning_routine.md`.
+
+This generalizes beyond this one sensor: any `date`-scoped calendar-derived value is a midnight trap for whatever consumes it after midnight, not just this household's custody schedule.
+
 ---
 
 ## Matter & HomeKit
