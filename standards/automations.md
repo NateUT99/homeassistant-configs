@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.18 — September 2026*
+*Version 1.19 — September 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.19 | September 2026 | Added a §5.11 exception: skip the semantic trigger/condition form when the entity's device class misdescribes what the sensor means (Roborock's `mop_attached`/`water_box_attached` reporting as `connectivity`, `water_shortage` as `problem`) — the raw `state` form plus an accurate `alias` reads better than encoding a misleading classification into the trace view |
 | 1.18 | September 2026 | Resolved a §4.1/§4.2 contradiction: integration-scoped entity IDs now use the integration name slugified (`adaptive_lighting`), not a hand-chosen "short code" (`al`), so the §4.2 slug-match check holds for integration scope like it does for area and household scope. Fixed the stale `al_pre_stage_standard` example and the `Adaptive Lighting: Pre-Stage Standard & Color Only` worked example |
 | 1.17 | September 2026 | Added `int_inovelli_led_bar` (LED Bar) to the §3.2 integration labels table, and a note that a guide may house more than one labelled pattern — `guides/inovelli_switches.md` now covers both the shared LED-bar pattern and the Ceiling Fan Canopy device pattern built on it |
 | 1.16 | September 2026 | Synced the §3.2 integration labels table — added `int_laundry` (Laundry), `int_vacuum_cleaning_routine` (Vacuum), and `int_inovelli_fan_canopy` (Ceiling Fan), which existed in HA but had drifted out of the table. Friendly names for the latter two are deliberately shortened from their guide names |
@@ -414,6 +415,15 @@ HA 2026.x provides semantic trigger and condition platforms for common device cl
 ```
 
 Semantic triggers still take `alias` and `note` per §5.3 — the semantic form changes the trigger platform, not the documentation requirements.
+
+**Exception — device classes that misdescribe the entity.** Skip the semantic form when the
+integration's assigned device class doesn't describe what the sensor actually means, even
+though HA offers a matching semantic trigger/condition for that class. The Roborock
+integration's `binary_sensor.<vacuum>_mop_attached` and `_water_box_attached` report as device
+class `connectivity`; `_water_shortage` reports as `problem`. A `connectivity.disconnected`
+condition targeting `mop_attached` would encode that misleading classification straight into
+the trace view. Use the raw `state` form instead and let the `alias` carry the real meaning —
+see `automation.household_vacuum_midday_prompt` for the pattern.
 
 ### 5.12 Confirmed Arrival
 

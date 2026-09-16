@@ -187,10 +187,9 @@ minute changed, which is exactly the update-budget rule this framework exists to
 `automation.household_vacuum_live_activity` — Routines category, no area (household-scoped),
 labels `int_vacuum_cleaning_routine` + `notification` + `live_activity` + `scope_multi_area`,
 `mode: queued`. Tag `household-vacuum`, icon `mdi:robot-vacuum`. Deliberately **not** folded into
-any of `guides/vacuum_cleaning_routine.md`'s five job-start paths (evening, daytime, midday
-prompt, away catch-up, master mop) — it watches the robot's own domain entity
-(`vacuum.living_room_vacuum`) and the shared error sensor, so all five are covered by one artifact
-with nothing to keep in sync as that routine evolves.
+any of `guides/vacuum_cleaning_routine.md`'s job-start automations — it watches the robot's own
+domain entity (`vacuum.living_room_vacuum`) and the shared error sensor, so every job is covered
+by one artifact with nothing to keep in sync as that routine's automation count or shape changes.
 
 | Live state | Card |
 |---|---|
@@ -327,7 +326,7 @@ in this pass.
   script, not the underlying service" rule
 - `guides/laundry_automation.md` — the ThinQ entity set and retrieval `input_select` state
   machine the washer/dryer consumers read
-- `guides/vacuum_cleaning_routine.md` — the five job-start paths and the zone/error sensors the
+- `guides/vacuum_cleaning_routine.md` — the job-start automations and the zone/error sensors the
   vacuum consumer reads
 - `guides/mobile_dashboard.md` — future home of the `#laundry` pop-up and the existing `#vacuum`
   pop-up, once tap targets move off the default dashboard

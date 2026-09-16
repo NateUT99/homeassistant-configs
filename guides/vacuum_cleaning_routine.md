@@ -235,10 +235,8 @@ is no wash/dry cycle to worry about.
 
 The intensity here and [the master-suite follow-up](#master-suite-follow-up-the-next-morning)'s
 own intensity both draw on the same 350 ml fill, and there is no fill-level sensor — only the
-binary `water_shortage` flag. A run at `medium` here plus a `high` follow-on both cleared
-without tripping it in one test, so this is now `high` on both to see whether one fill still
-covers both; watch `water_shortage` across the full cycle and drop back to `medium` here if the
-tank runs dry before the follow-up finishes.
+binary `water_shortage` flag. Both are set to `high`; watch `water_shortage` across the full
+cycle and drop back to `medium` here if the tank runs dry before the follow-up finishes.
 
 **Why weekly, not more often.** Robot mopping is maintenance-level: it keeps a film from
 building on hard floor, it does not replace an occasional real mop. Weekly is also the most
