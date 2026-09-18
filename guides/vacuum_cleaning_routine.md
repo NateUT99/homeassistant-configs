@@ -100,8 +100,8 @@ completion — see `LESSONS.md` → *Vacuum & Roborock*.
 
 The helpers, `active_zone` values, and automation aliases use time-of-day naming — **evening**
 = the rooms that clean well at quiet fan speed and sit clear of the bedroom hall (Kitchen,
-Living room, Pantry, Utility Room), **daytime** = the rest (Bedroom, Bathroom, Office, Master
-bedroom, Master Bathroom, Master Closet, Entrance). The Bathroom and Entrance are the exception
+Living Room, Pantry, Utility Room), **daytime** = the rest (Bedroom, Bathroom, Office, Master
+Bedroom, Master Bathroom, Master Closet, Entrance). The Bathroom and Entrance are the exception
 to a fixed zone assignment — both belong to daytime by default but join evening's segment list
 instead on a night Avery is away, so the same two rooms are never wet-mopped and then
 dry-vacuumed (or vice versa) the same vacuum-day. Which physical rooms each zone covers lives in
@@ -129,9 +129,9 @@ Room segment IDs are read from the Roborock app's map, not derived from anything
 
 | Zone | Rooms (in segment-ID order) | Segment IDs |
 |---|---|---|
-| Evening (common areas) | Kitchen (absorbed the former Dining room), Utility Room, Pantry, Living room, + Bathroom (17) and Entrance (26) on a night Avery is away | 22, 23, 24, 25, [17, 26] |
-| Daytime (remaining rooms) | Bedroom, Office, Master bedroom, Master closet, Master Bathroom, + Bathroom (17) and Entrance (26) on a day Avery is home | 16, 18, 19, 20, 21, [17, 26] |
-| Master suite follow-up (morning after mop night, subset of daytime) | Master bedroom, Master Bathroom | 19, 21 |
+| Evening (common areas) | Kitchen (absorbed the former Dining room), Utility Room, Pantry, Living Room, + Bathroom (17) and Entrance (26) on a night Avery is away | 22, 23, 24, 25, [17, 26] |
+| Daytime (remaining rooms) | Bedroom, Office, Master Bedroom, Master Closet, Master Bathroom, + Bathroom (17) and Entrance (26) on a day Avery is home | 16, 18, 19, 20, 21, [17, 26] |
+| Master suite follow-up (morning after mop night, subset of daytime) | Master Bedroom, Master Bathroom | 19, 21 |
 | Whole-house (Midday Prompt's daily backstop) | Entire map, no segment list | — |
 
 The Bathroom (17) and Entrance (26) are never in both lists on the same vacuum-day: the
@@ -142,7 +142,7 @@ before the date can roll over), and the evening side reads the 19:55-latched
 
 The master-suite follow-up is not a fourth physical zone — it is two daytime-zone rooms (both
 hard floor) that get mopped the morning after mop night while the pad is still fitted, then
-dropped from that same day's daytime pass so they aren't cleaned twice. Master closet (20)
+dropped from that same day's daytime pass so they aren't cleaned twice. Master Closet (20)
 stays daytime-only; it's carpeted, so a wet pad can never touch it. Which day counts as "today"
 for that drop is a date compare against `input_datetime.vacuum_master_mop_last_run`, not the
 `active_zone` helper — see [Step 2](#2-create-the-helpers).
@@ -195,7 +195,7 @@ YAML alone:
 - **Vacuum Evening Cleaning owns both halves of the weekly mop event: a nightly branch (common-area pass, sometimes the mop) and a morning branch (the master-suite follow-up).** Both live in one automation with two independently-triggered branches, since they share the same pad/tank cycle and nothing else. A `choose` keyed on trigger id keeps the two branches' conditions from leaking into each other.
 - **A restart-recovery trigger backstops the nightly branch** against a state trigger left unarmed by a reload — see that trigger's own `note` in the live YAML for the mechanism.
 - **The evening trigger is just "everyone's been asleep for 1 hour," with no clock-time window.** `everyone_sleeping` is only ever used at actual bedtime, never naps, so a time window would only risk blocking a genuinely early or late bedtime.
-- **The nightly branch's four fixed segments have no presence gate.** Kitchen, Living room, Pantry, and Utility Room are on hard flooring that cleans well at quiet fan speed and sits clear of the bedroom hall, so those four run every night regardless of who is home. The Bathroom and Entrance are the two segments gated on presence: the daytime side reads `binary_sensor.avery_home_today` directly (always evaluated during the day), the nightly side reads `input_boolean.vacuum_avery_home_tonight` (latched before the date can roll over) — landing in exactly one list per vacuum-day either way.
+- **The nightly branch's four fixed segments have no presence gate.** Kitchen, Living Room, Pantry, and Utility Room are on hard flooring that cleans well at quiet fan speed and sits clear of the bedroom hall, so those four run every night regardless of who is home. The Bathroom and Entrance are the two segments gated on presence: the daytime side reads `binary_sensor.avery_home_today` directly (always evaluated during the day), the nightly side reads `input_boolean.vacuum_avery_home_tonight` (latched before the date can roll over) — landing in exactly one list per vacuum-day either way.
 - **Vacuum Midday Prompt fires daily at noon whenever the house is empty and the daytime zone hasn't run — one check that covers both a missed departure edge and an absence of any length.** A departure before 08:00 or in the 08:00-09:00 window falls outside *Last Leaves Home*'s block, and nothing else ever clears `vacuum_ran_daytime` except a real clean, so the same noon check catches both. It runs a whole-house `vacuum.start` (see that action's own `note` for the docked/segment-list caveats) rather than a segmented daytime-only clean, since the check can't tell a brief gap from a multi-day absence apart.
 - **Vacuum Progress Tracking and Vacuum Reset each combine two automations' worth of tightly-coupled or same-signal work into one entity.** Progress Tracking combines what writes the daytime max-progress number with what reads it to mark the zone done; Reset combines the daily 08:00 flag-clear with the Monday-only weekly mop-flag clear, since both fire at the identical boundary for the identical reason (a run landing just after midnight must still see yesterday's/last week's flags as done).
 - **The master-suite follow-up's segment-list read happens before the next daytime pass overwrites the signal it depends on.** *Household: Last Leaves Home* builds `daytime_segments` from `input_datetime.vacuum_master_mop_last_run` compared against today's date, immediately before setting `active_zone` to `daytime` — the date helper isn't touched by that write, so ordering no longer matters the way it did under the old `active_zone`-based check.
@@ -223,7 +223,7 @@ prep landed. On the Q8 Max the dust bin and water tank are one combined module a
 integration exposes no dedicated "dust bin installed" sensor, so `water_box_attached` doubles
 as the check that the rear cavity is occupied.
 
-**Rooms.** Segments `[17, 22, 23, 24, 25, 26]` — Kitchen, Utility Room, Pantry, Living room,
+**Rooms.** Segments `[17, 22, 23, 24, 25, 26]` — Kitchen, Utility Room, Pantry, Living Room,
 Bathroom, and Entrance — all six, unconditionally. Unlike the vacuum-only branch (which shifts
 the Bathroom and Entrance between zones based on `vacuum_avery_home_tonight`), the mop branch
 needs no such gate: mop-night eligibility already requires Avery to be away, so all six rooms
@@ -263,7 +263,7 @@ it forces mop intensity `off` on the default branch and covers hard floor only.
 ### Master suite follow-up (the next morning)
 
 *Household: Vacuum Evening Cleaning*'s morning branch reuses the pad and water still fitted
-from mop night to mop the Master bedroom and Master Bathroom (segments 19, 21) before the pad
+from mop night to mop the Master Bedroom and Master Bathroom (segments 19, 21) before the pad
 comes off for the day. It triggers 20 seconds after `everyone_sleeping` goes `off` —
 day-agnostic, since it gates on `input_boolean.vacuum_mop_common_areas_done_this_week` being
 `on` (last night's common-area mop actually happened) and
@@ -274,7 +274,7 @@ and not-mid-job guards. It announces a 15-minute grace window on the master bedr
 asking both to refill the water tank and to clear the floor, since this is the only branch in
 the routine that starts while people are awake — then re-checks pad, water module, and water
 state (not just before the delay, since fifteen minutes is enough time for someone to pull the
-pad off) and starts a segment clean at `fan: balanced` / `mop: high`. Master closet (segment
+pad off) and starts a segment clean at `fan: balanced` / `mop: high`. Master Closet (segment
 20) is never included — it's carpeted.
 
 The branch sets `input_select.vacuum_active_zone` to `master_mop` and turns on
