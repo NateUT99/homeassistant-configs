@@ -2,7 +2,7 @@ id: '1787440235668'
 alias: 'Utility Room: Ceiling Lights'
 description: Turns the utility room ceiling lights on to 90% when the door opens
   or motion resumes, and off when the door closes with no motion, motion clears
-  with the door already closed, or the door is left open with no motion for 2 minutes.
+  with the door already closed, or the door is left open with no motion for 1 minute.
 triggers:
 - trigger: door.opened
   target:
@@ -24,11 +24,11 @@ triggers:
   target:
     entity_id: binary_sensor.utility_room_motion_sensor_occupancy
   id: door_open_timeout
-  note: Safety net for a door left open with nobody in the room -- fires after 2
-    continuous minutes of no motion; resets automatically if motion resumes.
+  note: Safety net for a door left open with nobody in the room -- fires after 1
+    continuous minute of no motion; resets automatically if motion resumes.
   options:
     for:
-      minutes: 2
+      minutes: 1
 - trigger: occupancy.detected
   target:
     entity_id: binary_sensor.utility_room_motion_sensor_occupancy
@@ -85,7 +85,7 @@ actions:
       target:
         entity_id: light.utility_room_ceiling_lights
       alias: Turn off ceiling lights
-    alias: Door left open, no motion for 2 minutes
+    alias: Door left open, no motion for 1 minute
   alias: Route on door/motion state
 mode: restart
 category: 01M08MMBZ719V4GZ2FT10RPTJ2
