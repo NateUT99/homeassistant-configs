@@ -118,7 +118,7 @@ sequence:
               message: "{{ message }}"
               chime_path: soft
               tts_platform: cloud
-              volume_level: 0.65
+              volume_level: 0.6
               cache: true
               announce: true
       - alias: "Target: master bedroom"
