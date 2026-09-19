@@ -2,9 +2,20 @@ id: "1789261062600"
 alias: "Living Room: TV Accent Controller"
 description: >-
   Sole owner of `light.living_room_tv_accent` during TV sessions. Maintains
-  the invariant: accent light is ON only when the TV is on AND the room is
-  dim (per `sensor.living_room_mantle_status_light_illuminance`).
+  the invariant: accent light is ON only when the AppleTV is on AND the
+  room is dim (per `sensor.living_room_mantle_status_light_illuminance`).
 
+
+  - Targets `media_player.living_room_appletv` rather than
+  `media_player.living_room_tv`: the AppleTV is the sole source connected
+  to the TV, and its state reporting is far more reliable than the LG
+  WebOS integration's assumed-state, flaky on/off detection (a missed
+  off-transition on the LG entity previously left this light stuck on).
+
+  - "AppleTV is on" means anything other than `off`/`unavailable` (covers
+  `playing`, `paused`, `idle`, and any transient state like `unknown`
+  during app switches) rather than enumerating specific on-states, so it
+  stays correct if the integration reports a new substate later.
 
   - Dual-threshold hysteresis prevents flapping near a single cutoff: room
   counts as "dim" below 25 lux, "lit" above 35 lux. Between 25–35 lux the
@@ -15,27 +26,31 @@ description: >-
 
   - No Hue Sync Box in this setup (static gradient lightstrip, not
   content-synced) — nothing else contends for control of the strip, so the
-  invariant depends only on TV state and room brightness.
+  invariant depends only on AppleTV state and room brightness.
 
   - Accent settings are inlined here: 30% brightness, 6500K (D65 reference
   white to match video color grading), with a 2-second fade in/out.
 
 
-  Off-TV protection (catching manual turn-ons while the TV is off) is
+  Off-TV protection (catching manual turn-ons while the AppleTV is off) is
   handled by a separate automation — `automation.living_room_tv_accent_off_tv_guard`
   — to avoid a feedback loop where the light's own state change re-triggers
   this controller.
 triggers:
-  - alias: TV turned off
+  - alias: AppleTV turned off or became unavailable
     id: tv_off
     trigger: state
-    entity_id: media_player.living_room_tv
-    from: "on"
-  - alias: TV turned on
+    entity_id: media_player.living_room_appletv
+    to:
+      - "off"
+      - unavailable
+  - alias: AppleTV turned on from off or unavailable
     id: tv_on
     trigger: state
-    entity_id: media_player.living_room_tv
-    to: "on"
+    entity_id: media_player.living_room_appletv
+    from:
+      - "off"
+      - unavailable
   - alias: Room became dim (below 25 lux)
     id: room_dim
     trigger: numeric_state
@@ -50,12 +65,16 @@ conditions: []
 actions:
   - alias: Determine accent light state
     choose:
-      - alias: "Accent should be ON (TV on, room dim)"
+      - alias: "Accent should be ON (AppleTV on, room dim)"
         conditions:
-          - alias: TV is on
-            condition: state
-            entity_id: media_player.living_room_tv
-            state: "on"
+          - alias: AppleTV is on
+            condition: not
+            conditions:
+              - condition: state
+                entity_id: media_player.living_room_appletv
+                state:
+                  - "off"
+                  - unavailable
           - alias: Room is dim (below 25 lux)
             condition: numeric_state
             entity_id: sensor.living_room_mantle_status_light_illuminance
@@ -71,10 +90,14 @@ actions:
               transition: 2
       - alias: "Accent stays ON in deadband (already on, illuminance between 25 and 35)"
         conditions:
-          - alias: TV is on
-            condition: state
-            entity_id: media_player.living_room_tv
-            state: "on"
+          - alias: AppleTV is on
+            condition: not
+            conditions:
+              - condition: state
+                entity_id: media_player.living_room_appletv
+                state:
+                  - "off"
+                  - unavailable
           - alias: Accent light is already on
             condition: state
             entity_id: light.living_room_tv_accent
