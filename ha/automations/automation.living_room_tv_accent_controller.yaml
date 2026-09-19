@@ -15,7 +15,7 @@ description: >-
   invariant depends only on TV state and room brightness.
 
   - Accent settings are inlined here: 30% brightness, 6500K (D65 reference
-  white to match video color grading).
+  white to match video color grading), with a 2-second fade in/out.
 
 
   Off-TV protection (catching manual turn-ons while the TV is off) is
@@ -58,13 +58,14 @@ actions:
             entity_id: sensor.living_room_mantle_status_light_illuminance
             below: 15
         sequence:
-          - alias: Set accent light to 30% / 6500K
+          - alias: Set accent light to 30% / 6500K over 2s
             action: light.turn_on
             target:
               entity_id: light.living_room_tv_accent
             data:
               brightness_pct: 30
               color_temp_kelvin: 6500
+              transition: 2
       - alias: "Accent stays ON in deadband (already on, illuminance between 15 and 20)"
         conditions:
           - alias: TV is on
@@ -81,9 +82,11 @@ actions:
             below: 20
         sequence: []
     default:
-      - alias: Accent should be OFF
+      - alias: Accent should be OFF over 2s
         action: light.turn_off
         target:
           entity_id: light.living_room_tv_accent
+        data:
+          transition: 2
 mode: restart
 category: 01M2C49AVVEG94R66QZA8BTV2Y
