@@ -7,8 +7,11 @@ description: >-
 
 
   - Dual-threshold hysteresis prevents flapping near a single cutoff: room
-  counts as "dim" below 15 lux, "lit" above 20 lux. Between 15–20 lux the
-  light holds whatever state it was already in.
+  counts as "dim" below 25 lux, "lit" above 35 lux. Between 25–35 lux the
+  light holds whatever state it was already in. Widened from the original
+  15/20 band because the mantle sensor reads meaningfully higher (and
+  noisier, spiking up to ~21 lux even during otherwise-dim stretches) than
+  the status lamp sensor these thresholds were first tuned against.
 
   - No Hue Sync Box in this setup (static gradient lightstrip, not
   content-synced) — nothing else contends for control of the strip, so the
@@ -33,16 +36,16 @@ triggers:
     trigger: state
     entity_id: media_player.living_room_tv
     to: "on"
-  - alias: Room became dim (below 15 lux)
+  - alias: Room became dim (below 25 lux)
     id: room_dim
     trigger: numeric_state
     entity_id: sensor.living_room_mantle_status_light_illuminance
-    below: 15
-  - alias: Room became lit (above 20 lux)
+    below: 25
+  - alias: Room became lit (above 35 lux)
     id: room_lit
     trigger: numeric_state
     entity_id: sensor.living_room_mantle_status_light_illuminance
-    above: 20
+    above: 35
 conditions: []
 actions:
   - alias: Determine accent light state
@@ -53,10 +56,10 @@ actions:
             condition: state
             entity_id: media_player.living_room_tv
             state: "on"
-          - alias: Room is dim (below 15 lux)
+          - alias: Room is dim (below 25 lux)
             condition: numeric_state
             entity_id: sensor.living_room_mantle_status_light_illuminance
-            below: 15
+            below: 25
         sequence:
           - alias: Set accent light to 30% / 6500K over 2s
             action: light.turn_on
@@ -66,7 +69,7 @@ actions:
               brightness_pct: 30
               color_temp_kelvin: 6500
               transition: 2
-      - alias: "Accent stays ON in deadband (already on, illuminance between 15 and 20)"
+      - alias: "Accent stays ON in deadband (already on, illuminance between 25 and 35)"
         conditions:
           - alias: TV is on
             condition: state
@@ -76,10 +79,10 @@ actions:
             condition: state
             entity_id: light.living_room_tv_accent
             state: "on"
-          - alias: Room is in hysteresis deadband (below 20 lux)
+          - alias: Room is in hysteresis deadband (below 35 lux)
             condition: numeric_state
             entity_id: sensor.living_room_mantle_status_light_illuminance
-            below: 20
+            below: 35
         sequence: []
     default:
       - alias: Accent should be OFF over 2s
