@@ -29,7 +29,7 @@ triggers:
     alias: "New cycle started"
   - trigger: occupancy.detected
     target:
-      entity_id: binary_sensor.utility_room_motion_occupancy
+      entity_id: binary_sensor.utility_room_motion_sensor_occupancy
     options:
       for: "00:00:15"
     id: retrieved

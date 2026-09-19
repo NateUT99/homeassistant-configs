@@ -16,13 +16,13 @@ triggers:
   note: Fires when the door closes.
 - trigger: occupancy.cleared
   target:
-    entity_id: binary_sensor.utility_room_motion_occupancy
+    entity_id: binary_sensor.utility_room_motion_sensor_occupancy
   id: motion_cleared
   note: Fires when motion clears, respecting the sensor's onboard 15s occupied-to-unoccupied
     delay.
 - trigger: occupancy.cleared
   target:
-    entity_id: binary_sensor.utility_room_motion_occupancy
+    entity_id: binary_sensor.utility_room_motion_sensor_occupancy
   id: door_open_timeout
   note: Safety net for a door left open with nobody in the room -- fires after 2
     continuous minutes of no motion; resets automatically if motion resumes.
@@ -31,7 +31,7 @@ triggers:
       minutes: 2
 - trigger: occupancy.detected
   target:
-    entity_id: binary_sensor.utility_room_motion_occupancy
+    entity_id: binary_sensor.utility_room_motion_sensor_occupancy
   id: motion_detected
   note: Turns lights back on if someone walks in while the door was already open,
     or recovers from a false motion-clear.
@@ -55,7 +55,7 @@ actions:
       id: door_closed
     - condition: occupancy.is_not_detected
       target:
-        entity_id: binary_sensor.utility_room_motion_occupancy
+        entity_id: binary_sensor.utility_room_motion_sensor_occupancy
     sequence:
     - action: light.turn_off
       target:
