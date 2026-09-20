@@ -1,0 +1,195 @@
+id: "1789910712197"
+alias: "Household: HVAC Exterior Open Pause"
+description: >-
+  Turns off the whole-house thermostat when a window or exterior door has
+  been open for 3 minutes, and restores the exact prior mode once
+  everything has been closed for 3 minutes. The house<->garage interior
+  door only counts when the garage overhead door is open too -- the garage
+  itself is unconditioned and is routinely left open on its own (including
+  by Household: Nate Presence on arrival).
+
+
+  Announces both the pause and the restore -- TTS to the kitchen HomePod
+  while awake, a silent tagged iPhone push while everyone_sleeping is on.
+  Both messages mention outdoor air quality when it is currently poor.
+
+
+  Stores the mode being paused from in
+  input_select.household_hvac_mode_before_pause rather than inferring it
+  from current thermostat state, and clears that flag the moment the
+  thermostat leaves off by any other route (a manual change, a preset push
+  from one of the presence automations) so a stale stored mode can never
+  be replayed later.
+
+
+  Rebuilt from the old apartment's
+  automation.household_thermostat_exterior_open_pause, consolidated into
+  one automation instead of two -- see LESSONS.md for the
+  restoration-branch guard rationale.
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.household_exterior_open
+    from: "off"
+    to: "on"
+    for:
+      minutes: 3
+    id: opened
+    alias: Exterior opening held open for 3 minutes
+  - trigger: state
+    entity_id: binary_sensor.household_exterior_open
+    from: "on"
+    to: "off"
+    for:
+      minutes: 3
+    id: closed
+    alias: Exterior opening held closed for 3 minutes
+  - trigger: state
+    entity_id: climate.living_room_thermostat
+    from: "off"
+    not_to:
+      - unavailable
+      - unknown
+    id: hvac_resumed
+    alias: Thermostat leaves off through some other path
+    note: >-
+      Catches a manual override or a preset push resuming HVAC mid-pause.
+      not_to excludes a Matter reconnect replay (LESSONS.md) from firing
+      this.
+conditions: []
+actions:
+  - alias: Dispatch on which trigger fired
+    choose:
+      - alias: Opened 3 minutes ago and thermostat not already off
+        conditions:
+          - condition: trigger
+            id: opened
+            alias: Triggered by the opened edge
+          - condition: not
+            alias: Thermostat is not already off
+            conditions:
+              - condition: state
+                entity_id: climate.living_room_thermostat
+                state: "off"
+        sequence:
+          - alias: Remember the mode being paused
+            action: input_select.select_option
+            target:
+              entity_id: input_select.household_hvac_mode_before_pause
+            data:
+              option: "{{ states('climate.living_room_thermostat') }}"
+          - alias: Pause the thermostat
+            action: climate.set_hvac_mode
+            target:
+              entity_id: climate.living_room_thermostat
+            data:
+              hvac_mode: "off"
+          - alias: Announce or notify that HVAC has paused
+            if:
+              - condition: state
+                entity_id: input_boolean.everyone_sleeping
+                state: "off"
+            then:
+              - alias: TTS on kitchen HomePod
+                action: script.household_tts_announce
+                data:
+                  message: >-
+                    A door or window has been open for three minutes. The
+                    thermostat has been paused.{%- if
+                    is_state('binary_sensor.outside_air_quality_index_high',
+                    'on') %} Outdoor air quality is also poor -- {% if
+                    states('sensor.erie_ohio_usa_air_quality_index') |
+                    int(0) > 150 %}please keep{% else %}consider
+                    keeping{% endif %} the exterior doors and windows
+                    closed.{%- endif %}
+                  target: kitchen
+                  notification_title: Thermostat Paused
+            else:
+              - alias: Silent push to iPhone
+                action: notify.mobile_app_nates_iphone
+                data:
+                  title: "❌ Thermostat Paused"
+                  message: >-
+                    A door or window has been open for three minutes. The
+                    thermostat has been paused.{%- if
+                    is_state('binary_sensor.outside_air_quality_index_high',
+                    'on') %} Outdoor air quality is also poor -- {% if
+                    states('sensor.erie_ohio_usa_air_quality_index') |
+                    int(0) > 150 %}please keep{% else %}consider
+                    keeping{% endif %} the exterior doors and windows
+                    closed.{%- endif %}
+                  data:
+                    tag: hvac_exterior_pause
+      - alias: Closed 3 minutes ago, thermostat off, and a mode was stored
+        conditions:
+          - condition: trigger
+            id: closed
+            alias: Triggered by the closed edge
+          - condition: state
+            entity_id: climate.living_room_thermostat
+            state: "off"
+            alias: Thermostat is currently off
+          - condition: not
+            alias: A prior mode was actually stored
+            conditions:
+              - condition: state
+                entity_id: input_select.household_hvac_mode_before_pause
+                state: none
+        sequence:
+          - alias: Capture the mode to restore
+            variables:
+              paused_from: >-
+                {{ states('input_select.household_hvac_mode_before_pause') }}
+          - alias: Restore the thermostat's prior mode
+            action: climate.set_hvac_mode
+            target:
+              entity_id: climate.living_room_thermostat
+            data:
+              hvac_mode: "{{ paused_from }}"
+          - alias: Clear the stored mode
+            action: input_select.select_option
+            target:
+              entity_id: input_select.household_hvac_mode_before_pause
+            data:
+              option: none
+          - alias: Announce or notify that HVAC has resumed
+            if:
+              - condition: state
+                entity_id: input_boolean.everyone_sleeping
+                state: "off"
+            then:
+              - alias: TTS on kitchen HomePod
+                action: script.household_tts_announce
+                data:
+                  message: >-
+                    All exterior doors and windows are closed. The
+                    thermostat has been re-enabled.
+                  target: kitchen
+                  notification_title: Thermostat Re-Enabled
+            else:
+              - alias: Silent push to iPhone
+                action: notify.mobile_app_nates_iphone
+                data:
+                  title: "✅ Thermostat Re-Enabled"
+                  message: >-
+                    All exterior doors and windows have been closed for
+                    at least three minutes.
+                  data:
+                    tag: hvac_exterior_pause
+      - alias: Thermostat left off through some other path
+        conditions:
+          - condition: trigger
+            id: hvac_resumed
+            alias: Triggered by the hvac_resumed edge
+        sequence:
+          - alias: Clear the stale pause flag
+            note: >-
+              Prevents a later window close from replaying a mode this
+              automation didn't actually pause from.
+            action: input_select.select_option
+            target:
+              entity_id: input_select.household_hvac_mode_before_pause
+            data:
+              option: none
+mode: queued
+max: 5
+category: 01M0BFFGNX30MJNVWS58ZKEH3H

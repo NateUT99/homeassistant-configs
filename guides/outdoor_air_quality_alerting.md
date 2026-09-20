@@ -1,6 +1,6 @@
 # Outdoor Air Quality Alerting
 
-*Last updated: July 2026*
+*Last updated: September 2026*
 
 ## Overview
 
@@ -19,10 +19,10 @@ Delivery varies by situation:
 ## Architecture
 
 ```
-WAQI API ──► sensor.toledo_ohio_usa_air_quality_index
+WAQI API ──► sensor.erie_ohio_usa_air_quality_index
                           │
                           ▼
-           binary_sensor.outdoor_air_quality_index_high
+           binary_sensor.outside_air_quality_index_high
            (threshold helper: upper 125, hysteresis 5)
                           │
               ┌───────────┴────────────┐
@@ -37,7 +37,7 @@ WAQI API ──► sensor.toledo_ohio_usa_air_quality_index
         → garage wait → TTS (kitchen)
 ```
 
-The threshold helper (`binary_sensor.outdoor_air_quality_index_high`) is the single source of truth for whether air quality is currently actionable. It goes `on` when AQI exceeds 125 and does not go `off` until AQI drops to 120 (5-point hysteresis), preventing notification churn if the sensor hovers near the boundary.
+The threshold helper (`binary_sensor.outside_air_quality_index_high`) is the single source of truth for whether air quality is currently actionable. It goes `on` when AQI exceeds 125 and does not go `off` until AQI drops to 120 (5-point hysteresis), preventing notification churn if the sensor hovers near the boundary.
 
 The alert automation has two entry-path triggers:
 
@@ -48,7 +48,7 @@ The wake-up case (everyone wakes up while AQI is bad) is handled by `automation.
 
 The sole root condition is someone home — AQI is checked per-branch rather than at the root.
 
-When a door or window is opened while AQI is already bad, `automation.household_thermostat_exterior_open_pause` owns that notification moment — it fires at the 3-minute mark and includes a conditional AQI mention in its TTS and push notification. This avoids duplicate alerts from two automations firing simultaneously.
+When a door or window is opened while AQI is already bad, `automation.household_hvac_exterior_open_pause` owns that notification moment — it fires at the 3-minute mark and includes a conditional AQI mention in its TTS and push notification. This avoids duplicate alerts from two automations firing simultaneously.
 
 The action block uses a `choose` with native `condition: trigger` branches:
 
@@ -58,16 +58,16 @@ The action block uses a `choose` with native `condition: trigger` branches:
 
 The clear automation fires on two triggers. The push dismiss is unconditional — clearing a non-existent notification is a harmless no-op. The TTS fires only when the `aqi_clears` trigger (not the door-close trigger) fires, someone is home, everyone is awake, and outdoor feels-like temperature is lower than indoor.
 
-> **Coordinated change:** The threshold value (125) and hysteresis (5) are set on `binary_sensor.outdoor_air_quality_index_high`. If you want to change the alert threshold, update the threshold helper configuration — do not add numeric conditions to the automations.
+> **Coordinated change:** The threshold value (125) and hysteresis (5) are set on `binary_sensor.outside_air_quality_index_high`. If you want to change the alert threshold, update the threshold helper configuration — do not add numeric conditions to the automations.
 
-> **Coordinated change:** The 3-minute door/window-open alert path lives in `automation.household_thermostat_exterior_open_pause`, not here. If you modify the door-open notification behavior (timing, message, sleep gating), update that automation — not this one.
+> **Coordinated change:** The 3-minute door/window-open alert path lives in `automation.household_hvac_exterior_open_pause`, not here. If you modify the door-open notification behavior (timing, message, sleep gating), update that automation — not this one.
 
 ---
 
 ## Prerequisites
 
 - WAQI integration configured with a nearby monitoring station (**Settings → Devices & Services → WAQI**)
-- `binary_sensor.exterior_door_window_open` — a binary sensor group that is `on` when any exterior door or window is open
+- `binary_sensor.household_exterior_open` — a template sensor that is `on` when any exterior door, window, or the garage interior door (with the overhead door also open) is open; see `automation.household_hvac_exterior_open_pause`, its primary consumer
 - `binary_sensor.garage_interior_door_contact` — contact sensor on the door between garage and home interior
 - `input_boolean.everyone_sleeping` — sleep state helper used to branch between TTS and push notification
 - HA Companion App installed on `notify.mobile_app_nates_iphone`
@@ -84,7 +84,7 @@ The clear automation fires on two triggers. The push dismiss is unconditional �
 
 Add the WAQI integration via **Settings → Devices & Services → Add Integration → WAQI**. Enter a monitoring station name or coordinates near your location. The integration creates a sensor with state equal to the current AQI integer value.
 
-The resulting sensor entity (`sensor.toledo_ohio_usa_air_quality_index`) is named after the nearest station — the entity ID will vary by location.
+The resulting sensor entity (`sensor.erie_ohio_usa_air_quality_index`) is named after the nearest station — the entity ID will vary by location.
 
 ### 2. Create the Threshold Helper
 
@@ -92,11 +92,11 @@ Navigate to **Settings → Devices & Services → Helpers → Create Helper → 
 
 | Field | Value |
 |---|---|
-| Entity | `sensor.toledo_ohio_usa_air_quality_index` |
+| Entity | `sensor.erie_ohio_usa_air_quality_index` |
 | Upper threshold | `125` |
 | Hysteresis | `5` |
 
-After creation, rename the entity ID to `binary_sensor.outdoor_air_quality_index_high` via **Settings → Devices & Services → Helpers → Outdoor Air Quality Index High → ⋮ → Settings → Entity ID**. The auto-generated ID will include the station name and should be overridden.
+After creation, rename the entity ID to `binary_sensor.outside_air_quality_index_high` via **Settings → Devices & Services → Helpers → Outside Air Quality Index High → ⋮ → Settings → Entity ID**. The auto-generated ID will include the station name and should be overridden.
 
 > **Threshold rationale:** AQI 0–100 is broadly safe for the general public. The 101–150 range ("Unhealthy for Sensitive Groups") is not likely to affect most people. 125 is chosen as a meaningful midpoint — high enough to avoid alert fatigue during marginal days, low enough to catch conditions genuinely heading toward the 151+ "Unhealthy" range.
 
@@ -108,7 +108,7 @@ Create Outdoor Air Quality Index Alert (`automation.outdoor_air_quality_index_al
 
 | ID | Platform | Entity | Config |
 |---|---|---|---|
-| `aqi_spike` | state | `binary_sensor.outdoor_air_quality_index_high` | to: on |
+| `aqi_spike` | state | `binary_sensor.outside_air_quality_index_high` | to: on |
 | `person_arrives` | numeric_state | `zone.home` | above: 0 |
 
 **Root condition:** `zone.home` numeric_state above 0 (someone is home). AQI state is checked per-branch rather than at the root.
@@ -125,8 +125,8 @@ Create Outdoor Air Quality Index Alert Clear (`automation.outdoor_air_quality_in
 
 | ID | Platform | Entity | Config |
 |---|---|---|---|
-| `aqi_clears` | state | `binary_sensor.outdoor_air_quality_index_high` | to: off |
-| *(no id)* | state | `binary_sensor.exterior_door_window_open` | to: off |
+| `aqi_clears` | state | `binary_sensor.outside_air_quality_index_high` | to: off |
+| *(no id)* | state | `binary_sensor.household_exterior_open` | to: off |
 
 **Action:** `choose` block with one branch for the `aqi_clears` trigger (gated on someone home, everyone awake, and outdoor feels-like below indoor temperature) → `script.household_tts_announce` (target: kitchen). Unconditional second action clears the push notification tag regardless of trigger (a clear on a non-existent notification is a no-op).
 
@@ -138,8 +138,8 @@ Assign to the **Climate** category with labels **Notification**, **Text to Speec
 
 | Friendly Name | Entity ID | Type |
 |---|---|---|
-| Toledo, Ohio, USA Air Quality Index | `sensor.toledo_ohio_usa_air_quality_index` | Sensor (WAQI integration) |
-| Outdoor Air Quality Index High | `binary_sensor.outdoor_air_quality_index_high` | Threshold helper |
+| Erie, Ohio, USA Air Quality Index | `sensor.erie_ohio_usa_air_quality_index` | Sensor (WAQI integration) |
+| Outside Air Quality Index High | `binary_sensor.outside_air_quality_index_high` | Threshold helper |
 | Outdoor Air Quality Index Alert | `automation.outdoor_air_quality_index_alert` | Automation |
 | Outdoor Air Quality Index Alert Clear | `automation.outdoor_air_quality_index_alert_clear` | Automation |
 
