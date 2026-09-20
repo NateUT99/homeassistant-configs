@@ -102,7 +102,7 @@ Built once as the shared dispatch point. Full field contract:
 | `color` | No | palette | Hex override of the status palette, for per-consumer identity. |
 | `url` | No | `/lovelace/0` | Tap destination — the primary dashboard's auto-generated Overview, until custom dashboard pop-ups exist (see Deferred below). |
 | `target` | No | `nates_iphone` | Which iOS device to push to — one option registered today. |
-| `silent` | No | `false` | Lower-priority (APNs 5, not 10), no-alert update — refreshes the Lock Screen/Dynamic Island content in place without the peek/expand animation. Per [companion.home-assistant.io](https://companion.home-assistant.io/docs/notifications/live-activities/), has no effect when starting a new activity, only on updates to an existing one. |
+| `periodic_tick` | No | `false` | True when the call is a routine refresh from the consumer's recurring timer tick, not a genuine status change — the script sends it as a lower-priority (APNs 5, not 10), no-alert update that refreshes the Lock Screen/Dynamic Island content in place without the peek/expand animation. A genuine transition should leave this `false` (or omit it) for the normal alert-priority update. Per [companion.home-assistant.io](https://companion.home-assistant.io/docs/notifications/live-activities/), has no effect when starting a brand-new activity, only on updates to one already showing. |
 
 Status palette:
 
@@ -150,6 +150,14 @@ The card therefore survives cycle-end and stays green until the existing retriev
 `idle` — no new state machine was added. **iOS expires any Live Activity at 8 hours**, so a cycle
 finishing overnight self-clears before morning; the TTS nag (`guides/laundry_automation.md`)
 remains the primary "come get it" signal and is unaffected.
+
+**Every live-update branch passes `periodic_tick: "{{ trigger.id == 'coarse_tick' }}"`** (the
+`time_pattern: /5` trigger carries that `id`), not just the running/paused branches the vacuum
+consumer silences. Unlike the vacuum's `done`/`error`/`clear` branches, none of these consumers'
+branches are trigger-id-guarded — the coarse tick can land on any of them, including a `done`
+card sitting untouched for hours waiting to be unloaded, which would otherwise re-expand the
+Dynamic Island every 5 minutes for as long as the laundry goes unretrieved. Applying the field
+uniformly avoids having to reason about which branches the tick can and can't reach.
 
 **Phase label map.** The raw ThinQ enum is not presentable (`detergent_amount`,
 `frozen_prevent_pause`, `rinse_hold`, `wrinkle_care`). Each automation's `variables:` carries a
@@ -228,15 +236,20 @@ by one artifact with nothing to keep in sync as that routine's automation count 
   timer — see `LESSONS.md` → *Vacuum & Roborock* for why `last_clean_begin` doesn't work. Progress
   % and the mop/vacuum + room message substitute for a timer instead, rather than capturing our
   own start time into a new helper.
-- **The recurring 5-minute tick sends `silent: true`; genuine transitions don't.** All five
-  trigger IDs are named (`state_change`, `job_finished`, `error_change`, `coarse_tick`,
+- **The recurring 5-minute tick sends `periodic_tick: true`; genuine transitions don't.** All
+  five trigger IDs are named (`state_change`, `job_finished`, `error_change`, `coarse_tick`,
   `progress_complete`), and the running/paused/returning branches pass
-  `silent: "{{ trigger.id == 'coarse_tick' }}"`. iOS treats a `silent` update as lower-priority
-  (APNs 5, not 10) with no alert, so the Lock Screen and Dynamic Island content still refreshes
+  `periodic_tick: "{{ trigger.id == 'coarse_tick' }}"`. The script maps that to a lower-priority
+  (APNs 5, not 10), no-alert push, so the Lock Screen and Dynamic Island content still refreshes
   every 5 minutes, but only a genuine state change (job starts, pauses, returns, errors, or
   finishes) triggers the peek/expand animation. Confirmed live on 2026-09-15 — the un-silenced
   tick was re-expanding the Dynamic Island every 5 minutes for the whole duration of a run, which
-  read as excessive.
+  read as excessive. `done`/`error`/`clear` don't need the guard here because they're
+  edge-triggered off dedicated triggers with a `condition: trigger` guard (see below) — the
+  coarse tick structurally can't land on them. The field was originally named `silent`
+  (matching the APNs mechanism it sets); renamed to `periodic_tick` when the laundry consumers
+  adopted the same pattern, so every consumer states its *intent* ("this is a routine tick") and
+  the script alone owns the resulting APNs priority.
 - **A dedicated `progress_complete` trigger guarantees a non-silent update near job end, even
   before the robot starts returning.** `cleaning_progress` crossing 99% (`numeric_state`, not
   `state: to: "100"` — progress is non-monotonic, see `LESSONS.md` → *Vacuum & Roborock*) fires
@@ -288,6 +301,10 @@ real appliance cycle.
    that briefly leaves and re-enters the terminal state. A duration-based `for:` condition is
    fine for a `clear` branch, where resending is a harmless no-op, but not for one that creates
    or updates a card. See the vacuum consumer's Design Decisions above for the concrete failure.
+   Name the coarse-tick trigger's `id` (convention: `coarse_tick`) and pass
+   `periodic_tick: "{{ trigger.id == 'coarse_tick' }}"` on every live-update branch that trigger
+   can reach — if any branch is edge-trigger-guarded against the coarse tick (like the vacuum's
+   `done`), the field is unnecessary there but harmless to include anyway.
 4. Apply the `live_activity` label plus `notification` plus the consumer's own `int_*` label.
 5. Add the automation to `ha/automations/`, and add a Related HA Config row plus a short
    Architecture note to the guide that owns the underlying process — this guide only owns the

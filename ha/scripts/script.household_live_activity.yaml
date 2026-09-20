@@ -108,13 +108,17 @@ fields:
       select:
         options:
           - nates_iphone
-  silent:
-    name: Silent
+  periodic_tick:
+    name: Periodic Tick
     description: >-
-      Lower-priority, no-alert update -- refreshes the Lock Screen/Dynamic
-      Island content in place without the peek/expand animation. Per
-      companion.home-assistant.io, has no effect when starting a new
-      activity, only on updates to an existing one.
+      True when this call is a routine refresh from the consumer's recurring
+      timer tick, not a genuine status change. The script sends it as a
+      lower-priority, no-alert update (APNs 5) so the card content stays
+      current without the Dynamic Island re-expanding; leave false (or omit)
+      for a genuine transition, which always alerts normally (APNs 10). Per
+      companion.home-assistant.io/docs/notifications/live-activities/, has
+      no effect when starting a brand-new activity -- only on updates to one
+      already showing.
     required: false
     default: false
     selector:
@@ -129,7 +133,7 @@ variables:
   chronometer_active: "{{ status == 'running' and chronometer_ref != '' }}"
   resolved_progress: "{{ 100 if status == 'done' else progress | default(none, true) }}"
   payload: >-
-    {{ ({'tag': tag, 'live_update': true, 'silent': silent | default(false, true),
+    {{ ({'tag': tag, 'live_update': true, 'silent': periodic_tick | default(false, true),
     'notification_icon': resolved_icon,
     'notification_icon_color': resolved_color, 'color': resolved_color,
     'background_color': '#101820', 'progress_bar_color': resolved_color,

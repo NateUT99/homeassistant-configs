@@ -4,10 +4,12 @@ description: >-
   sensor and the retrieval input_select into one of running/paused/done/
   error/clear on every status change and every 5 minutes while a cycle is
   active, so the card always reflects live state rather than the edge that
-  triggered it. A fault latches the card in error until the input_select
-  leaves fault (cycle restart, retrieval, or manual clear), since the
-  underlying status sensor's own error state only lasts 1-2 seconds — too
-  brief for the card to catch on its own.
+  triggered it. The 5-minute tick sends a periodic_tick refresh (lower APNs
+  priority, no Dynamic Island re-expand) on every branch; a genuine
+  transition always alerts normally. A fault latches the card in error until
+  the input_select leaves fault (cycle restart, retrieval, or manual clear),
+  since the underlying status sensor's own error state only lasts 1-2
+  seconds — too brief for the card to catch on its own.
 triggers:
   - alias: "Washer cycle status changed"
     trigger: state
@@ -18,6 +20,11 @@ triggers:
   - alias: "Coarse progress tick while a cycle may be active"
     trigger: time_pattern
     minutes: "/5"
+    id: coarse_tick
+    note: >-
+      Named so live-update branches below can tell a routine refresh from a
+      genuine transition and mark it periodic_tick -- see
+      script.household_live_activity's field of the same name.
 variables:
   washer_status: "{{ states('sensor.utility_room_washer_current_status') }}"
   washer_phase_labels: >-
@@ -60,6 +67,7 @@ actions:
               message: "Check the washer — error reported"
               icon: mdi:washing-machine-alert
               color: "#2196F3"
+              periodic_tick: "{{ trigger.id == 'coarse_tick' }}"
       - alias: "Cycle complete — ready to unload"
         conditions:
           - condition: state
@@ -76,6 +84,7 @@ actions:
               icon: mdi:washing-machine
               color: "#2196F3"
               critical_text: "Done"
+              periodic_tick: "{{ trigger.id == 'coarse_tick' }}"
       - alias: "Washer error"
         conditions:
           - condition: state
@@ -91,6 +100,7 @@ actions:
               message: "Check the washer — error reported"
               icon: mdi:washing-machine-alert
               color: "#2196F3"
+              periodic_tick: "{{ trigger.id == 'coarse_tick' }}"
       - alias: "Washer paused"
         conditions:
           - condition: state
@@ -106,6 +116,7 @@ actions:
               message: "Paused"
               icon: mdi:washing-machine
               color: "#2196F3"
+              periodic_tick: "{{ trigger.id == 'coarse_tick' }}"
       - alias: "Washer actively cycling"
         conditions:
           - condition: not
@@ -125,6 +136,7 @@ actions:
               color: "#2196F3"
               progress: "{{ states('sensor.utility_room_washer_progress') }}"
               ends_at: "{{ washer_ends_at }}"
+              periodic_tick: "{{ trigger.id == 'coarse_tick' }}"
       - alias: "Retrieved — clear the card"
         conditions:
           - condition: state
