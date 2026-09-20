@@ -38,11 +38,11 @@ office_homepod / averys_room_homepod
 
 The `announce: true` flag routes playback through HA's announce pipeline, which interrupts current audio and restores it after the announcement. `cache: true` caches the TTS audio on disk so repeated identical messages skip the Nabu Casa API call.
 
-Volume levels differ per room — 0.65 kitchen (ambient noise), 0.5 master bedroom / office, 0.4 Avery's room (nighttime/quiet context). Kitchen and master bedroom are tuned values (the `snapshot/2026-07-27-pre-move/` baseline); office and Avery's room are starting guesses and may need adjustment after first use.
+Volume levels differ per room — 0.65 kitchen (ambient noise), 0.5 master bedroom / office, 0.4 Avery's room (nighttime/quiet context). Kitchen and master bedroom are tuned values (the `snapshot/2026-07-27-pre-move/` baseline); office and Avery's room are starting guesses and may need adjustment after first use. Master bedroom drops further, to 0.4, while `everyone_sleeping` is on — gated on that state directly rather than on the caller, so it applies whether the room was reached via `target: auto` or an explicit `target: master_bedroom` call.
 
 > **Family room Sonos is not a script target.** `chime_tts.say` against the family room Sonos (`media_player.family_room_theater`) produces no audio and no error at any log level — see `LESSONS.md` → TTS & Media. `guides/laundry_automation.md` handles family-room awareness with a plain push notification when the Sonos is busy, entirely outside this script.
 
-> **Coordinated change:** Room volumes live inside `script.household_tts_announce`'s `choose` branches (one literal `volume_level` per target), not in a shared table. Adjusting a room's volume means editing that branch directly — see `guides/reminders.md` and any other guide referencing this script for the current field contract.
+> **Coordinated change:** Room volumes live inside `script.household_tts_announce`'s `choose` branches (a `volume_level` per target — a literal for every room except master bedroom, which templates on `everyone_sleeping`), not in a shared table. Adjusting a room's volume means editing that branch directly — see `guides/reminders.md` and any other guide referencing this script for the current field contract.
 
 ---
 

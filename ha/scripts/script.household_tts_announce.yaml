@@ -126,6 +126,13 @@ sequence:
           - "{{ resolved_target == 'master_bedroom' }}"
         sequence:
           - alias: "Speak via Chime TTS (master bedroom)"
+            note: >-
+              Quieter while everyone_sleeping is on (0.4 vs the normal 0.5)
+              -- gated on the actual sleep state rather than on which
+              caller/target string was used, so this applies correctly
+              whether master_bedroom was chosen via target: auto or passed
+              explicitly (e.g. the refrigerator alert, laundry-done
+              announcement).
             action: chime_tts.say
             target:
               entity_id: media_player.master_bedroom_homepod
@@ -133,7 +140,7 @@ sequence:
               message: "{{ message }}"
               chime_path: soft
               tts_platform: cloud
-              volume_level: 0.5
+              volume_level: "{{ 0.4 if is_state('input_boolean.everyone_sleeping', 'on') else 0.5 }}"
               cache: true
               announce: true
       - alias: "Target: office"
