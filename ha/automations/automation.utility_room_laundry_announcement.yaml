@@ -1,0 +1,363 @@
+id: "1787749891308"
+alias: "Utility Room: Laundry Announcement"
+description: >-
+  Announces on the kitchen HomePod (or master bedroom if Avery is sleeping)
+  every 30 minutes while the washer or dryer is alerting (cycle complete) or
+  in fault (error reported). Also pushes a notification to Nate's phone if
+  the family room Sonos is currently playing — a signal he's watching a
+  movie or playing a game and might miss the kitchen announcement.
+  Re-triggers immediately on waking or arriving home so the loop doesn't
+  wait out its delay. Stops when both appliances are idle/acknowledged, the
+  household is sleeping, or nobody is home — except a fault, which pushes
+  once regardless of sleep/away state instead of waiting, since a stalled
+  cycle needs attention sooner than the next time someone happens to be
+  awake and home.
+
+
+  A fault is spoken with the appliance's reported error phrase ("the door
+  wouldn't lock") when the error event is recent; falls back to a generic
+  "stopped with an error" otherwise. See guides/laundry_automation.md for
+  the fault code -> phrase map and LESSONS.md for why a short settle delay
+  is needed before composing the message.
+triggers:
+  - trigger: state
+    entity_id: input_select.utility_room_washer_status
+    to: alerting
+    id: status_alerting
+    alias: "Washer status: alerting"
+  - trigger: state
+    entity_id: input_select.utility_room_dryer_status
+    to: alerting
+    id: status_alerting
+    alias: "Dryer status: alerting"
+  - trigger: state
+    entity_id: input_select.utility_room_washer_status
+    to: fault
+    id: status_fault
+    alias: "Washer status: fault"
+  - trigger: state
+    entity_id: input_select.utility_room_dryer_status
+    to: fault
+    id: status_fault
+    alias: "Dryer status: fault"
+  - trigger: state
+    entity_id: input_boolean.everyone_sleeping
+    to: "off"
+    id: everyone_woke
+    alias: "Household woke up"
+  - trigger: state
+    entity_id: zone.home
+    from: "0"
+    to: "1"
+    id: someone_arrived
+    alias: "First person arrives home"
+conditions:
+  - condition: or
+    alias: "Washer or dryer needs attention (alerting or fault)"
+    conditions:
+      - condition: state
+        entity_id: input_select.utility_room_washer_status
+        state:
+          - alerting
+          - fault
+      - condition: state
+        entity_id: input_select.utility_room_dryer_status
+        state:
+          - alerting
+          - fault
+  - condition: or
+    alias: "A fault bypasses the sleep/away gate; a completion doesn't"
+    conditions:
+      - condition: state
+        entity_id: input_select.utility_room_washer_status
+        state: fault
+      - condition: state
+        entity_id: input_select.utility_room_dryer_status
+        state: fault
+      - condition: and
+        alias: "Someone home and awake (required for a completion announcement)"
+        conditions:
+          - condition: state
+            entity_id: input_boolean.everyone_sleeping
+            state: "off"
+          - condition: numeric_state
+            entity_id: zone.home
+            above: 0
+actions:
+  - alias: "Settle delay before composing the message, only if a fault is present"
+    note: >-
+      error_during_washing/drying_failed lands on the generic notification
+      event roughly 0.5s before the typed error event with the actual fault
+      code, so composing immediately risks reading the code before it's set.
+      No delay needed on a plain completion.
+    if:
+      - condition: or
+        conditions:
+          - condition: state
+            entity_id: input_select.utility_room_washer_status
+            state: fault
+          - condition: state
+            entity_id: input_select.utility_room_dryer_status
+            state: fault
+    then:
+      - alias: "Wait for the typed error event to catch up"
+        delay:
+          seconds: 5
+  - alias: "Fault while away or asleep: push once and stop"
+    note: >-
+      The Live Activity error card is the primary signal for a fault noticed
+      away from the kitchen HomePod's earshot; this push is the durable
+      record behind it, not escalated to a critical alert since it isn't a
+      safety hazard (the washer's own water leak sensor covers that).
+    if:
+      - condition: and
+        conditions:
+          - condition: or
+            conditions:
+              - condition: state
+                entity_id: input_select.utility_room_washer_status
+                state: fault
+              - condition: state
+                entity_id: input_select.utility_room_dryer_status
+                state: fault
+          - condition: or
+            conditions:
+              - condition: numeric_state
+                entity_id: zone.home
+                below: 1
+              - condition: state
+                entity_id: input_boolean.everyone_sleeping
+                state: "on"
+    then:
+      - alias: "Resolve fault message for the away/asleep push"
+        variables:
+          washer_fault: "{{ is_state('input_select.utility_room_washer_status', 'fault') }}"
+          washer_error_type: "{{ state_attr('event.utility_room_washer_error', 'event_type') }}"
+          washer_error_recent: >-
+            {{ states('event.utility_room_washer_error') not in ['unknown',
+            'unavailable'] and (now() -
+            (states('event.utility_room_washer_error') |
+            as_datetime)).total_seconds() < 300 }}
+          dryer_fault: "{{ is_state('input_select.utility_room_dryer_status', 'fault') }}"
+          dryer_error_type: "{{ state_attr('event.utility_room_dryer_error', 'event_type') }}"
+          dryer_error_recent: >-
+            {{ states('event.utility_room_dryer_error') not in ['unknown',
+            'unavailable'] and (now() -
+            (states('event.utility_room_dryer_error') |
+            as_datetime)).total_seconds() < 300 }}
+          washer_error_phrases: >-
+            {{ {'unable_to_lock_error': "the door wouldn't lock",
+            'door_open_error': 'the door is open', 'water_supply_error':
+            "it isn't getting water", 'water_drain_error': "it can't drain",
+            'overfill_error': 'it overfilled', 'out_of_balance_error': 'the
+            load is out of balance', 'locked_motor_error': 'the motor is
+            jammed', 'power_fail_error': 'there was a power failure',
+            'water_level_sensor_error': 'the water level sensor failed',
+            'temperature_sensor_error': 'the temperature sensor failed'} }}
+          dryer_error_phrases: >-
+            {{ {'high_power_supply_error': "there's a power supply problem",
+            'temperature_sensor_error': 'the temperature sensor failed',
+            'power_code_connection_error': "the power cord isn't connected
+            properly"} }}
+          washer_phrase: >-
+            {{ washer_error_phrases.get(washer_error_type,
+            (washer_error_type | replace('_', ' ')) if washer_error_type
+            else none) }}
+          dryer_phrase: >-
+            {{ dryer_error_phrases.get(dryer_error_type, (dryer_error_type |
+            replace('_', ' ')) if dryer_error_type else none) }}
+          push_message: >-
+            {% if washer_fault and washer_error_recent and washer_phrase %}The
+            washer stopped because {{ washer_phrase }}.{% elif washer_fault
+            %}The washer stopped with an error.{% elif dryer_fault and
+            dryer_error_recent and dryer_phrase %}The dryer stopped because
+            {{ dryer_phrase }}.{% else %}The dryer stopped with an error.{%
+            endif %}
+          push_title: >-
+            {% if washer_fault %}❌ Washer Error{% else %}❌ Dryer Error{%
+            endif %}
+      - alias: "Push the fault while away or asleep"
+        action: notify.mobile_app_nates_iphone
+        data:
+          title: "{{ push_title }}"
+          message: "{{ push_message }}"
+      - alias: "Stop — fault pushed, nothing more to do while away or asleep"
+        stop: "Fault pushed while away or asleep"
+  - alias: "If arrival triggered: wait for the person to get inside"
+    if:
+      - condition: trigger
+        id: someone_arrived
+    then:
+      - alias: "Wait for entry via garage or front door"
+        note: >-
+          Garage path: door opens then closes behind them. Front door path:
+          mirrors the same opens-then-closes signal now that a contact
+          sensor exists (binary_sensor.entrance_front_door).
+        wait_for_trigger:
+          - trigger: state
+            entity_id: binary_sensor.garage_interior_door
+            from: "on"
+            to: "off"
+          - trigger: state
+            entity_id: binary_sensor.entrance_front_door
+            from: "on"
+            to: "off"
+        timeout:
+          minutes: 10
+        continue_on_timeout: true
+      - alias: "Buffer after entry"
+        delay:
+          seconds: 30
+  - alias: "Repeat until cleared, acknowledged, sleeping, or away"
+    repeat:
+      count: 20
+      sequence:
+        - alias: "Stop if neither appliance needs attention"
+          if:
+            - condition: not
+              conditions:
+                - condition: or
+                  conditions:
+                    - condition: state
+                      entity_id: input_select.utility_room_washer_status
+                      state:
+                        - alerting
+                        - fault
+                    - condition: state
+                      entity_id: input_select.utility_room_dryer_status
+                      state:
+                        - alerting
+                        - fault
+          then:
+            - alias: "Stop — nothing left to announce"
+              stop: "Neither appliance needs attention"
+        - alias: "Stop if household is sleeping and nothing is at fault"
+          note: >-
+            A fault already pushed through the away/asleep branch above
+            before this loop is ever reached, so reaching here implies
+            either no fault, or the fault started while awake and everyone
+            has since gone to sleep — stop the nag loop rather than waking
+            the house over laundry.
+          if:
+            - condition: and
+              conditions:
+                - condition: state
+                  entity_id: input_boolean.everyone_sleeping
+                  state: "on"
+                - condition: not
+                  conditions:
+                    - condition: or
+                      conditions:
+                        - condition: state
+                          entity_id: input_select.utility_room_washer_status
+                          state: fault
+                        - condition: state
+                          entity_id: input_select.utility_room_dryer_status
+                          state: fault
+          then:
+            - alias: "Stop — household sleeping"
+              stop: "Household is sleeping"
+        - alias: "Stop if nobody is home"
+          if:
+            - condition: numeric_state
+              entity_id: zone.home
+              below: 1
+          then:
+            - alias: "Stop — nobody home"
+              stop: "Nobody is home"
+        - alias: "Resolve announcement message and title"
+          variables:
+            washer_alerting: "{{ is_state('input_select.utility_room_washer_status', 'alerting') }}"
+            dryer_alerting: "{{ is_state('input_select.utility_room_dryer_status', 'alerting') }}"
+            washer_fault: "{{ is_state('input_select.utility_room_washer_status', 'fault') }}"
+            dryer_fault: "{{ is_state('input_select.utility_room_dryer_status', 'fault') }}"
+            washer_error_type: "{{ state_attr('event.utility_room_washer_error', 'event_type') }}"
+            washer_error_recent: >-
+              {{ states('event.utility_room_washer_error') not in ['unknown',
+              'unavailable'] and (now() -
+              (states('event.utility_room_washer_error') |
+              as_datetime)).total_seconds() < 300 }}
+            dryer_error_type: "{{ state_attr('event.utility_room_dryer_error', 'event_type') }}"
+            dryer_error_recent: >-
+              {{ states('event.utility_room_dryer_error') not in ['unknown',
+              'unavailable'] and (now() -
+              (states('event.utility_room_dryer_error') |
+              as_datetime)).total_seconds() < 300 }}
+            washer_error_phrases: >-
+              {{ {'unable_to_lock_error': "the door wouldn't lock",
+              'door_open_error': 'the door is open', 'water_supply_error':
+              "it isn't getting water", 'water_drain_error': "it can't
+              drain", 'overfill_error': 'it overfilled',
+              'out_of_balance_error': 'the load is out of balance',
+              'locked_motor_error': 'the motor is jammed',
+              'power_fail_error': 'there was a power failure',
+              'water_level_sensor_error': 'the water level sensor failed',
+              'temperature_sensor_error': 'the temperature sensor failed'} }}
+            dryer_error_phrases: >-
+              {{ {'high_power_supply_error': "there's a power supply
+              problem", 'temperature_sensor_error': 'the temperature sensor
+              failed', 'power_code_connection_error': "the power cord isn't
+              connected properly"} }}
+            washer_phrase: >-
+              {{ washer_error_phrases.get(washer_error_type,
+              (washer_error_type | replace('_', ' ')) if washer_error_type
+              else none) }}
+            dryer_phrase: >-
+              {{ dryer_error_phrases.get(dryer_error_type, (dryer_error_type
+              | replace('_', ' ')) if dryer_error_type else none) }}
+            tts_message: >-
+              {% if washer_fault and washer_error_recent and washer_phrase
+              %}The washer stopped because {{ washer_phrase }}.{% elif
+              washer_fault %}The washer stopped with an error.{% elif
+              dryer_fault and dryer_error_recent and dryer_phrase %}The
+              dryer stopped because {{ dryer_phrase }}.{% elif dryer_fault
+              %}The dryer stopped with an error.{% elif washer_alerting and
+              dryer_alerting %}The washer and dryer cycles have both
+              completed.{% elif washer_alerting %}The washer cycle has
+              completed.{% else %}The dryer cycle has completed.{% endif %}
+            tts_title: >-
+              {% if washer_fault %}❌ Washer Error{% elif dryer_fault %}❌
+              Dryer Error{% elif washer_alerting and dryer_alerting
+              %}Laundry Done{% elif washer_alerting %}Washer Done{% else
+              %}Dryer Done{% endif %}
+        - alias: "Announce via TTS dispatch script"
+          choose:
+            - alias: "Avery sleeping — master bedroom only"
+              conditions:
+                - condition: state
+                  entity_id: input_boolean.avery_sleeping
+                  state: "on"
+              sequence:
+                - alias: "Announce to master bedroom"
+                  action: script.household_tts_announce
+                  data:
+                    message: "{{ tts_message }}"
+                    notification_title: "{{ tts_title }}"
+                    target: master_bedroom
+          default:
+            - alias: "Announce to kitchen"
+              action: script.household_tts_announce
+              data:
+                message: "{{ tts_message }}"
+                notification_title: "{{ tts_title }}"
+                target: kitchen
+            - alias: "If family room Sonos is playing, also push a notification"
+              note: >-
+                A busy Sonos in the family room likely means a movie or
+                game — push so the alert isn't missed if the kitchen
+                announcement isn't heard.
+              if:
+                - condition: state
+                  entity_id: media_player.family_room_theater
+                  state: playing
+              then:
+                - alias: "Push laundry alert (family room busy)"
+                  action: notify.mobile_app_nates_iphone
+                  data:
+                    title: "{{ tts_title }}"
+                    message: "{{ tts_message }}"
+        - alias: "Wait 30 minutes before the next announcement"
+          delay:
+            minutes: 30
+mode: restart
+category: 01M0SZBV5BGDGY2BQ2GBB5NA4C

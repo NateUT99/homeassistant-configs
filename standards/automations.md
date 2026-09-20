@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.19 — September 2026*
+*Version 1.20 — September 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.20 | September 2026 | Amended §5.11 — `event` entities are no longer listed as having no semantic trigger form; `event.received` (shipped 2026.7) is the preferred form, with a note on its required `options.event_type` and its own restart-replay behavior |
 | 1.19 | September 2026 | Added a §5.11 exception: skip the semantic trigger/condition form when the entity's device class misdescribes what the sensor means (Roborock's `mop_attached`/`water_box_attached` reporting as `connectivity`, `water_shortage` as `problem`) — the raw `state` form plus an accurate `alias` reads better than encoding a misleading classification into the trace view |
 | 1.18 | September 2026 | Resolved a §4.1/§4.2 contradiction: integration-scoped entity IDs now use the integration name slugified (`adaptive_lighting`), not a hand-chosen "short code" (`al`), so the §4.2 slug-match check holds for integration scope like it does for area and household scope. Fixed the stale `al_pre_stage_standard` example and the `Adaptive Lighting: Pre-Stage Standard & Color Only` worked example |
 | 1.17 | September 2026 | Added `int_inovelli_led_bar` (LED Bar) to the §3.2 integration labels table, and a note that a guide may house more than one labelled pattern — `guides/inovelli_switches.md` now covers both the shared LED-bar pattern and the Ceiling Fan Canopy device pattern built on it |
@@ -398,7 +399,7 @@ Place this block before the main action or repeat block, gated on the arrival tr
 
 HA 2026.x provides semantic trigger and condition platforms for common device classes — `door.opened`, `door.is_closed`, `occupancy.detected`, `occupancy.cleared`, and similar — that read more clearly than the equivalent raw `state` form and require less boilerplate (no `to:`/`from:` state-string matching).
 
-**Prefer the semantic form wherever one exists for the entity's device class.** Fall back to raw `state` triggers/conditions only where no semantic equivalent exists — which is most non-binary-sensor domains: `input_select` transitions, `zone.home`, `event` entities, `lock` state, and similar.
+**Prefer the semantic form wherever one exists for the entity's device class.** Fall back to raw `state` triggers/conditions only where no semantic equivalent exists — which is most non-binary-sensor domains: `input_select` transitions, `zone.home`, `lock` state, and similar.
 
 ```yaml
 # Preferred — semantic
@@ -407,12 +408,22 @@ HA 2026.x provides semantic trigger and condition platforms for common device cl
     entity_id: binary_sensor.utility_room_door
   alias: "Door opened"
 
+# Preferred — semantic, for any event entity
+- trigger: event.received
+  target:
+    entity_id: event.utility_room_washer_error
+  options:
+    event_type: [unable_to_lock_error, water_supply_error]  # required by the schema; list every type of interest
+  alias: "Washer reported a fault"
+
 # Only when no semantic form exists
 - trigger: state
   entity_id: input_select.utility_room_washer_status
   to: alerting
   alias: "Washer status: alerting"
 ```
+
+`event.received` requires `options.event_type` — there is no "match any type" omission; a trigger that should catch every type an entity exposes must enumerate them all. Unlike a raw `state` trigger on the same entity, `event.received` does not fire on the entity's `unavailable`/`unknown` transitions, but it still replays its last value on HA restart or integration reload like any event entity — the recency-check guard against stale replays still applies. See `LESSONS.md` → *Automations & YAML* for the pattern and `automation.utility_room_washer_status_manager` for a worked example.
 
 Semantic triggers still take `alias` and `note` per §5.3 — the semantic form changes the trigger platform, not the documentation requirements.
 

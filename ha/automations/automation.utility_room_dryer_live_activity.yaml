@@ -4,7 +4,10 @@ description: >-
   sensor and the retrieval input_select into one of running/paused/done/
   error/clear on every status change and every 5 minutes while a cycle is
   active, so the card always reflects live state rather than the edge that
-  triggered it.
+  triggered it. A fault latches the card in error until the input_select
+  leaves fault (cycle restart, retrieval, or manual clear), since the
+  underlying status sensor's own error state only lasts 1-2 seconds — too
+  brief for the card to catch on its own.
 triggers:
   - alias: "Dryer cycle status changed"
     trigger: state
@@ -29,6 +32,28 @@ variables:
 actions:
   - alias: "Reconcile dryer live activity from current state"
     choose:
+      - alias: "Fault latched — show error card"
+        note: >-
+          input_select reaching fault holds this branch until it leaves
+          fault via one of three existing clearing paths (cycle restart,
+          sustained occupancy, door open 1 min) — see
+          automation.utility_room_dryer_status_manager. Placed first so a
+          fault always wins over a stale 'done' or 'running' read on the
+          status sensor.
+        conditions:
+          - condition: state
+            entity_id: input_select.utility_room_dryer_status
+            state: "fault"
+        sequence:
+          - alias: "Show error card"
+            action: script.household_live_activity
+            data:
+              tag: utility-room-dryer
+              status: error
+              title: Dryer
+              message: "Check the dryer — error reported"
+              icon: mdi:tumble-dryer-alert
+              color: "#FF7043"
       - alias: "Cycle complete — ready to unload"
         conditions:
           - condition: state

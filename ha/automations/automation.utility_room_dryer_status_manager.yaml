@@ -1,16 +1,19 @@
 id: "1787749833832"
 alias: "Utility Room: Dryer Status Manager"
 description: >-
-  Tracks the dryer's alerting/idle/acknowledged state. Sets alerting when a
-  cycle ends (state or event trigger, whichever arrives first), idle when a
-  new cycle starts, and idle when the dryer is retrieved (utility room
-  occupancy detected, or a door left open a full minute as backup). Triggers
-  alerting only on the 'end' status, not 'cooling' — clothes are still hot
-  and time is still counting down through cooling and wrinkle_care.
+  Tracks the dryer's alerting/idle/acknowledged/fault state. Sets alerting
+  when a cycle ends (state or event trigger, whichever arrives first), fault
+  when the dryer reports an error (typed error event or the generic error
+  notification, whichever arrives first), idle when a new cycle starts, and
+  idle when the dryer is retrieved (utility room occupancy detected, or a
+  door left open a full minute as backup). Alerting triggers only on the
+  'end' status, not 'cooling' — clothes are still hot and time is still
+  counting down through cooling and wrinkle_care. A fault overrides an
+  existing alerting status; either clears the same way.
 triggers:
   - trigger: state
     entity_id: sensor.utility_room_dryer_current_status
-    to: "end"
+    to: end
     id: cycle_end_state
     alias: "Cycle ended (status sensor)"
   - trigger: state
@@ -19,9 +22,11 @@ triggers:
     alias: "Dryer notification event fired"
     note: >-
       Backup for the state trigger — the status sensor sits in 'end' only
-      briefly before moving on. Guarded by a recency condition below since
-      event entities re-fire this trigger on every HA restart with their
-      last (possibly stale) value.
+      briefly before moving on. Also carries the drying_failed branch below,
+      since this same event entity fires on both drying_is_complete and
+      drying_failed. Guarded by a recency condition since event entities
+      re-fire this trigger on every HA restart with their last (possibly
+      stale) value.
   - trigger: state
     entity_id: sensor.utility_room_dryer_current_status
     to: running
@@ -39,11 +44,11 @@ triggers:
       stricter door-open+occupancy AND would have: this door gets left open
       for hours at a stretch in this house, so requiring a fresh door-open
       edge to pair with occupancy would miss a retrieval where the door was
-      already open when someone walked in. Kept as an independent OR with
-      the door-open backup below, not combined with it. Also clears an
-      unrelated appliance's alert if only one is alerting and someone tends
-      the other, since both status managers watch the same door/occupancy
-      sensors — see guides/laundry_automation.md.
+      already open when someone walked in. Kept as an independent OR with the
+      door-open backup below, not combined with it. Also clears an unrelated
+      appliance's alert if only one is alerting and someone tends the other,
+      since both status managers watch the same door/occupancy sensors — see
+      guides/laundry_automation.md.
   - trigger: door.opened
     target:
       entity_id: binary_sensor.utility_room_door
@@ -55,6 +60,26 @@ triggers:
       Backup for when the PIR is unavailable. Also closes a gap the old
       door-edge design missed: a cycle finishing while the door happens to
       already be open never produced an edge.
+  - trigger: event.received
+    target:
+      entity_id: event.utility_room_dryer_error
+    options:
+      event_type:
+        - high_power_supply_error
+        - temperature_sensor_error
+        - power_code_connection_error
+    id: fault_error
+    alias: "Dryer reported a typed fault"
+    note: >-
+      Filter lists every event_type this entity currently exposes
+      (options.event_type is required by the trigger schema, so "catch
+      everything" means enumerating the full list rather than omitting the
+      filter) — all of them are faults. A firmware-added code would need this
+      list extended; see LESSONS.md if diagnosing a fault that never
+      announced. event.received does not fire on the unavailable/unknown
+      transitions a raw state trigger would, but still replays its last value
+      across a restart like any event entity, so it's guarded by the same
+      5-minute recency condition as the notification-event branches below.
 conditions: []
 actions:
   - alias: "Route on trigger and current status"
@@ -92,7 +117,8 @@ actions:
             state: idle
           - condition: template
             value_template: >-
-              {{ (now() - (states('event.utility_room_dryer_notification') |
+              {{ (now() -
+              (states('event.utility_room_dryer_notification') |
               as_datetime)).total_seconds() < 300 }}
             alias: "Event happened within the last 5 minutes, not a restart-restore"
         sequence:
@@ -108,6 +134,43 @@ actions:
               entity_id: input_datetime.utility_room_dryer_cycle_ended
             data:
               datetime: "{{ now() }}"
+      - alias: "Fault reported (generic notification event), event is recent"
+        conditions:
+          - condition: trigger
+            id: cycle_end_event
+          - condition: state
+            entity_id: event.utility_room_dryer_notification
+            attribute: event_type
+            state: drying_failed
+          - condition: template
+            value_template: >-
+              {{ (now() -
+              (states('event.utility_room_dryer_notification') |
+              as_datetime)).total_seconds() < 300 }}
+            alias: "Event happened within the last 5 minutes, not a restart-restore"
+        sequence:
+          - alias: "Set status to fault"
+            action: input_select.select_option
+            target:
+              entity_id: input_select.utility_room_dryer_status
+            data:
+              option: fault
+      - alias: "Fault reported (typed error event), event is recent"
+        conditions:
+          - condition: trigger
+            id: fault_error
+          - condition: template
+            value_template: >-
+              {{ (now() - (states('event.utility_room_dryer_error') |
+              as_datetime)).total_seconds() < 300 }}
+            alias: "Event happened within the last 5 minutes, not a restart-restore"
+        sequence:
+          - alias: "Set status to fault"
+            action: input_select.select_option
+            target:
+              entity_id: input_select.utility_room_dryer_status
+            data:
+              option: fault
       - alias: "New cycle started"
         conditions:
           - condition: trigger

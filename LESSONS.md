@@ -404,6 +404,12 @@ Templates work inside `message`. Do not call `chime_tts.say` (or `media_player.p
 
 `sensor.<appliance>_current_status` (via `lg_thinq`) transitions `... → end → power_off`, but measured across three real cycles the `end` state lasted only 31–44 seconds before moving on. A state trigger on `to: end` alone is a narrow target — an HA restart or a momentarily missed state-change event during that window loses the transition entirely. Pair it with a second, independent signal (in this instance, the appliance's `event.*_notification` entity, whose `event_type` attribute carries the same information) rather than relying on the state trigger alone. See `guides/laundry_automation.md` for the full pattern, including the recency guard the event-trigger path needs (below).
 
+### ThinQ's generic notification event lands before the typed error event with the actual fault code
+
+`event.<appliance>_notification` (`event_type`: `error_during_washing` / `drying_failed`) and `event.<appliance>_error` (`event_type`: the specific fault, e.g. `unable_to_lock_error`) both fire when a cycle aborts, but not simultaneously — measured live, the generic notification event lands roughly 0.5 seconds *before* the typed error event. An automation that composes a fault message the instant either trigger fires risks reading the typed event's `event_type` attribute before it's set, since the two are independent event entities with no ordering guarantee beyond "generic first, typed second, both within about a second."
+
+The fix is a short settle delay (`laundry_automation.md`'s announcement automation uses 5 seconds) before composing any message that depends on the typed event's attribute, gated so it only applies when a fault is actually present — a plain cycle completion has no such race and needs no delay.
+
 ### `event` entities re-fire their trigger on every HA restart or integration reload, with a stale value
 
 An `event` entity's `state` is the ISO timestamp of the last real event it saw. On HA restart, that value is restored — but the restore itself is a `state_changed` event (from `None` to the restored value), which fires any `state` trigger with no `to`/`from` filter, exactly as if a new event had just happened. A trigger built naively on such an entity will re-fire on every restart with the last event it ever saw, however old.
