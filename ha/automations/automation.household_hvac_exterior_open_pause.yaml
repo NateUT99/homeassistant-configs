@@ -9,9 +9,11 @@ description: >-
   by Household: Nate Presence on arrival).
 
 
-  Announces both the pause and the restore -- TTS to the kitchen HomePod
-  while awake, a silent tagged iPhone push while everyone_sleeping is on.
-  Both messages mention outdoor air quality when it is currently poor.
+  Announces both the pause and the restore via script.household_tts_announce
+  with target: auto, which resolves to the kitchen HomePod while awake and
+  the quieter master bedroom HomePod while everyone_sleeping is on (0.4
+  volume overnight vs the normal 0.5), falling back to a push on its own if
+  TTS truly cannot land.
 
 
   Stores the mode being paused from in
@@ -110,44 +112,27 @@ actions:
               entity_id: climate.living_room_thermostat
             data:
               hvac_mode: "off"
-          - alias: Announce or notify that HVAC has paused
-            if:
-              - condition: state
-                entity_id: input_boolean.everyone_sleeping
-                state: "off"
-            then:
-              - alias: TTS on kitchen HomePod
-                action: script.household_tts_announce
-                data:
-                  message: >-
-                    The thermostat has been paused because an outside
-                    door or window in {{ open_areas_text }} is
-                    open.{%- if
-                    is_state('binary_sensor.outside_air_quality_index_high',
-                    'on') %} Outdoor air quality is also poor -- {% if
-                    states('sensor.erie_ohio_usa_air_quality_index') |
-                    int(0) > 150 %}please keep{% else %}consider
-                    keeping{% endif %} the exterior doors and windows
-                    closed.{%- endif %}
-                  target: kitchen
-                  notification_title: Thermostat Paused
-            else:
-              - alias: Silent push to iPhone
-                action: notify.mobile_app_nates_iphone
-                data:
-                  title: "❌ Thermostat Paused"
-                  message: >-
-                    The thermostat has been paused because an outside
-                    door or window in {{ open_areas_text }} is
-                    open.{%- if
-                    is_state('binary_sensor.outside_air_quality_index_high',
-                    'on') %} Outdoor air quality is also poor -- {% if
-                    states('sensor.erie_ohio_usa_air_quality_index') |
-                    int(0) > 150 %}please keep{% else %}consider
-                    keeping{% endif %} the exterior doors and windows
-                    closed.{%- endif %}
-                  data:
-                    tag: hvac_exterior_pause
+          - alias: Announce that HVAC has paused
+            note: >-
+              script.household_tts_announce auto-routes to the kitchen
+              HomePod while awake and the quieter master bedroom HomePod
+              (0.5 vs 0.6 volume) while everyone_sleeping is on, and falls
+              back to a push on its own if TTS truly cannot land (video
+              call active, target HomePod offline) -- no separate
+              sleeping/awake branch needed here.
+            action: script.household_tts_announce
+            data:
+              message: >-
+                The thermostat has been paused because an outside door or
+                window in {{ open_areas_text }} is open.{%- if
+                is_state('binary_sensor.outside_air_quality_index_high',
+                'on') %} Outdoor air quality is also poor -- {% if
+                states('sensor.erie_ohio_usa_air_quality_index') |
+                int(0) > 150 %}please keep{% else %}consider
+                keeping{% endif %} the exterior doors and windows
+                closed.{%- endif %}
+              target: auto
+              notification_title: "❌ Thermostat Paused"
       - alias: Closed 3 minutes ago, thermostat off, and a mode was stored
         conditions:
           - condition: trigger
@@ -180,34 +165,19 @@ actions:
               entity_id: input_select.household_hvac_mode_before_pause
             data:
               option: none
-          - alias: Announce or notify that HVAC has resumed
-            if:
-              - condition: state
-                entity_id: input_boolean.everyone_sleeping
-                state: "off"
-            then:
-              - alias: TTS on kitchen HomePod
-                action: script.household_tts_announce
-                data:
-                  message: >-
-                    The thermostat has been re-enabled to {{
-                    {'cool': 'cool', 'heat': 'heat', 'heat_cool': 'heat
-                    and cool'}.get(paused_from, paused_from) }} because
-                    all exterior doors and windows are closed.
-                  target: kitchen
-                  notification_title: Thermostat Re-Enabled
-            else:
-              - alias: Silent push to iPhone
-                action: notify.mobile_app_nates_iphone
-                data:
-                  title: "✅ Thermostat Re-Enabled"
-                  message: >-
-                    The thermostat has been re-enabled to {{
-                    {'cool': 'cool', 'heat': 'heat', 'heat_cool': 'heat
-                    and cool'}.get(paused_from, paused_from) }} because
-                    all exterior doors and windows are closed.
-                  data:
-                    tag: hvac_exterior_pause
+          - alias: Announce that HVAC has resumed
+            note: >-
+              Same auto-routing as the pause announcement -- see that
+              step's note.
+            action: script.household_tts_announce
+            data:
+              message: >-
+                The thermostat has been re-enabled to {{
+                {'cool': 'cool', 'heat': 'heat', 'heat_cool': 'heat
+                and cool'}.get(paused_from, paused_from) }} because
+                all exterior doors and windows are closed.
+              target: auto
+              notification_title: "✅ Thermostat Re-Enabled"
       - alias: Thermostat left off through some other path
         conditions:
           - condition: trigger
