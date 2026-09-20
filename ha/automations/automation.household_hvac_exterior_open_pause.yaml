@@ -77,6 +77,33 @@ actions:
               entity_id: input_select.household_hvac_mode_before_pause
             data:
               option: "{{ states('climate.living_room_thermostat') }}"
+          - alias: Determine which rooms triggered the pause
+            note: >-
+              Expands binary_sensor.household_exterior_openings to its leaf
+              sensors so this stays correct as members are added later, and
+              mirrors binary_sensor.household_exterior_open's own garage
+              AND-clause. Possessive area names (Avery's Room) skip the
+              leading the.
+            variables:
+              open_areas_text: |-
+                {% macro fmt(a) -%}{{ '' if '’' in a else 'the ' }}{{ a }}{%- endmacro %}
+                {%- set areas = expand('binary_sensor.household_exterior_openings')
+                   | selectattr('state', 'eq', 'on') | map(attribute='entity_id')
+                   | map('area_name') | unique | list -%}
+                {%- if is_state('binary_sensor.garage_interior_door', 'on') and is_state('cover.garage_door_opener_door', 'open') -%}
+                {%- set areas = areas + ['Garage'] -%}
+                {%- endif -%}
+                {%- set ns = namespace(formatted=[]) -%}
+                {%- for a in areas -%}{%- set ns.formatted = ns.formatted + [fmt(a)] -%}{%- endfor -%}
+                {%- if ns.formatted | length == 0 -%}
+                the house
+                {%- elif ns.formatted | length == 1 -%}
+                {{ ns.formatted[0] }}
+                {%- elif ns.formatted | length == 2 -%}
+                {{ ns.formatted[0] }} and {{ ns.formatted[1] }}
+                {%- else -%}
+                {{ ns.formatted[:-1] | join(', ') }}, and {{ ns.formatted[-1] }}
+                {%- endif -%}
           - alias: Pause the thermostat
             action: climate.set_hvac_mode
             target:
@@ -93,8 +120,9 @@ actions:
                 action: script.household_tts_announce
                 data:
                   message: >-
-                    A door or window has been open for three minutes. The
-                    thermostat has been paused.{%- if
+                    A window or door has been open for three minutes in
+                    {{ open_areas_text }}. The thermostat has been
+                    paused.{%- if
                     is_state('binary_sensor.outside_air_quality_index_high',
                     'on') %} Outdoor air quality is also poor -- {% if
                     states('sensor.erie_ohio_usa_air_quality_index') |
@@ -109,8 +137,9 @@ actions:
                 data:
                   title: "❌ Thermostat Paused"
                   message: >-
-                    A door or window has been open for three minutes. The
-                    thermostat has been paused.{%- if
+                    A window or door has been open for three minutes in
+                    {{ open_areas_text }}. The thermostat has been
+                    paused.{%- if
                     is_state('binary_sensor.outside_air_quality_index_high',
                     'on') %} Outdoor air quality is also poor -- {% if
                     states('sensor.erie_ohio_usa_air_quality_index') |
