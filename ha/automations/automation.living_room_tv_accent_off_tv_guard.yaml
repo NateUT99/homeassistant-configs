@@ -27,6 +27,13 @@ triggers:
     to:
       - "off"
       - unavailable
+    note: >-
+      Raw `state` used instead of the purpose-specific
+      media_player.turned_off trigger -- that trigger excludes
+      unavailable/unknown from counting as off, but this guard
+      deliberately treats AppleTV going unavailable the same as off
+      (matches automation.living_room_tv_accent_controller's tv_off
+      trigger).
 conditions:
   - alias: AppleTV is off or unavailable
     condition: state
@@ -34,6 +41,10 @@ conditions:
     state:
       - "off"
       - unavailable
+    note: >-
+      Raw `state` used instead of media_player.is_off for the same reason
+      as this automation's trigger -- that condition also excludes
+      unavailable/unknown.
 actions:
   - alias: Turn off accent light
     action: light.turn_off

@@ -44,6 +44,14 @@ triggers:
     to:
       - "off"
       - unavailable
+    note: >-
+      Raw `state` used instead of the purpose-specific
+      media_player.turned_off trigger -- that trigger explicitly excludes
+      unavailable/unknown from counting as off (HA docs: "do not count as
+      off until they report a supported power state again"). This
+      automation deliberately treats AppleTV going unavailable (e.g. a
+      network drop) the same as off, so the semantic form would reopen the
+      stuck-on gap this design closes.
   - alias: AppleTV turned on from off or unavailable
     id: tv_on
     trigger: state
@@ -51,6 +59,9 @@ triggers:
     from:
       - "off"
       - unavailable
+    note: >-
+      Mirrors tv_off's rationale -- media_player.turned_on has the same
+      unavailable/unknown exclusion.
   - alias: Room became dim (below 25 lux)
     id: room_dim
     trigger: numeric_state
@@ -69,6 +80,11 @@ actions:
         conditions:
           - alias: AppleTV is on
             condition: not
+            note: >-
+              Raw `state` used instead of media_player.is_on -- that
+              condition also excludes unavailable/unknown from evaluating
+              as off, which does not match this design's intent (see
+              tv_off trigger's note).
             conditions:
               - condition: state
                 entity_id: media_player.living_room_appletv
