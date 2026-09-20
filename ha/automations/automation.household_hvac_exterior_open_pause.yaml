@@ -120,9 +120,9 @@ actions:
                 action: script.household_tts_announce
                 data:
                   message: >-
-                    An exterior door or window has been open for three
-                    minutes in {{ open_areas_text }}. The thermostat has
-                    been paused.{%- if
+                    The thermostat has been paused because an outside
+                    door or window in {{ open_areas_text }} is
+                    open.{%- if
                     is_state('binary_sensor.outside_air_quality_index_high',
                     'on') %} Outdoor air quality is also poor -- {% if
                     states('sensor.erie_ohio_usa_air_quality_index') |
@@ -137,9 +137,9 @@ actions:
                 data:
                   title: "❌ Thermostat Paused"
                   message: >-
-                    An exterior door or window has been open for three
-                    minutes in {{ open_areas_text }}. The thermostat has
-                    been paused.{%- if
+                    The thermostat has been paused because an outside
+                    door or window in {{ open_areas_text }} is
+                    open.{%- if
                     is_state('binary_sensor.outside_air_quality_index_high',
                     'on') %} Outdoor air quality is also poor -- {% if
                     states('sensor.erie_ohio_usa_air_quality_index') |
@@ -190,8 +190,10 @@ actions:
                 action: script.household_tts_announce
                 data:
                   message: >-
-                    All exterior doors and windows are closed. The
-                    thermostat has been re-enabled.
+                    The thermostat has been re-enabled to {{
+                    {'cool': 'cool', 'heat': 'heat', 'heat_cool': 'heat
+                    and cool'}.get(paused_from, paused_from) }} because
+                    all exterior doors and windows are closed.
                   target: kitchen
                   notification_title: Thermostat Re-Enabled
             else:
@@ -200,8 +202,10 @@ actions:
                 data:
                   title: "✅ Thermostat Re-Enabled"
                   message: >-
-                    All exterior doors and windows have been closed for
-                    at least three minutes.
+                    The thermostat has been re-enabled to {{
+                    {'cool': 'cool', 'heat': 'heat', 'heat_cool': 'heat
+                    and cool'}.get(paused_from, paused_from) }} because
+                    all exterior doors and windows are closed.
                   data:
                     tag: hvac_exterior_pause
       - alias: Thermostat left off through some other path
