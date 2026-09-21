@@ -369,6 +369,7 @@ actions:
                     data:
                       title: Vacuum
                       message: Started the master bedroom mop pass.
+                    enabled: false
                 else:
                   - alias: Tell Nate the master mop pass was skipped, and why
                     action: notify.send_message

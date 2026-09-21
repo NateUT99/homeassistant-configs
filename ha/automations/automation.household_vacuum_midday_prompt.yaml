@@ -124,5 +124,6 @@ actions:
         data:
           title: Vacuum
           message: Started a whole-house clean.
+        enabled: false
 mode: single
 category: 01M0XF7RJK5EX3A4YPNEX7X3DG
