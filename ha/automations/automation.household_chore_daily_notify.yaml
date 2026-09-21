@@ -1,0 +1,81 @@
+id: "1789947284140"
+alias: "Household: Chore Daily Notify"
+description: >-
+  Sends one actionable iOS push per chore that is due or overdue on
+  todo.household_chores (the ha-chore-calendar list). Each push is tagged
+  `chore_<uid>` so a re-send replaces it on the lock screen instead of
+  stacking, and carries a Mark Done button that fires `CHORE_DONE_<uid>` for
+  Household: Task Mark Done to handle.
+
+
+  Fires at 09:00 every day.
+
+
+  No per-item metadata to parse here -- ha-chore-calendar computes each
+  chore's due date itself (interval, pending/grace windows) and only
+  surfaces a chore as needs_action once it has actually entered its pending
+  window, so a plain due <= now filter over needs_action items is already
+  correct; a chore not yet due simply isn't in the needs_action set yet.
+triggers:
+  - trigger: time
+    at: "09:00:00"
+    alias: "09:00 daily"
+conditions:
+  - condition: not
+    alias: "Chore list is available"
+    conditions:
+      - condition: state
+        entity_id: todo.household_chores
+        state:
+          - unavailable
+          - unknown
+actions:
+  - action: todo.get_items
+    alias: "Read open items"
+    target:
+      entity_id: todo.household_chores
+    data:
+      status:
+        - needs_action
+    response_variable: open_result
+  - alias: "Select chores that are actually due"
+    note: >-
+      due[:10] normalizes both date-only and full-ISO-datetime forms
+      todo.get_items can return, and ISO strings compare correctly with a
+      plain <=. An item with no due key (shouldn't happen for a
+      needs_action ha-chore-calendar item, but defensive) is skipped.
+    variables:
+      due_chores: |-
+        {%- set today = now().date() | string -%}
+        {%- set ns = namespace(out=[]) -%}
+        {%- for it in open_result.get('todo.household_chores', {}).get('items', []) -%}
+          {%- set due = (it.get('due','') ~ '')[:10] -%}
+          {%- if due != '' and due <= today and it.get('uid','') != '' -%}
+            {%- set ns.out = ns.out + [{'uid': it.get('uid'), 'summary': it.get('summary','Chore'), 'overdue_days': (now().date() - as_datetime(due).date()).days}] -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {{ ns.out }}
+  - alias: "Push one notification per due chore"
+    repeat:
+      for_each: "{{ due_chores }}"
+      sequence:
+        - action: notify.mobile_app_nates_iphone
+          alias: "Send the chore push"
+          note: >-
+            notify.mobile_app_* rather than notify.send_message -- tag and
+            actions live under the nested data: sub-key, which
+            notify.send_message's schema rejects outright.
+          continue_on_error: true
+          data:
+            title: "Chore Due"
+            message: >-
+              {{ repeat.item.summary }}{{ '' if repeat.item.overdue_days ==
+              0 else ' — ' ~ repeat.item.overdue_days ~ ' day' ~ ('' if
+              repeat.item.overdue_days == 1 else 's') ~ ' overdue' }}
+            data:
+              tag: "chore_{{ repeat.item.uid }}"
+              actions:
+                - action: "CHORE_DONE_{{ repeat.item.uid }}"
+                  title: "Mark Done"
+mode: single
+category: 01M0XF7RJK5EX3A4YPNEX7X3DG

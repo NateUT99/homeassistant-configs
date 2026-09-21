@@ -1,0 +1,138 @@
+id: "1789947413384"
+alias: "Household: Trash Pickup"
+description: >-
+  Voice-only trash pickup reminders, driven live off calendar.family -- no
+  stored due date, no to-do item. Each trigger queries the calendar itself
+  at fire time for a matching pickup event on the relevant day.
+
+
+  - 19:00/19:30/20:00: if a pickup event is tomorrow,
+  input_boolean.household_trash_taken_out is off, and someone is home,
+  announce to the kitchen.
+
+  - On the household waking up (everyone_sleeping: on -> off): if a pickup
+  event is today and the helper is still off, announce to the master
+  bedroom.
+
+  - 10:00 daily: turn the helper back off -- a no-op most days, and the
+  reset for whatever got flipped on around the most recent pickup.
+
+
+  The helper is the only state this automation carries: turn it on once
+  you've taken the trash out and every remaining reminder for that pickup
+  goes quiet.
+triggers:
+  - trigger: time
+    at: "19:00:00"
+    id: escalate_first
+    alias: "19:00 evening reminder"
+  - trigger: time
+    at: "19:30:00"
+    id: escalate_repeat
+    alias: "19:30 evening reminder repeat"
+  - trigger: time
+    at: "20:00:00"
+    id: escalate_repeat
+    alias: "20:00 evening reminder repeat"
+  - trigger: state
+    entity_id: input_boolean.everyone_sleeping
+    from: "on"
+    to: "off"
+    id: wakeup
+    alias: "Household wakes up"
+    note: >-
+      Fires when people actually get up rather than at a guessed hour.
+  - trigger: time
+    at: "10:00:00"
+    id: cleanup
+    alias: "10:00 daily reset"
+conditions: []
+actions:
+  - alias: "Route by trigger"
+    choose:
+      - alias: "Evening reminder -- pickup is tomorrow"
+        conditions:
+          - condition: trigger
+            id:
+              - escalate_first
+              - escalate_repeat
+          - condition: state
+            entity_id: input_boolean.household_trash_taken_out
+            state: "off"
+            alias: "Not already taken out"
+        sequence:
+          - action: calendar.get_events
+            alias: "Query calendar.family for tomorrow"
+            target:
+              entity_id: calendar.family
+            data:
+              start_date_time: "{{ (now() + timedelta(days=1)).strftime('%Y-%m-%dT00:00:00') }}"
+              duration:
+                days: 1
+            response_variable: cal_result
+          - alias: "Find the matching pickup event"
+            variables:
+              hit: "{{ (cal_result.get('calendar.family', {}).get('events', []) | selectattr('summary', 'search', 'Trash') | list | first) | default(none) }}"
+          - if:
+              - condition: template
+                value_template: "{{ hit is not none }}"
+              - condition: numeric_state
+                entity_id: zone.home
+                above: 0
+            then:
+              - action: script.household_tts_announce
+                alias: "Speak the evening reminder"
+                data:
+                  message: "Don't forget, {{ hit.summary }} is tomorrow."
+                  target: kitchen
+                  notification_title: "Pickup Tomorrow"
+                  critical_fallback: false
+            alias: "Announce if a pickup was found and someone is home"
+      - alias: "Wake-up reminder -- pickup is today"
+        conditions:
+          - condition: trigger
+            id: wakeup
+          - condition: state
+            entity_id: input_boolean.household_trash_taken_out
+            state: "off"
+            alias: "Not already taken out"
+        sequence:
+          - action: calendar.get_events
+            alias: "Query calendar.family for today"
+            target:
+              entity_id: calendar.family
+            data:
+              start_date_time: "{{ now().strftime('%Y-%m-%dT00:00:00') }}"
+              duration:
+                days: 1
+            response_variable: cal_result
+          - alias: "Find the matching pickup event"
+            variables:
+              hit: "{{ (cal_result.get('calendar.family', {}).get('events', []) | selectattr('summary', 'search', 'Trash') | list | first) | default(none) }}"
+          - if:
+              - condition: template
+                value_template: "{{ hit is not none }}"
+            then:
+              - action: script.household_tts_announce
+                alias: "Speak the wake-up reminder"
+                note: >-
+                  target explicit master_bedroom, not auto --
+                  everyone_sleeping has just gone off, so auto would
+                  resolve to kitchen.
+                data:
+                  message: "Today is {{ hit.summary }}. It still needs to go out."
+                  target: master_bedroom
+                  notification_title: "Pickup Today"
+                  critical_fallback: false
+            alias: "Announce if a pickup was found today"
+    default:
+      - alias: "Cleanup -- reset the helper for the next cycle"
+        action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.household_trash_taken_out
+        note: >-
+          The cleanup trigger has no matching branch above by design, so it
+          always lands here; a manual run also lands here, harmlessly
+          re-running the same idempotent reset.
+mode: single
+category: 01M0XF7RJK5EX3A4YPNEX7X3DG

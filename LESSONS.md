@@ -132,6 +132,36 @@ Concretely: `condition: not, conditions: [{state: fan, "on"}, {numeric_state: zo
 
 Discovered when the Inovelli LED-bar "flash while asleep" acknowledgement (`guides/inovelli_switches.md`) never fired in Master Bedroom or Avery's Room — every fan change while everyone was marked asleep silently fell through to the "steady state" branch instead, with no visible symptom beyond "the light didn't do the thing." A **trace with only one sub-condition of a multi-item `not` block evaluated** is the tell — that's the block short-circuiting on the first sub-condition that's true, disproving "all false" before it needs to check the rest.
 
+### A bare `condition:` step inside a `repeat.sequence` aborts the whole loop, not just the current item
+
+A `condition:` **action** (as opposed to a top-level automation `conditions:` block) that evaluates false stops the entire sequence it's in. Inside `repeat.for_each`, that sequence is the per-item body — so a false condition on iteration 3 of 8 silently skips iterations 4 through 8 as well, not just item 3. There is no trace error; the loop just ends early.
+
+**Rule:** never use a bare `condition:` step to skip-and-continue inside a `repeat` body. Use `if:`/`then:` instead — a false `if` only skips its own `then:` block and the loop moves on to the next item normally.
+
+```yaml
+# Wrong — one unavailable calendar aborts every remaining item in the loop
+- repeat:
+    for_each: "{{ cal_items }}"
+    sequence:
+      - condition: template
+        value_template: "{{ states(repeat.item.source) not in ['unavailable', 'unknown'] }}"
+      - action: calendar.get_events
+        ...
+
+# Right — a skip only skips this one item
+- repeat:
+    for_each: "{{ cal_items }}"
+    sequence:
+      - if:
+          - condition: template
+            value_template: "{{ states(repeat.item.source) not in ['unavailable', 'unknown'] }}"
+        then:
+          - action: calendar.get_events
+            ...
+```
+
+Found while designing `automation.household_trash_pickup` (`guides/reminders.md`), which loops over calendar-driven to-do items and must not let one dead calendar entity take down the rest of the sync.
+
 ---
 
 ## Dashboards
@@ -841,29 +871,64 @@ Shell command integrations that SSH into another machine should use:
 
 ## HACS Integrations
 
-### ha-chore-calendar: `pending_period` must be less than the chore's interval
+### ha-chore-calendar: `pending_period` must be less than the chore's interval (confirmed current, 2026-09-20)
 
-Setting a `pending_period` that equals or exceeds the chore's interval causes the chore to get stuck in `completed` state after the `update_item` service call. The integration appears to update (the new `pending_period_mins` is visible in diagnostics), but the sensor state never transitions to `pending` — it stays `completed` indefinitely.
-
-The root cause: when `pending_period >= interval`, the calculated "pending from" date (`next_due - pending_period`) falls before the `last_completed` date. The integration's state machine doesn't handle this overlap and leaves the chore in `completed`.
+Setting a `pending_period` that equals or exceeds the chore's interval gets the chore permanently stuck in `completed` state. Confirmed by reading `custom_components/chore_calendar/models/base.py::compute_status` directly (v0.12.2, upstream `tcarney/ha-chore-calendar`): `pending_at = due_at - pending_period`, and if `pending_period >= interval` then `pending_at <= last_completed`, which makes `last_completed >= pending_at` unconditionally true — the very first check in `compute_status`, returning `COMPLETED` regardless of how far `now` advances past `due_at`. Nothing fixes this at runtime; only a different `pending_period` value does.
 
 **Rule:** always set `pending_period < interval`. For a 14-day interval, cap pending_period at 7 days. For 30-day intervals, 21 days works well. If you need to see a chore earlier, shorten the interval instead.
 
-### ha-chore-calendar: pending state transitions evaluate at midnight, not in real-time (integration bug)
+### ha-chore-calendar: the "midnight tick" bug in earlier notes does not match current source — likely a misdiagnosis of the rule above
 
-The README documents `pending_period` as "how long before the due time the chore reads as pending" — implying real-time evaluation. The actual implementation does not honor this: the `completed → pending` transition is evaluated on a midnight tick, and the chore becomes `pending` at the first midnight where `today.date > pending_from.date` (strict greater-than, not >=).
+An earlier version of this entry claimed the `completed → pending` transition evaluates only on a daily midnight tick with a strict `today.date() > pending_from.date()` comparison, and that scheduled chores were unreliable for narrow notification windows as a result. **Retracted as of 2026-09-20** after reading the current upstream source directly:
 
-Consequence: with `next_due = 07:00` and `pending_period_mins = 1440` (1 day), `pending_from = previous day at 07:00`. At midnight of the previous day, `today.date == pending_from.date` — the strict-greater check fails, so the chore stays `completed`. It doesn't flip to pending until midnight of the due day itself — 7 hours before pickup, not 24.
+- `coordinator.py`'s `DataUpdateCoordinator` re-evaluates every chore on a **60-second** interval (`DEFAULT_UPDATE_INTERVAL = 60`), not once a day.
+- `base.py::compute_status` compares against a full `datetime` (`now >= overdue_at`, `now >= due_at`, `now >= pending_at`) throughout — there is no `.date()` truncation anywhere in the status state machine, for any chore type (interval, scheduled, or oneshot).
 
-**Workaround:** size `pending_period` so that `pending_from` falls on a calendar day *before* the day you need `pending` state. For a 07:00 due time and a 19:00 evening-before notification, a 2-day period (2880 min) puts `pending_from` at 07:00 two days before pickup — `pending_from.date` is then strictly before the notification day, so the midnight check flips to pending at midnight the evening before.
+No commit history or changelog entry was found describing a midnight-only evaluation ever existing, though the codebase has been substantially refactored since (see the `pending_period` unification landed in PR #12 / v0.8.0, April 2026) — it's possible an earlier pre-refactor version behaved differently, but there's no confirmation either way. The much more likely explanation: the stuck-`completed` symptom that prompted this note was the **`pending_period >= interval` bug above**, misread as a timing/midnight issue rather than a windowing misconfiguration. Trash pickup at the time used a 2-day `pending_period` — plausible to have equaled or exceeded whatever interval/window the scheduled chore was actually configured with.
 
-### ha-chore-calendar: scheduled chores unreliable for narrow notification windows — don't use
+**Current guidance:** don't assume ha-chore-calendar's status transitions are unreliable. Set `pending_period < interval` per the rule above, and treat any future stuck-`completed` symptom as that misconfiguration first, not an integration bug — re-verify against current source before reintroducing a "don't use X" rule.
 
-Even with a correctly sized 2-day pending window, the trash pickup scheduled chore missed the `completed → pending` transition on two consecutive pickup cycles (sensors remained in `completed` state at the 19:00 notification window, despite `next_due` being the next day). A coordinator reload did not fix it.
+### ha-chore-calendar: `create_item` has no field to seed `last_completed` — use `complete_item` right after
 
-The midnight tick mechanism for scheduled chores is fragile: any missed poll, coordinator hiccup, or off-by-one in the date math can silently leave a sensor stuck in `completed` indefinitely with no error surfaced.
+`chore_calendar.create_item`'s schema (interval/scheduled/oneshot sub-objects, `pending_period`, `grace_period`) has no `last_completed` or equivalent field. A freshly created interval chore has `last_completed: None` and reads `pending` (unscheduled, dormant) regardless of how the interval is configured. To anchor a chore's first due date to something other than "starts unscheduled," call `chore_calendar.complete_item` immediately after creation with `completed_at:` set to the desired last-done timestamp — `due` then computes as `completed_at + interval`, exactly as if that completion had really happened.
 
-**Rule:** don't use ha-chore-calendar scheduled chores for any automation with a narrow or time-critical notification window. Use `calendar.get_events` against an external calendar (iCloud via Remote Calendar integration) instead — it queries the authoritative schedule at notification time with no state machine dependency. ha-chore-calendar interval chores remain reliable for the 09:00-daily overdue check because the window is 24 hours wide and failure means a 1-day delay rather than a silent miss.
+### ha-chore-calendar: a chore doesn't surface as `needs_action` until its pending window opens, even mid-cycle
+
+Unlike a plain to-do item (open the moment it's created), an interval chore stays in the `completed` (dormant) bucket from the moment of completion until `now >= due_at - pending_period`. A chore completed today with a 30-day interval and a 21-day pending period will not appear as actionable — on the card, in `todo.get_items(status=needs_action)`, or via `todo.household_chores`'s open-item count — until roughly day 9 of its cycle. This is correct, intended behavior (it's what distinguishes ha-chore-calendar's richer PENDING/DUE/OVERDUE lifecycle from a bare due-date list), but it surprises anyone expecting every open chore to always be visible somewhere. Check a chore's own `sensor.household_chores_<chore>` `due` attribute to see exactly when it opens, rather than assuming "not in the open list" means "something's wrong."
+
+### ha-chore-calendar's `todo.household_chores` entity requires `due_datetime`, not `due_date`
+
+Only `TodoListEntityFeature.SET_DUE_DATETIME_ON_ITEM` is advertised (confirmed in `custom_components/chore_calendar/todo.py::_coerce_due`); passing a bare date via `todo.update_item`'s `due_date:` field is rejected outright ("Date-only due values are not supported; provide a due datetime"). This differs from `local_todo`, which accepts either. Any automation writing a due date to this specific todo entity must use `due_datetime:` with a full timestamp.
+
+---
+
+## Reminders & To-do Lists
+
+### `todo.get_items` omits keys with no value — never use a bare attribute lookup
+
+An item with no due date or no description simply has no `due` or `description` key in the response at all — it is not present as `null`. `it.description` on such an item raises `UndefinedError` and kills the automation run. Always read with `.get('due', '')` / `.get('description', '')`, never a bare `it.due` / `it.description`.
+
+`due` itself comes back as a plain ISO **string** — `"2026-09-25"` for a date-only item, a full ISO datetime for a datetime item — never a `date`/`datetime` object. `due[:10]` normalizes both shapes to a bare date, and ISO date strings compare correctly with plain `<=`/`>=`/`max()`, so no `as_datetime()` round-trip is needed for comparisons — only for actual `+ timedelta` arithmetic.
+
+### `todo.update_item` merges fields, it does not replace the item
+
+Updating only `status` on an item leaves its existing `due` and `description` completely untouched — confirmed by seeding an item with both, flipping `status: completed`, and reading it back with `due`/`description` intact. This is what lets a mark-done automation set `status: completed` alone and trust a separate reschedule automation to read the untouched `due`/`description` afterward.
+
+### A `local_todo` item's `completed` timestamp is transient — present only while `status: completed`
+
+`todo.get_items` includes a `completed` key (full ISO datetime) on an item currently in `completed` status. The moment the item is reopened (`status: needs_action`), that key is gone from the next read — it is not retained as history. This makes it useful for exactly one purpose: an automation that fires on completion and reads the item back in the same run can use `completed` as a more accurate "when was this actually done" timestamp than `now()`, since the automation may run late (e.g. off a `time_pattern` safety-net poll rather than the instant of completion). It cannot be used to reconstruct a completion history after the fact.
+
+### `result.items` in Jinja resolves to the dict `.items()` method, not a key named `items`
+
+`todo.get_items`'s response is `{entity_id: {"items": [...]}}`. In a template, `result.items` is Jinja's dot-access falling through to the dict's built-in `.items()` method rather than the `"items"` key, since dot-access tries attributes before subscript keys. Use bracket notation for the key, and `.get()` for the entity_id level so a response missing the entity (e.g. the read raced a delete) returns `{}`/`[]` instead of raising:
+
+```jinja
+{# Wrong — returns a bound method object, not the list #}
+{{ result['todo.household_chores'].items }}
+
+{# Right #}
+{{ result.get('todo.household_chores', {}).get('items', []) }}
+```
 
 ---
 

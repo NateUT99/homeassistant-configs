@@ -1,5 +1,5 @@
 # Home Assistant Device & Entity Naming Standard
-*Version 2.1 — September 2026*
+*Version 2.3 — September 2026*
 
 ---
 
@@ -7,6 +7,8 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 2.3 | September 2026 | Rewrite §9 again — chores moved from a native `local_todo` list with description metadata to the `ha-chore-calendar` HACS integration; naming is now just the `chore_name` field, trash pickup dropped to a single helper with no list item at all |
+| 2.2 | September 2026 | Rewrite §9 for the `todo.household_chores` rebuild — reminders are now to-do items with description metadata, not per-reminder `input_datetime`/`input_number`/`sensor`/`binary_sensor` quartets |
 | 2.1 | September 2026 | Correct §4.1: the area prefix is injected by HA automatically at entity-creation time based on the device's area assignment, not typed into the device Name — device Names stay bare. Rewrite §4.4 to match (fix area-less entity_ids by overriding entity_id directly, not by renaming the device). This reverses guidance in 2.0 that had it backwards. |
 | 2.0 | August 2026 | Reframe for ZHA + `has_entity_name` model: area token comes from device Name field, not area registry; add anti-doubling rule (§4.3), area-less import rule (§4.4), and domain-word collision caveat (§4.5); update area registry for new house (§3); remove Z2M/Hue-specific guidance; update special-case sections for current integration stack |
 | 1.3 | May 2026 | Codify device display name convention (§4.1–4.2): Title Case, location-first, describes physical object; add multi-entity device rule |
@@ -332,32 +334,30 @@ When a light is connected via a smart plug, use the `switch_as_x` helper to expo
 
 ---
 
-## 9. Reminder Helpers
+## 9. Reminder Items
 
-Reminders are conceptual tasks, not location-bound, so they carry no area prefix. The key is built from the object being acted on and the action performed.
+Household chores are managed as `chore_calendar` items on the `ha-chore-calendar` HACS
+integration's list (`calendar.household_chores` / `todo.household_chores`, see
+`guides/reminders.md`), not per-reminder helpers. Naming applies to the `chore_name` field
+— everything else (interval, pending/grace windows, scheduling) is a structured field on
+the chore itself, not free text.
 
-### 9.1 Key Pattern
+### 9.1 Chore Name
 
-```
-<object>_<action>
-```
+Imperative, action-first, Title Case — the instruction as a person reads it, not the
+completion event:
 
-The key is shared across all helpers for a given reminder. For example, `accord_washed` is the key for all four helpers that track the car wash reminder.
+| Correct | Incorrect |
+|---|---|
+| `Wash Accord` | `Accord Washed` |
+| `Clean Dishwasher` | `Dishwasher Cleaned` |
+| `Replace Razor Blade` | `Razor Blade Replacement` |
 
-### 9.2 Helper Entity ID Patterns
+No area prefix — chores are conceptual tasks, not location-bound.
 
-| Helper | Pattern | Example |
-|---|---|---|
-| Last-done date | `input_datetime.<key>` | `input_datetime.accord_washed` |
-| Interval (days) | `input_number.<key>_offset` | `input_number.accord_washed_offset` |
-| Due date | `sensor.<key>_due` | `sensor.accord_washed_due` |
-| Overdue flag | `binary_sensor.<key>_overdue` | `binary_sensor.accord_washed_overdue` |
+### 9.2 Trash Pickup
 
-### 9.3 Rules
-
-- **No area prefix** — reminders describe household tasks, not physical locations.
-- **`_offset` suffix** on the interval helper — not `_interval` or `_days`. Consistent across all reminders.
-- **`_due` suffix** on the due-date sensor — not `_next_due` or `_due_date`.
-- **`_overdue` suffix** on the binary sensor — `device_class: problem`. This suffix drives the notification automation's tag and action ID derivation.
-- **Object before action** in the key — `accord_washed` not `wash_accord`; `dishwasher_cleaned` not `clean_dishwasher`.
-- **Past-tense action** in the key — `washed`, `cleaned`, `changed` — not imperative (`wash`, `clean`, `change`). The key names the event that marks completion.
+Trash pickup is **not** a chore-list item — it's queried live from `calendar.family` by
+`automation.household_trash_pickup` on each reminder, with `input_boolean.household_trash_taken_out`
+as the only piece of state, named per the standard `[domain].household_[purpose]` pattern
+(§8 Quick Reference) rather than any reminder-specific convention.

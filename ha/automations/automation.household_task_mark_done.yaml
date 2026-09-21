@@ -1,0 +1,55 @@
+id: "1789947295132"
+alias: "Household: Task Mark Done"
+description: >-
+  Completes a to-do item straight from the lock screen. Handles any
+  mobile_app_notification_action event whose action starts with
+  `CHORE_DONE_`, strips the prefix to recover the item uid, sets that item
+  to completed, and clears the matching `chore_<uid>` notification.
+
+
+  Fires whenever the Mark Done button on a chore push is tapped.
+
+
+  Setting the item completed is all this does -- ha-chore-calendar
+  reschedules the chore internally from there (its own
+  interval/pending/grace state machine), so no separate reschedule
+  automation is needed. mode: queued rather than parallel because two taps
+  in quick succession would otherwise race on the same store.
+triggers:
+  - trigger: event
+    event_type: mobile_app_notification_action
+    alias: "Notification action tapped"
+conditions:
+  - condition: template
+    alias: "It is a CHORE_DONE action"
+    note: >-
+      The event trigger cannot filter on a prefix, so the filter lands here.
+      Written with .get() because other integrations' notification actions
+      also raise this event type and need not carry an action key.
+    value_template: "{{ trigger.event.data.get('action', '') is match('^CHORE_DONE_.+') }}"
+actions:
+  - alias: "Recover the item uid"
+    variables:
+      chore_uid: "{{ trigger.event.data.get('action', '') | replace('CHORE_DONE_', '', 1) }}"
+  - action: todo.update_item
+    alias: "Mark the item completed"
+    note: >-
+      continue_on_error because the uid can be stale -- the item may have
+      been deleted or already completed between the push and the tap.
+      Failing here must not block the notification clear below, or the user
+      is left with a card no tap will ever dismiss.
+    continue_on_error: true
+    target:
+      entity_id: todo.household_chores
+    data:
+      item: "{{ chore_uid }}"
+      status: completed
+  - action: notify.mobile_app_nates_iphone
+    alias: "Clear the notification"
+    data:
+      message: clear_notification
+      data:
+        tag: "chore_{{ chore_uid }}"
+mode: queued
+max: 10
+category: 01M0XF7RJK5EX3A4YPNEX7X3DG
