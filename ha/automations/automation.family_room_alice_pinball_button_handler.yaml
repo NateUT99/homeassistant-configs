@@ -1,0 +1,68 @@
+id: "1789957916145"
+alias: "Family Room: Alice Pinball Button Handler"
+description: >-
+  Handles button presses on the Alice Pinball Button (Aqara WXKG11LM-style
+  remote, ZHA): single press turns on the Alice Pinball machine, double press
+  toggles its underglow light, hold turns both off.
+triggers:
+  - alias: Single press
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "00:15:8d:00:8b:be:cf:4e"
+      command: single
+    id: single_press
+  - alias: Double press
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "00:15:8d:00:8b:be:cf:4e"
+      command: double
+    id: double_press
+  - alias: Hold
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "00:15:8d:00:8b:be:cf:4e"
+      command: hold
+    id: hold
+conditions: []
+actions:
+  - alias: Route by gesture
+    choose:
+      - alias: "Single press: turn on pinball machine"
+        conditions:
+          - alias: Single press trigger
+            condition: trigger
+            id: single_press
+        sequence:
+          - alias: Turn on Alice Pinball
+            action: switch.turn_on
+            target:
+              entity_id: switch.family_room_alice_pinball
+      - alias: "Double press: toggle underglow light"
+        conditions:
+          - alias: Double press trigger
+            condition: trigger
+            id: double_press
+        sequence:
+          - alias: Toggle Alice Pinball underglow
+            action: light.toggle
+            target:
+              entity_id: light.family_room_alice_pinball_underglow
+      - alias: "Hold: turn off pinball machine and underglow"
+        conditions:
+          - alias: Hold trigger
+            condition: trigger
+            id: hold
+        sequence:
+          - alias: Turn off Alice Pinball
+            action: switch.turn_off
+            target:
+              entity_id: switch.family_room_alice_pinball
+          - alias: Turn off Alice Pinball underglow
+            action: light.turn_off
+            target:
+              entity_id: light.family_room_alice_pinball_underglow
+mode: single
+category: 01M2C49AVVEG94R66QZA8BTV2Y
