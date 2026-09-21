@@ -9,7 +9,11 @@ description: >-
   transition always alerts normally. A fault latches the card in error until
   the input_select leaves fault (cycle restart, retrieval, or manual clear),
   since the underlying status sensor's own error state only lasts 1-2
-  seconds — too brief for the card to catch on its own.
+  seconds — too brief for the card to catch on its own. The done card
+  auto-clears after 8 hours if the appliance is never physically retrieved —
+  a level-based state condition on the input_select, independent of the TTS
+  nag (guides/laundry_automation.md), which keeps its own sleep/away/
+  re-engagement guardrails regardless of how long the card has been showing.
 triggers:
   - alias: "Washer cycle status changed"
     trigger: state
@@ -68,6 +72,29 @@ actions:
               icon: mdi:washing-machine-alert
               color: "#2196F3"
               periodic_tick: "{{ trigger.id == 'coarse_tick' }}"
+      - alias: "Alerting for 8+ hours — clear the card"
+        note: >-
+          Mirrors the vacuum consumer's dock-and-hold pattern
+          (automation.household_vacuum_live_activity) — a level-based state
+          condition with for: re-evaluates from live state on every trigger
+          (the reconciler design), rather than an edge trigger needing
+          separate bookkeeping to stay cleared across the recurring
+          5-minute tick. Deliberately leaves input_select untouched — the
+          TTS nag (guides/laundry_automation.md) keeps its own sleep/away/
+          re-engagement guardrails, unaffected by how long the card has
+          been showing. Applies to alerting only, not fault — an unresolved
+          fault keeps its card up until someone actually attends to it.
+        conditions:
+          - condition: state
+            entity_id: input_select.utility_room_washer_status
+            state: "alerting"
+            for: "08:00:00"
+        sequence:
+          - alias: "Clear activity"
+            action: script.household_live_activity
+            data:
+              tag: utility-room-washer
+              status: clear
       - alias: "Cycle complete — ready to unload"
         conditions:
           - condition: state

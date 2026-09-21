@@ -139,6 +139,7 @@ change, every retrieval `input_select` change, and every 5-minute tick:
 
 | Live state | Card |
 |---|---|
+| `input_select.utility_room_<appliance>_status` = `alerting`, held 8+ hours | `clear` — stale-alerting fallback, checked ahead of the `done` row below |
 | `input_select.utility_room_<appliance>_status` = `alerting` | `done` — "Cycle complete — ready to unload", `critical_text: "Done"` |
 | `sensor.utility_room_<appliance>_current_status` = `error` | `error` |
 | `current_status` = `pause` | `paused` |
@@ -147,9 +148,16 @@ change, every retrieval `input_select` change, and every 5-minute tick:
 
 The card therefore survives cycle-end and stays green until the existing retrieval logic
 (`guides/laundry_automation.md`'s occupancy/door detection) flips the `input_select` back to
-`idle` — no new state machine was added. **iOS expires any Live Activity at 8 hours**, so a cycle
-finishing overnight self-clears before morning; the TTS nag (`guides/laundry_automation.md`)
-remains the primary "come get it" signal and is unaffected.
+`idle` — no new state machine was added. A dedicated branch, checked ahead of the `done` branch,
+clears the card itself once `alerting` has held for 8 hours straight (`condition: state` with
+`for: "08:00:00"`, the same level-based pattern as the vacuum's dock-and-hold `clear` branch
+below) — a deliberate fallback for when occupancy/door retrieval never fires (PIR unavailable,
+or someone unloads without tripping either sensor), so the card doesn't just sit forever waiting
+on iOS's own 8-hour hard expiry to remove it. This is Live-Activity-only: it does not touch
+`input_select`, so the TTS nag (`guides/laundry_automation.md`) keeps nagging on its own
+sleep/away/re-engagement guardrails regardless of how long the card has been cleared. Faults are
+excluded — an unresolved fault keeps its card (and the TTS nag) up until someone actually attends
+to it, not silently after 8 hours.
 
 **Every live-update branch passes `periodic_tick: "{{ trigger.id == 'coarse_tick' }}"`** (the
 `time_pattern: /5` trigger carries that `id`), not just the running/paused branches the vacuum
@@ -305,11 +313,20 @@ real appliance cycle.
    `periodic_tick: "{{ trigger.id == 'coarse_tick' }}"` on every live-update branch that trigger
    can reach — if any branch is edge-trigger-guarded against the coarse tick (like the vacuum's
    `done`), the field is unnecessary there but harmless to include anyway.
-4. Apply the `live_activity` label plus `notification` plus the consumer's own `int_*` label.
-5. Add the automation to `ha/automations/`, and add a Related HA Config row plus a short
+4. **If the process has no reliable completion/retrieval signal** (or one that can fail to fire —
+   an unavailable sensor, a step a person can skip), add a fallback max-age clear branch: a
+   level-based `condition: state` with `for:` on the entity the `done`/`running` branches key off,
+   checked immediately ahead of the branch it's meant to expire. This is a per-consumer policy
+   decision, not something the shared script owns — see the vacuum's 10-minute dock-hold and the
+   laundry consumers' 8-hour alerting-hold above for the two worked examples, and don't route this
+   through the underlying process's own state machine if doing so would have side effects the card
+   alone shouldn't cause (the laundry consumers deliberately clear the card without touching
+   `input_select`, so the TTS nag in `guides/laundry_automation.md` is unaffected).
+5. Apply the `live_activity` label plus `notification` plus the consumer's own `int_*` label.
+6. Add the automation to `ha/automations/`, and add a Related HA Config row plus a short
    Architecture note to the guide that owns the underlying process — this guide only owns the
    dispatch script and its palette, not what triggers each consumer.
-6. Smoke-test per Step 5 above before wiring to real triggers.
+7. Smoke-test per Step 5 above before wiring to real triggers.
 
 The dishwasher (`ha/packages/dishwasher_running.yaml`) is the next natural candidate — not built
 in this pass.
