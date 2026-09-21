@@ -1,27 +1,37 @@
 id: "1789947413384"
 alias: "Household: Trash Pickup"
 description: >-
-  Voice-only trash pickup reminders, driven live off calendar.family -- no
-  stored due date, no to-do item. Each trigger queries the calendar itself
-  at fire time for a matching pickup event on the relevant day.
+  Trash is a persistent oneshot chore on calendar.household_chores (summary:
+  Take Out Trash), synced from calendar.family. Two jobs, split by trigger
+  id.
 
 
-  - 19:00/19:30/20:00: if a pickup event is tomorrow,
-  input_boolean.household_trash_taken_out is off, and someone is home,
-  announce to the kitchen.
+  Sync (18:00 daily, HA start, manual run): only acts when the chore is
+  unscheduled or completed -- finds the first calendar.family event
+  matching Trash past the chore's current due (or today, if unscheduled),
+  and writes it via chore_calendar.update_item (oneshot.due_datetime plus
+  description carrying the matched event's exact summary, e.g. Trash &
+  Recycling Pickup). An open chore is left untouched, which makes this
+  restart-safe with no floor/bump logic needed. If the search finds
+  nothing, pushes a one-time tag-replaced warning; clears it once a match
+  is found again.
 
-  - On the household waking up (everyone_sleeping: on -> off): if a pickup
-  event is today and the helper is still off, announce to the master
-  bedroom.
 
-  - 10:00 daily: turn the helper back off -- a no-op most days, and the
-  reset for whatever got flipped on around the most recent pickup.
-
-
-  The helper is the only state this automation carries: turn it on once
-  you've taken the trash out and every remaining reminder for that pickup
-  goes quiet.
+  Escalate (19:00/19:30/20:00 if due tomorrow; on the household waking up
+  if due today): reads the chore's own due/status via todo.get_items and
+  announces via script.household_tts_announce using its description. No
+  push, no helper -- marking the chore done on the card silences every
+  remaining reminder for that cycle, and chore_calendar.update_item's due
+  edit reopens it automatically next sync.
 triggers:
+  - trigger: time
+    at: "18:00:00"
+    id: sync_evening
+    alias: "18:00 daily calendar sync"
+  - trigger: homeassistant
+    event: start
+    id: sync_recover
+    alias: "HA start recovery sync"
   - trigger: time
     at: "19:00:00"
     id: escalate_first
@@ -40,42 +50,64 @@ triggers:
     to: "off"
     id: wakeup
     alias: "Household wakes up"
-    note: >-
-      Fires when people actually get up rather than at a guessed hour.
-  - trigger: time
-    at: "10:00:00"
-    id: cleanup
-    alias: "10:00 daily reset"
-conditions: []
+  - trigger: event
+    event_type: household_task_debug
+    event_data:
+      branch: escalate_first
+    id: escalate_first
+    alias: "Debug: evening reminder"
+  - trigger: event
+    event_type: household_task_debug
+    event_data:
+      branch: escalate_repeat
+    id: escalate_repeat
+    alias: "Debug: evening reminder repeat"
+  - trigger: event
+    event_type: household_task_debug
+    event_data:
+      branch: wakeup
+    id: wakeup
+    alias: "Debug: wake-up reminder"
+  - trigger: event
+    event_type: household_task_debug
+    event_data:
+      branch: sync
+    id: sync_evening
+    alias: "Debug: sync"
+conditions:
+  - condition: not
+    alias: "Chore list is available"
+    conditions:
+      - condition: state
+        entity_id: todo.household_chores
+        state:
+          - unavailable
+          - unknown
 actions:
+  - action: todo.get_items
+    alias: "Read the trash chore"
+    target:
+      entity_id: todo.household_chores
+    data:
+      status:
+        - needs_action
+        - completed
+    response_variable: all_result
+  - alias: "Isolate it by name"
+    variables:
+      trash: "{{ (all_result.get('todo.household_chores', {}).get('items', []) | selectattr('summary', 'eq', 'Take Out Trash') | list | first) | default(none) }}"
   - alias: "Route by trigger"
     choose:
-      - alias: "Evening reminder -- pickup is tomorrow"
+      - alias: "Escalate -- due tomorrow"
         conditions:
           - condition: trigger
             id:
               - escalate_first
               - escalate_repeat
-          - condition: state
-            entity_id: input_boolean.household_trash_taken_out
-            state: "off"
-            alias: "Not already taken out"
         sequence:
-          - action: calendar.get_events
-            alias: "Query calendar.family for tomorrow"
-            target:
-              entity_id: calendar.family
-            data:
-              start_date_time: "{{ (now() + timedelta(days=1)).strftime('%Y-%m-%dT00:00:00') }}"
-              duration:
-                days: 1
-            response_variable: cal_result
-          - alias: "Find the matching pickup event"
-            variables:
-              hit: "{{ (cal_result.get('calendar.family', {}).get('events', []) | selectattr('summary', 'search', 'Trash') | list | first) | default(none) }}"
           - if:
               - condition: template
-                value_template: "{{ hit is not none }}"
+                value_template: "{{ trash is not none and trash.get('status') != 'completed' and (trash.get('due','') ~ '')[:10] == (now().date() + timedelta(days=1)) | string }}"
               - condition: numeric_state
                 entity_id: zone.home
                 above: 0
@@ -83,56 +115,97 @@ actions:
               - action: script.household_tts_announce
                 alias: "Speak the evening reminder"
                 data:
-                  message: "Don't forget, {{ hit.summary }} is tomorrow."
+                  message: "Don't forget, {{ trash.get('description') or trash.summary }} is tomorrow."
                   target: kitchen
                   notification_title: "Pickup Tomorrow"
                   critical_fallback: false
-            alias: "Announce if a pickup was found and someone is home"
-      - alias: "Wake-up reminder -- pickup is today"
+            alias: "Announce if due tomorrow, not done, and someone is home"
+      - alias: "Wake-up -- due today"
         conditions:
           - condition: trigger
             id: wakeup
-          - condition: state
-            entity_id: input_boolean.household_trash_taken_out
-            state: "off"
-            alias: "Not already taken out"
         sequence:
-          - action: calendar.get_events
-            alias: "Query calendar.family for today"
-            target:
-              entity_id: calendar.family
-            data:
-              start_date_time: "{{ now().strftime('%Y-%m-%dT00:00:00') }}"
-              duration:
-                days: 1
-            response_variable: cal_result
-          - alias: "Find the matching pickup event"
-            variables:
-              hit: "{{ (cal_result.get('calendar.family', {}).get('events', []) | selectattr('summary', 'search', 'Trash') | list | first) | default(none) }}"
           - if:
               - condition: template
-                value_template: "{{ hit is not none }}"
+                value_template: "{{ trash is not none and trash.get('status') != 'completed' and (trash.get('due','') ~ '')[:10] == now().date() | string }}"
             then:
               - action: script.household_tts_announce
                 alias: "Speak the wake-up reminder"
                 note: >-
                   target explicit master_bedroom, not auto --
-                  everyone_sleeping has just gone off, so auto would
-                  resolve to kitchen.
+                  everyone_sleeping has just gone off.
                 data:
-                  message: "Today is {{ hit.summary }}. It still needs to go out."
+                  message: "Today is {{ trash.get('description') or trash.summary }}. It still needs to go out."
                   target: master_bedroom
                   notification_title: "Pickup Today"
                   critical_fallback: false
-            alias: "Announce if a pickup was found today"
-    default:
-      - alias: "Cleanup -- reset the helper for the next cycle"
-        action: input_boolean.turn_off
-        target:
-          entity_id: input_boolean.household_trash_taken_out
-        note: >-
-          The cleanup trigger has no matching branch above by design, so it
-          always lands here; a manual run also lands here, harmlessly
-          re-running the same idempotent reset.
+            alias: "Announce if due today and not done"
+      - alias: "Sync -- scheduled 18:00 or HA start"
+        conditions:
+          - condition: trigger
+            id:
+              - sync_evening
+              - sync_recover
+        sequence:
+          - if:
+              - condition: trigger
+                id: sync_recover
+            then:
+              - delay: "00:02:00"
+                alias: "Let Remote Calendar settle after a restart"
+            alias: "Delay only on the HA-start path"
+          - if:
+              - condition: template
+                value_template: "{{ trash is not none and (trash.get('status') == 'completed' or (trash.get('due','') ~ '') == '') }}"
+            then:
+              - alias: "Compute the search floor"
+                variables:
+                  cur_due: "{{ (trash.get('due','') ~ '')[:10] }}"
+                  floor: "{{ (as_datetime(cur_due).date() + timedelta(days=1)) | string if cur_due != '' else now().date() | string }}"
+              - action: calendar.get_events
+                alias: "Query calendar.family"
+                target:
+                  entity_id: calendar.family
+                data:
+                  start_date_time: "{{ today_at('00:00') }}"
+                  duration:
+                    days: 21
+                response_variable: cal_result
+              - alias: "Find the first matching event past the floor"
+                variables:
+                  hit: "{{ (cal_result.get('calendar.family', {}).get('events', []) | selectattr('start', 'ge', floor) | selectattr('summary', 'search', 'Trash') | list | first) | default(none) }}"
+              - if:
+                  - condition: template
+                    value_template: "{{ hit is not none }}"
+                then:
+                  - action: chore_calendar.update_item
+                    alias: "Write the matched pickup date"
+                    note: >-
+                      entity_id goes in data:, not target: -- this
+                      service's schema wants a plain string, and
+                      target: always expands to a list, which this
+                      service rejects.
+                    data:
+                      item: "{{ trash.uid }}"
+                      oneshot:
+                        due_datetime: "{{ (as_datetime(hit.start[:10]).replace(hour=7, minute=0, second=0)).isoformat() }}"
+                      description: "{{ hit.summary }}"
+                      entity_id: calendar.household_chores
+                  - action: notify.mobile_app_nates_iphone
+                    alias: "Clear any stale not-found warning"
+                    data:
+                      message: clear_notification
+                      data:
+                        tag: trash_sync_warning
+                else:
+                  - action: notify.mobile_app_nates_iphone
+                    alias: "Warn that no pickup event was found"
+                    data:
+                      title: "Trash Pickup Not Found"
+                      message: "No upcoming pickup event matched in calendar.family within 21 days. Check the iCloud subscription."
+                      data:
+                        tag: trash_sync_warning
+                alias: "Update the chore if a match was found, else warn"
+            alias: "Only search when the chore is unscheduled or completed"
 mode: single
 category: 01M0XF7RJK5EX3A4YPNEX7X3DG

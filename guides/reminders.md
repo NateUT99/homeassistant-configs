@@ -5,15 +5,16 @@
 
 ## Overview
 
-Household chores are tracked by the **`ha-chore-calendar`** HACS integration
-(`calendar.household_chores` / `todo.household_chores`, one chore per `sensor.household_chores_*`),
-which owns scheduling, pending/due/overdue status, and rescheduling on completion internally.
-Two automations layer daily push notifications and lock-screen mark-done on top of it — nothing
-here re-derives what the integration already computes. Trash pickup is separate and
-deliberately minimal: one automation queries `calendar.family` live at each reminder time (no
-stored due date, no list item) and one helper, `input_boolean.household_trash_taken_out`,
-silences reminders once you've taken it out. A `chore-calendar-card` dashboard at
-`/household-chores` gives create/edit/skip/complete dialogs beyond what the notifications cover.
+Household chores — including trash pickup — are tracked by the **`ha-chore-calendar`** HACS
+integration (`calendar.household_chores` / `todo.household_chores`, one chore per
+`sensor.household_chores_*`), which owns scheduling, pending/due/overdue status, and
+rescheduling on completion internally. Two automations layer daily push notifications and
+lock-screen mark-done on top of the 8 interval chores. Trash pickup is a ninth chore — a
+persistent `oneshot` synced live from `calendar.family` rather than a fixed recurrence, so the
+real municipal schedule stays authoritative — with its own TTS-only escalation automation
+that reads the chore's own due/status directly; no helper, no separate to-do surface. A
+`chore-calendar-card` dashboard at `/household-chores` gives create/edit/skip/complete dialogs
+for all 9 chores, trash included.
 
 ---
 
@@ -46,12 +47,19 @@ Household: Task Mark Done
 calendar.family (Remote Calendar, read-only iCloud subscribe)
 └── "Trash Pickup" / "Trash & Recycling Pickup" alternating biweekly all-day events
 
-Household: Trash Pickup — no stored due date, no list item; queries live each time it fires
-  19:00/19:30/20:00 → if a pickup event is tomorrow AND the helper is off AND someone home
-                     → script.household_tts_announce → kitchen
-  everyone_sleeping: on → off → if a pickup event is today AND the helper is off
-                     → script.household_tts_announce → master bedroom
-  10:00 daily        → turn input_boolean.household_trash_taken_out off (idempotent reset)
+Household: Trash Pickup — one persistent oneshot chore (Take Out Trash, persist: true)
+  Sync (18:00 daily / HA start / manual), only when the chore is unscheduled or completed:
+    find the first calendar.family event matching "Trash" past the chore's current due
+    (or today, if unscheduled) → chore_calendar.update_item(oneshot.due_datetime, description)
+    An open (not-yet-completed) chore is left untouched -- restart-safe by construction.
+  Escalate, reading the chore's own due/status via todo.get_items:
+    19:00/19:30/20:00 → if due tomorrow, not completed, someone home
+                       → script.household_tts_announce → kitchen
+    everyone_sleeping: on → off → if due today, not completed
+                       → script.household_tts_announce → master bedroom
+  Marking the chore complete (the card, same as any other chore) silences every remaining
+  reminder for that cycle -- no helper. chore_calendar.update_item's due-datetime edit on a
+  completed oneshot clears its terminal flag, so the next sync reopens it automatically.
 ```
 
 **Design decisions:**
@@ -69,18 +77,24 @@ Household: Trash Pickup — no stored due date, no list item; queries live each 
   routes through ha-chore-calendar's own `async_complete_chore`, which recomputes the next due
   date from `last_completed + interval` internally. Household: Task Mark Done only sets
   `status: completed` and clears the notification — nothing else is needed.
-- *Trash pickup stays off ha-chore-calendar and off any to-do list entirely.* The pickup
-  schedule already lives in `calendar.family` (the real municipal schedule); duplicating it
-  into a chore's own recurrence would drift if pickup day ever changes. Each of the five
-  triggers queries the calendar directly at fire time — no due-date state to keep in sync, no
-  rollover logic to get right at restart boundaries.
-- *One helper carries all of trash pickup's state.* `input_boolean.household_trash_taken_out`
-  — on silences the remaining reminders for the current pickup, and a daily 10:00 reset clears
-  it for the next cycle. No push notification for trash, TTS only.
+- *Trash is a persistent `oneshot` chore, synced from `calendar.family` rather than given its
+  own `ha-chore-calendar` recurrence.* The real municipal pickup schedule stays authoritative;
+  duplicating it into the chore's own RRULE would drift if pickup day ever changed. The sync
+  only writes a new `due_datetime` when the chore is unscheduled or completed — an open chore's
+  due is already correct, so there is no floor/bump logic to get right at restart boundaries,
+  unlike an earlier design that queried the calendar live at every reminder.
+- *No helper for trash — the chore's own status is the state.* Marking it complete on the card
+  is what silences the rest of that cycle's reminders; `chore_calendar.update_item`'s
+  `due_datetime` edit clears the completed oneshot's `terminal` flag automatically on the next
+  sync, reopening it for the next cycle with no explicit "reopen" step. `pending_period: 12h`
+  against a `due_datetime` pinned to 07:00 means the chore enters `pending` at 19:00 the
+  evening before — exactly the reminder window — computed by the integration, not hardcoded.
 - *`todo.update_item` on ha-chore-calendar's entity requires `due_datetime`, not `due_date`.*
   Only `SET_DUE_DATETIME_ON_ITEM` is advertised (verified in `todo.py`); a bare date is
-  rejected. Neither automation here sets a due date at all — mark-done only ever touches
-  `status`.
+  rejected. Neither chore automation sets a due date via `todo.update_item` — mark-done only
+  ever touches `status`; trash's due date is set via `chore_calendar.update_item` instead,
+  which requires `entity_id` as a plain string in `data:`, not through `target:` (which always
+  expands to a list and this service's schema rejects that) — see `LESSONS.md`.
 
 ---
 
@@ -130,14 +144,28 @@ timestamp) — the chore then reads `due = completed_at + interval`.
 YAML in the `ha/` mirror (see Related HA Config). Both operate on `todo.household_chores`
 directly; neither needs any per-chore configuration.
 
-### 4. Build the trash pickup automation and helper
+### 4. Add the trash chore and its automation
 
-Create `input_boolean.household_trash_taken_out`, then `automation.household_trash_pickup` —
-full YAML in the `ha/` mirror. No chore, no to-do item, no due-date helper.
+Create one persistent oneshot chore:
+
+```yaml
+action: chore_calendar.create_item
+data:
+  entity_id: calendar.household_chores
+  chore_name: "Take Out Trash"
+  oneshot:
+    persist: true
+  pending_period: {hours: 12}
+  grace_period: {hours: 2}
+```
+
+It starts unscheduled — the sync half of `automation.household_trash_pickup` (full YAML in the
+`ha/` mirror) gives it its first `due_datetime` on its next run.
 
 ### 5. Add the dashboard
 
-A minimal dashboard (`/household-chores`) with a `chore-calendar-card` and the trash helper:
+A minimal dashboard (`/household-chores`) with a `chore-calendar-card`, showing all 9 chores
+including trash:
 
 ```yaml
 type: custom:chore-calendar-card
@@ -162,11 +190,10 @@ both operate generically over whatever `todo.household_chores` currently holds.
 |---|---|---|
 | Household Chores | `calendar.household_chores` | calendar (ha-chore-calendar) |
 | Household Chores | `todo.household_chores` | todo (ha-chore-calendar, writable) |
-| Household Chores: `<chore>` | `sensor.household_chores_<chore>` | sensor, one per chore |
+| Household Chores: `<chore>` | `sensor.household_chores_<chore>` | sensor, one per chore (9, trash included) |
 | Household: Chore Daily Notify | `automation.household_chore_daily_notify` | automation |
 | Household: Task Mark Done | `automation.household_task_mark_done` | automation |
 | Household: Trash Pickup | `automation.household_trash_pickup` | automation |
-| Household Trash Taken Out | `input_boolean.household_trash_taken_out` | input_boolean |
 
 All entities above carry the `reminders` label. `household_chore_daily_notify` and
 `household_task_mark_done` also carry `notification`; `household_trash_pickup` carries
@@ -176,10 +203,11 @@ All entities above carry the `reminders` label. `household_chore_daily_notify` a
 
 ## Related Documents
 
-- `LESSONS.md` — the `pending_period < interval` bug (confirmed current, code-verified), and
-  the retraction of an earlier "midnight tick" claim that didn't hold up against current
-  source. See "Reminders & To-do Lists" and "HACS Integrations".
-- `standards/naming.md` §9 — chore name and trash-helper naming.
+- `LESSONS.md` — the `pending_period < interval` bug (confirmed current, code-verified), the
+  retraction of an earlier "midnight tick" claim that didn't hold up against current source,
+  and the `chore_calendar.update_item` `entity_id`-must-be-a-string gotcha. See "Reminders &
+  To-do Lists" and "HACS Integrations".
+- `standards/naming.md` §9 — chore name naming.
 
 ---
 
@@ -200,13 +228,22 @@ attribute on its `sensor.household_chores_<chore>` entity to see exactly when it
 
 **Trash reminders fire even though you already took it out**
 
-Confirm `input_boolean.household_trash_taken_out` is actually `on` — the helper is the only
-gate; nothing else silences the reminders. If it reads `on` but a reminder still fired, check
+Confirm the "Take Out Trash" chore actually shows `completed` on the card or via
+`sensor.household_chores_take_out_trash` — that status is the only gate; there is no separate
+helper. If it reads `completed` but a reminder still fired, check
 `automation.household_trash_pickup`'s trace for which branch ran.
+
+**The trash chore shows `completed` for days after you marked it done, even though the next
+pickup is coming up**
+
+Expected — same dormancy as the interval chores (see above). Reopening clears `terminal` but
+does not touch `last_completed`, so the chore reads `completed` (dormant) until `now` reaches
+the new `pending_at` (12h before the new `due_datetime`). Check `sensor.household_chores_take_out_trash`'s
+`next_due` attribute to see exactly when it opens.
 
 **Manually running Household: Trash Pickup doesn't announce anything**
 
-Expected — a manual run matches no `condition: trigger` branch and falls into the `default:`
-cleanup branch, which only resets the helper. Test the notifying branches by waiting for the
-real trigger times, or by toggling `input_boolean.everyone_sleeping` off to exercise the
-wake-up branch on demand.
+Expected — a manual run matches no `condition: trigger` branch, so nothing fires (there is no
+`default:` branch). Fire `household_task_debug` with `{"branch": "sync"}`, `{"branch":
+"escalate_first"}`, `{"branch": "escalate_repeat"}`, or `{"branch": "wakeup"}` from Developer
+Tools → Events to exercise a specific branch on demand.

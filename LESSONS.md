@@ -900,6 +900,37 @@ Unlike a plain to-do item (open the moment it's created), an interval chore stay
 
 Only `TodoListEntityFeature.SET_DUE_DATETIME_ON_ITEM` is advertised (confirmed in `custom_components/chore_calendar/todo.py::_coerce_due`); passing a bare date via `todo.update_item`'s `due_date:` field is rejected outright ("Date-only due values are not supported; provide a due datetime"). This differs from `local_todo`, which accepts either. Any automation writing a due date to this specific todo entity must use `due_datetime:` with a full timestamp.
 
+### `chore_calendar.update_item`'s `entity_id` must be a plain string in `data:` — `target:` breaks it
+
+Home Assistant's automation `target:` block always expands `entity_id` into a list in the resulting `service_data`, even for a single entity. Most services accept that transparently, but `chore_calendar.update_item`'s (and by extension `create_item`'s, `complete_item`'s, etc.) service schema declares its `entity_id` field as a single string (`entity` selector with no `multiple: true`), and rejects a list outright with `value should be a string at 'entity_id'` — a step-level error, not a validation error at automation-save time, so it isn't caught until the action actually runs.
+
+**Fix:** put `entity_id` inside `data:` as a plain string instead of using `target:` for this service:
+
+```yaml
+# Wrong — target: always produces a list, which this service's schema rejects
+- action: chore_calendar.update_item
+  target:
+    entity_id: calendar.household_chores
+  data:
+    item: "{{ uid }}"
+    oneshot:
+      due_datetime: "{{ due }}"
+
+# Right
+- action: chore_calendar.update_item
+  data:
+    entity_id: calendar.household_chores
+    item: "{{ uid }}"
+    oneshot:
+      due_datetime: "{{ due }}"
+```
+
+`calendar.get_events` and the native `todo.*` services tolerate `target:` fine against the same integration's entities — this is specific to `chore_calendar`'s own custom services.
+
+### `chore_calendar.update_item` reopening a completed `oneshot` clears `terminal` but not `last_completed` — the reopened chore is correctly dormant until its new pending window
+
+Passing a new `oneshot.due_datetime` to `update_item` on a completed oneshot clears its `terminal` flag (confirmed in `services.py::_async_handle_update`'s `reopens_cycle` predicate), which is what lets it re-enter the status cycle at all. But `last_completed` from the previous cycle is left untouched — it's still set to whenever the chore was last marked done. `compute_status`'s fallthrough (`now` before the new `pending_at`, `last_completed is not None`) therefore reports `completed` again, not `pending`, until `now` actually reaches `due_datetime - pending_period`. This is the *same* dormancy behavior documented above for interval chores — not a separate bug, and not something that needs a manual `last_completed` clear. A reopened oneshot with a due date days out will sit `completed` in the interim exactly as intended.
+
 ---
 
 ## Reminders & To-do Lists

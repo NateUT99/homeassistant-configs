@@ -7,7 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
-| 2.3 | September 2026 | Rewrite §9 again — chores moved from a native `local_todo` list with description metadata to the `ha-chore-calendar` HACS integration; naming is now just the `chore_name` field, trash pickup dropped to a single helper with no list item at all |
+| 2.3 | September 2026 | Rewrite §9 again — chores moved from a native `local_todo` list with description metadata to the `ha-chore-calendar` HACS integration; naming is now just the `chore_name` field. Revised same day: trash pickup folded back in as a `oneshot` chore rather than staying a standalone helper |
 | 2.2 | September 2026 | Rewrite §9 for the `todo.household_chores` rebuild — reminders are now to-do items with description metadata, not per-reminder `input_datetime`/`input_number`/`sensor`/`binary_sensor` quartets |
 | 2.1 | September 2026 | Correct §4.1: the area prefix is injected by HA automatically at entity-creation time based on the device's area assignment, not typed into the device Name — device Names stay bare. Rewrite §4.4 to match (fix area-less entity_ids by overriding entity_id directly, not by renaming the device). This reverses guidance in 2.0 that had it backwards. |
 | 2.0 | August 2026 | Reframe for ZHA + `has_entity_name` model: area token comes from device Name field, not area registry; add anti-doubling rule (§4.3), area-less import rule (§4.4), and domain-word collision caveat (§4.5); update area registry for new house (§3); remove Z2M/Hue-specific guidance; update special-case sections for current integration stack |
@@ -336,11 +336,11 @@ When a light is connected via a smart plug, use the `switch_as_x` helper to expo
 
 ## 9. Reminder Items
 
-Household chores are managed as `chore_calendar` items on the `ha-chore-calendar` HACS
-integration's list (`calendar.household_chores` / `todo.household_chores`, see
-`guides/reminders.md`), not per-reminder helpers. Naming applies to the `chore_name` field
-— everything else (interval, pending/grace windows, scheduling) is a structured field on
-the chore itself, not free text.
+Household chores — including trash pickup — are managed as `chore_calendar` items on the
+`ha-chore-calendar` HACS integration's list (`calendar.household_chores` /
+`todo.household_chores`, see `guides/reminders.md`), not per-reminder helpers. Naming applies
+to the `chore_name` field — everything else (interval, pending/grace windows, scheduling) is
+a structured field on the chore itself, not free text.
 
 ### 9.1 Chore Name
 
@@ -352,12 +352,8 @@ completion event:
 | `Wash Accord` | `Accord Washed` |
 | `Clean Dishwasher` | `Dishwasher Cleaned` |
 | `Replace Razor Blade` | `Razor Blade Replacement` |
+| `Take Out Trash` | `Trash Taken Out` |
 
-No area prefix — chores are conceptual tasks, not location-bound.
-
-### 9.2 Trash Pickup
-
-Trash pickup is **not** a chore-list item — it's queried live from `calendar.family` by
-`automation.household_trash_pickup` on each reminder, with `input_boolean.household_trash_taken_out`
-as the only piece of state, named per the standard `[domain].household_[purpose]` pattern
-(§8 Quick Reference) rather than any reminder-specific convention.
+No area prefix — chores are conceptual tasks, not location-bound. This applies equally to
+`Take Out Trash`, a `oneshot` chore synced from a calendar rather than a fixed interval — its
+chore type doesn't change the naming rule.
