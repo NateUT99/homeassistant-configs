@@ -447,11 +447,11 @@ The lumens-to-HA-brightness reverse conversion introduces a rounding asymmetry o
 
 ## Step 9: Camera Automation
 
-Automatically controls office lighting when the active camera on either Mac becomes the Studio Display Camera. When that camera turns on, the ceiling light and monitor light bar are turned off and the Litra key light is enabled at a video-call preset (45% brightness, 4500K). When the camera turns off, nothing happens immediately if a microphone is still captured on either Mac — video-only pauses (stepping away to cough, refill a water bottle, etc., while still connected to the call) hold the room lighting as-is rather than flickering it off and back on. Once the microphone also releases (or after a 3-minute safety cap), the key light is turned off, the monitor light bar is restored unconditionally, and the ceiling light is restored only if it was on before the call — but only if at least one Mac is currently active, so nothing comes back on after you've walked away mid-call.
+Automatically controls office lighting when the active camera on the MacBook Pro (`sensor.nates_work_laptop_active_camera`) becomes the Studio Display Camera. Scoped to the MacBook Pro only — it's the only Mac used for video calls; the Mac Mini is never a source, so it isn't watched. When that camera turns on, the ceiling light and monitor light bar are turned off and the Litra key light is enabled at a video-call preset (45% brightness, 4500K). When the camera turns off, nothing happens immediately if the microphone is still captured — video-only pauses (stepping away to cough, refill a water bottle, etc., while still connected to the call) hold the room lighting as-is rather than flickering it off and back on. Once the microphone also releases (or after a 3-minute safety cap), the key light is turned off, the monitor light bar is restored unconditionally, and the ceiling light is restored only if it was on before the call — but only if the MacBook Pro is currently active, so nothing comes back on after you've walked away mid-call.
 
-Triggers fire on the camera-name sensors (`sensor.*_active_camera`), which report the active camera's display name as a string. This matches only Studio Display Camera sessions and ignores the built-in laptop FaceTime camera, since the goal is to optimize lighting specifically for the desk-mounted Studio Display setup.
+The trigger fires on the camera-name sensor (`sensor.nates_work_laptop_active_camera`), which reports the active camera's display name as a string. This matches only Studio Display Camera sessions and ignores the built-in laptop FaceTime camera, since the goal is to optimize lighting specifically for the desk-mounted Studio Display setup.
 
-The restore guard is "at least one Mac active" — deliberately not gated on which display is attached. macOS primary-display sensors misreport over Screen Sharing (empty name, generic virtual resolution), so a display-identity check would make the restore fire or not fire based purely on how the Mac was accessed. See `LESSONS.md` → *Shell Command Integration*.
+The restore guard is "MacBook Pro currently active" — deliberately not gated on which display is attached. macOS primary-display sensors misreport over Screen Sharing (empty name, generic virtual resolution), so a display-identity check would make the restore fire or not fire based purely on how the Mac was accessed. See `LESSONS.md` → *Shell Command Integration*.
 
 The ceiling light (`light.office_ceiling_fan_light`) is under Adaptive Lighting (`guides/adaptive_lighting.md`). The turn-off and the conditional restore call it with a bare `light.turn_off`/`light.turn_on` — no brightness or temperature data — so AL's `intercept` adapts the restore to the current curve target rather than snapping to a fixed level, and `automation.office_ceiling_fan_wall_control`'s "Ceiling light changed" branch handles releasing/re-acquiring AL manual control and updating the switch LED bar on each transition without any extra wiring here.
 
@@ -466,18 +466,17 @@ sensor jitter) — the real tolerance for brief away-periods comes from a `wait_
 ends"; those pull in opposite directions and no single number satisfies both. The microphone
 instead answers the actual question — is the call still connected — directly: most conferencing
 apps hold the OS-level mic open for the whole call and only release it on actual leave, even
-through a muted or video-paused stretch, so gating on `binary_sensor.*_audio_input_in_use` lets an
-arbitrarily long-but-still-connected pause pass with zero light changes, while a genuine call end
-(mic released promptly) restores within the 3s debounce instead of waiting out a fixed guess.
+through a muted or video-paused stretch, so gating on
+`binary_sensor.nates_work_laptop_audio_input_in_use` lets an arbitrarily long-but-still-connected
+pause pass with zero light changes, while a genuine call end (mic released promptly) restores
+within the 3s debounce instead of waiting out a fixed guess.
 
-**Assumption to verify in use:** this relies on the conferencing app(s) actually holding the mic
-open through a mute/video-pause rather than releasing it. If lights turn out to still flicker
-during a video-only pause, check `binary_sensor.nates_work_laptop_audio_input_in_use` /
-`binary_sensor.nates_mac_mini_audio_input_in_use` in **Developer Tools → States** during a real
-pause to confirm whether it stays `on`. The 3-minute `wait_for_trigger` timeout is the backstop
-either way — even if the mic sensor misbehaves (stays `on` indefinitely, or a fully-muted call
-never registers as in-use), the automation self-corrects rather than leaving the video preset
-applied forever.
+**Confirmed live (2026-09-22):** during a real Zoom call on the MacBook Pro, the automation traces
+showed `binary_sensor.nates_work_laptop_audio_input_in_use` stayed continuously `on` for the full
+call — including through an ~8-second camera drop mid-call — only releasing when the call actually
+ended. The 3-minute `wait_for_trigger` timeout remains as a backstop regardless (self-corrects if a
+future app/version releases the mic differently, e.g. a fully-muted call that never registers as
+in-use).
 
 ### Automation
 
@@ -492,11 +491,11 @@ normalizes both to the `brightness` (0–255) and `color_temp` (mireds) variable
 template light's `set_temperature` handler before invocation, so the integration applies them
 correctly without any template changes.
 
-On `off`, the first step checks `binary_sensor.*_audio_input_in_use` on both Macs; if either is
-still `on`, a `wait_for_trigger` blocks (event-driven, not polling) until both go `off` or 3
+On `off`, the first step checks `binary_sensor.nates_work_laptop_audio_input_in_use`; if it's
+still `on`, a `wait_for_trigger` blocks (event-driven, not polling) until it goes `off` or 3
 minutes elapse (`continue_on_timeout: true`). Only after that does it turn off the key light,
-then — gated on "at least one Mac currently active" — unconditionally restore the monitor light
-bar and restore the ceiling light with a bare `light.turn_on` only if
+then — gated on "MacBook Pro currently active" — unconditionally restore the monitor light bar
+and restore the ceiling light with a bare `light.turn_on` only if
 `input_boolean.office_ceiling_light_was_on` is `on` (see the note above on why no data is passed).
 No lights are touched before the wait resolves, so `mode: restart` is what makes a camera coming
 back on mid-wait a true no-op: the pending "off" run is cancelled outright rather than racing

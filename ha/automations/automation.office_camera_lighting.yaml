@@ -2,25 +2,21 @@ id: "1787578256156"
 alias: "Office: Camera Lighting"
 description: >-
   Turns off the ceiling light and monitor light bar and activates the desk
-  key light at a video-call preset when the Studio Display Camera turns on.
-  When the camera turns off, waits for the microphone to also release on
-  both Macs before treating the call as ended (tolerates a video-only
-  pause, e.g. stepping away briefly with audio still connected), capped at
-  a 3-minute safety timeout, then restores the ceiling light and monitor
-  light bar and turns off the key light.
+  key light at a video-call preset when the Studio Display Camera turns on
+  on the MacBook Pro. When the camera turns off, waits for the microphone
+  to also release before treating the call as ended (tolerates a
+  video-only pause, e.g. stepping away briefly with audio still
+  connected), capped at a 3-minute safety timeout, then restores the
+  ceiling light and monitor light bar and turns off the key light.
 triggers:
-  - alias: Studio Display Camera becomes active on either Mac
+  - alias: Studio Display Camera becomes active on the MacBook Pro
     trigger: state
-    entity_id:
-      - sensor.nates_mac_mini_active_camera
-      - sensor.nates_work_laptop_active_camera
+    entity_id: sensor.nates_work_laptop_active_camera
     to: Studio Display Camera
     id: "on"
-  - alias: Studio Display Camera inactive for a few seconds on either Mac
+  - alias: Studio Display Camera inactive for a few seconds on the MacBook Pro
     trigger: state
-    entity_id:
-      - sensor.nates_mac_mini_active_camera
-      - sensor.nates_work_laptop_active_camera
+    entity_id: sensor.nates_work_laptop_active_camera
     from: Studio Display Camera
     id: "off"
     for:
@@ -92,22 +88,15 @@ actions:
               Hold off if the microphone is still connected (call likely
               still active, just video-paused)
             if:
-              - alias: Microphone still in use on either Mac
-                condition: or
-                conditions:
-                  - condition: state
-                    entity_id: binary_sensor.nates_mac_mini_audio_input_in_use
-                    state: "on"
-                  - condition: state
-                    entity_id: binary_sensor.nates_work_laptop_audio_input_in_use
-                    state: "on"
+              - alias: Microphone still in use
+                condition: state
+                entity_id: binary_sensor.nates_work_laptop_audio_input_in_use
+                state: "on"
             then:
               - alias: Wait for the microphone to release, or give up after 3 minutes
                 wait_for_trigger:
                   - trigger: state
-                    entity_id:
-                      - binary_sensor.nates_mac_mini_audio_input_in_use
-                      - binary_sensor.nates_work_laptop_audio_input_in_use
+                    entity_id: binary_sensor.nates_work_laptop_audio_input_in_use
                     to: "off"
                 timeout:
                   minutes: 3
@@ -116,15 +105,10 @@ actions:
             action: light.turn_off
             target:
               entity_id: light.office_desk_key_light
-          - alias: At least one Mac is currently active
-            condition: or
-            conditions:
-              - condition: state
-                entity_id: binary_sensor.nates_mac_mini_active
-                state: "on"
-              - condition: state
-                entity_id: binary_sensor.nates_work_laptop_active
-                state: "on"
+          - alias: MacBook Pro is currently active
+            condition: state
+            entity_id: binary_sensor.nates_work_laptop_active
+            state: "on"
           - alias: Restore monitor light bar
             action: light.turn_on
             target:
