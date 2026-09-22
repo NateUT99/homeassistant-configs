@@ -447,26 +447,60 @@ The lumens-to-HA-brightness reverse conversion introduces a rounding asymmetry o
 
 ## Step 9: Camera Automation
 
-Automatically controls office lighting when the active camera on either Mac becomes the Studio Display Camera. When that camera turns on, the ceiling light and monitor light bar are turned off and the Litra key light is enabled at a video-call preset (45% brightness, 4500K). When the camera has been off for 15 seconds, the key light is turned off and the ceiling light and monitor light bar are restored — but only if at least one Mac is currently active, so the lights don't come back on after you've walked away mid-call.
+Automatically controls office lighting when the active camera on either Mac becomes the Studio Display Camera. When that camera turns on, the ceiling light and monitor light bar are turned off and the Litra key light is enabled at a video-call preset (45% brightness, 4500K). When the camera turns off, nothing happens immediately if a microphone is still captured on either Mac — video-only pauses (stepping away to cough, refill a water bottle, etc., while still connected to the call) hold the room lighting as-is rather than flickering it off and back on. Once the microphone also releases (or after a 3-minute safety cap), the key light is turned off, the monitor light bar is restored unconditionally, and the ceiling light is restored only if it was on before the call — but only if at least one Mac is currently active, so nothing comes back on after you've walked away mid-call.
 
 Triggers fire on the camera-name sensors (`sensor.*_active_camera`), which report the active camera's display name as a string. This matches only Studio Display Camera sessions and ignores the built-in laptop FaceTime camera, since the goal is to optimize lighting specifically for the desk-mounted Studio Display setup.
 
 The restore guard is "at least one Mac active" — deliberately not gated on which display is attached. macOS primary-display sensors misreport over Screen Sharing (empty name, generic virtual resolution), so a display-identity check would make the restore fire or not fire based purely on how the Mac was accessed. See `LESSONS.md` → *Shell Command Integration*.
 
-The ceiling light (`light.office_ceiling_fan_light`) is under Adaptive Lighting (`guides/adaptive_lighting.md`). Both the turn-off and the restore call it with a bare `light.turn_off`/`light.turn_on` — no brightness or temperature data — so AL's `intercept` adapts the restore to the current curve target rather than snapping to a fixed level, and `automation.office_ceiling_fan_wall_control`'s "Ceiling light changed" branch handles releasing/re-acquiring AL manual control and updating the switch LED bar on each transition without any extra wiring here.
+The ceiling light (`light.office_ceiling_fan_light`) is under Adaptive Lighting (`guides/adaptive_lighting.md`). The turn-off and the conditional restore call it with a bare `light.turn_off`/`light.turn_on` — no brightness or temperature data — so AL's `intercept` adapts the restore to the current curve target rather than snapping to a fixed level, and `automation.office_ceiling_fan_wall_control`'s "Ceiling light changed" branch handles releasing/re-acquiring AL manual control and updating the switch LED bar on each transition without any extra wiring here.
+
+The ceiling light's prior state is remembered across the two separate automation runs (call-start and call-end are different trigger firings, so a mid-sequence `variables:` can't carry a value between them) via `input_boolean.office_ceiling_light_was_on` — set at the top of the call-start branch, before the light is touched, and read by the call-end branch's restore step. The monitor light bar has no equivalent memory; it's simply always turned back on, since it's never in any state other than on or off-for-a-call.
+
+#### Why the microphone, not a longer debounce
+
+The camera-off trigger's own `for:` debounce is intentionally short (3s, just enough to absorb
+sensor jitter) — the real tolerance for brief away-periods comes from a `wait_for_trigger` in the
+"Camera turned off" branch, not a longer fixed delay. A fixed debounce forces a choice between
+"long enough to cover a water-bottle refill" and "restores lights promptly after a real call
+ends"; those pull in opposite directions and no single number satisfies both. The microphone
+instead answers the actual question — is the call still connected — directly: most conferencing
+apps hold the OS-level mic open for the whole call and only release it on actual leave, even
+through a muted or video-paused stretch, so gating on `binary_sensor.*_audio_input_in_use` lets an
+arbitrarily long-but-still-connected pause pass with zero light changes, while a genuine call end
+(mic released promptly) restores within the 3s debounce instead of waiting out a fixed guess.
+
+**Assumption to verify in use:** this relies on the conferencing app(s) actually holding the mic
+open through a mute/video-pause rather than releasing it. If lights turn out to still flicker
+during a video-only pause, check `binary_sensor.nates_work_laptop_audio_input_in_use` /
+`binary_sensor.nates_mac_mini_audio_input_in_use` in **Developer Tools → States** during a real
+pause to confirm whether it stays `on`. The 3-minute `wait_for_trigger` timeout is the backstop
+either way — even if the mic sensor misbehaves (stays `on` indefinitely, or a fully-muted call
+never registers as in-use), the automation self-corrects rather than leaving the video preset
+applied forever.
 
 ### Automation
 
-Two triggers, `on` and `off` (15s debounce), route through a `choose`. On `on`, a nested
-`choose` checks `sensor.office_key_light_status` for `unavailable`/`unknown` first — if the
-Litra is disconnected, it notifies instead of applying a preset that would silently no-op; the
-`default` branch turns off the ceiling light and monitor light bar, then turns on the desk key
-light with `brightness_pct: 45` / `color_temp_kelvin: 4500`. HA normalizes both to the
-`brightness` (0–255) and `color_temp` (mireds) variables expected by the template light's
-`set_temperature` handler before invocation, so the integration applies them correctly without
-any template changes. On `off`, it turns off the key light, then — gated on "at least one Mac
-currently active" — restores the ceiling light and monitor light bar with a bare `light.turn_on`
-(see the note above on why no data is passed).
+Two triggers, `on` and `off` (3s debounce — see above), route through a `choose`; `mode: restart`
+so a fresh trigger cancels any in-progress run (see below). On `on`, the first step records
+whether the ceiling light is currently on into `input_boolean.office_ceiling_light_was_on` before
+anything else changes it. A nested `choose` then checks `sensor.office_key_light_status` for
+`unavailable`/`unknown` — if the Litra is disconnected, it notifies instead of applying a preset
+that would silently no-op; the `default` branch turns off the ceiling light and monitor light bar,
+then turns on the desk key light with `brightness_pct: 45` / `color_temp_kelvin: 4500`. HA
+normalizes both to the `brightness` (0–255) and `color_temp` (mireds) variables expected by the
+template light's `set_temperature` handler before invocation, so the integration applies them
+correctly without any template changes.
+
+On `off`, the first step checks `binary_sensor.*_audio_input_in_use` on both Macs; if either is
+still `on`, a `wait_for_trigger` blocks (event-driven, not polling) until both go `off` or 3
+minutes elapse (`continue_on_timeout: true`). Only after that does it turn off the key light,
+then — gated on "at least one Mac currently active" — unconditionally restore the monitor light
+bar and restore the ceiling light with a bare `light.turn_on` only if
+`input_boolean.office_ceiling_light_was_on` is `on` (see the note above on why no data is passed).
+No lights are touched before the wait resolves, so `mode: restart` is what makes a camera coming
+back on mid-wait a true no-op: the pending "off" run is cancelled outright rather than racing
+against the fresh "on" run.
 
 Full YAML: `ha/automations/automation.office_camera_lighting.yaml` (HA is authoritative — see
 `standards/documentation.md`).
@@ -495,6 +529,7 @@ Full YAML: `ha/automations/automation.office_camera_lighting.yaml` (HA is author
 | Office Desk Key Light | `light.office_desk_key_light` | Template light (package: `ha/packages/litra_glow.yaml`) |
 | Office Key Light Status | `sensor.office_key_light_status` | Command-line sensor (package: `ha/packages/litra_glow.yaml`) |
 | Office Ceiling Light | `light.office_ceiling_fan_light` | Matter light (`guides/inovelli_switches.md`, `guides/adaptive_lighting.md`) — switched off/on by this automation, not owned by it |
+| Office Ceiling Light Was On | `input_boolean.office_ceiling_light_was_on` | Helper — internal automation state, hidden from dashboards/voice; owned by this automation |
 | Office: Camera Lighting | `automation.office_camera_lighting` | Automation |
 | Office: Litra Status Refresh on HA Start | `automation.office_litra_status_refresh_on_ha_start` | Automation |
 

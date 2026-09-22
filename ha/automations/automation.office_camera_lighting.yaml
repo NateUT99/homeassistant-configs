@@ -3,8 +3,11 @@ alias: "Office: Camera Lighting"
 description: >-
   Turns off the ceiling light and monitor light bar and activates the desk
   key light at a video-call preset when the Studio Display Camera turns on.
-  Restores the ceiling light and monitor light bar and turns off the key
-  light when the camera has been off for 15 seconds.
+  When the camera turns off, waits for the microphone to also release on
+  both Macs before treating the call as ended (tolerates a video-only
+  pause, e.g. stepping away briefly with audio still connected), capped at
+  a 3-minute safety timeout, then restores the ceiling light and monitor
+  light bar and turns off the key light.
 triggers:
   - alias: Studio Display Camera becomes active on either Mac
     trigger: state
@@ -13,7 +16,7 @@ triggers:
       - sensor.nates_work_laptop_active_camera
     to: Studio Display Camera
     id: "on"
-  - alias: Studio Display Camera inactive for 15 seconds on either Mac
+  - alias: Studio Display Camera inactive for a few seconds on either Mac
     trigger: state
     entity_id:
       - sensor.nates_mac_mini_active_camera
@@ -21,7 +24,7 @@ triggers:
     from: Studio Display Camera
     id: "off"
     for:
-      seconds: 15
+      seconds: 3
 conditions: []
 actions:
   - choose:
@@ -31,6 +34,22 @@ actions:
             condition: trigger
             id: "on"
         sequence:
+          - alias: Remember whether the ceiling light was on before this call
+            if:
+              - alias: Ceiling light is currently on
+                condition: state
+                entity_id: light.office_ceiling_fan_light
+                state: "on"
+            then:
+              - alias: Record ceiling light was on
+                action: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.office_ceiling_light_was_on
+            else:
+              - alias: Record ceiling light was off
+                action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.office_ceiling_light_was_on
           - alias: Check Litra availability before applying camera preset
             choose:
               - alias: Litra unavailable, skip preset and notify
@@ -69,6 +88,30 @@ actions:
             condition: trigger
             id: "off"
         sequence:
+          - alias: >-
+              Hold off if the microphone is still connected (call likely
+              still active, just video-paused)
+            if:
+              - alias: Microphone still in use on either Mac
+                condition: or
+                conditions:
+                  - condition: state
+                    entity_id: binary_sensor.nates_mac_mini_audio_input_in_use
+                    state: "on"
+                  - condition: state
+                    entity_id: binary_sensor.nates_work_laptop_audio_input_in_use
+                    state: "on"
+            then:
+              - alias: Wait for the microphone to release, or give up after 3 minutes
+                wait_for_trigger:
+                  - trigger: state
+                    entity_id:
+                      - binary_sensor.nates_mac_mini_audio_input_in_use
+                      - binary_sensor.nates_work_laptop_audio_input_in_use
+                    to: "off"
+                timeout:
+                  minutes: 3
+                continue_on_timeout: true
           - alias: Turn off desk key light
             action: light.turn_off
             target:
@@ -82,11 +125,20 @@ actions:
               - condition: state
                 entity_id: binary_sensor.nates_work_laptop_active
                 state: "on"
-          - alias: Restore ceiling light and monitor light bar
+          - alias: Restore monitor light bar
             action: light.turn_on
             target:
-              entity_id:
-                - light.office_ceiling_fan_light
-                - light.office_monitor_light_bar
-mode: single
+              entity_id: light.office_monitor_light_bar
+          - alias: Restore ceiling light if it was on before the call
+            if:
+              - alias: Ceiling light was on before the call
+                condition: state
+                entity_id: input_boolean.office_ceiling_light_was_on
+                state: "on"
+            then:
+              - alias: Turn ceiling light back on
+                action: light.turn_on
+                target:
+                  entity_id: light.office_ceiling_fan_light
+mode: restart
 category: 01M08MMBZ719V4GZ2FT10RPTJ2
