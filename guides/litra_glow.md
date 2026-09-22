@@ -1,5 +1,5 @@
 # Logitech Litra Glow — Home Assistant Integration
-*Last updated: August 2026*
+*Last updated: September 2026*
 
 ## Overview
 
@@ -447,103 +447,29 @@ The lumens-to-HA-brightness reverse conversion introduces a rounding asymmetry o
 
 ## Step 9: Camera Automation
 
-Automatically controls office lighting when the active camera on either Mac becomes the Studio Display Camera. When that camera turns on, the monitor light bar is turned off and the Litra key light is enabled at a video-call preset (45% brightness, 4500K). When the camera has been off for 15 seconds, the key light is turned off and the monitor light bar is restored — but only if at least one Mac is currently active, so the light doesn't come back on after you've walked away mid-call.
+Automatically controls office lighting when the active camera on either Mac becomes the Studio Display Camera. When that camera turns on, the ceiling light and monitor light bar are turned off and the Litra key light is enabled at a video-call preset (45% brightness, 4500K). When the camera has been off for 15 seconds, the key light is turned off and the ceiling light and monitor light bar are restored — but only if at least one Mac is currently active, so the lights don't come back on after you've walked away mid-call.
 
 Triggers fire on the camera-name sensors (`sensor.*_active_camera`), which report the active camera's display name as a string. This matches only Studio Display Camera sessions and ignores the built-in laptop FaceTime camera, since the goal is to optimize lighting specifically for the desk-mounted Studio Display setup.
 
 The restore guard is "at least one Mac active" — deliberately not gated on which display is attached. macOS primary-display sensors misreport over Screen Sharing (empty name, generic virtual resolution), so a display-identity check would make the restore fire or not fire based purely on how the Mac was accessed. See `LESSONS.md` → *Shell Command Integration*.
 
-> No office ceiling light is switched alongside the light bar — this instance has no HA-controllable one yet. Add a `light.turn_off` / `light.turn_on` pair for it in both branches once one exists.
+The ceiling light (`light.office_ceiling_fan_light`) is under Adaptive Lighting (`guides/adaptive_lighting.md`). Both the turn-off and the restore call it with a bare `light.turn_off`/`light.turn_on` — no brightness or temperature data — so AL's `intercept` adapts the restore to the current curve target rather than snapping to a fixed level, and `automation.office_ceiling_fan_wall_control`'s "Ceiling light changed" branch handles releasing/re-acquiring AL manual control and updating the switch LED bar on each transition without any extra wiring here.
 
 ### Automation
 
-```yaml
-alias: "Office: Camera Lighting"
-description: >
-  Turns off the monitor light bar and activates the desk key light at a video-call
-  preset when the Studio Display Camera turns on. Restores the monitor light bar
-  and turns off the key light when the camera has been off for 15 seconds.
-triggers:
-  - alias: "Studio Display Camera becomes active on either Mac"
-    trigger: state
-    entity_id:
-      - sensor.nates_mac_mini_active_camera
-      - sensor.nates_work_laptop_active_camera
-    to: Studio Display Camera
-    id: "on"
-  - alias: "Studio Display Camera inactive for 15 seconds on either Mac"
-    trigger: state
-    entity_id:
-      - sensor.nates_mac_mini_active_camera
-      - sensor.nates_work_laptop_active_camera
-    from: Studio Display Camera
-    id: "off"
-    for:
-      seconds: 15
-conditions: []
-actions:
-  - choose:
-      - alias: "Camera turned on"
-        conditions:
-          - alias: "Triggered by camera turning on"
-            condition: trigger
-            id: "on"
-        sequence:
-          - alias: Check Litra availability before applying camera preset
-            choose:
-              - alias: Litra unavailable — skip preset and notify
-                conditions:
-                  - alias: Litra Glow status sensor is unavailable or disconnected
-                    condition: state
-                    entity_id: sensor.office_key_light_status
-                    state:
-                      - unavailable
-                      - unknown
-                sequence:
-                  - alias: Notify Litra unavailable
-                    action: notify.mobile_app_nates_iphone  # service name, not entity_id
-                    data:
-                      title: "⚠️ Camera Lighting Unavailable"
-                      message: "Litra Glow status sensor is unavailable — check the Mac Mini's SSH connection or the light's USB cable."
-            default:
-              - alias: "Turn off monitor light bar"
-                action: light.turn_off
-                target:
-                  entity_id: light.office_monitor_light_bar
-              - alias: "Turn on desk key light for camera"
-                action: light.turn_on
-                target:
-                  entity_id: light.office_desk_key_light
-                data:
-                  brightness_pct: 45
-                  color_temp_kelvin: 4500
-      - alias: "Camera turned off"
-        conditions:
-          - alias: "Triggered by camera turning off"
-            condition: trigger
-            id: "off"
-        sequence:
-          - alias: "Turn off desk key light"
-            action: light.turn_off
-            target:
-              entity_id: light.office_desk_key_light
-          - alias: "At least one Mac is currently active"
-            condition: or
-            conditions:
-              - condition: state
-                entity_id: binary_sensor.nates_mac_mini_active
-                state: "on"
-              - condition: state
-                entity_id: binary_sensor.nates_work_laptop_active
-                state: "on"
-          - alias: "Restore monitor light bar"
-            action: light.turn_on
-            target:
-              entity_id: light.office_monitor_light_bar
-mode: single
-```
+Two triggers, `on` and `off` (15s debounce), route through a `choose`. On `on`, a nested
+`choose` checks `sensor.office_key_light_status` for `unavailable`/`unknown` first — if the
+Litra is disconnected, it notifies instead of applying a preset that would silently no-op; the
+`default` branch turns off the ceiling light and monitor light bar, then turns on the desk key
+light with `brightness_pct: 45` / `color_temp_kelvin: 4500`. HA normalizes both to the
+`brightness` (0–255) and `color_temp` (mireds) variables expected by the template light's
+`set_temperature` handler before invocation, so the integration applies them correctly without
+any template changes. On `off`, it turns off the key light, then — gated on "at least one Mac
+currently active" — restores the ceiling light and monitor light bar with a bare `light.turn_on`
+(see the note above on why no data is passed).
 
-The `light.turn_on` call uses `brightness_pct` and `color_temp_kelvin`. HA normalizes both to the `brightness` (0–255) and `color_temp` (mireds) variables expected by the template light's `set_temperature` handler before invocation, so the integration applies them correctly without any template changes.
+Full YAML: `ha/automations/automation.office_camera_lighting.yaml` (HA is authoritative — see
+`standards/documentation.md`).
 
 ---
 
@@ -568,6 +494,7 @@ The `light.turn_on` call uses `brightness_pct` and `color_temp_kelvin`. HA norma
 | --- | --- | --- |
 | Office Desk Key Light | `light.office_desk_key_light` | Template light (package: `ha/packages/litra_glow.yaml`) |
 | Office Key Light Status | `sensor.office_key_light_status` | Command-line sensor (package: `ha/packages/litra_glow.yaml`) |
+| Office Ceiling Light | `light.office_ceiling_fan_light` | Matter light (`guides/inovelli_switches.md`, `guides/adaptive_lighting.md`) — switched off/on by this automation, not owned by it |
 | Office: Camera Lighting | `automation.office_camera_lighting` | Automation |
 | Office: Litra Status Refresh on HA Start | `automation.office_litra_status_refresh_on_ha_start` | Automation |
 
@@ -578,6 +505,7 @@ The `light.turn_on` call uses `brightness_pct` and `color_temp_kelvin`. HA norma
 | File | Location | Purpose |
 | --- | --- | --- |
 | Package config | `ha/packages/litra_glow.yaml` in this repo; deployed to `/config/packages/litra_glow.yaml` on HA | `shell_command`, template light, and status sensor definitions |
+| Camera lighting automation | `ha/automations/automation.office_camera_lighting.yaml` | Mirror — HA authoritative |
 | Dispatch script | `scripts/litra_dispatch.sh` in this repo; deployed to `/usr/local/bin/litra_dispatch.sh` on Mac Mini | Command whitelist gatekeeper; includes composite `apply_composite` handler |
 | sudoers rule | `/etc/sudoers.d/homeassistant-litra` | Allows `homeassistant` to run `litra` as `<your_username>` |
 | SSH private key | `/config/.ssh/id_ed25519_litra` | HA's private key for authenticating to Mac Mini |

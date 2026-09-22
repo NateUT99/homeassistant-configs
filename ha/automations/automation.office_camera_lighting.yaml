@@ -1,10 +1,10 @@
 id: "1787578256156"
 alias: "Office: Camera Lighting"
 description: >-
-  Turns off the monitor light bar and activates the desk key light at a
-  video-call preset when the Studio Display Camera turns on. Restores the
-  monitor light bar and turns off the key light when the camera has been
-  off for 15 seconds.
+  Turns off the ceiling light and monitor light bar and activates the desk
+  key light at a video-call preset when the Studio Display Camera turns on.
+  Restores the ceiling light and monitor light bar and turns off the key
+  light when the camera has been off for 15 seconds.
 triggers:
   - alias: Studio Display Camera becomes active on either Mac
     trigger: state
@@ -50,10 +50,12 @@ actions:
                         Litra Glow status sensor is unavailable - check the
                         Mac Mini's SSH connection or the light's USB cable.
             default:
-              - alias: Turn off monitor light bar
+              - alias: Turn off ceiling light and monitor light bar
                 action: light.turn_off
                 target:
-                  entity_id: light.office_monitor_light_bar
+                  entity_id:
+                    - light.office_ceiling_fan_light
+                    - light.office_monitor_light_bar
               - alias: Turn on desk key light for camera
                 action: light.turn_on
                 target:
@@ -80,9 +82,11 @@ actions:
               - condition: state
                 entity_id: binary_sensor.nates_work_laptop_active
                 state: "on"
-          - alias: Restore monitor light bar
+          - alias: Restore ceiling light and monitor light bar
             action: light.turn_on
             target:
-              entity_id: light.office_monitor_light_bar
+              entity_id:
+                - light.office_ceiling_fan_light
+                - light.office_monitor_light_bar
 mode: single
 category: 01M08MMBZ719V4GZ2FT10RPTJ2
