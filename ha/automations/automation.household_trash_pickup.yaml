@@ -17,8 +17,9 @@ description: >-
   is found again.
 
 
-  Escalate (19:00/19:30/20:00 if due tomorrow; on the household waking up
-  if due today): reads the chore's own due/status via todo.get_items and
+  Escalate (19:00/19:30/20:00 if due today -- due is the evening-before
+  deadline, not the truck's arrival time; on the household waking up if
+  due yesterday): reads the chore's own due/status via todo.get_items and
   announces via script.household_tts_announce using its description. No
   push, no helper -- marking the chore done on the card silences every
   remaining reminder for that cycle, and chore_calendar.update_item's due
@@ -98,7 +99,7 @@ actions:
       trash: "{{ (all_result.get('todo.household_chores', {}).get('items', []) | selectattr('summary', 'eq', 'Take Out Trash') | list | first) | default(none) }}"
   - alias: "Route by trigger"
     choose:
-      - alias: "Escalate -- due tomorrow"
+      - alias: "Escalate -- due today (evening deadline)"
         conditions:
           - condition: trigger
             id:
@@ -107,7 +108,7 @@ actions:
         sequence:
           - if:
               - condition: template
-                value_template: "{{ trash is not none and trash.get('status') != 'completed' and (trash.get('due','') ~ '')[:10] == (now().date() + timedelta(days=1)) | string }}"
+                value_template: "{{ trash is not none and trash.get('status') != 'completed' and (trash.get('due','') ~ '')[:10] == now().date() | string }}"
               - condition: numeric_state
                 entity_id: zone.home
                 above: 0
@@ -119,15 +120,15 @@ actions:
                   target: kitchen
                   notification_title: "Pickup Tomorrow"
                   critical_fallback: false
-            alias: "Announce if due tomorrow, not done, and someone is home"
-      - alias: "Wake-up -- due today"
+            alias: "Announce if due today, not done, and someone is home"
+      - alias: "Wake-up -- due yesterday (pickup morning)"
         conditions:
           - condition: trigger
             id: wakeup
         sequence:
           - if:
               - condition: template
-                value_template: "{{ trash is not none and trash.get('status') != 'completed' and (trash.get('due','') ~ '')[:10] == now().date() | string }}"
+                value_template: "{{ trash is not none and trash.get('status') != 'completed' and (trash.get('due','') ~ '')[:10] == (now().date() - timedelta(days=1)) | string }}"
             then:
               - action: script.household_tts_announce
                 alias: "Speak the wake-up reminder"
@@ -139,7 +140,7 @@ actions:
                   target: master_bedroom
                   notification_title: "Pickup Today"
                   critical_fallback: false
-            alias: "Announce if due today and not done"
+            alias: "Announce if due yesterday and not done"
       - alias: "Sync -- scheduled 18:00 or HA start"
         conditions:
           - condition: trigger
@@ -159,9 +160,14 @@ actions:
                 value_template: "{{ trash is not none and (trash.get('status') == 'completed' or (trash.get('due','') ~ '') == '') }}"
             then:
               - alias: "Compute the search floor"
+                note: >-
+                  +2 days, not +1 -- cur_due is now the evening-before
+                  deadline date, so the actual pickup day is cur_due+1;
+                  the floor must clear that pickup day too, or the search
+                  re-matches the cycle that was just completed.
                 variables:
                   cur_due: "{{ (trash.get('due','') ~ '')[:10] }}"
-                  floor: "{{ (as_datetime(cur_due).date() + timedelta(days=1)) | string if cur_due != '' else now().date() | string }}"
+                  floor: "{{ (as_datetime(cur_due).date() + timedelta(days=2)) | string if cur_due != '' else now().date() | string }}"
               - action: calendar.get_events
                 alias: "Query calendar.family"
                 target:
@@ -188,7 +194,7 @@ actions:
                     data:
                       item: "{{ trash.uid }}"
                       oneshot:
-                        due_datetime: "{{ (as_datetime(hit.start[:10]).replace(hour=7, minute=0, second=0)).isoformat() }}"
+                        due_datetime: "{{ (as_datetime(hit.start[:10]).replace(hour=19, minute=0, second=0) - timedelta(days=1)).isoformat() }}"
                       description: "{{ hit.summary }}"
                       entity_id: calendar.household_chores
                   - action: notify.mobile_app_nates_iphone

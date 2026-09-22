@@ -86,9 +86,20 @@ Household: Trash Pickup — one persistent oneshot chore (Take Out Trash, persis
 - *No helper for trash — the chore's own status is the state.* Marking it complete on the card
   is what silences the rest of that cycle's reminders; `chore_calendar.update_item`'s
   `due_datetime` edit clears the completed oneshot's `terminal` flag automatically on the next
-  sync, reopening it for the next cycle with no explicit "reopen" step. `pending_period: 12h`
-  against a `due_datetime` pinned to 07:00 means the chore enters `pending` at 19:00 the
-  evening before — exactly the reminder window — computed by the integration, not hardcoded.
+  sync, reopening it for the next cycle with no explicit "reopen" step.
+- *`due_datetime` is the evening-before deadline (19:00), not the truck's arrival time.* The
+  chore is genuinely "due" when the bin needs to be at the curb, not when the truck picks it
+  up the next morning — so the sync sets `due_datetime` to 19:00 the day *before* the matched
+  calendar event, not 07:00 the day *of*. This makes the card's own countdown/pending display
+  read correctly ("due in 12 hours" now means 12 hours until the real deadline). It also shifts
+  the escalation automation's date comparisons by one day from what a same-day due_datetime
+  would need: evening reminders check `due == today` (not tomorrow), the wake-up reminder
+  checks `due == yesterday` (not today), and the sync's floor for finding the *next* cycle
+  after a completion is `due + 2 days` (past both the deadline day and the actual pickup day),
+  not `due + 1`. `pending_period: 12h` against a 19:00 due means the chore enters `pending` at
+  07:00 the same day — a same-day heads-up on the card, computed by the integration, not
+  hardcoded. `grace_period: 12h` keeps it reading `due` (not `overdue`) through the actual
+  pickup window the next morning.
 - *`todo.update_item` on ha-chore-calendar's entity requires `due_datetime`, not `due_date`.*
   Only `SET_DUE_DATETIME_ON_ITEM` is advertised (verified in `todo.py`); a bare date is
   rejected. Neither chore automation sets a due date via `todo.update_item` — mark-done only
@@ -156,11 +167,13 @@ data:
   oneshot:
     persist: true
   pending_period: {hours: 12}
-  grace_period: {hours: 2}
+  grace_period: {hours: 12}
 ```
 
 It starts unscheduled — the sync half of `automation.household_trash_pickup` (full YAML in the
-`ha/` mirror) gives it its first `due_datetime` on its next run.
+`ha/` mirror) gives it its first `due_datetime` on its next run, set to 19:00 the evening
+*before* the matched pickup event (the actionable deadline), not the pickup morning itself —
+see Design Decisions above.
 
 ### 5. Add the dashboard
 
@@ -240,6 +253,14 @@ Expected — same dormancy as the interval chores (see above). Reopening clears 
 does not touch `last_completed`, so the chore reads `completed` (dormant) until `now` reaches
 the new `pending_at` (12h before the new `due_datetime`). Check `sensor.household_chores_take_out_trash`'s
 `next_due` attribute to see exactly when it opens.
+
+**The trash chore's "due" display seems off by a day, or shows a countdown to the wrong time**
+
+Check what `due_datetime` actually is (`sensor.household_chores_take_out_trash`'s `next_due`
+attribute) against what you expect it to mean. `due_datetime` is the evening-before deadline
+(19:00), never the pickup morning — if it ever shows a 07:00 timestamp on the pickup date
+itself, the sync wrote it with the old (pre-correction) formula; delete and recreate the chore,
+or push a manual `chore_calendar.update_item` with a correct `oneshot.due_datetime`.
 
 **Manually running Household: Trash Pickup doesn't announce anything**
 

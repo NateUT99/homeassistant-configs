@@ -931,6 +931,12 @@ Home Assistant's automation `target:` block always expands `entity_id` into a li
 
 Passing a new `oneshot.due_datetime` to `update_item` on a completed oneshot clears its `terminal` flag (confirmed in `services.py::_async_handle_update`'s `reopens_cycle` predicate), which is what lets it re-enter the status cycle at all. But `last_completed` from the previous cycle is left untouched — it's still set to whenever the chore was last marked done. `compute_status`'s fallthrough (`now` before the new `pending_at`, `last_completed is not None`) therefore reports `completed` again, not `pending`, until `now` actually reaches `due_datetime - pending_period`. This is the *same* dormancy behavior documented above for interval chores — not a separate bug, and not something that needs a manual `last_completed` clear. A reopened oneshot with a due date days out will sit `completed` in the interim exactly as intended.
 
+### A `due_datetime` should represent when the human action is required, not when the underlying event happens — or the card's countdown is confusing
+
+Built the trash-pickup chore with `due_datetime` set to the pickup truck's arrival time (07:00 the pickup morning) and `pending_period: 12h`, reasoning that this correctly opened the `pending` window at 19:00 the evening before — which is when the reminder automation actually fires. It does, but the card itself shows "due in 12 hours" all evening, counting down to the truck rather than to anything the person needs to do — because the field genuinely means "the event is at this timestamp," and the truck's arrival was the event chosen.
+
+**Fix:** set `due_datetime` to the actual deadline for the human action (19:00 the evening before pickup — when the bin needs to be at the curb), not the downstream event's own timing. This makes the card's status/countdown legible on its own terms. The cost: every piece of automation logic that reasons about "due date" relative to the real-world event now needs a one-day offset applied consistently — evening reminders check `due == today` instead of `due == tomorrow`, a wake-up reminder the next morning checks `due == yesterday` instead of `due == today`, and a sync that advances to the next cycle after a completion must skip *two* days past the stored due date (the deadline day, then the actual event day) rather than one. Get the semantic right before wiring the automation, since retrofitting it means touching every date comparison at once.
+
 ---
 
 ## Reminders & To-do Lists
