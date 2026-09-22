@@ -177,12 +177,14 @@ Both report `unavailable` before the first cycle of the day, rather than dividin
 | Household HVAC Heating Cycles Today | `sensor.household_hvac_heating_cycles_today` | `history_stats` (this guide) |
 | Household HVAC Cooling Average Cycle Today | `sensor.household_hvac_cooling_average_cycle_today` | Template sensor (this guide) |
 | Household HVAC Heating Average Cycle Today | `sensor.household_hvac_heating_average_cycle_today` | Template sensor (this guide) |
+| Household: HVAC Anomaly Alert | `automation.household_hvac_anomaly_alert` | Automation (`ha/automations/`), consumes the two binary sensors above |
 
 ## Related Files
 
 | Repo path | Deployed location | Purpose |
 |---|---|---|
 | `ha/packages/hvac_monitoring.yaml` | `/config/packages/hvac_monitoring.yaml` on the HA host | Runtime/cycle template and `history_stats` sensors |
+| `ha/automations/automation.household_hvac_anomaly_alert.yaml` | HA automation registry (mirror; HA authoritative) | Short-cycle and rapid-changeover push alerts |
 
 ## Related Documents
 
@@ -196,11 +198,6 @@ Both report `unavailable` before the first cycle of the day, rather than dividin
 `climate.living_room_thermostat`'s `hvac_action` attribute is actually populated during
 a call for heat/cool — check via `ha_get_state` while the system is actively running. A
 firmware update or re-pairing could change or drop the attribute.
-
-**Heating sensors are unverified.** All values above were confirmed against live cooling
-data; heating runtime/cycles/average depend on `hvac_action: heating` being reported the
-same way, which hasn't yet been observed on this thermostat. Check on the first day the
-furnace runs.
 
 **Accuracy limits.** Runtime hours assume constant draw for the duration of each cycle —
 a two-stage or variable-speed system would be misrepresented, though this system is

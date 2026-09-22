@@ -1,0 +1,155 @@
+id: "1790080051543"
+alias: "Household: HVAC Anomaly Alert"
+description: >-
+  Flags likely HVAC equipment issues via push notification: any single
+  heating or cooling cycle under 5 minutes (possible airflow restriction,
+  failing capacitor/contactor, refrigerant issue, or high-limit trip), and a
+  rapid mode changeover where heating starts within 20 minutes of cooling
+  last running or vice versa (surfaces whether the heat_cool deadband is
+  holding). Reuses the binary_sensor.household_hvac_cooling/_heating sensors
+  from guides/hvac_monitoring.md; adds no new helpers.
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.household_hvac_cooling
+    from: "on"
+    to: "off"
+    id: cooling_off
+    alias: "Cooling cycle ends"
+  - trigger: state
+    entity_id: binary_sensor.household_hvac_heating
+    from: "on"
+    to: "off"
+    id: heating_off
+    alias: "Heating cycle ends"
+  - trigger: state
+    entity_id: binary_sensor.household_hvac_cooling
+    to: "on"
+    id: cooling_on
+    alias: "Cooling cycle starts"
+  - trigger: state
+    entity_id: binary_sensor.household_hvac_heating
+    to: "on"
+    id: heating_on
+    alias: "Heating cycle starts"
+conditions: []
+actions:
+  - alias: "Dispatch on which HVAC edge fired"
+    choose:
+      - alias: "Cooling cycle ended short (under 5 minutes) -- possible fault"
+        conditions:
+          - condition: trigger
+            id: cooling_off
+            alias: "Triggered by the cooling-off edge"
+          - condition: template
+            alias: "Cycle ran under 5 minutes"
+            value_template: "{{ (as_timestamp(trigger.to_state.last_changed) - as_timestamp(trigger.from_state.last_changed)) < 300 }}"
+            note: >-
+              5 min confirmed against this season's actual cycle data: cooling
+              averaged 14.8-47.9 min/day with no cycle under 10, so this
+              threshold has effectively zero false-positive risk against the
+              observed baseline. The trigger's own from: 'on' guards against
+              a restart/reconnect replay firing this instead of a genuine
+              cycle.
+        sequence:
+          - alias: "Push short cooling cycle alert"
+            action: notify.send_message
+            target:
+              entity_id: notify.nates_iphone
+            data:
+              title: "⚠️ Short AC Cycle"
+              message: >-
+                The AC completed a cycle in {{
+                ((as_timestamp(trigger.to_state.last_changed) -
+                as_timestamp(trigger.from_state.last_changed)) / 60) |
+                round(1) }} minutes, shorter than expected. Possible airflow
+                restriction, failing capacitor/contactor, or refrigerant
+                issue.
+      - alias: "Heating cycle ended short (under 5 minutes) -- possible fault"
+        conditions:
+          - condition: trigger
+            id: heating_off
+            alias: "Triggered by the heating-off edge"
+          - condition: template
+            alias: "Cycle ran under 5 minutes"
+            value_template: "{{ (as_timestamp(trigger.to_state.last_changed) - as_timestamp(trigger.from_state.last_changed)) < 300 }}"
+        sequence:
+          - alias: "Push short heating cycle alert"
+            action: notify.send_message
+            target:
+              entity_id: notify.nates_iphone
+            data:
+              title: "⚠️ Short Furnace Cycle"
+              message: >-
+                The furnace completed a cycle in {{
+                ((as_timestamp(trigger.to_state.last_changed) -
+                as_timestamp(trigger.from_state.last_changed)) / 60) |
+                round(1) }} minutes, shorter than expected. Possible airflow
+                restriction (check the filter), high-limit trip, or ignition
+                issue.
+      - alias: "Heating started shortly after cooling last ran -- rapid changeover"
+        conditions:
+          - condition: trigger
+            id: heating_on
+            alias: "Triggered by the heating-on edge"
+          - condition: and
+            alias: "Cooling last ran recently"
+            conditions:
+              - condition: state
+                entity_id: binary_sensor.household_hvac_cooling
+                state: "off"
+                alias: "Cooling is currently off"
+              - condition: template
+                alias: "Cooling has been off less than 20 minutes"
+                value_template: "{{ (as_timestamp(now()) - as_timestamp(states.binary_sensor.household_hvac_cooling.last_changed)) < 1200 }}"
+                note: >-
+                  Known limitation: last_changed re-stamps to boot time on an
+                  HA restart, so a heating start shortly after a restart can
+                  read as a false rapid-changeover if cooling last ran before
+                  the restart. Accepted for now -- this is a maintenance
+                  heads-up, not a safety alert, and a persistent-timestamp
+                  fix (input_datetime) adds a helper this doesn't yet need.
+                  Revisit if false positives cluster around restarts.
+        sequence:
+          - alias: "Push rapid changeover alert (cool to heat)"
+            action: notify.send_message
+            target:
+              entity_id: notify.nates_iphone
+            data:
+              title: "🔄 Rapid HVAC Changeover"
+              message: >-
+                Heating started {{ ((as_timestamp(now()) -
+                as_timestamp(states.binary_sensor.household_hvac_cooling.last_changed))
+                / 60) | round(1) }} minutes after cooling last ran. Worth
+                checking whether the Home preset's deadband needs to widen
+                further.
+      - alias: "Cooling started shortly after heating last ran -- rapid changeover"
+        conditions:
+          - condition: trigger
+            id: cooling_on
+            alias: "Triggered by the cooling-on edge"
+          - condition: and
+            alias: "Heating last ran recently"
+            conditions:
+              - condition: state
+                entity_id: binary_sensor.household_hvac_heating
+                state: "off"
+                alias: "Heating is currently off"
+              - condition: template
+                alias: "Heating has been off less than 20 minutes"
+                value_template: "{{ (as_timestamp(now()) - as_timestamp(states.binary_sensor.household_hvac_heating.last_changed)) < 1200 }}"
+        sequence:
+          - alias: "Push rapid changeover alert (heat to cool)"
+            action: notify.send_message
+            target:
+              entity_id: notify.nates_iphone
+            data:
+              title: "🔄 Rapid HVAC Changeover"
+              message: >-
+                Cooling started {{ ((as_timestamp(now()) -
+                as_timestamp(states.binary_sensor.household_hvac_heating.last_changed))
+                / 60) | round(1) }} minutes after heating last ran. Worth
+                checking whether the Home preset's deadband needs to widen
+                further.
+mode: queued
+max: 4
+category: 01M0SZBV5BGDGY2BQ2GBB5NA4C
