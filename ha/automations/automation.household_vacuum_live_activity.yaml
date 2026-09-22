@@ -132,6 +132,39 @@ actions:
               icon: mdi:robot-vacuum
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
               periodic_tick: "{{ trigger.id == 'coarse_tick' }}"
+      - alias: >-
+          Just finished — done, but daytime coverage below threshold (will
+          restart)
+        conditions:
+          - condition: trigger
+            id: [job_finished]
+          - condition: state
+            entity_id: input_select.vacuum_active_zone
+            state: daytime
+          - condition: state
+            entity_id: input_boolean.vacuum_ran_daytime
+            state: "off"
+        sequence:
+          - alias: Show done card, amber -- will restart on next departure
+            action: script.household_live_activity
+            data:
+              tag: household-vacuum
+              status: done
+              title: Vacuum
+              message: >-
+                Cleaning finished · {{ vac_area }} m² in {{ vac_minutes }} min
+                — will restart when everyone leaves again
+              icon: mdi:robot-vacuum
+              color: "#FFA726"
+            note: >-
+              Daytime zone didn't clear the 65% coverage threshold
+              (input_boolean.vacuum_ran_daytime still off), so Household:
+              Last Leaves Home will command a fresh daytime job on the next
+              departure. Amber (the attention hue) distinguishes this from a
+              genuinely finished job without introducing a new status --
+              status stays done so the bar still forces to 100 and the
+              chronometer still drops. See guides/vacuum_cleaning_routine.md
+              and guides/live_activities.md Design Decisions.
       - alias: Just finished — done
         conditions:
           - condition: trigger

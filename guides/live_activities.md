@@ -213,6 +213,7 @@ by one artifact with nothing to keep in sync as that routine's automation count 
 | `cleaning`, `everyone_sleeping` off | `running` — `"{{ zone }} · {{ current_room }}"`, `progress` from `cleaning_progress`, area cleaned as `critical_text` (Dynamic Island) |
 | `paused` | `paused` |
 | `returning`, `everyone_sleeping` off | `running` — "Returning to dock" |
+| transition *into* `docked`, `active_zone` = `daytime`, `vacuum_ran_daytime` off | `done`, amber (`#FFA726`) — `"Cleaning finished · {{ area }} m² in {{ minutes }} min — will restart when everyone leaves again"` (edge-triggered, checked ahead of the plain `done` row below) |
 | transition *into* `docked` from `cleaning`/`returning`/`paused`/`error` | `done` — `"Cleaning finished · {{ area }} m² in {{ minutes }} min"` (edge-triggered — see below) |
 | `docked`, held for 10+ minutes | `clear` |
 | `cleaning` or `returning` while `everyone_sleeping` is on | no card (branch does not match; falls through) |
@@ -279,6 +280,17 @@ by one artifact with nothing to keep in sync as that routine's automation count 
   the dock's smart auto-empty cycle — knocked the vacuum out of `docked` and back into it; each
   such blip looked like a fresh job finishing and recreated the card after it had already been
   dismissed. See `LESSONS.md` → *Vacuum & Roborock*.
+- **A "done" card can mean the daytime zone will restart on the next departure, and the
+  amber variant says so.** `guides/vacuum_cleaning_routine.md`'s daytime zone only counts as
+  having run once its coverage clears a 65% threshold (`automation.household_vacuum_progress_tracking`);
+  a job docked before then leaves `input_boolean.vacuum_ran_daytime` off, and
+  *Household: Last Leaves Home* will command a fresh daytime job on the next `zone.home → 0`.
+  A dedicated branch, checked immediately ahead of the plain `done` branch and sharing the same
+  `job_finished` trigger, catches exactly that case (`active_zone: daytime` and `vacuum_ran_daytime:
+  off`) and overrides `color` to the palette's amber rather than introducing a new status — `status`
+  stays `done`, so the bar still forces to 100 and the chronometer still drops, matching every other
+  finished job. Evening, away, and master-suite-follow-up jobs are all marked "ran" unconditionally
+  on command rather than on verified coverage, so none of them can land in this branch.
 - **The 10-minute clear window still uses a native `condition: state` with `for:`**, not a
   `delay:` inside the run — a `delay:` would hold the `queued` mode's run slot open and could
   fight a new job starting during that window. Unlike the old `done` guard, resending
