@@ -2,14 +2,16 @@ alias: "Household: TTS Announce"
 description: >-
   Shared entry point for every HomePod TTS announcement. Resolves the
   target room (or auto-picks kitchen/master bedroom based on
-  everyone_sleeping), or fans out to every room except the office when
-  target is broadcast -- skipping Avery's room if
-  input_boolean.avery_sleeping is on -- then speaks via Chime TTS. Falls
-  back to a push notification to Nate's iPhone when TTS can't land: an
-  active video call (checked once, before any room dispatch, so a
-  broadcast call never produces more than one fallback push) or a room's
-  HomePod being unavailable. Pass critical_fallback to send that fallback
-  push as an iOS critical alert.
+  everyone_sleeping), or fans out to kitchen, master bedroom, office, and
+  Avery's room when target is broadcast. Office is dropped from a
+  broadcast (and, if explicitly targeted, gets a push instead of TTS)
+  whenever it's busy with a call -- sensor.nates_mac_mini_active_camera
+  active or binary_sensor.nates_work_laptop_audio_input_in_use on, both
+  devices sitting in the Office. Avery's room is dropped whenever
+  input_boolean.avery_sleeping is on. Falls back to a push notification
+  to Nate's iPhone when TTS can't land for a room: office busy, or that
+  room's HomePod being unavailable. Pass critical_fallback to send that
+  fallback push as an iOS critical alert.
 fields:
   message:
     name: Message
@@ -21,8 +23,8 @@ fields:
     name: Target
     description: >-
       Which HomePod to announce to, broadcast to fan out to kitchen,
-      master bedroom, and (if she's awake) Avery's room -- office is
-      never part of a broadcast -- or auto to pick kitchen/master bedroom
+      master bedroom, office (unless it's busy with a call), and Avery's
+      room (unless she's asleep), or auto to pick kitchen/master bedroom
       based on sleep state.
     required: false
     default: auto
@@ -33,7 +35,8 @@ fields:
     name: Notification Title
     description: >-
       Title for the push notification sent when TTS falls back to a push
-      (active video call, or a target HomePod is offline).
+      (the office being busy with a call, or a target HomePod being
+      offline).
     required: false
     default: Missed Announcement
     selector:
@@ -56,44 +59,15 @@ variables:
   fallback_push_data: >-
     {{ {'push': {'interruption-level': 'critical', 'sound': {'name': 'default',
     'critical': 1, 'volume': 1}}} if (critical_fallback | default(false)) else {} }}
+  office_busy: >-
+    {{ not is_state('sensor.nates_mac_mini_active_camera', 'Inactive') or
+    is_state('binary_sensor.nates_work_laptop_audio_input_in_use', 'on') }}
   broadcast_rooms: >-
-    {{ ['kitchen', 'master_bedroom'] + ([] if
-    is_state('input_boolean.avery_sleeping', 'on') else ['averys_room']) }}
+    {{ ['kitchen', 'master_bedroom'] + ([] if office_busy else ['office']) +
+    ([] if is_state('input_boolean.avery_sleeping', 'on') else ['averys_room']) }}
   target_rooms: >-
     {{ broadcast_rooms if (target | default('auto')) == 'broadcast' else [resolved_target] }}
 sequence:
-  - alias: Suppress everything with one push if a video call is active
-    note: >-
-      Checked once, before any room dispatch, so a broadcast call sends
-      exactly one fallback push -- not one per target. Work laptop side
-      reads binary_sensor.nates_work_laptop_audio_input_in_use, not
-      active_camera: an audio-only call (mic in use, no camera) still
-      needs to suppress TTS, and active_camera would miss it -- same
-      signal automation.office_camera_lighting uses to detect an active
-      call.
-    if:
-      - condition: or
-        conditions:
-          - condition: not
-            conditions:
-              - condition: state
-                entity_id: sensor.nates_mac_mini_active_camera
-                state: Inactive
-          - condition: not
-            conditions:
-              - condition: state
-                entity_id: binary_sensor.nates_work_laptop_audio_input_in_use
-                state: "off"
-    then:
-      - alias: Push fallback (video call active)
-        note: >-
-          TTS would interrupt a work call, so suppress it and push instead.
-        action: notify.mobile_app_nates_iphone
-        data:
-          title: "{{ notification_title_resolved }}"
-          message: "{{ message }}"
-          data: "{{ fallback_push_data }}"
-      - stop: Suppressed -- video call active
   - alias: Announce to each resolved room
     repeat:
       for_each: "{{ target_rooms }}"
@@ -112,6 +86,24 @@ sequence:
               is_state('input_boolean.everyone_sleeping', 'on') else
               0.5)}.get(repeat.item, 0.5) }}
         - choose:
+            - alias: This room is the office and it's busy with a call
+              note: >-
+                Only reachable for an explicit target: office -- broadcast
+                already drops office from target_rooms in this case, so
+                this never fires mid-broadcast.
+              conditions:
+                - condition: template
+                  value_template: "{{ room == 'office' and office_busy }}"
+              sequence:
+                - alias: Push fallback (office busy)
+                  note: >-
+                    TTS into the office would be picked up by the call's
+                    mic, so push instead.
+                  action: notify.mobile_app_nates_iphone
+                  data:
+                    title: "{{ notification_title_resolved }}"
+                    message: "{{ message }}"
+                    data: "{{ fallback_push_data }}"
             - alias: This room's speaker is offline
               conditions:
                 - condition: template

@@ -107,16 +107,18 @@ data:
 | Field | Required | Default | Description |
 |---|---|---|---|
 | `message` | Yes | — | Text to speak. Templates are supported. |
-| `target` | No | `auto` | `kitchen`, `master_bedroom`, `office`, `averys_room`, `broadcast`, or `auto` — `auto` picks master bedroom when `everyone_sleeping` is on, kitchen otherwise; `broadcast` fans out to kitchen, master bedroom, and Avery's room (see below) |
-| `notification_title` | No | `Missed Announcement` | Title for the push notification sent on either fallback path |
+| `target` | No | `auto` | `kitchen`, `master_bedroom`, `office`, `averys_room`, `broadcast`, or `auto` — `auto` picks master bedroom when `everyone_sleeping` is on, kitchen otherwise; `broadcast` fans out to kitchen, master bedroom, office, and Avery's room (see below) |
+| `notification_title` | No | `Missed Announcement` | Title for the push notification sent when a room falls back to a push |
 | `critical_fallback` | No | `false` | When a fallback push fires, add the iOS `push.sound.critical` / `interruption-level: critical` payload so it breaks through silent mode and Focus |
 
-**`target: broadcast`.** Fans out to kitchen and master bedroom always, plus Avery's room unless `input_boolean.avery_sleeping` is on (so she isn't woken). The office is never part of a broadcast — it's a workspace, not a room anyone needs a household announcement in. Internally this is a `repeat` over the resolved room list, each iteration running the same per-room offline check and `chime_tts.say` call as an explicit single-room target — so a caller doesn't need to special-case Avery's sleep gate or exclude the office themselves. `automation.household_hvac_exterior_open_pause`'s door-warning, pause, and resume announcements are the first consumer.
+**`target: broadcast`.** Fans out to kitchen and master bedroom always, office unless it's busy with a call, and Avery's room unless `input_boolean.avery_sleeping` is on (so she isn't woken). Internally this is a `repeat` over the resolved room list, each iteration running the same per-room busy/offline check and `chime_tts.say` call as an explicit single-room target — so a caller doesn't need to special-case Avery's sleep gate or the office's call state themselves. `automation.household_hvac_exterior_open_pause`'s door-warning, pause, and resume announcements are the first consumer.
 
-**Fallback guards.** Two conditions send a push to `notify.mobile_app_nates_iphone` instead of speaking:
+**"Office busy" is a per-room condition, not a global one.** Both the Mac Mini and the MacBook Pro sit in the Office (the same devices `automation.office_camera_lighting` and `automation.office_monitor_light_bar` watch), so a call on either only makes the *Office* speaker unsuitable — kitchen, master bedroom, and Avery's room are physically far enough away that TTS there won't bleed into the call's microphone. `office_busy` is `true` when `sensor.nates_mac_mini_active_camera` is not `Inactive` or `binary_sensor.nates_work_laptop_audio_input_in_use` is `on`. The work laptop side reads audio input rather than camera — an audio-only call (mic in use, no camera) still needs to exclude the office, and the camera sensor would miss it.
 
-1. **Active video call** — checked once per script call, before any room dispatch (so a `broadcast` call produces exactly one fallback push, not one per room). `sensor.nates_mac_mini_active_camera` is not `Inactive`, or `binary_sensor.nates_work_laptop_audio_input_in_use` is `on`. The work laptop side reads audio input rather than camera — an audio-only call (mic in use, no camera) still needs to suppress TTS, and the camera sensor would miss it; this is the same signal `automation.office_camera_lighting` uses to detect an active call.
-2. **Target HomePod offline** — checked per room. `chime_tts.say` against a dead speaker fails silently at every log level, so the announcement would vanish with no trace; the push is the only way it lands. For `broadcast`, an offline room pushes on its own without blocking the other rooms from still getting TTS.
+**Fallback guards.** Two conditions send a push to `notify.mobile_app_nates_iphone` instead of speaking, both checked per room:
+
+1. **Office busy with a call** — only reachable via an explicit `target: office` (a `broadcast` call already drops office from its room list in this case, so no push fires for it mid-broadcast).
+2. **Target HomePod offline** — `chime_tts.say` against a dead speaker fails silently at every log level, so the announcement would vanish with no trace; the push is the only way it lands. For `broadcast`, an offline room pushes on its own without blocking the other rooms from still getting TTS.
 
 Both paths reuse `message` and `notification_title`. `critical_fallback: true` upgrades whichever push fires to a critical alert; callers that just want the message delivered leave it unset.
 

@@ -13,10 +13,10 @@ description: >-
 
 
   Announces the warning, pause, and restore via script.household_tts_announce
-  with target: broadcast, which fans out to kitchen, master bedroom, and
-  Avery's room (skipped while input_boolean.avery_sleeping is on) -- office
-  is never part of a broadcast -- falling back to a push on its own
-  per-target if TTS truly cannot land.
+  with target: broadcast, which fans out to kitchen, master bedroom,
+  office (unless busy with a call), and Avery's room (skipped while
+  input_boolean.avery_sleeping is on), falling back to a push on its own
+  per-room if TTS truly cannot land.
 
 
   Stores the mode being paused from in
@@ -165,9 +165,10 @@ actions:
               hvac_mode: "off"
           - alias: Announce that HVAC has paused
             note: >-
-              target: broadcast fans out to kitchen, master bedroom, and
-              Avery's room (if awake) -- office excluded -- and falls back
-              to a push on its own per-target if TTS truly cannot land.
+              target: broadcast fans out to kitchen, master bedroom,
+              office (unless busy with a call), and Avery's room (if
+              awake) -- and falls back to a push on its own per-room if
+              TTS truly cannot land.
             action: script.household_tts_announce
             data:
               message: >-
