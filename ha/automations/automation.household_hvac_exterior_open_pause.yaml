@@ -3,13 +3,16 @@ alias: "Household: HVAC Exterior Open Pause"
 description: >-
   Turns off the whole-house thermostat when a window or exterior door has
   been open for 3 minutes, and restores the exact prior mode once
-  everything has been closed for 3 minutes. The house<->garage interior
-  door only counts when the garage overhead door is open too -- the garage
-  itself is unconditioned and is routinely left open on its own (including
-  by Household: Nate Presence on arrival).
+  everything has been closed for 3 minutes. Gives an advance TTS warning
+  at 2 minutes when the opening is a door (not a window) so someone has a
+  chance to close it before the pause -- doors get left open by accident
+  far more than windows, which are a deliberate action. The house<->garage
+  interior door only counts when the garage overhead door is open too --
+  the garage itself is unconditioned and is routinely left open on its own
+  (including by Household: Nate Presence on arrival).
 
 
-  Announces both the pause and the restore via script.household_tts_announce
+  Announces the warning, pause, and restore via script.household_tts_announce
   with target: auto, which resolves to the kitchen HomePod while awake and
   the quieter master bedroom HomePod while everyone_sleeping is on (0.4
   volume overnight vs the normal 0.5), falling back to a push on its own if
@@ -29,6 +32,14 @@ description: >-
   one automation instead of two -- see LESSONS.md for the
   restoration-branch guard rationale.
 triggers:
+  - trigger: state
+    entity_id: binary_sensor.household_exterior_doors_open
+    from: "off"
+    to: "on"
+    for:
+      minutes: 2
+    id: door_warning
+    alias: Exterior door held open for 2 minutes
   - trigger: state
     entity_id: binary_sensor.household_exterior_open
     from: "off"
@@ -61,6 +72,46 @@ conditions: []
 actions:
   - alias: Dispatch on which trigger fired
     choose:
+      - alias: Door open 2 minutes -- advance warning before the pause
+        conditions:
+          - condition: trigger
+            id: door_warning
+            alias: Triggered by the door_warning edge
+          - condition: not
+            alias: Thermostat is not already off
+            conditions:
+              - condition: state
+                entity_id: climate.living_room_thermostat
+                state: "off"
+        sequence:
+          - alias: Determine which door triggered the warning
+            note: >-
+              Mirrors the pause branch's open_areas_text macro but scoped to
+              the two leaf door sensors plus the garage AND-clause -- only
+              doors get this advance warning, since windows are a deliberate
+              action rather than an accident.
+            variables:
+              open_doors_text: |-
+                {% macro fmt(a) -%}{{ '' if '’' in a else 'the ' }}{{ a }}{%- endmacro %}
+                {%- set areas = [] -%}
+                {%- if is_state('binary_sensor.entrance_front_door', 'on') -%}{%- set areas = areas + [area_name('binary_sensor.entrance_front_door')] -%}{%- endif -%}
+                {%- if is_state('binary_sensor.kitchen_patio_door', 'on') -%}{%- set areas = areas + [area_name('binary_sensor.kitchen_patio_door')] -%}{%- endif -%}
+                {%- if is_state('binary_sensor.garage_interior_door', 'on') and is_state('cover.garage_door_opener_door', 'open') -%}{%- set areas = areas + ['Garage'] -%}{%- endif -%}
+                {%- set ns = namespace(formatted=[]) -%}
+                {%- for a in areas -%}{%- set ns.formatted = ns.formatted + [fmt(a)] -%}{%- endfor -%}
+                {%- if ns.formatted | length == 0 -%}
+                the door
+                {%- elif ns.formatted | length == 1 -%}
+                {{ ns.formatted[0] }}
+                {%- else -%}
+                {{ ns.formatted[:-1] | join(', ') }} and {{ ns.formatted[-1] }}
+                {%- endif -%}
+          - alias: Announce the advance warning
+            action: script.household_tts_announce
+            data:
+              message: "Thermostat pausing soon — {{ open_doors_text }} door's open."
+              target: auto
+              notification_title: "🚪 Door Open Warning"
       - alias: Opened 3 minutes ago and thermostat not already off
         conditions:
           - condition: trigger
@@ -123,14 +174,12 @@ actions:
             action: script.household_tts_announce
             data:
               message: >-
-                The thermostat has been paused because an outside door or
-                window in {{ open_areas_text }} is open.{%- if
+                Thermostat paused — {{ open_areas_text }} is open.{%- if
                 is_state('binary_sensor.outside_air_quality_index_high',
-                'on') %} Outdoor air quality is also poor -- {% if
+                'on') %} Air quality's poor too — {% if
                 states('sensor.erie_ohio_usa_air_quality_index') |
                 int(0) > 150 %}please keep{% else %}consider
-                keeping{% endif %} the exterior doors and windows
-                closed.{%- endif %}
+                keeping{% endif %} things closed.{%- endif %}
               target: auto
               notification_title: "❌ Thermostat Paused"
       - alias: Closed 3 minutes ago, thermostat off, and a mode was stored
@@ -172,10 +221,9 @@ actions:
             action: script.household_tts_announce
             data:
               message: >-
-                The thermostat has been re-enabled to {{
+                Thermostat re-enabled to {{
                 {'cool': 'cool', 'heat': 'heat', 'heat_cool': 'heat
-                and cool'}.get(paused_from, paused_from) }} because
-                all exterior doors and windows are closed.
+                and cool'}.get(paused_from, paused_from) }}.
               target: auto
               notification_title: "✅ Thermostat Re-Enabled"
       - alias: Thermostat left off through some other path
