@@ -5,13 +5,13 @@ description: >-
   everyone_sleeping), or fans out to kitchen, master bedroom, office, and
   Avery's room when target is broadcast. Office is dropped from a
   broadcast (and, if explicitly targeted, gets a push instead of TTS)
-  whenever it's busy with a call -- sensor.nates_mac_mini_active_camera
-  active or binary_sensor.nates_work_laptop_audio_input_in_use on, both
-  devices sitting in the Office. Avery's room is dropped whenever
-  input_boolean.avery_sleeping is on. Falls back to a push notification
-  to Nate's iPhone when TTS can't land for a room: office busy, or that
-  room's HomePod being unavailable. Pass critical_fallback to send that
-  fallback push as an iOS critical alert.
+  whenever binary_sensor.nates_work_laptop_audio_input_in_use is on --
+  the same MacBook Pro call-detection signal automation.office_camera_lighting
+  relies on. Avery's room is dropped whenever input_boolean.avery_sleeping
+  is on. Falls back to a push notification to Nate's iPhone when TTS
+  can't land for a room: office busy, or that room's HomePod being
+  unavailable. Pass critical_fallback to send that fallback push as an
+  iOS critical alert.
 fields:
   message:
     name: Message
@@ -59,9 +59,7 @@ variables:
   fallback_push_data: >-
     {{ {'push': {'interruption-level': 'critical', 'sound': {'name': 'default',
     'critical': 1, 'volume': 1}}} if (critical_fallback | default(false)) else {} }}
-  office_busy: >-
-    {{ not is_state('sensor.nates_mac_mini_active_camera', 'Inactive') or
-    is_state('binary_sensor.nates_work_laptop_audio_input_in_use', 'on') }}
+  office_busy: "{{ is_state('binary_sensor.nates_work_laptop_audio_input_in_use', 'on') }}"
   broadcast_rooms: >-
     {{ ['kitchen', 'master_bedroom'] + ([] if office_busy else ['office']) +
     ([] if is_state('input_boolean.avery_sleeping', 'on') else ['averys_room']) }}
