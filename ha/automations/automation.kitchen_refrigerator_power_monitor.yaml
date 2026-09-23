@@ -7,9 +7,10 @@ description: >-
   (breaker trip, unplugged cord, or dead compressor -- the whole-house
   generator covers grid outages, so a sustained zero-draw here means
   something HA can still see). Alerts route by presence: critical push when
-  nobody home, TTS to the kitchen when someone is home and awake, TTS to the
-  master bedroom with a critical push fallback when everyone is asleep.
-  Sends a quiet recovery notice once the fault clears.
+  nobody home, TTS broadcast (every room, gated same as any other broadcast
+  call) when someone is home and awake, TTS to the master bedroom with a
+  critical push fallback when everyone is asleep. Sends a quiet recovery
+  notice once the fault clears.
 triggers:
   - trigger: state
     entity_id: sensor.kitchen_refrigerator_power
@@ -77,11 +78,11 @@ actions:
                       notification_title: "🧊 Refrigerator Alert"
                       critical_fallback: true
             default:
-              - alias: "Someone home, awake — TTS to kitchen"
+              - alias: "Someone home, awake — broadcast"
                 action: script.household_tts_announce
                 data:
                   message: "{{ alert_message }}"
-                  target: kitchen
+                  target: broadcast
                   notification_title: "🧊 Refrigerator Alert"
           - alias: Wait for the plug to come back online
             wait_for_trigger:
@@ -145,11 +146,11 @@ actions:
                       notification_title: "🧊 Refrigerator Alert"
                       critical_fallback: true
             default:
-              - alias: "Someone home, awake — TTS to kitchen"
+              - alias: "Someone home, awake — broadcast"
                 action: script.household_tts_announce
                 data:
                   message: "{{ alert_message }}"
-                  target: kitchen
+                  target: broadcast
                   notification_title: "🧊 Refrigerator Alert"
           - alias: Wait for power draw to resume
             wait_for_trigger:
