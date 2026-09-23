@@ -311,11 +311,29 @@ after the follow-up, with a 17:00 backstop that repeats daily until the pad actu
 TTS goes through `script.household_tts_announce`; the cleanup push reuses one tag so a repeat
 replaces the banner rather than stacking.
 
+## Ad Hoc Mop Pass
+
+`script.household_vacuum_mop_now` runs the same six-room mop pass as the Weekly Mop Pass
+above, on demand, from a dashboard button or Companion App shortcut rather than waiting for a
+night Avery is away. It shares that branch's settings exactly (`mop_intensity: high`,
+`cleaning_mode: vac_and_mop`, fan `quiet`, segments `[17, 22, 23, 24, 25, 26]`) rather than
+introducing a second set of assumptions, and checks the same three hardware interlocks (pad
+attached, water module seated, tank not empty) plus one more of its own — the vacuum not
+already `cleaning` — pushing a message naming which check failed instead of silently no-oping.
+
+Running it sets `vacuum_mop_common_areas_done_this_week` on, so it counts as that week's
+common-area mop and the automatic evening pass won't mop again before the weekly reset. It
+deliberately leaves `vacuum_ran_evening` untouched, so that same night's ordinary common-area
+vacuum pass still runs on its own schedule — an ad hoc mop only replaces the mop, not the
+nightly vacuum. It does not touch the master-suite follow-up; that stays tied to the pad still
+being on the morning after an actual mop night.
+
 ## Related HA Config
 
 | Friendly Name | Entity ID | Type |
 |---|---|---|
 | Household: Vacuum Evening Cleaning | `automation.household_vacuum_evening_cleaning` | Automation (nightly common-area pass + next-morning master-suite follow-up) |
+| Household: Vacuum Mop Now | `script.household_vacuum_mop_now` | Script (ad hoc mop pass over the six common-area rooms) |
 | Household: Last Leaves Home | `automation.household_last_leaves_home` | Automation (contains the daytime-start block) |
 | Household: First Arrives Home | `automation.household_first_arrives_home` | Automation (contains the arrival dock and vacuum routine-pause clear) |
 | Household: Vacuum Progress Tracking | `automation.household_vacuum_progress_tracking` | Automation (merged from two: max-progress tracking + completion marking) |
