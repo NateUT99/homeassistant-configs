@@ -1,11 +1,15 @@
 alias: "Household: TTS Announce"
 description: >-
-  Shared entry point for every HomePod TTS announcement. Resolves the target
-  room (or auto-picks based on everyone_sleeping) and speaks via Chime TTS.
-  Falls back to a push notification to Nate's iPhone when TTS can't land — an
-  active video call on the Mac Mini or work laptop, or the resolved HomePod
-  being unavailable. Pass critical_fallback to send that fallback push as an
-  iOS critical alert.
+  Shared entry point for every HomePod TTS announcement. Resolves the
+  target room (or auto-picks kitchen/master bedroom based on
+  everyone_sleeping), or fans out to every room except the office when
+  target is broadcast -- skipping Avery's room if
+  input_boolean.avery_sleeping is on -- then speaks via Chime TTS. Falls
+  back to a push notification to Nate's iPhone when TTS can't land: an
+  active video call (checked once, before any room dispatch, so a
+  broadcast call never produces more than one fallback push) or a room's
+  HomePod being unavailable. Pass critical_fallback to send that fallback
+  push as an iOS critical alert.
 fields:
   message:
     name: Message
@@ -15,22 +19,21 @@ fields:
       text: {}
   target:
     name: Target
-    description: Which HomePod to announce to, or auto to pick based on sleep state.
+    description: >-
+      Which HomePod to announce to, broadcast to fan out to kitchen,
+      master bedroom, and (if she's awake) Avery's room -- office is
+      never part of a broadcast -- or auto to pick kitchen/master bedroom
+      based on sleep state.
     required: false
     default: auto
     selector:
       select:
-        options:
-          - kitchen
-          - master_bedroom
-          - office
-          - averys_room
-          - auto
+        options: [kitchen, master_bedroom, office, averys_room, broadcast, auto]
   notification_title:
     name: Notification Title
     description: >-
       Title for the push notification sent when TTS falls back to a push
-      (active video call, or the target HomePod is offline).
+      (active video call, or a target HomePod is offline).
     required: false
     default: Missed Announcement
     selector:
@@ -38,9 +41,9 @@ fields:
   critical_fallback:
     name: Critical Fallback
     description: >-
-      When TTS cannot be delivered and the script falls back to a push, send
-      it as an iOS critical alert (breaks through silent mode and Focus).
-      Applies to both fallback paths. Default false.
+      When TTS cannot be delivered and the script falls back to a push,
+      send it as an iOS critical alert (breaks through silent mode and
+      Focus). Applies to both fallback paths. Default false.
     required: false
     default: false
     selector:
@@ -50,134 +53,103 @@ variables:
     {{ ('master_bedroom' if is_state('input_boolean.everyone_sleeping', 'on')
     else 'kitchen') if (target | default('auto')) == 'auto' else target }}
   notification_title_resolved: "{{ notification_title | default('Missed Announcement') }}"
-  target_speaker: >-
-    {{ {'kitchen': 'media_player.kitchen_homepod',
-    'master_bedroom': 'media_player.master_bedroom_homepod',
-    'office': 'media_player.office_homepod',
-    'averys_room': 'media_player.averys_room_homepod'}.get(resolved_target, '') }}
   fallback_push_data: >-
-    {{ {'push': {'interruption-level': 'critical',
-    'sound': {'name': 'default', 'critical': 1, 'volume': 1}}}
-    if (critical_fallback | default(false)) else {} }}
+    {{ {'push': {'interruption-level': 'critical', 'sound': {'name': 'default',
+    'critical': 1, 'volume': 1}}} if (critical_fallback | default(false)) else {} }}
+  broadcast_rooms: >-
+    {{ ['kitchen', 'master_bedroom'] + ([] if
+    is_state('input_boolean.avery_sleeping', 'on') else ['averys_room']) }}
+  target_rooms: >-
+    {{ broadcast_rooms if (target | default('auto')) == 'broadcast' else [resolved_target] }}
 sequence:
-  - alias: "Route the announcement, or push instead when TTS cannot land"
-    choose:
-      - alias: "Video call active on Mac Mini or work laptop"
+  - alias: Suppress everything with one push if a video call is active
+    note: >-
+      Checked once, before any room dispatch, so a broadcast call sends
+      exactly one fallback push -- not one per target. Work laptop side
+      reads binary_sensor.nates_work_laptop_audio_input_in_use, not
+      active_camera: an audio-only call (mic in use, no camera) still
+      needs to suppress TTS, and active_camera would miss it -- same
+      signal automation.office_camera_lighting uses to detect an active
+      call.
+    if:
+      - condition: or
         conditions:
-          - condition: or
+          - condition: not
             conditions:
-              - condition: not
-                conditions:
-                  - condition: state
-                    entity_id: sensor.nates_mac_mini_active_camera
-                    state: Inactive
-              - condition: not
-                conditions:
-                  - condition: state
-                    entity_id: sensor.nates_work_laptop_active_camera
-                    state: Inactive
-        sequence:
-          - alias: "Push fallback (video call active)"
-            note: >-
-              TTS would interrupt a work call, so suppress it and push
-              instead. Checked first, ahead of the per-room routing, because
-              the suppression applies no matter which speaker would have been
-              used.
-            action: notify.mobile_app_nates_iphone
-            data:
-              title: "{{ notification_title_resolved }}"
-              message: "{{ message }}"
-              data: "{{ fallback_push_data }}"
-      - alias: "Resolved HomePod is offline"
+              - condition: state
+                entity_id: sensor.nates_mac_mini_active_camera
+                state: Inactive
+          - condition: not
+            conditions:
+              - condition: state
+                entity_id: binary_sensor.nates_work_laptop_audio_input_in_use
+                state: "off"
+    then:
+      - alias: Push fallback (video call active)
         note: >-
-          `entity_id` in a native state condition cannot be templated and the
-          target speaker is resolved at runtime, so the availability check is
-          a template. Consistent with the per-room routing conditions below.
-        conditions:
-          - "{{ target_speaker != '' and states(target_speaker) in ['unavailable', 'unknown'] }}"
-        sequence:
-          - alias: "Push fallback (HomePod offline)"
-            note: >-
-              chime_tts.say against an unavailable media_player fails silently
-              at any log level, so a dead target HomePod drops the
-              announcement with no trace. Detect it here and push instead.
-            action: notify.mobile_app_nates_iphone
-            data:
-              title: "{{ notification_title_resolved }}"
-              message: "{{ message }}"
-              data: "{{ fallback_push_data }}"
-      - alias: "Target: kitchen"
-        conditions:
-          - "{{ resolved_target == 'kitchen' }}"
-        sequence:
-          - alias: "Speak via Chime TTS (kitchen)"
-            action: chime_tts.say
-            target:
-              entity_id: media_player.kitchen_homepod
-            data:
-              message: "{{ message }}"
-              chime_path: soft
-              tts_platform: cloud
-              volume_level: 0.6
-              cache: true
-              announce: true
-      - alias: "Target: master bedroom"
-        conditions:
-          - "{{ resolved_target == 'master_bedroom' }}"
-        sequence:
-          - alias: "Speak via Chime TTS (master bedroom)"
-            note: >-
-              Quieter while everyone_sleeping is on (0.4 vs the normal 0.5)
-              -- gated on the actual sleep state rather than on which
-              caller/target string was used, so this applies correctly
-              whether master_bedroom was chosen via target: auto or passed
-              explicitly (e.g. the refrigerator alert, laundry-done
-              announcement).
-            action: chime_tts.say
-            target:
-              entity_id: media_player.master_bedroom_homepod
-            data:
-              message: "{{ message }}"
-              chime_path: soft
-              tts_platform: cloud
-              volume_level: "{{ 0.4 if is_state('input_boolean.everyone_sleeping', 'on') else 0.5 }}"
-              cache: true
-              announce: true
-      - alias: "Target: office"
-        conditions:
-          - "{{ resolved_target == 'office' }}"
-        sequence:
-          - alias: "Speak via Chime TTS (office)"
-            action: chime_tts.say
-            target:
-              entity_id: media_player.office_homepod
-            data:
-              message: "{{ message }}"
-              chime_path: soft
-              tts_platform: cloud
-              volume_level: 0.5
-              cache: true
-              announce: true
-      - alias: "Target: Avery's room"
-        conditions:
-          - "{{ resolved_target == 'averys_room' }}"
-        sequence:
-          - alias: "Speak via Chime TTS (Avery's room)"
-            action: chime_tts.say
-            target:
-              entity_id: media_player.averys_room_homepod
-            data:
-              message: "{{ message }}"
-              chime_path: soft
-              tts_platform: cloud
-              volume_level: 0.4
-              cache: true
-              announce: true
-    default:
-      - alias: "Unknown target — stop"
-        note: >-
-          Reachable only if `target` is called with a value outside the
-          documented field selector options.
-        stop: Unrecognized TTS target
+          TTS would interrupt a work call, so suppress it and push instead.
+        action: notify.mobile_app_nates_iphone
+        data:
+          title: "{{ notification_title_resolved }}"
+          message: "{{ message }}"
+          data: "{{ fallback_push_data }}"
+      - stop: Suppressed -- video call active
+  - alias: Announce to each resolved room
+    repeat:
+      for_each: "{{ target_rooms }}"
+      sequence:
+        - alias: Resolve this room's speaker and volume
+          variables:
+            room: "{{ repeat.item }}"
+            room_speaker: >-
+              {{ {'kitchen': 'media_player.kitchen_homepod',
+              'master_bedroom': 'media_player.master_bedroom_homepod',
+              'office': 'media_player.office_homepod', 'averys_room':
+              'media_player.averys_room_homepod'}.get(repeat.item, '') }}
+            room_volume: >-
+              {{ {'kitchen': 0.6, 'office': 0.5, 'averys_room': 0.4,
+              'master_bedroom': (0.4 if
+              is_state('input_boolean.everyone_sleeping', 'on') else
+              0.5)}.get(repeat.item, 0.5) }}
+        - choose:
+            - alias: This room's speaker is offline
+              conditions:
+                - condition: template
+                  value_template: >-
+                    {{ room_speaker != '' and states(room_speaker) in
+                    ['unavailable', 'unknown'] }}
+              sequence:
+                - alias: Push fallback (HomePod offline)
+                  note: >-
+                    chime_tts.say against an unavailable media_player fails
+                    silently at any log level, so a dead target HomePod
+                    drops the announcement with no trace. Detect it here
+                    and push instead.
+                  action: notify.mobile_app_nates_iphone
+                  data:
+                    title: "{{ notification_title_resolved }}"
+                    message: "{{ message }}"
+                    data: "{{ fallback_push_data }}"
+            - alias: Unrecognized room -- stop
+              note: >-
+                Reachable only if `target` is called with a value outside
+                the documented field selector options.
+              conditions:
+                - condition: template
+                  value_template: "{{ room_speaker == '' }}"
+              sequence:
+                - stop: Unrecognized TTS target
+          default:
+            - alias: Speak via Chime TTS
+              action: chime_tts.say
+              target:
+                entity_id: "{{ room_speaker }}"
+              data:
+                message: "{{ message }}"
+                chime_path: soft
+                tts_platform: cloud
+                volume_level: "{{ room_volume }}"
+                cache: true
+                announce: true
 mode: queued
 max: 10
