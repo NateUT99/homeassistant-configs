@@ -5,7 +5,7 @@ description: >-
   (nightlight), turns off the desk lamp, turns off the Living Room Soundbar
   subwoofer, enables her Adaptive Lighting sleep mode (so a later wall tap on
   the ceiling light comes up at the sleep level), and fades the ceiling fan
-  light directly down to 5% over ~30s (it stays lit dim -- turned off
+  light directly down to 10% over ~30s (it stays lit dim -- turned off
   manually at the wall when she leaves). Turning it off turns the dresser
   lamp back off, turns the subwoofer back on, pauses the HomePod, turns on
   the Living Room Apple TV, clears AL sleep mode and runs a 120s Adaptive
@@ -56,13 +56,15 @@ actions:
                   entity_id: light.averys_room_ceiling_fan_light
                 data:
                   transition: 30
-                  brightness_pct: 5
+                  brightness_pct: 10
                 alias: Fade the ceiling fan light directly to the sleep level over 30s
                 note: >-
                   Drives the dimmer directly with light.turn_on instead of
                   adaptive_lighting.apply -- the AL apply call was not
-                  reliably producing a smooth fade on this fixture. See
-                  LESSONS.md if revisiting AL for this step.
+                  reliably producing a smooth fade on this fixture. 10% matches
+                  AL's current sleep_brightness target -- see the note below on
+                  why that match matters. See LESSONS.md if revisiting AL for
+                  this step.
               - delay:
                   hours: 0
                   minutes: 0
@@ -75,13 +77,17 @@ actions:
               entity_id: switch.adaptive_lighting_avery_schedule_sleep_mode
             alias: Enable Adaptive Lighting sleep mode for Avery's ceiling
             note: >-
-              Must run after the fade above finishes, not before -- turning
-              this switch on while AL still tracks the light unlocked
-              triggers an immediate AL apply, snapping the light straight to
-              the sleep-mode target instead of letting the 30s direct fade
-              play out. Also what the pre-stage automation reacts to for
-              staging OnLevel once the light is later turned off at the
-              wall, so a night wall tap comes on dim.
+              reset_manual_control_on_sleep_mode_change clears manual control
+              on this light the instant this switch flips, regardless of when
+              it was set -- so AL immediately re-adapts the (now unlocked)
+              light to its sleep-mode target. The direct fade above targets
+              that same brightness so the reapply is a no-op instead of a
+              visible correction. If sleep_brightness is ever changed in the
+              AL integration options, update the brightness_pct above to
+              match, or the ceiling will visibly jump right after the fade
+              again. Also what the pre-stage automation reacts to for staging
+              OnLevel once the light is later turned off at the wall, so a
+              night wall tap comes on dim.
         alias: >-
           Avery Sleeping turned ON — dresser lamp on, desk lamp off, subwoofer
           off, AL sleep mode on, ceiling fan light fades down to sleep level
