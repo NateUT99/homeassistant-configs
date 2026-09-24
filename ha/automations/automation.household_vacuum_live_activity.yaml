@@ -85,8 +85,8 @@ actions:
               title: Vacuum
               message: >-
                 {{ 'Mop & Vacuum' if
-                is_state('select.living_room_vacuum_cleaning_mode',
-                'vac_and_mop') else 'Vacuum' }} · {{ current_room }}
+                is_state('binary_sensor.living_room_vacuum_mop_attached',
+                'on') else 'Vacuum' }} · {{ current_room }}
               icon: mdi:robot-vacuum
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
               periodic_tick: "{{ trigger.id == 'coarse_tick' }}"

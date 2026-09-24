@@ -225,17 +225,20 @@ by one artifact with nothing to keep in sync as that routine's automation count 
   needing an explicit sleeping-edge teardown.
 - **The running message describes what the robot is doing, not which schedule started it.**
   `"{{ 'Mop & Vacuum' or 'Vacuum' }} · {{ current_room }}"` reads live off
-  `select.living_room_vacuum_cleaning_mode`, paired with `sensor.living_room_vacuum_current_room`
+  `binary_sensor.living_room_vacuum_mop_attached`, paired with `sensor.living_room_vacuum_current_room`
   for the room the robot is in right now. An earlier version mapped `input_select.vacuum_active_zone`
-  (`evening`/`daytime`/`away`/`master_mop`) to a human label instead — that broke down twice: it
-  couldn't represent an ad hoc manual run (no zone value fits "someone just started this from the
-  app"), and it didn't reflect an automated pass silently falling back from mop to vacuum-only when
-  the pad wasn't fitted, so the card could say "Evening pass" while dry-vacuuming. Reading
-  `cleaning_mode` directly is correct in every case, automated or manual, with no label map to keep
-  in sync. `LESSONS.md` → *Vacuum & Roborock* documents that `current_room` flips every 30s–2min at
-  open-plan room boundaries, which is fine here — a display-only read updated at most every 5
-  minutes — but is exactly why `current_room` was ruled out for *inferring room completion*
-  elsewhere in this routine.
+  (`evening`/`daytime`/`away`/`master_mop`) to a human label instead — that couldn't represent an ad
+  hoc manual run (no zone value fits "someone just started this from the app"). A later version read
+  `select.living_room_vacuum_cleaning_mode` instead, on the assumption that Roborock resets it to
+  `vacuum` whenever a job runs without the pad fitted — it doesn't: the select is a per-job command
+  value that persists across jobs, so a dry daytime pass right after an evening mop night kept
+  reading `vac_and_mop` and mislabeled the card. `mop_attached` reflects physical capability
+  directly — it's the same sensor `Vacuum Midday Prompt` and the other job-start automations already
+  gate on — so it can't drift from what the robot can actually do right now, and it's correct in
+  every case, automated or manual, with no label map to keep in sync. `LESSONS.md` → *Vacuum &
+  Roborock* documents that `current_room` flips every 30s–2min at open-plan room boundaries, which
+  is fine here — a display-only read updated at most every 5 minutes — but is exactly why
+  `current_room` was ruled out for *inferring room completion* elsewhere in this routine.
 - **`critical_text` (area cleaned) is deliberately absent from the running card.** Paired with
   `progress` and no chronometer, it displaced the progress bar on the actual Lock Screen card
   instead of staying confined to the Dynamic Island as the field's own description assumes — see
