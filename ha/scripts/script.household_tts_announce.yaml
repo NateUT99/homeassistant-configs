@@ -3,15 +3,21 @@ description: >-
   Shared entry point for every HomePod TTS announcement. Resolves the
   target room (or auto-picks kitchen/master bedroom based on
   everyone_sleeping), or fans out to kitchen, master bedroom, office, and
-  Avery's room when target is broadcast. Office is dropped from a
-  broadcast (and, if explicitly targeted, gets a push instead of TTS)
-  whenever binary_sensor.nates_work_laptop_audio_input_in_use is on --
-  the same MacBook Pro call-detection signal automation.office_camera_lighting
-  relies on. Avery's room is dropped whenever input_boolean.avery_sleeping
-  is on. Falls back to a push notification to Nate's iPhone when TTS
-  can't land for a room: office busy, or that room's HomePod being
-  unavailable. Pass critical_fallback to send that fallback push as an
-  iOS critical alert.
+  Avery's room when target is broadcast. All reachable rooms for a given
+  call are spoken to with a single chime_tts.say action carrying a list
+  of entity_ids -- one real action, so playback starts together instead
+  of being staggered room by room. A single-room call keeps that room's
+  own tuned volume; a multi-room call (2+ rooms resolved) uses one shared
+  volume (0.5) since one service call can't carry a different volume per
+  target. Office is dropped from a broadcast (and, if explicitly
+  targeted, gets a push instead of TTS) whenever
+  binary_sensor.nates_work_laptop_audio_input_in_use is on -- the same
+  MacBook Pro call-detection signal automation.office_camera_lighting
+  relies on. Avery's room is dropped whenever
+  input_boolean.avery_sleeping is on. A room that's busy (office only)
+  or offline is pulled out of the call and covered by a single push
+  notification instead. Pass critical_fallback to send that fallback
+  push as an iOS critical alert.
 fields:
   message:
     name: Message
@@ -24,8 +30,8 @@ fields:
     description: >-
       Which HomePod to announce to, broadcast to fan out to kitchen,
       master bedroom, office (unless it's busy with a call), and Avery's
-      room (unless she's asleep), or auto to pick kitchen/master bedroom
-      based on sleep state.
+      room (unless she's asleep) in one call, or auto to pick
+      kitchen/master bedroom based on sleep state.
     required: false
     default: auto
     selector:
@@ -34,9 +40,8 @@ fields:
   notification_title:
     name: Notification Title
     description: >-
-      Title for the push notification sent when TTS falls back to a push
-      (the office being busy with a call, or a target HomePod being
-      offline).
+      Title for the push notification sent when a room can't get TTS
+      (busy with a call, or offline).
     required: false
     default: Missed Announcement
     selector:
@@ -65,81 +70,71 @@ variables:
     ([] if is_state('input_boolean.avery_sleeping', 'on') else ['averys_room']) }}
   target_rooms: >-
     {{ broadcast_rooms if (target | default('auto')) == 'broadcast' else [resolved_target] }}
+  rooms_offline: |-
+    {% set speaker_map = {'kitchen': 'media_player.kitchen_homepod', 'master_bedroom': 'media_player.master_bedroom_homepod', 'office': 'media_player.office_homepod', 'averys_room': 'media_player.averys_room_homepod'} %}
+    {% set ns = namespace(rooms=[]) %}
+    {% for r in target_rooms %}
+    {% if states(speaker_map.get(r, '')) in ['unavailable', 'unknown'] %}{% set ns.rooms = ns.rooms + [r] %}{% endif %}
+    {% endfor %}
+    {{ ns.rooms }}
+  rooms_busy: "{{ ['office'] if ('office' in target_rooms and office_busy) else [] }}"
+  rooms_unreachable: "{{ (rooms_offline + rooms_busy) | unique | list }}"
+  rooms_to_speak: "{{ target_rooms | reject('in', rooms_unreachable) | list }}"
+  speaker_entities: |-
+    {% set speaker_map = {'kitchen': 'media_player.kitchen_homepod', 'master_bedroom': 'media_player.master_bedroom_homepod', 'office': 'media_player.office_homepod', 'averys_room': 'media_player.averys_room_homepod'} %}
+    {% set ns = namespace(entities=[]) %}
+    {% for r in rooms_to_speak %}{% set ns.entities = ns.entities + [speaker_map[r]] %}{% endfor %}
+    {{ ns.entities }}
+  call_volume: >-
+    {{ {'kitchen': 0.6, 'office': 0.5, 'averys_room': 0.4, 'master_bedroom':
+    (0.4 if is_state('input_boolean.everyone_sleeping', 'on') else
+    0.5)}[rooms_to_speak[0]] if rooms_to_speak | length == 1 else 0.5 }}
 sequence:
-  - alias: Announce to each resolved room
-    repeat:
-      for_each: "{{ target_rooms }}"
-      sequence:
-        - alias: Resolve this room's speaker and volume
-          variables:
-            room: "{{ repeat.item }}"
-            room_speaker: >-
-              {{ {'kitchen': 'media_player.kitchen_homepod',
-              'master_bedroom': 'media_player.master_bedroom_homepod',
-              'office': 'media_player.office_homepod', 'averys_room':
-              'media_player.averys_room_homepod'}.get(repeat.item, '') }}
-            room_volume: >-
-              {{ {'kitchen': 0.6, 'office': 0.5, 'averys_room': 0.4,
-              'master_bedroom': (0.4 if
-              is_state('input_boolean.everyone_sleeping', 'on') else
-              0.5)}.get(repeat.item, 0.5) }}
-        - choose:
-            - alias: This room is the office and it's busy with a call
-              note: >-
-                Only reachable for an explicit target: office -- broadcast
-                already drops office from target_rooms in this case, so
-                this never fires mid-broadcast.
-              conditions:
-                - condition: template
-                  value_template: "{{ room == 'office' and office_busy }}"
-              sequence:
-                - alias: Push fallback (office busy)
-                  note: >-
-                    TTS into the office would be picked up by the call's
-                    mic, so push instead.
-                  action: notify.mobile_app_nates_iphone
-                  data:
-                    title: "{{ notification_title_resolved }}"
-                    message: "{{ message }}"
-                    data: "{{ fallback_push_data }}"
-            - alias: This room's speaker is offline
-              conditions:
-                - condition: template
-                  value_template: >-
-                    {{ room_speaker != '' and states(room_speaker) in
-                    ['unavailable', 'unknown'] }}
-              sequence:
-                - alias: Push fallback (HomePod offline)
-                  note: >-
-                    chime_tts.say against an unavailable media_player fails
-                    silently at any log level, so a dead target HomePod
-                    drops the announcement with no trace. Detect it here
-                    and push instead.
-                  action: notify.mobile_app_nates_iphone
-                  data:
-                    title: "{{ notification_title_resolved }}"
-                    message: "{{ message }}"
-                    data: "{{ fallback_push_data }}"
-            - alias: Unrecognized room -- stop
-              note: >-
-                Reachable only if `target` is called with a value outside
-                the documented field selector options.
-              conditions:
-                - condition: template
-                  value_template: "{{ room_speaker == '' }}"
-              sequence:
-                - stop: Unrecognized TTS target
-          default:
-            - alias: Speak via Chime TTS
-              action: chime_tts.say
-              target:
-                entity_id: "{{ room_speaker }}"
-              data:
-                message: "{{ message }}"
-                chime_path: soft
-                tts_platform: cloud
-                volume_level: "{{ room_volume }}"
-                cache: true
-                announce: true
+  - alias: Reject an unrecognized target before doing anything
+    note: >-
+      Reachable only if `target` is called with a value outside the
+      documented field selector options.
+    if:
+      - condition: template
+        value_template: >-
+          {{ (target | default('auto')) not in ['kitchen', 'master_bedroom',
+          'office', 'averys_room', 'broadcast', 'auto'] }}
+    then:
+      - stop: Unrecognized TTS target
+  - alias: Push once if any resolved room couldn't get TTS
+    note: >-
+      One push covers it regardless of how many rooms were unreachable --
+      the message/title is identical either way.
+    if:
+      - condition: template
+        value_template: "{{ rooms_unreachable | length > 0 }}"
+    then:
+      - alias: Push fallback (room busy or offline)
+        action: notify.mobile_app_nates_iphone
+        data:
+          title: "{{ notification_title_resolved }}"
+          message: "{{ message }}"
+          data: "{{ fallback_push_data }}"
+  - alias: Speak to every reachable room in one action
+    note: >-
+      A single chime_tts.say call with a list of entity_ids -- one real
+      dispatch, not one call per room, so playback starts together.
+      Live-verified 2026-09-24: all four HomePods began playing within
+      under a second of each other.
+    if:
+      - condition: template
+        value_template: "{{ rooms_to_speak | length > 0 }}"
+    then:
+      - alias: Speak via Chime TTS
+        action: chime_tts.say
+        target:
+          entity_id: "{{ speaker_entities }}"
+        data:
+          message: "{{ message }}"
+          chime_path: soft
+          tts_platform: cloud
+          volume_level: "{{ call_volume }}"
+          cache: true
+          announce: true
 mode: queued
 max: 10
