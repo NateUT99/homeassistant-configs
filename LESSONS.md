@@ -840,6 +840,25 @@ omits it — the bar renders correctly, and the area figure still surfaces on th
 message text instead. If a future consumer needs both a live percentage and a short text stat on
 the same running card, treat that as an open design question, not an assumed-safe combination.
 
+### A `started_at`/`ends_at` chronometer displaces the `message` text, not just `critical_text`
+
+`guides/live_activities.md`'s field contract only documents `critical_text` (above) as competing
+with a chronometer for screen space. A chronometer paired with a plain `message` was assumed safe
+because the laundry washer/dryer cards already ship `message` (a phase label) + `progress` +
+`ends_at` in production with no reported issue.
+
+Confirmed live on 2026-09-25: adding `started_at` to the vacuum's running card (message set to the
+current room) replaced the room text with the elapsed running time on the card's secondary line —
+the room stopped showing at all once the chronometer was active, on the same iOS Companion App
+generic Live Activity view as the `critical_text` finding above. Reverted:
+`automation.household_vacuum_live_activity`'s running/returning branches dropped `started_at`
+entirely, since the room is more useful there than elapsed time.
+
+This calls the laundry cards' own `message` + `ends_at` combination into question — it was never
+actually verified visually, only assumed safe by absence of a complaint. Check the washer/dryer
+Lock Screen card during a real cycle to confirm the phase label ("Washing", "Drying") is still
+visible once the countdown chronometer is running, not silently replaced by it.
+
 ---
 
 ## Shell Command Integration

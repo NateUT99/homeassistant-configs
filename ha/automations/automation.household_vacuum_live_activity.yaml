@@ -7,10 +7,9 @@ description: >-
   job-start path is added or removed. Suppressed while everyone is asleep.
   The 5-minute tick sends periodic-tick refreshes; real transitions (start,
   pause, return, error, finish) always send a normal update. Title reflects
-  mop vs. vacuum-only (frozen once the card is created, per iOS); the running
-  card also carries an elapsed-time chronometer from
-  automation.household_vacuum_job_started. See guides/vacuum_cleaning_routine.md
-  and guides/live_activities.md.
+  mop vs. vacuum-only (frozen once the card is created, per iOS); the message
+  carries the room. See guides/vacuum_cleaning_routine.md and
+  guides/live_activities.md.
 triggers:
   - alias: Vacuum entered an active or error state
     trigger: state
@@ -89,7 +88,6 @@ actions:
               message: "{{ current_room }}"
               icon: mdi:robot-vacuum
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
-              started_at: "{{ job_started_at }}"
               periodic_tick: "{{ trigger.id == 'coarse_tick' }}"
             note: >-
               critical_text (area cleaned) deliberately dropped here --
@@ -99,7 +97,11 @@ actions:
               Live Activities. Area cleaned still surfaces on the done card
               message. Title carries mop-vs-vacuum type (frozen once the
               card is created); message is just the room, since the type
-              would otherwise repeat across both lines.
+              would otherwise repeat across both lines. started_at (elapsed
+              chronometer) was tried here and reverted -- it replaced the
+              room in the message slot instead of coexisting with it, and
+              the room is the more useful of the two. See LESSONS.md -> iOS
+              Live Activities.
       - alias: Paused
         conditions:
           - condition: state
@@ -134,7 +136,6 @@ actions:
               message: Returning to dock
               icon: mdi:robot-vacuum
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
-              started_at: "{{ job_started_at }}"
               periodic_tick: "{{ trigger.id == 'coarse_tick' }}"
       - alias: >-
           Just finished — done, but daytime coverage below threshold (will
@@ -208,10 +209,6 @@ variables:
     {{ 'Mop & Vacuum' if
     is_state('binary_sensor.living_room_vacuum_mop_attached', 'on') else
     'Vacuum' }}
-  job_started_at: >-
-    {{ states('input_datetime.vacuum_job_started') if
-    states('input_datetime.vacuum_job_started') not in ['unknown',
-    'unavailable'] else '' }}
 mode: queued
 max: 10
 category: 01M0XF7RJK5EX3A4YPNEX7X3DG

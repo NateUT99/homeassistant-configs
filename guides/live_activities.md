@@ -206,16 +206,13 @@ labels `int_vacuum_cleaning_routine` + `notification` + `live_activity` + `scope
 any of `guides/vacuum_cleaning_routine.md`'s job-start automations — it watches the robot's own
 domain entity (`vacuum.living_room_vacuum`) and the shared error sensor, so every job is covered
 by one artifact with nothing to keep in sync as that routine's automation count or shape changes.
-`automation.household_vacuum_job_started` — Routines category, no area, label
-`int_vacuum_cleaning_routine`, `mode: single` — is a separate, small companion automation that
-exists solely to feed this reconciler's chronometer; see its own Design Decisions bullet below.
 
 | Live state | Card |
 |---|---|
 | `vacuum.living_room_vacuum` = `error`, or `sensor.living_room_vacuum_vacuum_error` ≠ `none` | `error` |
-| `cleaning`, `everyone_sleeping` off | `running` — title `{{ cleaning_type }}` ("Mop & Vacuum" / "Vacuum"), message `{{ current_room }}`, `progress` from `cleaning_progress`, `started_at` chronometer from `vacuum_job_started` |
-| `paused` | `paused` — title `{{ cleaning_type }}`, no chronometer |
-| `returning`, `everyone_sleeping` off | `running` — title `{{ cleaning_type }}`, message "Returning to dock", chronometer continues |
+| `cleaning`, `everyone_sleeping` off | `running` — title `{{ cleaning_type }}` ("Mop & Vacuum" / "Vacuum"), message `{{ current_room }}`, `progress` from `cleaning_progress` |
+| `paused` | `paused` — title `{{ cleaning_type }}` |
+| `returning`, `everyone_sleeping` off | `running` — title `{{ cleaning_type }}`, message "Returning to dock" |
 | transition *into* `docked`, `active_zone` = `daytime`, `vacuum_ran_daytime` off | `done`, amber (`#FFA726`) — `"Cleaning finished · {{ area }} m² in {{ minutes }} min — will restart when everyone leaves again"` (edge-triggered, checked ahead of the plain `done` row below) |
 | transition *into* `docked` from `cleaning`/`returning`/`paused`/`error` | `done` — `"Cleaning finished · {{ area }} m² in {{ minutes }} min"` (edge-triggered — see below) |
 | `docked`, held for 10+ minutes | `clear` |
@@ -247,24 +244,11 @@ exists solely to feed this reconciler's chronometer; see its own Design Decision
   instead of staying confined to the Dynamic Island as the field's own description assumes — see
   `LESSONS.md` → *iOS Live Activities*. The area figure still surfaces on the `done` card's message
   once the job finishes.
-- **The running/returning chronometer is anchored to a purpose-built helper, not a Roborock
-  sensor.** The integration exposes no start-of-job timestamp usable for a count-up timer —
-  `sensor.<vacuum>_last_clean_begin` only updates when a job *ends*, so a chronometer built on it
-  reads elapsed time against whatever job last completed rather than the one in progress; see
-  `LESSONS.md` → *Vacuum & Roborock*. `automation.household_vacuum_job_started` captures `now()`
-  into `input_datetime.vacuum_job_started` at the moment a job genuinely begins (entering
-  `cleaning` from anything but `paused`, so a mid-job pause/resume doesn't reset the clock — a
-  commanded dock always cancels the job outright per the same lesson, so every other transition
-  into `cleaning` is a new job). It's a separate automation rather than logic folded into this
-  reconciler, keeping the reconciler's own invariant intact (recomputes the whole card from live
-  state on every run, branches only on entity state — never on `trigger.to_state`). The reconciler
-  reads the helper through a guarded `job_started_at` variable (empty string on `unknown`/
-  `unavailable`, same pattern the washer/dryer use for their `ends_at`) and passes it as
-  `started_at` on the running and returning branches only — `paused` and every other branch omit
-  it, matching the status palette's "no chronometer" behavior for non-`running` statuses. Pairing
-  a chronometer with `progress` on the same card is untested territory for critical_text (see
-  above) but not for a chronometer — the washer/dryer cards already ship this exact combination in
-  production with no reported layout issue.
+- **No chronometer.** A `started_at` chronometer displaces the room from the `message` slot rather
+  than coexisting with it on this card, and the room is the more useful of the two — see
+  `LESSONS.md` → *iOS Live Activities*. Roborock also exposes no start-of-job timestamp usable for
+  one regardless — see `LESSONS.md` → *Vacuum & Roborock* for why `last_clean_begin` doesn't work.
+  Progress % and the mop/vacuum + room message substitute for a timer instead.
 - **The recurring 5-minute tick sends `periodic_tick: true`; genuine transitions don't.** All
   five trigger IDs are named (`state_change`, `job_finished`, `error_change`, `coarse_tick`,
   `progress_complete`), and the running/paused/returning branches pass
@@ -384,8 +368,6 @@ in this pass.
 | Utility Room: Washer Live Activity | `automation.utility_room_washer_live_activity` | Automation |
 | Utility Room: Dryer Live Activity | `automation.utility_room_dryer_live_activity` | Automation |
 | Household: Vacuum Live Activity | `automation.household_vacuum_live_activity` | Automation |
-| Household: Vacuum Job Started | `automation.household_vacuum_job_started` | Automation (captures job-start timestamp for the vacuum card's chronometer) |
-| Vacuum Job Started | `input_datetime.vacuum_job_started` | Helper |
 | Live Activity label | `live_activity` | Label |
 
 ## Related Documents
