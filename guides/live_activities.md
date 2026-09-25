@@ -210,9 +210,9 @@ by one artifact with nothing to keep in sync as that routine's automation count 
 | Live state | Card |
 |---|---|
 | `vacuum.living_room_vacuum` = `error`, or `sensor.living_room_vacuum_vacuum_error` ≠ `none` | `error` |
-| `cleaning`, `everyone_sleeping` off | `running` — title `{{ cleaning_type }}` ("Mop & Vacuum" / "Vacuum"), message `{{ current_room }}`, `progress` from `cleaning_progress` |
-| `paused` | `paused` — title `{{ cleaning_type }}` |
-| `returning`, `everyone_sleeping` off | `running` — title `{{ cleaning_type }}`, message "Returning to dock" |
+| `cleaning`, `everyone_sleeping` off | `running` — title `{{ cleaning_type }}` ("Mop & Vacuum" / "Vacuum"), message "Cleaning · {{ current_room }}", `progress` from `cleaning_progress` |
+| `paused` | `paused` — title `{{ cleaning_type }}`, message "Paused · {{ current_room }}" |
+| `returning`, `everyone_sleeping` off | `running` — title `{{ cleaning_type }}`, message "Returning to dock · {{ current_room }}" |
 | transition *into* `docked`, `active_zone` = `daytime`, `vacuum_ran_daytime` off | `done`, amber (`#FFA726`) — `"Cleaning finished · {{ area }} m² in {{ minutes }} min — will restart when everyone leaves again"` (edge-triggered, checked ahead of the plain `done` row below) |
 | transition *into* `docked` from `cleaning`/`returning`/`paused`/`error` | `done` — `"Cleaning finished · {{ area }} m² in {{ minutes }} min"` (edge-triggered — see below) |
 | `docked`, held for 10+ minutes | `clear` |
@@ -223,8 +223,8 @@ by one artifact with nothing to keep in sync as that routine's automation count 
   which starts an hour after `everyone_sleeping` goes on — never creates a Lock Screen card, and
   any card still showing from before bedtime clears itself once the vacuum docks, rather than
   needing an explicit sleeping-edge teardown.
-- **The card's title carries what the robot is doing (mop vs. vacuum-only); the message carries
-  just the room, not a repeat of the title.** A shared `cleaning_type` variable
+- **The card's title carries what the robot is doing (mop vs. vacuum-only); the message combines
+  status and room, not a repeat of the title.** A shared `cleaning_type` variable
   (`"Mop & Vacuum"` / `"Vacuum"`) reads `binary_sensor.living_room_vacuum_mop_attached` — the same
   sensor `Vacuum Midday Prompt` and the other job-start automations already gate on for physical
   mop-pad capability, so it can't drift from what the robot can actually do right now, correct in
@@ -234,8 +234,11 @@ by one artifact with nothing to keep in sync as that routine's automation count 
   persists across jobs rather than resetting — see `LESSONS.md` → *Vacuum & Roborock*. Since iOS
   freezes `title` once the card is created (see the field contract above), `cleaning_type` is
   computed identically on every branch — not just the branch that happens to create the card — so
-  the title is correct regardless of which transition creates the activity. `sensor.living_room_vacuum_current_room`
-  supplies the message. `LESSONS.md` → *Vacuum & Roborock* documents that `current_room` flips
+  the title is correct regardless of which transition creates the activity. The message is built
+  as `"<Status> · " ~ current_room`, falling back to just `<Status>` when
+  `sensor.living_room_vacuum_current_room` is `unknown`/`unavailable` (the shared `current_room`
+  variable resolves to an empty string in that case, not a placeholder word, so the branches don't
+  need to special-case it). `LESSONS.md` → *Vacuum & Roborock* documents that `current_room` flips
   every 30s–2min at open-plan room boundaries, which is fine here — a display-only read updated at
   most every 5 minutes — but is exactly why `current_room` was ruled out for *inferring room
   completion* elsewhere in this routine.

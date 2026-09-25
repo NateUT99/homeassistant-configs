@@ -8,7 +8,7 @@ description: >-
   The 5-minute tick sends periodic-tick refreshes; real transitions (start,
   pause, return, error, finish) always send a normal update. Title reflects
   mop vs. vacuum-only (frozen once the card is created, per iOS); the message
-  carries the room. See guides/vacuum_cleaning_routine.md and
+  combines status and room. See guides/vacuum_cleaning_routine.md and
   guides/live_activities.md.
 triggers:
   - alias: Vacuum entered an active or error state
@@ -85,7 +85,7 @@ actions:
               tag: household-vacuum
               status: running
               title: "{{ cleaning_type }}"
-              message: "{{ current_room }}"
+              message: "{{ 'Cleaning · ' ~ current_room if current_room != '' else 'Cleaning' }}"
               icon: mdi:robot-vacuum
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
               periodic_tick: "{{ trigger.id == 'coarse_tick' }}"
@@ -96,12 +96,11 @@ actions:
               confined to the Dynamic Island as assumed. See LESSONS.md ->
               Live Activities. Area cleaned still surfaces on the done card
               message. Title carries mop-vs-vacuum type (frozen once the
-              card is created); message is just the room, since the type
-              would otherwise repeat across both lines. started_at (elapsed
-              chronometer) was tried here and reverted -- it replaced the
-              room in the message slot instead of coexisting with it, and
-              the room is the more useful of the two. See LESSONS.md -> iOS
-              Live Activities.
+              card is created); message combines status and room. started_at
+              (elapsed chronometer) was tried here and reverted -- it
+              replaced the room in the message slot instead of coexisting
+              with it, and the room is the more useful of the two. See
+              LESSONS.md -> iOS Live Activities.
       - alias: Paused
         conditions:
           - condition: state
@@ -114,7 +113,7 @@ actions:
               tag: household-vacuum
               status: paused
               title: "{{ cleaning_type }}"
-              message: Paused
+              message: "{{ 'Paused · ' ~ current_room if current_room != '' else 'Paused' }}"
               icon: mdi:robot-vacuum
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
               periodic_tick: "{{ trigger.id == 'coarse_tick' }}"
@@ -133,7 +132,7 @@ actions:
               tag: household-vacuum
               status: running
               title: "{{ cleaning_type }}"
-              message: Returning to dock
+              message: "{{ 'Returning to dock · ' ~ current_room if current_room != '' else 'Returning to dock' }}"
               icon: mdi:robot-vacuum
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
               periodic_tick: "{{ trigger.id == 'coarse_tick' }}"
@@ -204,7 +203,7 @@ variables:
   current_room: >-
     {{ states('sensor.living_room_vacuum_current_room') if
     states('sensor.living_room_vacuum_current_room') not in ['unknown',
-    'unavailable'] else 'Cleaning' }}
+    'unavailable'] else '' }}
   cleaning_type: >-
     {{ 'Mop & Vacuum' if
     is_state('binary_sensor.living_room_vacuum_mop_attached', 'on') else
