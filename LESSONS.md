@@ -856,7 +856,9 @@ The polling sensor closes that gap: it's the actual source of truth, refreshed i
 
 A Companion App / `command_line` sensor reporting the Mac's primary-display name or resolution reads correctly at the physical console, but while the Mac is being controlled via Screen Sharing it can report an empty display name and a generic virtual resolution instead of the real attached display. An automation that gates on display *identity* (e.g. "restore the desk light only if the primary display is `Studio Display`") then fires or fails to fire depending purely on how the Mac happened to be accessed at that moment.
 
-**Rule:** don't gate automations on which display is attached. If the intent is "someone is at the desk," use a coarser signal — at least one Mac reporting active — which doesn't depend on display detection. `guides/litra_glow.md` §9 uses exactly this fallback.
+**Rule:** don't gate automations on which display is attached when the goal is "restore correctly no matter how the Mac was accessed" — use a coarser signal instead, at least one Mac reporting active, which doesn't depend on display detection. `guides/litra_glow.md` §9 uses exactly this fallback.
+
+The inverse goal flips this: if the automation's actual intent is "someone is physically at the desk" (not merely "a Mac is active" — a Screen Sharing session also reports active), the same misreport is the signal you want, not noise to route around. `automation.office_monitor_light_bar`'s "computer became active" and "TV app closed" branches gate the light bar *on* only when the active computer's primary display reads `Studio Display`, deliberately relying on the empty-name misreport to suppress the bar during a remote-only session. Don't "fix" that condition back to a coarser check without confirming which of the two goals the automation actually has.
 
 ### Principle of least privilege for shell access
 

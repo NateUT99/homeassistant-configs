@@ -6,8 +6,11 @@ description: >-
 
 
   Turns on when either Mac becomes active — unless Studio Display Camera is in
-  use on either computer, or Mac Mini has the TV app in the foreground. Turns
-  off when neither active computer has Studio Display as its primary display.
+  use on either computer, Mac Mini has the TV app in the foreground, or the
+  active computer's primary display isn't Studio Display (a Screen
+  Sharing-only session leaves the physical display asleep and reports no
+  primary display -- see LESSONS.md). Turns off when neither active computer
+  has Studio Display as its primary display.
 
 
   The TV app override turns off the light bar immediately when Mac Mini opens
@@ -88,6 +91,12 @@ actions:
                     condition: state
                     entity_id: sensor.nates_work_laptop_active_camera
                     state: Studio Display Camera
+          - alias: >-
+              Mac Mini's Studio Display is its primary display -- rules out a
+              remote-only session
+            condition: state
+            entity_id: sensor.nates_mac_mini_primary_display_name
+            state: Studio Display
         sequence:
           - alias: Turn on light bar
             action: light.turn_on
@@ -124,6 +133,27 @@ actions:
                     condition: state
                     entity_id: sensor.nates_mac_mini_frontmost_app
                     state: TV
+          - alias: >-
+              At least one active computer has Studio Display as its primary
+              display -- rules out a remote-only (Screen Sharing) session
+            condition: or
+            conditions:
+              - condition: and
+                conditions:
+                  - condition: state
+                    entity_id: binary_sensor.nates_mac_mini_active
+                    state: "on"
+                  - condition: state
+                    entity_id: sensor.nates_mac_mini_primary_display_name
+                    state: Studio Display
+              - condition: and
+                conditions:
+                  - condition: state
+                    entity_id: binary_sensor.nates_work_laptop_active
+                    state: "on"
+                  - condition: state
+                    entity_id: sensor.nates_work_laptop_primary_display_name
+                    state: Studio Display
         sequence:
           - alias: Turn on light bar
             action: light.turn_on
