@@ -1,0 +1,27 @@
+id: "1790346090600"
+alias: "Household: Vacuum Job Started"
+description: >-
+  Captures the wall-clock start time of a genuine new vacuum job into
+  input_datetime.vacuum_job_started, for automation.household_vacuum_live_activity's
+  running-card chronometer. Roborock's own last_clean_begin sensor only
+  updates at job end, not start, so it can't serve this purpose -- see
+  LESSONS.md -> Vacuum & Roborock. Excludes resume-from-pause so a
+  paused-then-resumed job keeps its original start time -- a commanded dock
+  always cancels the job outright, so every other transition into cleaning
+  is a genuine new job. See guides/live_activities.md.
+triggers:
+  - alias: Vacuum enters cleaning from a non-paused state
+    trigger: state
+    entity_id: vacuum.living_room_vacuum
+    from: [docked, returning, error, unavailable, unknown]
+    to: cleaning
+conditions: []
+actions:
+  - alias: Capture job start time
+    action: input_datetime.set_datetime
+    target:
+      entity_id: input_datetime.vacuum_job_started
+    data:
+      datetime: "{{ now() }}"
+mode: single
+category: 01M0XF7RJK5EX3A4YPNEX7X3DG

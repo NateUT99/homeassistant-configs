@@ -6,8 +6,11 @@ description: >-
   state rather than any zone-specific helper, so no change is needed when a
   job-start path is added or removed. Suppressed while everyone is asleep.
   The 5-minute tick sends periodic-tick refreshes; real transitions (start,
-  pause, return, error, finish) always send a normal update. See
-  guides/vacuum_cleaning_routine.md and guides/live_activities.md.
+  pause, return, error, finish) always send a normal update. Title reflects
+  mop vs. vacuum-only (frozen once the card is created, per iOS); the running
+  card also carries an elapsed-time chronometer from
+  automation.household_vacuum_job_started. See guides/vacuum_cleaning_routine.md
+  and guides/live_activities.md.
 triggers:
   - alias: Vacuum entered an active or error state
     trigger: state
@@ -62,7 +65,7 @@ actions:
             data:
               tag: household-vacuum
               status: error
-              title: Vacuum
+              title: "{{ cleaning_type }}"
               message: >-
                 {{ 'Vacuum error — ' ~ (vacuum_error | replace('_', ' ') |
                 title) if vacuum_error not in ['none', 'unknown',
@@ -82,13 +85,11 @@ actions:
             data:
               tag: household-vacuum
               status: running
-              title: Vacuum
-              message: >-
-                {{ 'Mop & Vacuum' if
-                is_state('binary_sensor.living_room_vacuum_mop_attached',
-                'on') else 'Vacuum' }} · {{ current_room }}
+              title: "{{ cleaning_type }}"
+              message: "{{ current_room }}"
               icon: mdi:robot-vacuum
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
+              started_at: "{{ job_started_at }}"
               periodic_tick: "{{ trigger.id == 'coarse_tick' }}"
             note: >-
               critical_text (area cleaned) deliberately dropped here --
@@ -96,7 +97,9 @@ actions:
               progress bar on the actual Lock Screen card instead of staying
               confined to the Dynamic Island as assumed. See LESSONS.md ->
               Live Activities. Area cleaned still surfaces on the done card
-              message.
+              message. Title carries mop-vs-vacuum type (frozen once the
+              card is created); message is just the room, since the type
+              would otherwise repeat across both lines.
       - alias: Paused
         conditions:
           - condition: state
@@ -108,7 +111,7 @@ actions:
             data:
               tag: household-vacuum
               status: paused
-              title: Vacuum
+              title: "{{ cleaning_type }}"
               message: Paused
               icon: mdi:robot-vacuum
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
@@ -127,10 +130,11 @@ actions:
             data:
               tag: household-vacuum
               status: running
-              title: Vacuum
+              title: "{{ cleaning_type }}"
               message: Returning to dock
               icon: mdi:robot-vacuum
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
+              started_at: "{{ job_started_at }}"
               periodic_tick: "{{ trigger.id == 'coarse_tick' }}"
       - alias: >-
           Just finished — done, but daytime coverage below threshold (will
@@ -150,7 +154,7 @@ actions:
             data:
               tag: household-vacuum
               status: done
-              title: Vacuum
+              title: "{{ cleaning_type }}"
               message: >-
                 Cleaning finished · {{ vac_area }} m² in {{ vac_minutes }} min
                 — will restart when everyone leaves again
@@ -175,7 +179,7 @@ actions:
             data:
               tag: household-vacuum
               status: done
-              title: Vacuum
+              title: "{{ cleaning_type }}"
               message: Cleaning finished · {{ vac_area }} m² in {{ vac_minutes }} min
               icon: mdi:robot-vacuum
       - alias: Long since docked — clear the card
@@ -200,6 +204,14 @@ variables:
     {{ states('sensor.living_room_vacuum_current_room') if
     states('sensor.living_room_vacuum_current_room') not in ['unknown',
     'unavailable'] else 'Cleaning' }}
+  cleaning_type: >-
+    {{ 'Mop & Vacuum' if
+    is_state('binary_sensor.living_room_vacuum_mop_attached', 'on') else
+    'Vacuum' }}
+  job_started_at: >-
+    {{ states('input_datetime.vacuum_job_started') if
+    states('input_datetime.vacuum_job_started') not in ['unknown',
+    'unavailable'] else '' }}
 mode: queued
 max: 10
 category: 01M0XF7RJK5EX3A4YPNEX7X3DG
