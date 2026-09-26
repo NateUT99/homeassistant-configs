@@ -42,18 +42,22 @@ sequence:
           entity_id: vacuum.living_room_vacuum
         data:
           fan_speed: quiet
-      - alias: Set high mop intensity
-        action: select.select_option
-        target:
-          entity_id: select.living_room_vacuum_mop_intensity
-        data:
-          option: high
       - alias: Vacuum and mop in a single pass
         action: select.select_option
         target:
           entity_id: select.living_room_vacuum_cleaning_mode
         data:
           option: vac_and_mop
+      - alias: Set high mop intensity
+        action: select.select_option
+        target:
+          entity_id: select.living_room_vacuum_mop_intensity
+        data:
+          option: high
+        note: >-
+          Must run after cleaning_mode is set to vac_and_mop -- selecting
+          cleaning_mode resets the device's mop intensity back to its
+          default (medium).
       - alias: Start the vac-and-mop segment clean of all six common-area rooms
         action: vacuum.send_command
         target:

@@ -113,20 +113,6 @@ actions:
                         state: "off"
                         alias: Water tank is not empty
                     sequence:
-                      - alias: Set high mop intensity
-                        action: select.select_option
-                        target:
-                          entity_id: select.living_room_vacuum_mop_intensity
-                        data:
-                          option: high
-                        note: >-
-                          Draws more from the 350 ml tank per run than
-                          medium. The next morning's master-suite follow-up
-                          shares this same fill -- watch
-                          binary_sensor.living_room_vacuum_water_shortage
-                          across both runs; drop back to medium here if the
-                          tank runs dry before the follow-up finishes. See
-                          guides/vacuum_cleaning_routine.md.
                       - alias: Vacuum and mop in a single pass
                         action: select.select_option
                         target:
@@ -137,6 +123,24 @@ actions:
                           Explicit in case an earlier job left it on
                           vacuum-only; mop_mode is left at its standard
                           default.
+                      - alias: Set high mop intensity
+                        action: select.select_option
+                        target:
+                          entity_id: select.living_room_vacuum_mop_intensity
+                        data:
+                          option: high
+                        note: >-
+                          Draws more from the 350 ml tank per run than
+                          medium. Must run after cleaning_mode is set to
+                          vac_and_mop -- selecting cleaning_mode resets the
+                          device's mop intensity back to its default
+                          (medium), confirmed via automation trace. The
+                          next morning's master-suite follow-up shares this
+                          same tank fill -- watch
+                          binary_sensor.living_room_vacuum_water_shortage
+                          across both runs; drop back to medium here if the
+                          tank runs dry before the follow-up finishes. See
+                          guides/vacuum_cleaning_routine.md.
                       - alias: Start the vac-and-mop segment clean of all six common-area rooms
                         action: vacuum.send_command
                         target:
@@ -316,6 +320,12 @@ actions:
                     note: >-
                       Both rooms are hard floor and the house is awake -- max
                       fan (daytime pass) is unnecessary noise here.
+                  - alias: Vacuum and mop in a single pass
+                    action: select.select_option
+                    target:
+                      entity_id: select.living_room_vacuum_cleaning_mode
+                    data:
+                      option: vac_and_mop
                   - alias: Set high mop intensity
                     action: select.select_option
                     target:
@@ -325,14 +335,9 @@ actions:
                     note: >-
                       Only two small segments -- the tank margin comes from
                       the prior night's intensity, not from a refill here.
-                      Unverified until watched on a live run; watch
-                      water_shortage.
-                  - alias: Vacuum and mop in a single pass
-                    action: select.select_option
-                    target:
-                      entity_id: select.living_room_vacuum_cleaning_mode
-                    data:
-                      option: vac_and_mop
+                      Must run after cleaning_mode is set to vac_and_mop --
+                      selecting cleaning_mode resets the device's mop
+                      intensity back to its default (medium).
                   - alias: Start the segment clean of the master bedroom and bathroom
                     action: vacuum.send_command
                     target:

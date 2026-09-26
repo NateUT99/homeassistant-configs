@@ -20,8 +20,13 @@ triggers:
     id: job_finished
     trigger: state
     entity_id: vacuum.living_room_vacuum
-    from: [cleaning, returning, paused, error]
+    from: [cleaning, returning, paused, error, idle]
     to: docked
+    note: >-
+      idle is included because the dock's post-mop rinse cycle causes a
+      brief returning -> idle -> docked blip; without idle here the done
+      card never re-fires and the card is left stuck on whatever the blip
+      last showed.
   - alias: Vacuum error changed
     trigger: state
     entity_id: sensor.living_room_vacuum_vacuum_error
