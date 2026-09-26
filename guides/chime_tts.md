@@ -4,7 +4,7 @@
 
 ## Overview
 
-Chime TTS is a HACS integration that wraps Home Assistant's cloud TTS service with a configurable chime sound prefix. Announcements open with a brief soft chime before the spoken message, making them instantly recognizable as home automation alerts rather than unexpected audio playback. This instance runs `derekcentrico/chime_tts`, a maintained fork of the (no-longer-updated) original — installed via HACS as a custom repository.
+Chime TTS is a HACS integration that wraps Home Assistant's cloud TTS service with a configurable chime sound prefix. Announcements open with a brief soft chime before the spoken message, making them instantly recognizable as home automation alerts rather than unexpected audio playback. This instance runs `nimroddolev/chime_tts` v1.3.0, installed from HACS's default store (no custom repository registration needed).
 
 `script.household_tts_announce` calls `chime_tts.say` directly, targeting the resolved speaker per call. There is no `notify:` platform configuration — see the design decision below for why. When TTS can't land — an active video call, or the resolved HomePod being `unavailable` — the script falls back to a push notification to Nate's iPhone, optionally as an iOS critical alert.
 
@@ -48,14 +48,14 @@ Volume levels differ per room — 0.65 kitchen (ambient noise), 0.5 master bedro
 
 ## Design Decisions
 
-- **`chime_tts.say` directly, not a `notify:` platform.** The fork's `notify.py` is a thin wrapper that calls the same `chime_tts.say` service internally. Calling `say` directly means no `configuration.yaml` entry, no full-restart to change a volume, and the whole delivery mechanism in one MCP-retrievable script that mirrors into `ha/scripts/`. The chime prefix — the reason to use Chime TTS over bare `media_player.play_media` / `tts.speak` at all — is unaffected by which service dispatches it.
+- **`chime_tts.say` directly, not a `notify:` platform.** The integration's `notify.py` is a thin wrapper that calls the same `chime_tts.say` service internally. Calling `say` directly means no `configuration.yaml` entry, no full-restart to change a volume, and the whole delivery mechanism in one MCP-retrievable script that mirrors into `ha/scripts/`. The chime prefix — the reason to use Chime TTS over bare `media_player.play_media` / `tts.speak` at all — is unaffected by which service dispatches it.
 - **Config entry over YAML.** The custom integration is enabled via a config entry (**Settings → Devices & Services → Add Integration → Chime TTS**), not a `configuration.yaml` block. HA discovers the custom component automatically once its files exist in `custom_components/`; the config entry is what triggers service registration. No restart is required — confirmed live.
 
 ---
 
 ## Prerequisites
 
-- HACS installed and active, with `derekcentrico/chime_tts` added as a custom repository
+- HACS installed and active — `chime_tts` is a HACS default-store integration, no custom repository needed
 - Nabu Casa subscription active (cloud TTS)
 - `media_player.kitchen_homepod`, `media_player.master_bedroom_homepod`, `media_player.office_homepod`, `media_player.averys_room_homepod` — HomePods via the Apple TV integration
 
@@ -65,7 +65,7 @@ Volume levels differ per room — 0.65 kitchen (ambient noise), 0.5 master bedro
 
 ### 1. Install Chime TTS via HACS
 
-Add `derekcentrico/chime_tts` as a custom repository (category: Integration) in **HACS → Integrations**, then download it. No restart needed for the files to be discovered — HA logs a "custom integration not tested" warning on next load, which is expected for any HACS custom component.
+Search **Chime TTS** in **HACS → Integrations** and download it — it's a default-store listing, no custom repository registration needed. Restart Home Assistant to load the integration.
 
 ### 2. Add the config entry
 
