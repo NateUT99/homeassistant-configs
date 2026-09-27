@@ -117,7 +117,7 @@ actions:
                 alias: "Speak the evening reminder"
                 data:
                   message: "Don't forget, {{ trash.get('description') or trash.summary }} is tomorrow."
-                  target: kitchen
+                  target: auto
                   notification_title: "Pickup Tomorrow"
                   critical_fallback: false
             alias: "Announce if due today, not done, and someone is home"

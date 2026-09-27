@@ -1,12 +1,14 @@
 id: "1787749891308"
 alias: "Utility Room: Laundry Announcement"
 description: >-
-  Announces on the kitchen HomePod (or master bedroom if Avery is sleeping)
-  every 30 minutes while the washer or dryer is alerting (cycle complete) or
-  in fault (error reported). Also pushes a notification to Nate's phone if
-  the family room Sonos is currently playing — a signal he's watching a
-  movie or playing a game and might miss the kitchen announcement.
-  Re-triggers immediately on waking or arriving home so the loop doesn't
+  Announces via auto-resolved room (kitchen, the living room if its AppleTV
+  is on, or master bedroom if Avery is sleeping) every 30 minutes while the
+  washer or dryer is alerting (cycle complete) or in fault (error reported).
+  Also pushes a notification to Nate's phone if the family room Sonos is
+  currently playing — a signal he's watching a movie or playing a game in
+  the family room (a separate Sonos-only room from the living room) and
+  might miss the announcement. Re-triggers immediately on waking or
+  arriving home so the loop doesn't
   wait out its delay. Stops when both appliances are idle/acknowledged, the
   household is sleeping, or nobody is home — except a fault, which pushes
   once regardless of sleep/away state instead of waiting, since a stalled
@@ -335,17 +337,18 @@ actions:
                     notification_title: "{{ tts_title }}"
                     target: master_bedroom
           default:
-            - alias: "Announce to kitchen"
+            - alias: "Announce to auto-resolved room"
               action: script.household_tts_announce
               data:
                 message: "{{ tts_message }}"
                 notification_title: "{{ tts_title }}"
-                target: kitchen
+                target: auto
             - alias: "If family room Sonos is playing, also push a notification"
               note: >-
                 A busy Sonos in the family room likely means a movie or
-                game — push so the alert isn't missed if the kitchen
-                announcement isn't heard.
+                game — push so the alert isn't missed if the
+                announcement isn't heard. A separate Sonos-only room
+                from the living room, which auto already covers.
               if:
                 - condition: state
                   entity_id: media_player.family_room_theater

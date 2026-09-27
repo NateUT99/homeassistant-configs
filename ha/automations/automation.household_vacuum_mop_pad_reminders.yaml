@@ -119,7 +119,7 @@ actions:
             action: script.household_tts_announce
             data:
               message: Pull the mop pad off the robot to rinse it, and empty the water tank.
-              target: "{{ 'auto' if (trigger is defined and trigger.id == 'cleanup_docked') else 'kitchen' }}"
+              target: auto
               notification_title: Vacuum Mop Cleanup
               critical_fallback: false
           - alias: Push the cleanup reminder

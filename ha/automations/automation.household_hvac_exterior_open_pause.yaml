@@ -13,10 +13,9 @@ description: >-
 
 
   Announces the warning, pause, and restore via script.household_tts_announce
-  with target: broadcast, which fans out to kitchen, master bedroom,
-  office (unless busy with a call), and Avery's room (skipped while
-  input_boolean.avery_sleeping is on), falling back to a push on its own
-  per-room if TTS truly cannot land.
+  with target: auto, which resolves to the single most relevant room
+  (master bedroom if asleep, the living room if its AppleTV is on,
+  kitchen otherwise) rather than the whole house.
 
 
   Stores the mode being paused from in
@@ -110,7 +109,7 @@ actions:
             action: script.household_tts_announce
             data:
               message: "Thermostat pausing soon — {{ open_doors_text }} door's open."
-              target: broadcast
+              target: auto
               notification_title: "🚪 Door Open Warning"
       - alias: Opened 3 minutes ago and thermostat not already off
         conditions:
@@ -165,10 +164,8 @@ actions:
               hvac_mode: "off"
           - alias: Announce that HVAC has paused
             note: >-
-              target: broadcast fans out to kitchen, master bedroom,
-              office (unless busy with a call), and Avery's room (if
-              awake) -- and falls back to a push on its own per-room if
-              TTS truly cannot land.
+              target: auto resolves to the single most relevant room
+              instead of the whole house.
             action: script.household_tts_announce
             data:
               message: >-
@@ -178,7 +175,7 @@ actions:
                 states('sensor.erie_ohio_usa_air_quality_index') |
                 int(0) > 150 %}please keep{% else %}consider
                 keeping{% endif %} things closed.{%- endif %}
-              target: broadcast
+              target: auto
               notification_title: "❌ Thermostat Paused"
       - alias: Closed 3 minutes ago, thermostat off, and a mode was stored
         conditions:
@@ -214,15 +211,15 @@ actions:
               option: none
           - alias: Announce that HVAC has resumed
             note: >-
-              Same broadcast behavior as the pause announcement -- see that
-              step's note.
+              Same auto-resolved routing as the pause announcement --
+              see that step's note.
             action: script.household_tts_announce
             data:
               message: >-
                 Thermostat re-enabled to {{
                 {'cool': 'cool', 'heat': 'heat', 'heat_cool': 'heat
                 and cool'}.get(paused_from, paused_from) }}.
-              target: broadcast
+              target: auto
               notification_title: "✅ Thermostat Re-Enabled"
       - alias: Thermostat left off through some other path
         conditions:
