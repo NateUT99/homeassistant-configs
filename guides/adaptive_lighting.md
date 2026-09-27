@@ -5,24 +5,29 @@
 ## Overview
 
 Adaptive Lighting (AL — HACS, `basnijholt/adaptive-lighting`) adjusts light brightness through
-the day on a sun-position curve. Two instances run here, **Standard** and **Avery Schedule**,
-covering the three Inovelli canopy ceiling-fan light kits (Master Bedroom, Office, Avery's
-Room). Those fixtures are dumb LED loads on a Matter/Thread dimmer, so AL adapts brightness
-only — colour temperature is not available on the hardware. All three lights (and their paired
-fan entities) are exposed to Apple Home through Home-Assistant-Matter-Hub bridging rather than
+the day on a sun-position curve. Two instances run here, **Standard** and **Avery Schedule**.
+The three Inovelli canopy ceiling-fan light kits (Master Bedroom, Office, Avery's Room) are
+dumb LED loads on a Matter/Thread dimmer, so AL adapts brightness only on those — colour
+temperature is not available on the hardware. Those three lights (and their paired fan
+entities) are exposed to Apple Home through Home-Assistant-Matter-Hub bridging rather than
 direct Matter commissioning, so an Apple Home turn-on is a real `light.turn_on` call AL's
 `intercept` adapts immediately, the same as HA's own dashboard or a script. Only a wall-paddle
 tap — a Matter binding written into the switch firmware that never reaches HA — falls outside
 `intercept`'s reach; a companion automation pre-stages each fixture's Matter `OnLevel` so that
 binding-driven turn-on lands closer to the adapted level, and the wall-control automations add
 a fast 2-second correction on every observed turn-on as a backstop regardless of source (see
-Design Decisions).
+Design Decisions). The Standard instance also carries `light.kitchen_overhead_sink`, a
+colour-capable ZHA light with no wall-paddle path — AL adapts its brightness on any bare
+`light.turn_on`. `automation.kitchen_sink_button_handler` drives it from a ZHA remote and
+releases AL's manual-control flag after each button-driven turn-on, since those calls carry
+explicit brightness/colour data that trips AL's non-bare-turn-on detection.
 
 ## Architecture
 
 ```
 Standard          switch.adaptive_lighting_standard
-  lights          light.master_bedroom_ceiling_fan_light, light.office_ceiling_fan_light
+  lights          light.master_bedroom_ceiling_fan_light, light.office_ceiling_fan_light,
+                  light.kitchen_overhead_sink
   sleep mode      switch.adaptive_lighting_standard_sleep_mode
                     ◄── Household: Sleep Mode   (input_boolean.everyone_sleeping)
 
@@ -50,16 +55,17 @@ automation.adaptive_lighting_pre_stage
 AL's sleep mode is a per-instance switch, not a per-light setting. Avery goes to bed before
 the rest of the household, so her ceiling needs a sleep switch that `Avery's Room: Sleep
 Mode` can flip independently of `input_boolean.everyone_sleeping`. Every other adapted light
-joins Standard. There is no Colour-Only instance because nothing under AL supports colour
-temperature.
+joins Standard.
 
 #### Brightness only; `adapt_color` off
 
 The canopy light kits report `supported_color_modes: ["brightness"]`, so there is nothing for
-AL to colour-adapt. Both instances' `adapt_color` sub-switches are **off** — AL would skip
-colour on these lights regardless, but off is the accurate reading of what the system does.
-Re-enable it per instance if a colour-capable light is ever enrolled; the `*_color_temp`
-settings are given sane values so that switch is the only change needed.
+AL to colour-adapt on those. `light.kitchen_overhead_sink` does support colour temperature, but
+its fixed 3000K on button press is a deliberate per-tap value, not something meant to ride AL's
+colour curve — so both instances' `adapt_color` sub-switches stay **off** rather than handing
+that light's colour to AL. The `*_color_temp` settings are still given sane values so flipping
+a sub-switch on is the only change needed if a light's colour should ever follow the curve
+instead.
 
 #### `manual_control_on_external_turn_on` stays off
 
@@ -127,7 +133,7 @@ is paused. That combination was broken before v1.32.0; it is a hard minimum vers
 
 | Instance name | Lights |
 |---|---|
-| `Standard` | `light.master_bedroom_ceiling_fan_light`, `light.office_ceiling_fan_light` |
+| `Standard` | `light.master_bedroom_ceiling_fan_light`, `light.office_ceiling_fan_light`, `light.kitchen_overhead_sink` |
 | `Avery Schedule` | `light.averys_room_ceiling_fan_light` |
 
 Each instance registers a main switch plus `_adapt_brightness`, `_adapt_color`, and
@@ -268,11 +274,14 @@ Held in the automation's `variables` block for one-place tuning.
 | Adaptive Lighting: Standard | `switch.adaptive_lighting_standard` (+ `_adapt_brightness`, `_adapt_color`, `_sleep_mode`) | AL instance switches |
 | Adaptive Lighting: Avery Schedule | `switch.adaptive_lighting_avery_schedule` (+ `_adapt_brightness`, `_adapt_color`, `_sleep_mode`) | AL instance switches |
 | Adaptive Lighting: Pre-Stage | `automation.adaptive_lighting_pre_stage` | Automation (Maintenance; `int_adaptive_lighting`, `int_inovelli_fan_canopy`, `scope_whole_home`) |
+| Kitchen: Sink Button Handler | `automation.kitchen_sink_button_handler` | Automation (Lighting; `int_adaptive_lighting`) — drives `light.kitchen_overhead_sink` |
 
-The three `light.*_ceiling_fan_light` entities carry the `int_adaptive_lighting` label as
-enrolled members, as do the three `automation.*_ceiling_fan_wall_control` automations (whose
-`long_release`, turn-off, and turn-on-snap branches call `adaptive_lighting.set_manual_control`
-/ `adaptive_lighting.apply`).
+The three `light.*_ceiling_fan_light` entities and `light.kitchen_overhead_sink` carry the
+`int_adaptive_lighting` label as enrolled members. The three `automation.*_ceiling_fan_wall_control`
+automations (whose `long_release`, turn-off, and turn-on-snap branches call
+`adaptive_lighting.set_manual_control` / `adaptive_lighting.apply`) and
+`automation.kitchen_sink_button_handler` (which releases manual control after each
+button-driven turn-on) carry it too.
 
 ## Related Files
 
