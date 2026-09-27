@@ -3,12 +3,25 @@ description: >-
   Shared entry point for every HomePod TTS announcement. Resolves the
   target room (or auto-picks kitchen/master bedroom based on
   everyone_sleeping), or fans out to kitchen, master bedroom, office, and
-  Avery's room when target is broadcast. All reachable rooms for a given
-  call are spoken to with a single chime_tts.say action carrying a list
-  of entity_ids -- one real action, so playback starts together instead
-  of being staggered room by room. A single-room call keeps that room's
-  own tuned volume; a multi-room call (2+ rooms resolved) uses one shared
-  volume (0.5) since one service call can't carry a different volume per
+  Avery's room when target is broadcast. A broadcast call reroutes
+  entirely to the living room AppleTV instead, skipping the HomePods,
+  whenever that AppleTV is actively playing -- that's a reliable signal
+  someone is in there watching, and reaching an empty
+  kitchen/office/Avery's-room instead wouldn't help them. Announcement
+  audio is pre-generated via chime_tts.say_url (not played through
+  chime_tts.say directly) so the ~3-4s Nabu Casa cloud TTS round trip
+  happens up front, before any target media_player is touched, and
+  boosted with audio_conversion: Volume 150% -- Nabu Casa's cloud TTS
+  is mastered noticeably quieter than typical TV/streaming audio
+  (confirmed 2026-09-26 by a living-room test where the soundbar's own
+  volume_level never changed yet the announcement was audibly quieter
+  than the show; 125% was tried first and judged only slightly better).
+  All reachable HomePod rooms for a given call are then spoken to with a
+  single media_player.play_media action carrying a list of entity_ids --
+  one real action, so playback starts together instead of being
+  staggered room by room. A single-room call keeps that room's own tuned
+  volume; a multi-room call (2+ rooms resolved) uses one shared volume
+  (0.5) since one service call can't carry a different volume per
   target. Office is dropped from a broadcast (and, if explicitly
   targeted, gets a push instead of TTS) whenever
   binary_sensor.nates_work_laptop_audio_input_in_use is on -- the same
@@ -18,6 +31,37 @@ description: >-
   or offline is pulled out of the call and covered by a single push
   notification instead. Pass critical_fallback to send that fallback
   push as an iOS critical alert.
+
+  Outside the living-room-broadcast case above, the living room is still
+  not a TTS target, but its Sonos soundbar is a pass-through for the
+  AppleTV (SPDIF input) -- if AppleTV media is playing when a
+  non-broadcast (or broadcast-with-nobody-watching) announcement fires,
+  the AppleTV is paused right before speaking and resumed right after,
+  so TV audio elsewhere in the house doesn't drown out the announcement.
+  The soundbar's own state doesn't reflect signal presence (it still
+  reports playing when the AppleTV is paused and silent), so the check
+  happens once at script start and that snapshot is reused for later
+  decisions rather than re-reading state afterward.
+
+  Timing notes, both live-verified 2026-09-26: pre-generating the audio
+  before pausing (rather than calling chime_tts.say, which generates
+  and plays in one blocking action) keeps the pause-to-playback gap to
+  a fraction of a second instead of several seconds of dead air. And
+  the resume waits on the actual playing-to-idle (HomePods) or
+  playing-to-paused (living room AppleTV, which auto-restores its show
+  app but leaves it paused) transition rather than a fixed delay,
+  because chime_tts.say_url's reported duration doesn't reliably match
+  real playback time. A templated entity_id inside a wait_for_trigger
+  was tried first and rejected -- HA can only auto-track entities a
+  trigger references by a literal string, so a runtime-computed
+  entity_id silently falls back to the timeout instead of firing on the
+  real transition. Listing the four HomePods as literal state triggers
+  works because only the ones a given call actually targeted can
+  transition from playing to idle at all -- the rest simply never
+  match. The living room AppleTV branch doesn't set a volume_level at
+  all (unlike the HomePods, which are idle announcement-only speakers):
+  the announce pipeline plays at whatever volume the person watching
+  already had it at, live-verified to need no explicit restore.
 fields:
   message:
     name: Message
@@ -30,8 +74,9 @@ fields:
     description: >-
       Which HomePod to announce to, broadcast to fan out to kitchen,
       master bedroom, office (unless it's busy with a call), and Avery's
-      room (unless she's asleep) in one call, or auto to pick
-      kitchen/master bedroom based on sleep state.
+      room (unless she's asleep) in one call -- or, if the living room
+      AppleTV is actively playing, to just that instead -- or auto to
+      pick kitchen/master bedroom based on sleep state.
     required: false
     default: auto
     selector:
@@ -89,6 +134,9 @@ variables:
     {{ {'kitchen': 0.6, 'office': 0.5, 'averys_room': 0.4, 'master_bedroom':
     (0.4 if is_state('input_boolean.everyone_sleeping', 'on') else
     0.5)}[rooms_to_speak[0]] if rooms_to_speak | length == 1 else 0.5 }}
+  living_room_was_playing: "{{ is_state('media_player.living_room_soundbar', 'playing') }}"
+  broadcast_to_living_room: "{{ (target | default('auto')) == 'broadcast' and living_room_was_playing }}"
+  should_duck_living_room: "{{ living_room_was_playing and not broadcast_to_living_room }}"
 sequence:
   - alias: Reject an unrecognized target before doing anything
     note: >-
@@ -101,40 +149,195 @@ sequence:
           'office', 'averys_room', 'broadcast', 'auto'] }}
     then:
       - stop: Unrecognized TTS target
-  - alias: Push once if any resolved room couldn't get TTS
-    note: >-
-      One push covers it regardless of how many rooms were unreachable --
-      the message/title is identical either way.
-    if:
-      - condition: template
-        value_template: "{{ rooms_unreachable | length > 0 }}"
-    then:
-      - alias: Push fallback (room busy or offline)
-        action: notify.mobile_app_nates_iphone
-        data:
-          title: "{{ notification_title_resolved }}"
-          message: "{{ message }}"
-          data: "{{ fallback_push_data }}"
-  - alias: Speak to every reachable room in one action
-    note: >-
-      A single chime_tts.say call with a list of entity_ids -- one real
-      dispatch, not one call per room, so playback starts together.
-      Live-verified 2026-09-24: all four HomePods began playing within
-      under a second of each other.
-    if:
-      - condition: template
-        value_template: "{{ rooms_to_speak | length > 0 }}"
-    then:
-      - alias: Speak via Chime TTS
-        action: chime_tts.say
-        target:
-          entity_id: "{{ speaker_entities }}"
-        data:
-          message: "{{ message }}"
-          chime_path: soft
-          tts_platform: cloud
-          volume_level: "{{ call_volume }}"
-          cache: true
-          announce: true
+  - alias: >-
+      Route a broadcast to the living room directly if someone's
+      watching, otherwise use the normal room list
+    choose:
+      - alias: Living room AppleTV is actively playing during a broadcast call
+        conditions:
+          - condition: template
+            value_template: "{{ broadcast_to_living_room }}"
+        sequence:
+          - alias: Pre-generate the announcement audio
+            note: >-
+              Runs the Nabu Casa cloud TTS round trip up front, while
+              the AppleTV is still playing normally -- this is what
+              closes the dead-air gap between pausing it and the
+              announcement actually starting. audio_conversion boosts
+              the generated clip's own loudness, since cloud TTS
+              masters noticeably quieter than TV/streaming audio
+              (live-verified 2026-09-26).
+            action: chime_tts.say_url
+            data:
+              message: "{{ message }}"
+              chime_path: soft
+              tts_platform: cloud
+              cache: true
+              audio_conversion: "Volume 150%"
+            response_variable: tts_audio
+          - alias: Pause the living room AppleTV
+            action: media_player.media_pause
+            target:
+              entity_id: media_player.living_room_appletv
+          - alias: Play the announcement directly on the living room AppleTV
+            note: >-
+              No volume_level set -- unlike the HomePods, which are
+              idle announcement-only speakers, the AppleTV has an
+              actual in-progress volume the person watching chose. The
+              announce pipeline plays at that volume as-is and needs no
+              explicit restore (live-verified 2026-09-26).
+            action: media_player.play_media
+            target:
+              entity_id: media_player.living_room_appletv
+            data:
+              media_content_id: "{{ tts_audio.url }}"
+              media_content_type: music
+              announce: true
+          - alias: Wait for the announcement to actually finish before resuming
+            note: >-
+              The AppleTV auto-switches back to the show app when the
+              clip ends but leaves it paused (live-verified
+              2026-09-26) -- this watches for that playing-to-paused
+              transition, unlike the HomePod branch which watches for
+              playing-to-idle. The duration-based timeout is kept only
+              as a backstop in case the state never settles.
+            wait_for_trigger:
+              - trigger: state
+                alias: Living room AppleTV returns to the paused show
+                entity_id: media_player.living_room_appletv
+                from: playing
+                to: paused
+            timeout: "{{ tts_audio.duration + 5 }}"
+            continue_on_timeout: true
+          - alias: Resume the living room AppleTV
+            action: media_player.media_play
+            target:
+              entity_id: media_player.living_room_appletv
+    default:
+      - alias: Push once if any resolved room couldn't get TTS
+        note: >-
+          One push covers it regardless of how many rooms were
+          unreachable -- the message/title is identical either way.
+        if:
+          - condition: template
+            value_template: "{{ rooms_unreachable | length > 0 }}"
+        then:
+          - alias: Push fallback (room busy or offline)
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: "{{ notification_title_resolved }}"
+              message: "{{ message }}"
+              data: "{{ fallback_push_data }}"
+      - alias: Speak to every reachable room in one action
+        note: >-
+          Audio is pre-generated before the living room is touched, so
+          the AppleTV pause-to-playback gap is a fraction of a second
+          instead of the several seconds chime_tts.say's
+          generate-then-play would otherwise expose as dead air.
+        if:
+          - condition: template
+            value_template: "{{ rooms_to_speak | length > 0 }}"
+        then:
+          - alias: Pre-generate the announcement audio
+            note: >-
+              Runs the Nabu Casa cloud TTS round trip up front, while
+              the living room's AppleTV (if any) is still playing
+              normally -- this is what closes the dead-air gap between
+              pausing it and the announcement actually starting.
+              audio_conversion boosts the generated clip's own
+              loudness, since cloud TTS masters noticeably quieter
+              than TV/streaming audio (live-verified 2026-09-26).
+            action: chime_tts.say_url
+            data:
+              message: "{{ message }}"
+              chime_path: soft
+              tts_platform: cloud
+              cache: true
+              audio_conversion: "Volume 150%"
+            response_variable: tts_audio
+          - alias: Set target speaker volume
+            note: >-
+              chime_tts.say set this internally; calling
+              media_player.play_media directly means setting it
+              explicitly.
+            action: media_player.volume_set
+            target:
+              entity_id: "{{ speaker_entities }}"
+            data:
+              volume_level: "{{ call_volume }}"
+          - alias: >-
+              Duck living room AppleTV if it's playing and this call
+              isn't already going there
+            note: >-
+              The living room isn't a TTS target here, but the soundbar
+              is just an SPDIF pass-through for it -- pausing the
+              source stops the audio so the announcement can actually
+              be heard nearby.
+            if:
+              - condition: template
+                value_template: "{{ should_duck_living_room }}"
+            then:
+              - alias: Pause the AppleTV
+                action: media_player.media_pause
+                target:
+                  entity_id: media_player.living_room_appletv
+          - alias: Play the pre-generated announcement
+            note: >-
+              Starts immediately since the audio already exists -- no
+              post-pause wait for generation.
+            action: media_player.play_media
+            target:
+              entity_id: "{{ speaker_entities }}"
+            data:
+              media_content_id: "{{ tts_audio.url }}"
+              media_content_type: music
+              announce: true
+          - alias: Wait for the announcement to actually finish before resuming
+            note: >-
+              Listing all four HomePods as literal state triggers
+              (rather than templating speaker_entities[0], which HA
+              can't auto-track and silently falls back to the timeout)
+              fires the instant whichever speaker(s) this call
+              actually targeted finish, since the untargeted ones were
+              never playing and can't match a from: playing
+              transition. The duration-based timeout is kept only as a
+              backstop in case a state never settles.
+            wait_for_trigger:
+              - trigger: state
+                alias: Kitchen HomePod finishes
+                entity_id: media_player.kitchen_homepod
+                from: playing
+                to: idle
+              - trigger: state
+                alias: Master bedroom HomePod finishes
+                entity_id: media_player.master_bedroom_homepod
+                from: playing
+                to: idle
+              - trigger: state
+                alias: Office HomePod finishes
+                entity_id: media_player.office_homepod
+                from: playing
+                to: idle
+              - trigger: state
+                alias: Avery's room HomePod finishes
+                entity_id: media_player.averys_room_homepod
+                from: playing
+                to: idle
+            timeout: "{{ tts_audio.duration + 5 }}"
+            continue_on_timeout: true
+          - alias: Resume living room AppleTV if it was ducked for this announcement
+            note: >-
+              Reuses the snapshot taken at script start rather than
+              re-checking the soundbar -- it doesn't reflect signal
+              loss, so it would still read playing even while paused
+              and silent.
+            if:
+              - condition: template
+                value_template: "{{ should_duck_living_room }}"
+            then:
+              - alias: Resume the AppleTV
+                action: media_player.media_play
+                target:
+                  entity_id: media_player.living_room_appletv
 mode: queued
 max: 10
