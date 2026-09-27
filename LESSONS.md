@@ -467,6 +467,52 @@ Ruled out: HA's `internal_url` being unset (it was fixed mid-session; no change 
 
 `script.household_tts_announce` does **not** target this Sonos — a `target: family_room` branch was built and tested (this entry documents that testing), then removed once it became clear the actual requirement was simpler: push a notification when the Sonos is busy, not route TTS to it. `guides/laundry_automation.md` implements that directly with a `state` condition on `media_player.family_room_theater`, no Chime TTS involvement. This entry stays as a record of the underlying Chime TTS + Sonos limitation, in case a future automation wants Sonos TTS specifically and needs to know this was already tried.
 
+### `chime_tts.say_url` pre-generates audio without playing it — closes a dead-air gap `chime_tts.say` can't avoid
+
+`chime_tts.say` generates the Nabu Casa TTS clip and plays it in one blocking call; the cloud round trip (chime assembly + TTS synthesis) takes roughly 3–4 seconds before any target `media_player` starts producing audio. That gap is invisible when nothing else needed to go quiet first, but once an automation pauses another room's media before speaking, the pause completes almost instantly and the still-generating clip leaves several seconds of dead silence where the paused audio used to be.
+
+`chime_tts.say_url` runs the same generation pipeline but returns `{url, media_content_id, duration, success}` without playing anything, so generation can run before touching any target. Live-verified 2026-09-26: pausing a `media_player` and then playing a separately pre-generated clip cut the pause-to-playback gap from ~3.5s to under 1s.
+
+```yaml
+action: chime_tts.say_url
+data:
+  message: "Your message here."
+  chime_path: soft
+  tts_platform: cloud
+  cache: true
+response_variable: tts_audio
+```
+
+Follow with `media_player.play_media` using `media_content_id: "{{ tts_audio.url }}"`, `media_content_type: music`, `announce: true`. This instance is configured for the www-folder path, so `url` populates and `media_content_id` comes back `null` (the reverse would be true under a media-folder configuration). See `guides/chime_tts.md`.
+
+### `chime_tts.say_url`'s reported `duration` doesn't reliably match real multi-speaker playback time
+
+The `duration` field in a `chime_tts.say_url` response reflects the generated file's own length, not how long it actually takes to finish playing once dispatched to one or more real `media_player` targets over AirPlay/Sonos. Live-verified 2026-09-26 across three broadcast tests: real playback ran anywhere from ~2s shorter to ~5s longer than the reported `duration`, in both directions across different calls. A `delay:` step sized on `duration` either cuts the announcement short or leaves several extra seconds of dead silence before resuming whatever it interrupted.
+
+Wait for the real state transition instead (see the `wait_for_trigger` entry below). Keep a `duration`-based `timeout:` only as a backstop, for the case where the state never settles.
+
+### A templated `entity_id` inside `wait_for_trigger` is not auto-tracked — silently falls back to its timeout
+
+Home Assistant auto-tracks which entities a trigger needs to watch by statically extracting literal entity_id strings from the trigger definition. A state trigger's `entity_id` rendered from a runtime variable (e.g. `entity_id: "{{ speaker_entities[0] }}"`) is rejected outright by the config API — "neither a valid entity ID nor a valid UUID" — templated entity_id fields aren't accepted there at all. Reaching for a template *trigger* instead (`trigger: template`, `value_template: "{{ is_state(speaker_entities[0], 'idle') }}"`) does get accepted, but doesn't reactively fire either: live-verified 2026-09-26, a `wait_for_trigger` built this way sat through the real state change and only unblocked once its `timeout:` elapsed, adding time rather than saving it.
+
+The fix is to list every entity a call could plausibly target as separate literal state triggers (one `trigger: state` block per candidate `entity_id`, each with its own `from`/`to`). The ones a given call didn't actually target never produce the `from` state, so only the relevant one(s) can fire — no template needed, and it reacts to the real transition immediately.
+
+### `media_player.play_media` against an actively-playing AppleTV switches its foreground app, then auto-restores it but leaves it paused
+
+Calling `media_player.play_media` (with `announce: true`) on an Apple TV integration entity while it's mid-video changes its `app_id` from the video app (e.g. `com.apple.TVWatchList`) to `com.apple.TVAirPlay` for the duration of the clip. Live-verified 2026-09-26: once the clip finishes, the entity automatically switches back to the original app at the same playback position — but in `paused`, not `playing`. A caller relying on `announce: true`'s "restores after" behavior for a HomePod-style idle speaker still needs an explicit `media_player.media_play` afterward when the target is a video app, since the auto-restore doesn't resume it.
+
+No `volume_level` is needed on this call either — unlike an idle HomePod, the AppleTV has a real in-progress volume the viewer already set, and the announce pipeline plays at it as-is with no explicit restore required.
+
+### Cloud TTS via Chime TTS masters noticeably quieter than TV/streaming audio — use `audio_conversion` to boost it
+
+A `chime_tts`-generated clip (chime + Nabu Casa cloud TTS) plays back audibly quieter than typical TV or streaming content even when the target speaker's own `volume_level` is unchanged — confirmed 2026-09-26 by watching a Sonos soundbar's `volume_level` attribute stay constant across an announcement that was still perceptibly quieter than the show it interrupted. This is the generated file's own mastering level, not a speaker-volume issue, so `media_player.volume_set` doesn't address it.
+
+`chime_tts.say` / `say_url`'s `audio_conversion` field applies an FFmpeg volume adjustment to the generated clip itself (e.g. `data: {audio_conversion: "Volume 150%"}`), independent of any speaker's volume. `"Volume 125%"` was tried first and judged only a slight improvement; `"Volume 150%"` was the setting adopted after a live A/B test in this house.
+
+### Sonos soundbar state doesn't reflect whether its HDMI ARC source is actually producing sound
+
+A Sonos soundbar connected to the TV via HDMI ARC (`source: TV`) reports `playing` continuously based on the input being selected, not on whether the upstream source (an AppleTV, in this case) is actually outputting audio — Sonos's own `media_content_id` for this input is `x-sonos-htastream:<device>:spdif` regardless of the physical connection being ARC rather than optical/SPDIF, so don't infer the cable type from that string. Live-verified 2026-09-26: pausing the AppleTV mid-show left the soundbar's own state and `last_changed` completely unchanged, even though the room went silent. A "should I duck this" check must snapshot the *source's* playback state once, up front — re-reading the soundbar afterward to decide whether to resume it is not reliable, since it never leaves `playing` regardless of what the source is doing.
+
 ---
 
 ## Sensors & Calibration
