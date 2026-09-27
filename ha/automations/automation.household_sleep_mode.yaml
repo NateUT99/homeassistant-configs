@@ -13,8 +13,11 @@ description: >-
   office ceiling fan light, which stays AL-enrolled for a later
   wall-tap to land dim, but must end up fully off now) -- last, so it
   always wins over AL's own reaction to the sleep-mode flip instead of
-  racing it. Wake: sets the thermostat back to Home preset, clears
-  Adaptive Lighting sleep mode, and turns off the kitchen sink light.
+  racing it. Wake: in parallel sets the thermostat back to Home preset
+  and clears Adaptive Lighting sleep mode, then turns off the kitchen
+  sink light last -- same race as the sleep-in path (AL re-adapts
+  every currently-on light it manages when sleep mode clears), so the
+  light's own turn-off must run after, not alongside, the AL flip.
   Merged from the previously separate Configure Home for Sleep /
   Configure Home for Wake automations, matching the pattern already
   used by Avery's Room: Sleep Mode.
@@ -123,10 +126,11 @@ actions:
           - condition: trigger
             id: sleep_off
         sequence:
-          - alias: Run wake-restore actions in parallel
+          - alias: Run independent wake-restore actions in parallel
             note: >-
-              Three independent actions (thermostat, kitchen nav light, AL
-              sleep mode) with no ordering dependency.
+              Two independent actions (thermostat, AL sleep mode) with no
+              ordering dependency. The kitchen sink light turn-off is
+              deliberately NOT in here -- see the final step below.
             parallel:
               - alias: Set living room thermostat to Home preset
                 action: climate.set_preset_mode
@@ -134,13 +138,20 @@ actions:
                   entity_id: climate.living_room_thermostat
                 data:
                   preset_mode: home
-              - alias: Turn off kitchen sink nav light
-                action: light.turn_off
-                target:
-                  entity_id: light.kitchen_overhead_sink
               - alias: Clear Adaptive Lighting sleep mode on the Standard instance
                 action: switch.turn_off
                 target:
                   entity_id: switch.adaptive_lighting_standard_sleep_mode
+          - alias: Turn off kitchen sink nav light
+            action: light.turn_off
+            target:
+              entity_id: light.kitchen_overhead_sink
+            note: >-
+              Runs last, after the AL flip, so it always wins. Confirmed via
+              trace on 2026-09-27: clearing AL sleep mode re-adapts every
+              currently-on light the Standard instance manages (the sink
+              light is enrolled), and that adapt call raced this turn-off
+              inside the same parallel block and won -- light read on again
+              106ms after the off command landed.
 mode: single
 category: 01M08R77W9A83G7DDA33MT8R09
