@@ -1,12 +1,10 @@
 id: "1787508819081"
 alias: "Kitchen: Sink Button Handler"
 description: >-
-  Handles button presses on the kitchen sink remote: short press toggles
-  the overhead sink light between off and 100%/3000K normally. While
-  everyone is sleeping, short press instead toggles between the
-  nav-light level (5%/2000K) and full brightness at the same 2000K
-  sleep color temperature, and long press dims to the nav-light level
-  rather than turning off. Double press is reserved for future use.
+  Handles button presses on the kitchen sink remote: single press toggles
+  the overhead sink light at 3000K (brightness is left to Adaptive
+  Lighting), double press toggles it at full brightness/3000K, and long
+  press turns it off.
 triggers:
   - alias: Short press
     trigger: event
@@ -33,46 +31,7 @@ conditions: []
 actions:
   - alias: Handle button press
     choose:
-      - alias: "Short press while sleeping and currently at full brightness: drop to nav-light level"
-        conditions:
-          - alias: Trigger was short press
-            condition: trigger
-            id: ["short_press"]
-          - alias: Everyone is sleeping
-            condition: state
-            entity_id: input_boolean.everyone_sleeping
-            state: "on"
-          - alias: Light is currently at the full-brightness level
-            condition: numeric_state
-            entity_id: light.kitchen_overhead_sink
-            attribute: brightness
-            above: 50
-        sequence:
-          - alias: Set overhead sink light to nav-light level
-            action: light.turn_on
-            target:
-              entity_id: light.kitchen_overhead_sink
-            data:
-              brightness_pct: 5
-              color_temp_kelvin: 2000
-      - alias: "Short press while sleeping: raise to full brightness at sleep color temperature"
-        conditions:
-          - alias: Trigger was short press
-            condition: trigger
-            id: ["short_press"]
-          - alias: Everyone is sleeping
-            condition: state
-            entity_id: input_boolean.everyone_sleeping
-            state: "on"
-        sequence:
-          - alias: Set overhead sink light to full brightness, keep sleep color temperature
-            action: light.turn_on
-            target:
-              entity_id: light.kitchen_overhead_sink
-            data:
-              brightness_pct: 100
-              color_temp_kelvin: 2000
-      - alias: "Short press: toggle light"
+      - alias: "Short press: toggle light at 3000K"
         conditions:
           - alias: Trigger was short press
             condition: trigger
@@ -83,25 +42,20 @@ actions:
             target:
               entity_id: light.kitchen_overhead_sink
             data:
-              brightness_pct: 100
               color_temp_kelvin: 3000
-      - alias: "Long press while sleeping: dim to nav-light level"
+      - alias: "Double press: toggle light to full brightness at 3000K"
         conditions:
-          - alias: Trigger was long press
+          - alias: Trigger was double press
             condition: trigger
-            id: ["long_press"]
-          - alias: Everyone is sleeping
-            condition: state
-            entity_id: input_boolean.everyone_sleeping
-            state: "on"
+            id: ["double_press"]
         sequence:
-          - alias: Set overhead sink light to nav-light level
-            action: light.turn_on
+          - alias: Toggle overhead sink light to full brightness
+            action: light.toggle
             target:
               entity_id: light.kitchen_overhead_sink
             data:
-              brightness_pct: 5
-              color_temp_kelvin: 2000
+              brightness_pct: 100
+              color_temp_kelvin: 3000
       - alias: "Long press: turn off light"
         conditions:
           - alias: Trigger was long press
