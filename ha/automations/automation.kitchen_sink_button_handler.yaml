@@ -2,11 +2,11 @@ id: "1787508819081"
 alias: "Kitchen: Sink Button Handler"
 description: >-
   Handles button presses on the kitchen sink remote: single press toggles
-  the overhead sink light at 3000K, double press toggles it to full
-  brightness at 3000K, and long press turns it off. Both toggle branches
-  release Adaptive Lighting's manual-control flag right after, since the
-  explicit color/brightness data on the turn-on trips AL's non-bare-turn-on
-  detection.
+  the overhead sink light at 3000K, double press forces it on to full
+  brightness at 3000K (recovers from AL setting the room too dim), and
+  long press turns it off. Both non-bare turn-on branches release
+  Adaptive Lighting's manual-control flag right after, since the explicit
+  color/brightness data trips AL's non-bare-turn-on detection.
 triggers:
   - alias: Short press
     trigger: event
@@ -57,14 +57,18 @@ actions:
               lights:
                 - light.kitchen_overhead_sink
               manual_control: false
-      - alias: "Double press: toggle light to full brightness at 3000K"
+      - alias: "Double press: force light on to full brightness at 3000K"
         conditions:
           - alias: Trigger was double press
             condition: trigger
             id: ["double_press"]
         sequence:
-          - alias: Toggle overhead sink light to full brightness
-            action: light.toggle
+          - alias: Turn on overhead sink light to full brightness
+            note: >-
+              turn_on, not toggle -- a double tap while the light is
+              already on but dim (AL set it low) should raise it to
+              full, not turn it off. Long press already covers off.
+            action: light.turn_on
             target:
               entity_id: light.kitchen_overhead_sink
             data:
