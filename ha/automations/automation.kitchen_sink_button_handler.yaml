@@ -2,9 +2,11 @@ id: "1787508819081"
 alias: "Kitchen: Sink Button Handler"
 description: >-
   Handles button presses on the kitchen sink remote: single press toggles
-  the overhead sink light at 3000K (brightness is left to Adaptive
-  Lighting), double press toggles it at full brightness/3000K, and long
-  press turns it off.
+  the overhead sink light at 3000K, double press toggles it to full
+  brightness at 3000K, and long press turns it off. Both toggle branches
+  release Adaptive Lighting's manual-control flag right after, since the
+  explicit color/brightness data on the turn-on trips AL's non-bare-turn-on
+  detection.
 triggers:
   - alias: Short press
     trigger: event
@@ -43,6 +45,18 @@ actions:
               entity_id: light.kitchen_overhead_sink
             data:
               color_temp_kelvin: 3000
+          - alias: Release Adaptive Lighting manual control
+            note: >-
+              The explicit color_temp_kelvin above is not a bare turn-on, so
+              AL's adapt_only_on_bare_turn_on flags it as manually
+              controlled. Release immediately so AL keeps owning brightness
+              instead of waiting for the 30-min autoreset.
+            action: adaptive_lighting.set_manual_control
+            data:
+              entity_id: switch.adaptive_lighting_standard
+              lights:
+                - light.kitchen_overhead_sink
+              manual_control: false
       - alias: "Double press: toggle light to full brightness at 3000K"
         conditions:
           - alias: Trigger was double press
@@ -56,6 +70,17 @@ actions:
             data:
               brightness_pct: 100
               color_temp_kelvin: 3000
+          - alias: Release Adaptive Lighting manual control
+            note: >-
+              Same non-bare-turn-on issue as the short-press branch --
+              explicit brightness/color data trips AL's manual-control
+              detection.
+            action: adaptive_lighting.set_manual_control
+            data:
+              entity_id: switch.adaptive_lighting_standard
+              lights:
+                - light.kitchen_overhead_sink
+              manual_control: false
       - alias: "Long press: turn off light"
         conditions:
           - alias: Trigger was long press
