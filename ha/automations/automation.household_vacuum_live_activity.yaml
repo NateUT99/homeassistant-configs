@@ -1,25 +1,15 @@
 id: "1789476662654"
 alias: "Household: Vacuum Live Activity"
 description: >-
-  Drives the iOS Live Activity for the Roborock vacuum, independent of which
-  automation commanded the job -- watches vacuum.living_room_vacuum's own
-  state and binary_sensor.vacuum_stuck rather than any
-  zone-specific helper, so no change is needed when a job-start path is added
-  or removed. Also marks the daytime zone done once live progress clears 65%
-  (absorbed from Household: Vacuum Progress Tracking -- reuses this
-  automation's own triggers instead of a dedicated progress-sensor trigger).
-  Running and returning cards are suppressed while everyone is
-  asleep; the done card still posts on job finish, but goes out with
-  periodic_tick (lower APNs priority) while asleep so it doesn't light the
-  screen overnight. The 5-minute tick sends periodic-tick refreshes; real
-  transitions (start, pause, return, stuck, finish) always send a normal
-  update outside sleep. The stuck branch keys off
-  binary_sensor.vacuum_stuck instead of the raw fault sensor --
-  confirmed 2026-09-28 that a Robot Trapped fault can clear while the vacuum
-  is still mechanically obstructed and making no real progress, so trusting
-  the device's own error sensor alone missed that window. Title reflects mop
-  vs. vacuum-only (frozen once the card is created, per iOS); the message
-  combines status and room. See guides/vacuum_cleaning_routine.md and
+  Drives the iOS Live Activity for the Roborock vacuum and marks the daytime
+  zone done once live progress clears 65%, on every vacuum state/error/
+  stuck-sensor change plus a 5-minute tick -- independent of which automation
+  commanded the job, since it watches the vacuum's own state rather than any
+  zone-specific helper. Running/returning cards and the done card's
+  screen-wake are suppressed while everyone is asleep. The stuck branch keys
+  off binary_sensor.vacuum_stuck rather than the raw fault sensor, since a
+  fault can clear while the vacuum is still mechanically obstructed -- see
+  LESSONS.md -> Vacuum & Roborock. See guides/vacuum_cleaning_routine.md and
   guides/live_activities.md.
 triggers:
   - alias: Vacuum entered an active or error state
