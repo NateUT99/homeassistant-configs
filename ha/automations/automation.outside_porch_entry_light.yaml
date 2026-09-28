@@ -1,0 +1,90 @@
+id: "1790604358942"
+alias: "Outside: Porch Entry Light"
+description: >-
+  Briefly boosts the front door bulbs to 50% when the front door opens,
+  as long as they're not already at full evening brightness. If they
+  were off, fades back to off; if they were dimmed to 25% for Avery's
+  sleep phase, fades back to 25% instead of turning off. Active sunset
+  -30min to sunrise +30min.
+
+  Complements automation.outside_porch_front_door_night_cycle, which
+  schedules the same bulbs on a nightly timer (50% at sunset, 25% when
+  Avery's asleep, fully off once everyone's asleep or by 10pm) -- this
+  automation only lights the gap that schedule leaves dark.
+triggers:
+  - trigger: door.opened
+    target:
+      entity_id: binary_sensor.entrance_front_door
+    alias: Front door opens
+conditions:
+  - alias: Night window
+    condition: sun
+    after: sunset
+    after_offset: "-00:30:00"
+    before: sunrise
+    before_offset: "00:30:00"
+  - alias: >-
+      Bulbs off, or dimmed for Avery's sleep phase (not already at full
+      evening brightness)
+    condition: or
+    conditions:
+      - condition: state
+        entity_id: light.outside_front_door_bulbs
+        state: "off"
+      - condition: and
+        conditions:
+          - condition: state
+            entity_id: light.outside_front_door_bulbs
+            state: "on"
+          - condition: state
+            entity_id: input_boolean.avery_sleeping
+            state: "on"
+actions:
+  - alias: Remember whether the bulbs were off before this call
+    variables:
+      was_off: "{{ is_state('light.outside_front_door_bulbs', 'off') }}"
+  - alias: Boost front door bulbs to 50%
+    action: light.turn_on
+    target:
+      entity_id: light.outside_front_door_bulbs
+    data:
+      brightness_pct: 50
+  - alias: Wait for door to close, or 90s timeout
+    wait_for_trigger:
+      - trigger: door.closed
+        target:
+          entity_id: binary_sensor.entrance_front_door
+    timeout:
+      seconds: 90
+    continue_on_timeout: true
+  - alias: Restore to off or back to the 25% dim level
+    choose:
+      - alias: "Was off — fade back to off"
+        conditions:
+          - condition: template
+            value_template: "{{ was_off }}"
+        sequence:
+          - action: light.turn_off
+            target:
+              entity_id: light.outside_front_door_bulbs
+            data:
+              transition: 90
+      - alias: "Was dimmed for Avery's sleep, and still is — fade back to 25%"
+        note: >-
+          Rechecks avery_sleeping rather than assuming it's still true --
+          if everyone fell asleep during the wait, the night cycle
+          automation already turned the bulbs fully off and this should
+          leave that alone, not fight it back to 25%.
+        conditions:
+          - condition: state
+            entity_id: input_boolean.avery_sleeping
+            state: "on"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: light.outside_front_door_bulbs
+            data:
+              brightness_pct: 25
+              transition: 90
+mode: restart
+category: 01M08MMBZ719V4GZ2FT10RPTJ2
