@@ -647,6 +647,12 @@ The Roborock Q8 Max Plus (RockDock Plus) has no mopping features beyond a hand-f
 
 See `guides/vacuum_cleaning_routine.md` → *Weekly Mop Pass* for how the routine is built around these constraints.
 
+### A `robot_trapped` fault can clear while the robot is still physically stuck
+
+Confirmed 2026-09-28: the vacuum spent ~10 minutes bumping against an obstruction (`error` / `sensor.<vacuum>_vacuum_error` = `robot_trapped`), then its main state dropped to `idle` while the fault sensor stayed latched on `robot_trapped` the whole time — not recovery, just giving up. It later flipped straight to `cleaning` with the fault sensor clearing to `none`, but `sensor.<vacuum>_cleaning_area` grew only 0.4 m² over the next 4 minutes (versus ~24 m² in the prior good stretch) and `sensor.<vacuum>_current_room` never left the room it was trapped in — it was still spinning in place under an obstruction the whole time the device claimed to be cleaning normally with no fault. The physical obstruction had to be manually cleared before real cleaning resumed.
+
+Don't trust `sensor.<vacuum>_vacuum_error` == `none` plus `state: cleaning` as proof the robot is actually unstuck. Cross-check against real movement (`cleaning_area` advancing, `current_room` changing) before treating a "recovered" vacuum as safe to command (e.g. `return_to_base`). `binary_sensor.living_room_vacuum_stuck` (`ha/packages/vacuum_stuck.yaml`) implements this stall check; see `guides/vacuum_cleaning_routine.md`.
+
 ---
 
 ## Zigbee & Lighting Groups

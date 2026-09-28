@@ -1,0 +1,35 @@
+# Detects when the living room vacuum is genuinely stuck, independent of the
+# device's own fault reporting. Confirmed 2026-09-28: a Robot Trapped fault
+# can clear (state -> cleaning, sensor.living_room_vacuum_vacuum_error ->
+# none) while the unit is still mechanically obstructed and making no real
+# progress -- the "recovery" was the device's own misreport, not a real one.
+# Combines the raw fault sensor with a stall check (no change to the cleaned-
+# area sensor for 3 minutes while state is cleaning) so a repeat of that false
+# recovery is still caught. See LESSONS.md and guides/vacuum_cleaning_routine.md.
+
+template:
+  - trigger:
+      - trigger: time_pattern
+        minutes: "/1"
+        alias: Recheck every minute in case cleaning has stalled
+      - trigger: state
+        entity_id: vacuum.living_room_vacuum
+        alias: Vacuum state changed
+      - trigger: state
+        entity_id: sensor.living_room_vacuum_vacuum_error
+        alias: Fault sensor changed
+      - trigger: state
+        entity_id: sensor.living_room_vacuum_cleaning_area
+        alias: Cleaned area changed
+    binary_sensor:
+      - name: "Living Room Vacuum Stuck"
+        unique_id: living_room_vacuum_stuck
+        device_class: problem
+        state: >-
+          {{ is_state('vacuum.living_room_vacuum', 'error')
+             or states('sensor.living_room_vacuum_vacuum_error') not in
+             ['none', 'unknown', 'unavailable']
+             or (is_state('vacuum.living_room_vacuum', 'cleaning')
+                 and (as_timestamp(now()) -
+                      as_timestamp(states.sensor.living_room_vacuum_cleaning_area.last_changed))
+                     > 180) }}

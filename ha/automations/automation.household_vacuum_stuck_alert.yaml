@@ -1,0 +1,34 @@
+id: "1790615316878"
+alias: "Household: Vacuum Stuck Alert"
+description: >-
+  One TTS heads-up when binary_sensor.living_room_vacuum_stuck turns on, only
+  if someone's home and awake. Added 2026-09-28 after a Robot Trapped fault
+  went unnoticed until physically discovered -- the only prior signal was a
+  passive Live Activity card. No push here: Household: Vacuum Live Activity's
+  stuck-status update already sends a real, alerting push on this same
+  transition; this adds the one thing that doesn't -- an audible announcement
+  for whoever's actually in the house. See guides/vacuum_cleaning_routine.md.
+triggers:
+  - alias: Vacuum became stuck
+    trigger: state
+    entity_id: binary_sensor.living_room_vacuum_stuck
+    to: "on"
+conditions:
+  - condition: numeric_state
+    entity_id: zone.home
+    above: 0
+    alias: Someone is home
+  - condition: state
+    entity_id: input_boolean.everyone_sleeping
+    state: "off"
+    alias: Everyone is awake
+actions:
+  - alias: Announce the vacuum needs help
+    action: script.household_tts_announce
+    data:
+      message: The vacuum is stuck. Go check on it.
+      target: auto
+      notification_title: Vacuum Stuck
+      critical_fallback: false
+mode: single
+category: 01M0XF7RJK5EX3A4YPNEX7X3DG

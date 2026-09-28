@@ -6,7 +6,7 @@ description: >-
   fires ~100m out and can't tell a drive home from a walk around the block).
   Sets the living room thermostat to Home, clears the Immediate Departure
   flag, clears the vacuum routine-pause flag, and docks the vacuum if it's
-  mid-run. Additional arrival actions will be added over time.
+  mid-run and not stuck. Additional arrival actions will be added over time.
 triggers:
   - trigger: state
     entity_id: input_boolean.arrival_confirmed
@@ -33,19 +33,44 @@ actions:
     target:
       entity_id: input_boolean.vacuum_routine_pause
     alias: Clear the vacuum routine-pause flag
-  - alias: Dock the vacuum if it's mid-run now that someone is home
+  - alias: Dock the vacuum if it's mid-run now that someone is home, and it isn't stuck
     note: >-
       Also folded in from automation.household_vacuum_stops_for_occupants. A
       commanded dock cancels the active job on this unit -- expected, see
-      guides/vacuum_cleaning_routine.md.
+      guides/vacuum_cleaning_routine.md. Gated on
+      binary_sensor.living_room_vacuum_stuck being off -- confirmed
+      2026-09-28 that a Robot Trapped fault can clear (state -> cleaning)
+      while the unit is still mechanically obstructed, so return_to_base
+      would just command more movement into whatever it's caught on instead
+      of actually sending it home.
     if:
       - condition: state
         entity_id: vacuum.living_room_vacuum
         state: cleaning
+        alias: Vacuum is cleaning
+      - condition: state
+        entity_id: binary_sensor.living_room_vacuum_stuck
+        state: "off"
+        alias: Vacuum is not actually stuck
     then:
       - alias: Send the vacuum back to its dock
         action: vacuum.return_to_base
         target:
           entity_id: vacuum.living_room_vacuum
+    else:
+      - alias: If it looked like a dock was due but the vacuum is stuck, say so instead
+        if:
+          - condition: state
+            entity_id: binary_sensor.living_room_vacuum_stuck
+            state: "on"
+            alias: Vacuum is stuck
+        then:
+          - alias: Tell Nate the vacuum is stuck rather than docking it
+            action: notify.send_message
+            target:
+              entity_id: notify.nates_iphone
+            data:
+              title: Vacuum
+              message: Vacuum looks stuck -- didn't send it to dock automatically. Go check on it.
 mode: single
 category: 01M08R77W9A83G7DDA33MT8R09

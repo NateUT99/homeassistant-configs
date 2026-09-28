@@ -3,11 +3,16 @@ alias: "Household: Vacuum Live Activity"
 description: >-
   Drives the iOS Live Activity for the Roborock vacuum, independent of which
   automation commanded the job -- watches vacuum.living_room_vacuum's own
-  state rather than any zone-specific helper, so no change is needed when a
-  job-start path is added or removed. Suppressed while everyone is asleep.
-  The 5-minute tick sends periodic-tick refreshes; real transitions (start,
-  pause, return, error, finish) always send a normal update. Title reflects
-  mop vs. vacuum-only (frozen once the card is created, per iOS); the message
+  state and binary_sensor.living_room_vacuum_stuck rather than any
+  zone-specific helper, so no change is needed when a job-start path is added
+  or removed. Suppressed while everyone is asleep. The 5-minute tick sends
+  periodic-tick refreshes; real transitions (start, pause, return, stuck,
+  finish) always send a normal update. The stuck branch keys off
+  binary_sensor.living_room_vacuum_stuck instead of the raw fault sensor --
+  confirmed 2026-09-28 that a Robot Trapped fault can clear while the vacuum
+  is still mechanically obstructed and making no real progress, so trusting
+  the device's own error sensor alone missed that window. Title reflects mop
+  vs. vacuum-only (frozen once the card is created, per iOS); the message
   combines status and room. See guides/vacuum_cleaning_routine.md and
   guides/live_activities.md.
 triggers:
@@ -16,6 +21,16 @@ triggers:
     entity_id: vacuum.living_room_vacuum
     to: [cleaning, paused, returning, error]
     id: state_change
+  - alias: Vacuum left the cleaning state, for any reason
+    id: left_cleaning
+    trigger: state
+    entity_id: vacuum.living_room_vacuum
+    from: cleaning
+    note: >-
+      No to: filter -- catches every destination, including idle, without
+      needing to enumerate one we might not have seen yet. Added 2026-09-28
+      after a cleaning -> idle transition (still faulted underneath) went
+      unnoticed between coarse ticks.
   - alias: Vacuum job finished
     id: job_finished
     trigger: state
@@ -31,6 +46,13 @@ triggers:
     trigger: state
     entity_id: sensor.living_room_vacuum_vacuum_error
     id: error_change
+  - alias: Stuck status changed
+    id: stuck_change
+    trigger: state
+    entity_id: binary_sensor.living_room_vacuum_stuck
+    note: >-
+      Catches a silent stall -- state stays cleaning the whole time, so
+      nothing else here fires when this flips.
   - alias: Coarse progress tick while a job may be active
     trigger: time_pattern
     minutes: "/5"
@@ -51,20 +73,13 @@ triggers:
 actions:
   - alias: Reconcile vacuum live activity from current state
     choose:
-      - alias: Vacuum error
+      - alias: Vacuum stuck
         conditions:
-          - condition: or
-            conditions:
-              - condition: state
-                entity_id: vacuum.living_room_vacuum
-                state: error
-              - condition: not
-                conditions:
-                  - condition: state
-                    entity_id: sensor.living_room_vacuum_vacuum_error
-                    state: none
+          - condition: state
+            entity_id: binary_sensor.living_room_vacuum_stuck
+            state: "on"
         sequence:
-          - alias: Show error card
+          - alias: Show stuck card
             action: script.household_live_activity
             data:
               tag: household-vacuum
@@ -73,7 +88,7 @@ actions:
               message: >-
                 {{ 'Vacuum error — ' ~ (vacuum_error | replace('_', ' ') |
                 title) if vacuum_error not in ['none', 'unknown',
-                'unavailable'] else 'Vacuum error — check the app' }}
+                'unavailable'] else 'Vacuum stuck — check on it' }}
               icon: mdi:robot-vacuum-alert
       - alias: Cleaning, everyone awake
         conditions:
@@ -102,10 +117,10 @@ actions:
               Live Activities. Area cleaned still surfaces on the done card
               message. Title carries mop-vs-vacuum type (frozen once the
               card is created); message combines status and room. started_at
-              (elapsed chronometer) was tried here and reverted -- it
-              replaced the room in the message slot instead of coexisting
-              with it, and the room is the more useful of the two. See
-              LESSONS.md -> iOS Live Activities.
+              (elapsed-time chronometer) was tried here and reverted -- on
+              this card it replaced the room in the message slot instead of
+              coexisting with it, and the room is the more useful of the
+              two. See LESSONS.md -> iOS Live Activities.
       - alias: Paused
         conditions:
           - condition: state
@@ -215,4 +230,6 @@ variables:
     'Vacuum' }}
 mode: queued
 max: 10
+trace:
+  stored_traces: 20
 category: 01M0XF7RJK5EX3A4YPNEX7X3DG
