@@ -243,7 +243,10 @@ wall-paddle turn-on; it does not guarantee an exact landing, since `OnLevel` is 
 0–254 value re-staged periodically rather than a live command. Rather than accept that gap,
 this forces a 2-second correction on every turn-on regardless of source, closing it instead of
 waiting on AL's normal ~45s adaptation cycle. On a turn-on `intercept` already caught (HA
-dashboard, scripts, Apple Home via Matter Hub), the call is a no-op.
+dashboard, scripts), the call is a no-op. The three canopy fixtures are directly commissioned
+to both the Home Assistant and Apple Home Matter fabrics (multi-admin, see
+`guides/inovelli_switches.md`), so an Apple Home turn-on bypasses HA's service layer the same
+way the wall paddle does — `intercept` never sees it, and this snap is what corrects it.
 
 ## Scale Reference
 
@@ -331,11 +334,9 @@ working as designed; pre-staging did not land it on the curve, so the fast corre
 fire. Check the wall-control automation's trace for the "Ceiling light changed" run: either
 the light was already in `manual_control_brightness` (so the snap correctly stood down — check
 whether that's right), or the `adaptive_lighting.apply` call itself errored (check the trace's
-action result). If this happens on an Apple Home turn-on specifically, confirm the light and
-fan still carry the `matterhub` label and that Apple Home is commanding the Matter Hub-bridged
-accessory, not a stale direct-Matter one — a turn-on that bypasses HA's `light.turn_on`
-entirely depends on the same `OnLevel` pre-staging as the wall paddle and won't be caught by
-`intercept`.
+action result). A brief flash-then-correct on an Apple Home turn-on is expected — same as the
+wall paddle, since both bypass HA's `light.turn_on` and depend on this snap rather than
+`intercept`. Only a flash that never corrects is a problem.
 
 **Diagnosing AL itself.** The config entry's **Download diagnostics** action (v1.32.0) dumps
 the full instance state — prefer it over reading logs.
