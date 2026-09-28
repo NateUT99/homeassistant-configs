@@ -22,7 +22,7 @@ template:
         entity_id: sensor.living_room_vacuum_cleaning_area
         alias: Cleaned area changed
     binary_sensor:
-      - name: "Living Room Vacuum Stuck"
+      - name: "Vacuum Stuck"
         unique_id: living_room_vacuum_stuck
         device_class: problem
         state: >-

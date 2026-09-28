@@ -1,7 +1,7 @@
 id: "1790615316878"
 alias: "Household: Vacuum Stuck Alert"
 description: >-
-  One TTS heads-up when binary_sensor.living_room_vacuum_stuck turns on, only
+  One TTS heads-up when binary_sensor.vacuum_stuck turns on, only
   if someone's home and awake. Added 2026-09-28 after a Robot Trapped fault
   went unnoticed until physically discovered -- the only prior signal was a
   passive Live Activity card. No push here: Household: Vacuum Live Activity's
@@ -11,7 +11,7 @@ description: >-
 triggers:
   - alias: Vacuum became stuck
     trigger: state
-    entity_id: binary_sensor.living_room_vacuum_stuck
+    entity_id: binary_sensor.vacuum_stuck
     to: "on"
 conditions:
   - condition: numeric_state

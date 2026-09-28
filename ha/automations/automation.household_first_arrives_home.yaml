@@ -38,7 +38,7 @@ actions:
       Also folded in from automation.household_vacuum_stops_for_occupants. A
       commanded dock cancels the active job on this unit -- expected, see
       guides/vacuum_cleaning_routine.md. Gated on
-      binary_sensor.living_room_vacuum_stuck being off -- confirmed
+      binary_sensor.vacuum_stuck being off -- confirmed
       2026-09-28 that a Robot Trapped fault can clear (state -> cleaning)
       while the unit is still mechanically obstructed, so return_to_base
       would just command more movement into whatever it's caught on instead
@@ -49,7 +49,7 @@ actions:
         state: cleaning
         alias: Vacuum is cleaning
       - condition: state
-        entity_id: binary_sensor.living_room_vacuum_stuck
+        entity_id: binary_sensor.vacuum_stuck
         state: "off"
         alias: Vacuum is not actually stuck
     then:
@@ -61,7 +61,7 @@ actions:
       - alias: If it looked like a dock was due but the vacuum is stuck, say so instead
         if:
           - condition: state
-            entity_id: binary_sensor.living_room_vacuum_stuck
+            entity_id: binary_sensor.vacuum_stuck
             state: "on"
             alias: Vacuum is stuck
         then:

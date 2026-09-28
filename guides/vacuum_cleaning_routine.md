@@ -18,7 +18,7 @@ active Roborock job, and `sensor.<vacuum>_current_room` is too noisy to track ro
 completion — see `LESSONS.md` → *Vacuum & Roborock*.
 
 A stall check, not just the device's own fault reporting, determines whether the vacuum is
-genuinely stuck: `binary_sensor.living_room_vacuum_stuck` (`ha/packages/vacuum_stuck.yaml`) is
+genuinely stuck: `binary_sensor.vacuum_stuck` (`ha/packages/vacuum_stuck.yaml`) is
 on when the Roborock fault sensor is set, or when the vacuum reports `cleaning` but
 `sensor.<vacuum>_cleaning_area` hasn't moved in 3 minutes. The Roborock integration's own fault
 state can clear while the unit is still mechanically obstructed — see `LESSONS.md` → *Vacuum &
@@ -86,7 +86,7 @@ sensor rather than the raw fault sensor alone.
   clears the vacuum routine-pause flag              running/paused/done/stuck/clear,
                                                      suppressed (except stuck) while everyone_sleeping
 
-  binary_sensor.living_room_vacuum_stuck            Household: Vacuum Stuck Alert
+  binary_sensor.vacuum_stuck            Household: Vacuum Stuck Alert
   (ha/packages/vacuum_stuck.yaml) -- on when the     trigger: stuck sensor -> on
   fault sensor is set, OR state is cleaning with     TTS-only heads-up, only if someone's
   no cleaning_area change for 3 minutes              home and awake
@@ -357,7 +357,7 @@ being on the morning after an actual mop night.
 | Household: Vacuum Stuck Alert | `automation.household_vacuum_stuck_alert` | Automation (TTS heads-up when the vacuum is stuck and someone's home and awake) |
 | Live Activity dispatch | `script.household_live_activity` | Script |
 | TTS dispatch | `script.household_tts_announce` | Script |
-| Vacuum Stuck | `binary_sensor.living_room_vacuum_stuck` | Template sensor (`ha/packages/vacuum_stuck.yaml`, repo-authoritative) |
+| Vacuum Stuck | `binary_sensor.vacuum_stuck` | Template sensor (`ha/packages/vacuum_stuck.yaml`, repo-authoritative) |
 | Vacuum Daytime Max Progress | `input_number.vacuum_daytime_max_progress` | Helper |
 | Vacuum Ran Evening | `input_boolean.vacuum_ran_evening` | Helper |
 | Vacuum Ran Daytime | `input_boolean.vacuum_ran_daytime` | Helper |
@@ -392,4 +392,4 @@ being on the morning after an actual mop night.
 
 **The master-suite follow-up skips with "the water module isn't seated."** The 2-in-1 dustbin + water module was pulled to refill the tank and hasn't been reseated by the time the 15-minute grace window elapses. Reseat it before the window closes, or wait for the next mop night — the follow-up doesn't retry later the same morning.
 
-**Arrival doesn't dock the vacuum even though it looks like it's cleaning.** Check `binary_sensor.living_room_vacuum_stuck` — *Household: First Arrives Home* deliberately withholds `return_to_base` while it's `on` and pushes a notification instead, since commanding a stuck vacuum to move just adds another movement command on top of whatever it's caught on. Clear the physical obstruction first; the sensor drops back to `off` within a minute of real progress resuming.
+**Arrival doesn't dock the vacuum even though it looks like it's cleaning.** Check `binary_sensor.vacuum_stuck` — *Household: First Arrives Home* deliberately withholds `return_to_base` while it's `on` and pushes a notification instead, since commanding a stuck vacuum to move just adds another movement command on top of whatever it's caught on. Clear the physical obstruction first; the sensor drops back to `off` within a minute of real progress resuming.

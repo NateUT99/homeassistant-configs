@@ -3,12 +3,12 @@ alias: "Household: Vacuum Live Activity"
 description: >-
   Drives the iOS Live Activity for the Roborock vacuum, independent of which
   automation commanded the job -- watches vacuum.living_room_vacuum's own
-  state and binary_sensor.living_room_vacuum_stuck rather than any
+  state and binary_sensor.vacuum_stuck rather than any
   zone-specific helper, so no change is needed when a job-start path is added
   or removed. Suppressed while everyone is asleep. The 5-minute tick sends
   periodic-tick refreshes; real transitions (start, pause, return, stuck,
   finish) always send a normal update. The stuck branch keys off
-  binary_sensor.living_room_vacuum_stuck instead of the raw fault sensor --
+  binary_sensor.vacuum_stuck instead of the raw fault sensor --
   confirmed 2026-09-28 that a Robot Trapped fault can clear while the vacuum
   is still mechanically obstructed and making no real progress, so trusting
   the device's own error sensor alone missed that window. Title reflects mop
@@ -49,7 +49,7 @@ triggers:
   - alias: Stuck status changed
     id: stuck_change
     trigger: state
-    entity_id: binary_sensor.living_room_vacuum_stuck
+    entity_id: binary_sensor.vacuum_stuck
     note: >-
       Catches a silent stall -- state stays cleaning the whole time, so
       nothing else here fires when this flips.
@@ -76,7 +76,7 @@ actions:
       - alias: Vacuum stuck
         conditions:
           - condition: state
-            entity_id: binary_sensor.living_room_vacuum_stuck
+            entity_id: binary_sensor.vacuum_stuck
             state: "on"
         sequence:
           - alias: Show stuck card
