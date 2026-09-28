@@ -8,7 +8,7 @@ Automates the Roborock Q8 Max Plus (`vacuum.living_room_vacuum`) to clean the ho
 independent schedules: a quiet pass over shared common areas in the evening, and a
 whole-house pass during the day whenever the house is empty and hasn't been cleaned yet. Once
 a week, on whatever night Avery is away, the evening pass doubles as a mop pass, followed the
-next morning by a short master-suite mop while the pad is still fitted. Eight standalone
+next morning by a short master-suite mop while the pad is still fitted. Seven standalone
 automations plus two blocks folded into the presence automations implement the whole routine,
 each covering one trigger source (bedtime, wake, departure, arrival, noon, a fixed clock time,
 or the vacuum getting stuck) rather than one physical zone, so that automations doing
@@ -51,15 +51,17 @@ card key off this sensor rather than the raw fault sensor alone.
         │ or kitchen/living/  │            └──────────┬──────────────┘
         │ pantry/utility +    │                       │
         │ entrance/bath if    │                       ▼
-        │ Avery away tonight  │        ┌────────────────────────────────────┐
-        └──────────┬──────────┘        │ Household: Vacuum Progress Tracking │
-                   │                    │ progress ticks -> raise the stored  │
-                   │                    │ daytime max; returning -> mark      │
-                   │                    │ vacuum_ran_daytime if max > 65%     │
-                   │                    └────────────────────────────────────┘
-                   ▼
+        │ Avery away tonight  │                       │
+        └──────────┬──────────┘                       │
+                   │                                   │
+                   └───────────────┬───────────────────┘
+                                    ▼
         input_select.vacuum_active_zone = evening | daytime | away | master_mop
         (only "daytime" gates a decision -- the others are a debugging breadcrumb)
+                                    │
+                                    └─ read by Household: Vacuum Live Activity's
+                                       daytime-completion check (below) and its
+                                       amber "will restart" branch
 
      ┌──────────────────────────────────────────────┐
      │ Household: Vacuum Evening Cleaning            │
@@ -82,18 +84,20 @@ card key off this sensor rather than the raw fault sensor alone.
   Household: Vacuum Reset                           Household: Vacuum Mop Pad Reminders
   triggers: 08:00 daily, 12:00 Mondays               triggers: every 30m from prep_check,
   08:00 clears both ran-today flags, routine-        vacuum re-dock, 17:00, pad removed
-  pause, mop-skip-today, daytime max progress;        latches vacuum_avery_home_tonight every
-  12:00 Monday additionally clears both weekly        20:00-23:59 tick (window opens 19:55,
-  mop flags -- split off 08:00 so a Sunday mop's      first tick lands 20:00); brackets mop
-  morning follow-up survives a late wake              night with a prep nudge + cleanup nudge
+  pause, mop-skip-today; 12:00 Monday                latches vacuum_avery_home_tonight every
+  additionally clears both weekly mop flags --       20:00-23:59 tick (window opens 19:55,
+  split off 08:00 so a Sunday mop's morning           first tick lands 20:00); brackets mop
+  follow-up survives a late wake                      night with a prep nudge + cleanup nudge
 
   Household: First Arrives Home                     Household: Vacuum Live Activity
   (confirmed-arrival block)                         trigger: vacuum state change, error sensor,
-  docks the vacuum if mid-run and not stuck,         stuck-sensor change, every 5 min; reconciles ->
-  clears the vacuum routine-pause flag               running/paused/done/stuck/clear. Running and
-                                                      returning suppressed while everyone_sleeping;
-                                                      the done card still posts, but silenced via
-                                                      periodic_tick overnight
+  docks the vacuum if mid-run and not stuck,         stuck-sensor change, every 5 min; marks the
+  clears the vacuum routine-pause flag               daytime zone done once live progress clears
+                                                      65% (any trigger, gated to daytime), then
+                                                      reconciles -> running/paused/done/stuck/clear.
+                                                      Running and returning suppressed while
+                                                      everyone_sleeping; the done card still posts,
+                                                      but silenced via periodic_tick overnight
 
   Household: Vacuum Setting Defaults                 binary_sensor.vacuum_stuck
   triggers: vacuum docks, pad clips on               (ha/packages/vacuum_stuck.yaml) -- on when the
@@ -202,11 +206,10 @@ by testing whether `app_segment_clean` targeting it actually starts a job (`stat
 
 ### 2. Create the helpers
 
-Ten helpers back the routine, all under the `int_vacuum_cleaning_routine` label:
+Nine helpers back the routine, all under the `int_vacuum_cleaning_routine` label:
 
-- `input_number.vacuum_daytime_max_progress` — running maximum progress seen in the daytime zone since the last reset. Needed because a commanded dock (someone arriving home mid-run) resets live progress to 0, but "best coverage achieved today" has to survive that. The evening zone has no equivalent — nothing docks it mid-run, so it is marked done on command rather than on verified coverage.
-- `input_boolean.vacuum_ran_evening`, `input_boolean.vacuum_ran_daytime` — per-zone daily completion flags. `vacuum_ran_daytime` is set by *Vacuum Progress Tracking* once coverage clears the threshold, or on command by *Vacuum Midday Prompt*; `vacuum_ran_evening` is set on command by *Vacuum Evening Cleaning* or *Vacuum Midday Prompt*'s whole-house branch. Both are daily, cleared at 08:00 — separate from the weekly mop-completion flags below.
-- `input_select.vacuum_active_zone` (`evening` / `daytime` / `away` / `master_mop`) — set the moment a job is commanded. Only `daytime` gates a decision: *Vacuum Progress Tracking*'s condition and *Vacuum Live Activity*'s amber "will restart" branch both key off it specifically. `evening`, `away`, and `master_mop` are written on every job but never read back for anything — they exist as a debugging breadcrumb (which zone commanded the vacuum's current or most recent job), not as a control input.
+- `input_boolean.vacuum_ran_evening`, `input_boolean.vacuum_ran_daytime` — per-zone daily completion flags. `vacuum_ran_daytime` is set by *Vacuum Live Activity*'s daytime-completion check once live progress clears the threshold, or on command by *Vacuum Midday Prompt*; `vacuum_ran_evening` is set on command by *Vacuum Evening Cleaning* or *Vacuum Midday Prompt*'s whole-house branch. Both are daily, cleared at 08:00 — separate from the weekly mop-completion flags below.
+- `input_select.vacuum_active_zone` (`evening` / `daytime` / `away` / `master_mop`) — set the moment a job is commanded. Only `daytime` gates a decision: *Vacuum Live Activity*'s daytime-completion check and its amber "will restart" branch both key off it specifically. `evening`, `away`, and `master_mop` are written on every job but never read back for anything — they exist as a debugging breadcrumb (which zone commanded the vacuum's current or most recent job), not as a control input.
 - `input_boolean.vacuum_routine_pause` — a per-trip "I'm stepping out briefly, don't start" flag. Nothing in HA arms it; it's a manual toggle (dashboard or Companion App) flipped on right before a departure that shouldn't start a job, cleared automatically by *Household: First Arrives Home* on the next confirmed arrival so it never survives to block a later real departure.
 - `input_boolean.vacuum_mop_common_areas_done_this_week`, `input_boolean.vacuum_mop_master_suite_done_this_week` — the two weekly mop-completion flags. Since mop night floats to whatever night Avery is away rather than a fixed weekday, these (not a calendar condition) are what stop each half of the mop pass from running more than once a week. *Household: Vacuum Reset* clears both at 12:00 every Monday — deliberately not the daily 08:00 reset, so a Sunday-night mop's morning follow-up isn't cut short by a late wake; see [Step 3](#3-build-the-automations).
 - `input_datetime.vacuum_master_mop_last_run` (date only) — the date the master-suite follow-up last completed. *Household: Last Leaves Home* compares this against today's date to drop segments 19/21 from that day's daytime pass. A date, not the `active_zone` select: that select gets overwritten by the very next job commanded (including the daytime pass itself), so it can't reliably answer "did this happen today" once a second job has started.
@@ -215,9 +218,9 @@ Ten helpers back the routine, all under the `int_vacuum_cleaning_routine` label:
 
 ### 3. Build the automations
 
-Eight standalone vacuum automations (*Vacuum Evening Cleaning*, *Vacuum Progress Tracking*,
-*Vacuum Reset*, *Vacuum Midday Prompt*, *Vacuum Mop Pad Reminders*, *Vacuum Live Activity*,
-*Vacuum Setting Defaults*, *Vacuum Stuck Alert*), plus two blocks folded into the presence
+Seven standalone vacuum automations (*Vacuum Evening Cleaning*, *Vacuum Reset*, *Vacuum Midday
+Prompt*, *Vacuum Mop Pad Reminders*, *Vacuum Live Activity*, *Vacuum Setting Defaults*, *Vacuum
+Stuck Alert*), plus two blocks folded into the presence
 automations: the daytime-start block in *Household: Last Leaves Home* and the arrival dock +
 routine-pause clear in *Household: First Arrives Home*. All described in the architecture
 diagram above. Live YAML for each is in
@@ -230,8 +233,8 @@ YAML alone:
 - **The evening trigger is just "everyone's been asleep for 1 hour," with no clock-time window.** `everyone_sleeping` is only ever used at actual bedtime, never naps, so a time window would only risk blocking a genuinely early or late bedtime.
 - **The nightly branch's four fixed segments have no presence gate.** Kitchen, Living Room, Pantry, and Utility Room are on hard flooring that cleans well at quiet fan speed and sits clear of the bedroom hall, so those four run every night regardless of who is home. The Bathroom and Entrance are the two segments gated on presence: the daytime side reads `binary_sensor.avery_home_today` directly (always evaluated during the day), the nightly side reads `input_boolean.vacuum_avery_home_tonight` (latched before the date can roll over) — landing in exactly one list per vacuum-day either way.
 - **Vacuum Midday Prompt fires daily at noon whenever the house is empty and the daytime zone hasn't run — one check that covers both a missed departure edge and an absence of any length.** A departure before 08:00 or in the 08:00-09:00 window falls outside *Last Leaves Home*'s block, and nothing else ever clears `vacuum_ran_daytime` except a real clean, so the same noon check catches both. It runs a whole-house `vacuum.start` (see that action's own `note` for the docked/segment-list caveats) rather than a segmented daytime-only clean, since the check can't tell a brief gap from a multi-day absence apart.
-- **Vacuum Progress Tracking combines two tightly-coupled roles in one entity**: what writes the daytime max-progress number and what reads it to mark the zone done, since both act on the same signal for the same reason.
-- **Vacuum Reset splits its two clears onto different triggers on purpose.** The daily 08:00 boundary (ran-today flags, routine-pause, mop-skip-today, daytime max progress) and the Monday weekly-mop-flag clear don't share a trigger — the weekly clear fires at 12:00 instead, since an 08:00 firing can land before a late wake finishes the master-suite follow-up from a Sunday-night mop, clearing `vacuum_mop_common_areas_done_this_week` out from under it.
+- **Vacuum Live Activity also owns the daytime zone's completion check**, folded in from the former Vacuum Progress Tracking automation: any of its own triggers (a status transition or the 5-minute tick) checks whether live progress has cleared 65% while `active_zone` is `daytime`, and marks `vacuum_ran_daytime` on if so. No dedicated progress-sensor trigger or stored running-max helper is needed — `sensor.<vacuum>_cleaning_progress` resets roughly 20 seconds *after* the relevant state transition, not before it (`LESSONS.md` → *Vacuum & Roborock*), so sampling at every transition reliably beats the reset, and the write is sticky once made.
+- **Vacuum Reset splits its two clears onto different triggers on purpose.** The daily 08:00 boundary (ran-today flags, routine-pause, mop-skip-today) and the Monday weekly-mop-flag clear don't share a trigger — the weekly clear fires at 12:00 instead, since an 08:00 firing can land before a late wake finishes the master-suite follow-up from a Sunday-night mop, clearing `vacuum_mop_common_areas_done_this_week` out from under it.
 - **The master-suite follow-up's segment-list read happens before the next daytime pass overwrites the signal it depends on.** *Household: Last Leaves Home* builds `daytime_segments` from `input_datetime.vacuum_master_mop_last_run` compared against today's date, immediately before setting `active_zone` to `daytime` — the date helper isn't touched by that write, so read-before-write ordering is what makes the drop reliable.
 - **Vacuum Setting Defaults centralizes device-state restoration** so no job-starting automation has to manage it inline: fan speed resets to `max` on every dock, and mop intensity resets to `high` whenever the pad clips on. This is why neither *Household: Last Leaves Home* nor *Vacuum Midday Prompt* sets a fan speed before starting a daytime job — the prior dock already restored `max`.
 - **The arrival dock and the routine-pause clear both live in *Household: First Arrives Home***, on the same confirmed-arrival trigger, rather than the pause-clear having its own automation watching raw `zone.home` — this household tracks only Nate (and, when toggled, a guest) via `zone.home`, so `arrival_confirmed` already covers every arrival that matters here.
@@ -315,8 +318,8 @@ pad off) and starts a segment clean at `fan: balanced` / `mop: high`. Master Clo
 
 The branch sets `input_select.vacuum_active_zone` to `master_mop` and turns on
 `vacuum_mop_master_suite_done_this_week` and stamps `input_datetime.vacuum_master_mop_last_run`
-with today's date on success. The zone value keeps *Vacuum Progress Tracking* (gated on
-`daytime`) from attributing this run to the daytime zone; the date stamp is what *Household:
+with today's date on success. The zone value keeps *Vacuum Live Activity*'s daytime-completion
+check (gated on `daytime`) from attributing this run to the daytime zone; the date stamp is what *Household:
 Last Leaves Home*'s segment-list template reads to drop segments 19 and 21 from that day's
 daytime pass. The done flag is what stops the follow-up from re-attempting later the same week;
 *Household: Vacuum Reset* clears it every Monday.
@@ -380,17 +383,15 @@ still being on the morning after an actual mop night, not to which path started 
 | Household: Vacuum Mop Now | `script.household_vacuum_mop_now` | Script (ad hoc mop pass over the six common-area rooms) |
 | Household: Last Leaves Home | `automation.household_last_leaves_home` | Automation (contains the daytime-start block) |
 | Household: First Arrives Home | `automation.household_first_arrives_home` | Automation (contains the arrival dock and vacuum routine-pause clear) |
-| Household: Vacuum Progress Tracking | `automation.household_vacuum_progress_tracking` | Automation (tracks daytime max progress + marks the zone done) |
 | Household: Vacuum Reset | `automation.household_vacuum_reset` | Automation (daily 08:00 flag reset + Monday 12:00 weekly mop reset) |
 | Household: Vacuum Midday Prompt | `automation.household_vacuum_midday_prompt` | Automation (noon prompt for a whole-house catch-up clean) |
 | Household: Vacuum Mop Pad Reminders | `automation.household_vacuum_mop_pad_reminders` | Automation (prep + cleanup nudges, plus the Avery-tonight latch) |
-| Household: Vacuum Live Activity | `automation.household_vacuum_live_activity` | Automation (iOS Lock Screen card, covers every job-start path) |
+| Household: Vacuum Live Activity | `automation.household_vacuum_live_activity` | Automation (iOS Lock Screen card, covers every job-start path; also marks the daytime zone done) |
 | Household: Vacuum Stuck Alert | `automation.household_vacuum_stuck_alert` | Automation (TTS heads-up when the vacuum is stuck and someone's home and awake) |
 | Household: Vacuum Setting Defaults | `automation.household_vacuum_setting_defaults` | Automation (resets fan speed to max on dock, mop intensity to high on pad attach) |
 | Live Activity dispatch | `script.household_live_activity` | Script |
 | TTS dispatch | `script.household_tts_announce` | Script |
 | Vacuum Stuck | `binary_sensor.vacuum_stuck` | Template sensor (`ha/packages/vacuum_stuck.yaml`, repo-authoritative) |
-| Vacuum Daytime Max Progress | `input_number.vacuum_daytime_max_progress` | Helper |
 | Vacuum Ran Evening | `input_boolean.vacuum_ran_evening` | Helper |
 | Vacuum Ran Daytime | `input_boolean.vacuum_ran_daytime` | Helper |
 | Vacuum Active Zone | `input_select.vacuum_active_zone` | Helper |
@@ -420,7 +421,7 @@ still being on the morning after an actual mop night, not to which path started 
 
 **Evening common-area pass doesn't start.** Do Not Disturb is on 20:00–08:00 on this unit, overlapping the evening window. Roborock DND is expected to allow commanded starts (only blocking scheduled cleans and auto-resume) while muting voice prompts. If a night consistently fails to start with no other condition explaining it, check whether DND is silently blocking the `app_segment_clean` command, and narrow the DND window if so rather than toggling DND off around the run.
 
-**`vacuum_ran_daytime` never flips on despite the vacuum apparently finishing.** Check `input_select.vacuum_active_zone` at the time the job completed — if a job was started manually outside these automations (e.g., from the Roborock app), the active-zone helper won't reflect it, and *Vacuum Progress Tracking* will silently attribute progress to whichever zone the helper happened to already be set to. (`vacuum_ran_evening` can't hit this the same way — it's set when a job is commanded, not when it finishes.)
+**`vacuum_ran_daytime` never flips on despite the vacuum apparently finishing.** Check `input_select.vacuum_active_zone` at the time the job completed — if a job was started manually outside these automations (e.g., from the Roborock app), the active-zone helper won't reflect it, and *Vacuum Live Activity*'s daytime-completion check will silently attribute progress to whichever zone the helper happened to already be set to. (`vacuum_ran_evening` can't hit this the same way — it's set when a job is commanded, not when it finishes.)
 
 **The nightly pass or the mop branch ran on the wrong night relative to Avery's calendar.** Check `input_boolean.vacuum_avery_home_tonight` against `binary_sensor.avery_home_today` at the time the pass fired — if they disagree, the latch window (opens 19:55, first tick 20:00, holds through 23:59) in *Vacuum Mop Pad Reminders* may not have ticked (an HA restart landing exactly at a tick boundary, or a config reload disabling that automation briefly) between the last correct snapshot and the run. The window is self-healing on the next tick; a single missed night should self-correct the following evening.
 

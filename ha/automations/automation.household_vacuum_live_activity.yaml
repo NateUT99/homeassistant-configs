@@ -5,7 +5,10 @@ description: >-
   automation commanded the job -- watches vacuum.living_room_vacuum's own
   state and binary_sensor.vacuum_stuck rather than any
   zone-specific helper, so no change is needed when a job-start path is added
-  or removed. Running and returning cards are suppressed while everyone is
+  or removed. Also marks the daytime zone done once live progress clears 65%
+  (absorbed from Household: Vacuum Progress Tracking -- reuses this
+  automation's own triggers instead of a dedicated progress-sensor trigger).
+  Running and returning cards are suppressed while everyone is
   asleep; the done card still posts on job finish, but goes out with
   periodic_tick (lower APNs priority) while asleep so it doesn't light the
   screen overnight. The 5-minute tick sends periodic-tick refreshes; real
@@ -74,6 +77,32 @@ triggers:
       returning-transition -- a real trigger, not coarse_tick, so it's
       never silenced.
 actions:
+  - alias: Mark daytime zone done once live progress clears 65%
+    if:
+      - condition: state
+        entity_id: input_select.vacuum_active_zone
+        state: daytime
+        alias: Daytime zone commanded the current job
+      - condition: numeric_state
+        entity_id: sensor.living_room_vacuum_cleaning_progress
+        above: 65
+        alias: Live progress has cleared 65%
+        note: Below 100 because several daytime rooms may have a closed door, capping achievable progress in a way retrying won't fix.
+    then:
+      - alias: Mark daytime zone ran today
+        action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.vacuum_ran_daytime
+    note: >-
+      Merged from Household: Vacuum Progress Tracking, reusing this
+      automation's own triggers instead of a dedicated progress-sensor
+      trigger. Checking live progress at every status transition and the
+      5-minute tick is enough on its own -- no stored max needed -- since
+      the reset lags the relevant transition by ~20s (LESSONS.md -> Vacuum
+      & Roborock) and the write here is sticky once made. Gated to
+      daytime: the evening zone's nightly job would otherwise falsely
+      satisfy this threshold on a night the daytime zone fell short
+      earlier. See guides/vacuum_cleaning_routine.md.
   - alias: Reconcile vacuum live activity from current state
     choose:
       - alias: Vacuum stuck

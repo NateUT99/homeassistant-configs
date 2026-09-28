@@ -663,6 +663,12 @@ Require the vacuum to have *been* `cleaning` for the same dwell window (`now() -
 
 Confirmed 2026-09-28 on the Q8 Max Plus: with `binary_sensor.<vacuum>_mop_attached` off, the unit disables its mop-side components (no water pump engagement) regardless of `select.<vacuum>_cleaning_mode`'s value (`vacuum` vs. `vac_and_mop`). The select is a preference for *when the pad is on*, not an independent enable/disable — whether a given run actually mops is determined solely by whether the pad is physically clipped on. Leaving the select permanently at `vac_and_mop` and never touching it from an automation is safe; there is no need to explicitly set `vacuum` for a vacuum-only pass, or `vac_and_mop` before a mop pass. See `guides/vacuum_cleaning_routine.md` → *Weekly Mop Pass*.
 
+### `cleaning_progress` resets ~20s after the relevant state transition, not before it
+
+Confirmed 2026-09-28: after a Robot Trapped fault, the vacuum re-entered `cleaning` at 12:33:11 still holding live progress at 48 (from before the fault); `sensor.<vacuum>_cleaning_progress` didn't reset to 0 until 12:33:30 -- 19 seconds later. A genuine job completion the previous night showed the same lag: progress held at 94 through the `returning` transition and only reset 19 seconds afterward.
+
+A completion check keyed to the daytime-zone progress threshold only needs to sample at state transitions (entry into `cleaning`/`paused`/`error`, leaving `cleaning`, `returning`, `docked`) to reliably beat the reset -- no dedicated continuous trigger or stored running-max helper needed. But it must sample at *every* transition, not just the terminal one: in the incident above, sampling only at `returning` would have read 0, since an earlier fault-recovery cycle had already reset it by then. The intermediate `cleaning`-re-entry sample is what caught the true peak. See `guides/vacuum_cleaning_routine.md` → *Architecture* (Household: Vacuum Live Activity's daytime completion check).
+
 ---
 
 ## Zigbee & Lighting Groups
