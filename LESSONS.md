@@ -653,6 +653,16 @@ Confirmed 2026-09-28: the vacuum spent ~10 minutes bumping against an obstructio
 
 Don't trust `sensor.<vacuum>_vacuum_error` == `none` plus `state: cleaning` as proof the robot is actually unstuck. Cross-check against real movement (`cleaning_area` advancing, `current_room` changing) before treating a "recovered" vacuum as safe to command (e.g. `return_to_base`). `binary_sensor.vacuum_stuck` (`ha/packages/vacuum_stuck.yaml`) implements this stall check; see `guides/vacuum_cleaning_routine.md`.
 
+### A stall check keyed only on "currently cleaning" false-positives at the start of every job
+
+`sensor.<vacuum>_cleaning_area` resets to `0.0` shortly *after* `vacuum.<x>` enters `cleaning`, but its `last_changed` timestamp only updates at that reset — so for the first few seconds to ~20 seconds of a new job, `last_changed` can still read minutes-to-hours stale from the *previous* job. A stall check written as `state == cleaning AND now() - cleaning_area.last_changed > 180s` reads that stale gap as "no movement for 3+ minutes" and fires immediately on job start. Confirmed 2026-09-28: a job that started at 12:33:11 had `cleaning_area.last_changed` still at 12:19:52 (a 799 s gap) at the moment the stall condition was evaluated.
+
+Require the vacuum to have *been* `cleaning` for the same dwell window (`now() - states.vacuum.<x>.last_changed > 180s`) as an additional AND clause, not just be cleaning now — a job can't be "stalled" before it's old enough to stall. `binary_sensor.vacuum_stuck` (`ha/packages/vacuum_stuck.yaml`) applies this fix; see `guides/vacuum_cleaning_routine.md`.
+
+### `select.<vacuum>_cleaning_mode` has no observable effect with the mop pad off — mopping is gated by the pad sensor alone
+
+Confirmed 2026-09-28 on the Q8 Max Plus: with `binary_sensor.<vacuum>_mop_attached` off, the unit disables its mop-side components (no water pump engagement) regardless of `select.<vacuum>_cleaning_mode`'s value (`vacuum` vs. `vac_and_mop`). The select is a preference for *when the pad is on*, not an independent enable/disable — whether a given run actually mops is determined solely by whether the pad is physically clipped on. Leaving the select permanently at `vac_and_mop` and never touching it from an automation is safe; there is no need to explicitly set `vacuum` for a vacuum-only pass, or `vac_and_mop` before a mop pass. See `guides/vacuum_cleaning_routine.md` → *Weekly Mop Pass*.
+
 ---
 
 ## Zigbee & Lighting Groups

@@ -5,7 +5,13 @@
 # progress -- the "recovery" was the device's own misreport, not a real one.
 # Combines the raw fault sensor with a stall check (no change to the cleaned-
 # area sensor for 3 minutes while state is cleaning) so a repeat of that false
-# recovery is still caught. See LESSONS.md and guides/vacuum_cleaning_routine.md.
+# recovery is still caught.
+#
+# The stall check also requires the vacuum to have BEEN cleaning for 3+
+# minutes, not just be cleaning now -- sensor.<vacuum>_cleaning_area's
+# last_changed still holds the previous job's stale timestamp for the first
+# few seconds of a new job, which otherwise read as an instant stall. See
+# LESSONS.md and guides/vacuum_cleaning_routine.md.
 
 template:
   - trigger:
@@ -30,6 +36,10 @@ template:
              or states('sensor.living_room_vacuum_vacuum_error') not in
              ['none', 'unknown', 'unavailable']
              or (is_state('vacuum.living_room_vacuum', 'cleaning')
+                 and has_value('sensor.living_room_vacuum_cleaning_area')
+                 and (as_timestamp(now()) -
+                      as_timestamp(states.vacuum.living_room_vacuum.last_changed))
+                     > 180
                  and (as_timestamp(now()) -
                       as_timestamp(states.sensor.living_room_vacuum_cleaning_area.last_changed))
                      > 180) }}
