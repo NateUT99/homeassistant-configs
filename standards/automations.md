@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.20 — September 2026*
+*Version 1.21 — September 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.21 | September 2026 | Corrected §3.2 — `notification` means a push actually lands on a device (`notify.*` or a Live Activity), not merely "sends any kind of notification." A TTS-only automation no longer carries `notification` alongside `text_to_speech`; the two labels no longer imply each other |
 | 1.20 | September 2026 | Amended §5.11 — `event` entities are no longer listed as having no semantic trigger form; `event.received` (shipped 2026.7) is the preferred form, with a note on its required `options.event_type` and its own restart-replay behavior |
 | 1.19 | September 2026 | Added a §5.11 exception: skip the semantic trigger/condition form when the entity's device class misdescribes what the sensor means (Roborock's `mop_attached`/`water_box_attached` reporting as `connectivity`, `water_shortage` as `problem`) — the raw `state` form plus an accurate `alias` reads better than encoding a misleading classification into the trace view |
 | 1.18 | September 2026 | Resolved a §4.1/§4.2 contradiction: integration-scoped entity IDs now use the integration name slugified (`adaptive_lighting`), not a hand-chosen "short code" (`al`), so the §4.2 slug-match check holds for integration scope like it does for area and household scope. Fixed the stale `al_pre_stage_standard` example and the `Adaptive Lighting: Pre-Stage Standard & Color Only` worked example |
@@ -91,15 +92,17 @@ Labels let automations carry orthogonal metadata that categories can't express. 
 
 #### Notification label — color `green`
 
-Applied to every automation that sends a push notification or TTS announcement, regardless of its primary category. Use this to filter "all automations that touch the notification system" across Security, Routines, Maintenance, and other categories.
+Applied to every automation where a push notification actually lands on a device, regardless of its primary category — a direct `notify.*` call, or a Live Activity (itself delivered as an APNs push). Use this to filter "all automations that put something on a screen" across Security, Routines, Maintenance, and other categories.
+
+A TTS-only automation does **not** carry this label. `script.household_tts_announce` includes push-based *fallback* paths (an active video call, an offline target HomePod), but those are failure-mode substitutions for the announcement, not the automation's own delivery mechanism — an automation whose only action is that script is not "an automation that pushes" in the ordinary case. See `automation.household_hvac_exterior_open_pause` for a TTS-only automation correctly carrying no `notification` label.
 
 | Label ID | Friendly Name | When to apply |
 |---|---|---|
-| `notification` | Notification | Any automation with a `notify.*` action |
+| `notification` | Notification | Any automation with a `notify.*` action, or a `script.household_live_activity` action |
 
 #### Text to Speech label — color `green`
 
-Applied to every automation that delivers a spoken TTS announcement, regardless of its primary category. Carries alongside `notification` — TTS automations should have both labels. Use `text_to_speech` to filter specifically for automations that speak, as distinct from those that only push silent notifications.
+Applied to every automation that delivers a spoken TTS announcement, regardless of its primary category. Use `text_to_speech` to filter specifically for automations that speak, as distinct from those that push. It does **not** imply `notification` — see that label's criterion above; apply both only when the automation also has its own `notify.*` (or Live Activity) action.
 
 TTS announcements in this instance are delivered via `script.household_tts_announce`, which performs a video call check before routing to `chime_tts.say` at the resolved HomePod. Automations should call the script rather than `chime_tts.say` directly — the script is what applies the video call check and the per-room volume table. See `guides/chime_tts.md` for the script's fields and behavior.
 
