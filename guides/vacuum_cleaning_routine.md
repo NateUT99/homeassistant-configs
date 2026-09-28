@@ -271,7 +271,8 @@ branch, and its 12:00 gate all check `binary_sensor.living_room_vacuum_mop_attac
 `off`. The daytime block additionally pushes *"Daytime clean skipped — the mop pad is
 still attached"* so the skip is never silent; Midday Prompt self-heals — once the pad comes
 off, the noon check runs the clean it skipped. The nightly common-area run needs no interlock:
-it forces mop intensity `off` on the default branch and covers hard floor only.
+mop water only ever flows through the physically-attached pad, so a dry-vac pass covers hard
+floor only regardless of any select state.
 
 ### Master suite follow-up (the next morning)
 

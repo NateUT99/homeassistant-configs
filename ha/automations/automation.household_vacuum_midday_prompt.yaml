@@ -96,12 +96,6 @@ actions:
           entity_id: vacuum.living_room_vacuum
         data:
           fan_speed: max
-      - alias: Disable mopping -- onboard tank can't be refilled unattended
-        action: select.select_option
-        target:
-          entity_id: select.living_room_vacuum_mop_intensity
-        data:
-          option: "off"
       - alias: Start whole-house clean
         action: vacuum.start
         target:
@@ -117,13 +111,5 @@ actions:
             - input_boolean.vacuum_ran_daytime
             - input_boolean.vacuum_ran_evening
         note: A whole-house pass covers the evening zone too -- marking both prevents a redundant pass that night.
-      - alias: Notify that whole-house cleaning started
-        action: notify.send_message
-        target:
-          entity_id: notify.nates_iphone
-        data:
-          title: Vacuum
-          message: Started a whole-house clean.
-        enabled: false
 mode: single
 category: 01M0XF7RJK5EX3A4YPNEX7X3DG

@@ -170,14 +170,6 @@ actions:
                           and signals this automation's morning follow-up
                           branch that last night's common-area mop happened.
                           Cleared weekly by Household: Vacuum Reset.
-                      - alias: Notify that the weekly mop pass started
-                        action: notify.send_message
-                        target:
-                          entity_id: notify.nates_iphone
-                        data:
-                          title: Vacuum
-                          message: Started the weekly mop pass over the common areas, bathroom, and entrance.
-                        enabled: false
                 default:
                   - alias: Build the vacuum segment list -- add the Entrance only when Avery is away tonight
                     variables:
@@ -189,16 +181,6 @@ actions:
                       Vacuum Midday Prompt both drop segments 17 and 26 from
                       that day's daytime pass whenever this gate adds them
                       here, so neither room is cleaned twice.
-                  - alias: Disable mopping for the vacuum-only pass
-                    action: select.select_option
-                    target:
-                      entity_id: select.living_room_vacuum_mop_intensity
-                    data:
-                      option: "off"
-                    note: >-
-                      The pad and 350 ml tank are fitted by hand, so ordinary
-                      nights are dry-vac only. This dock only empties dust --
-                      it does not wash or dry a pad.
                   - alias: Start segment clean of common areas
                     action: vacuum.send_command
                     target:
@@ -217,18 +199,6 @@ actions:
                       docks the evening run mid-way, so there is no partial
                       run to distinguish. Cleared at 8am by Household:
                       Vacuum Reset.
-                  - alias: Notify that evening cleaning started
-                    action: notify.send_message
-                    target:
-                      entity_id: notify.nates_iphone
-                    data:
-                      title: Vacuum
-                      message: >-
-                        Started cleaning common areas this evening{{ ' plus
-                        the entrance and bathroom' if
-                        is_state('input_boolean.vacuum_avery_home_tonight',
-                        'off') else '' }}.
-                    enabled: false
       - alias: Master suite mop follow-up -- next morning after a mop night
         conditions:
           - condition: trigger
@@ -367,14 +337,6 @@ actions:
                       suite from today's daytime pass -- a date compare
                       rather than input_select.vacuum_active_zone, which the
                       next job commanded always overwrites.
-                  - alias: Notify that the master mop pass started
-                    action: notify.send_message
-                    target:
-                      entity_id: notify.nates_iphone
-                    data:
-                      title: Vacuum
-                      message: Started the master bedroom mop pass.
-                    enabled: false
                 else:
                   - alias: Tell Nate the master mop pass was skipped, and why
                     action: notify.send_message

@@ -158,17 +158,6 @@ actions:
           entity_id: vacuum.living_room_vacuum
         data:
           fan_speed: max
-      - alias: Disable mopping for the daytime pass
-        action: select.select_option
-        target:
-          entity_id: select.living_room_vacuum_mop_intensity
-        data:
-          option: "off"
-        note: >-
-          This pass requires the pad to already be off (see the mop-attached
-          condition above), so this is defense in depth, not a live setting --
-          matches the evening vacuum-only branch and the whole-house pass,
-          both dry-vac only for the same reason.
       - alias: Start segment clean of remaining rooms
         action: vacuum.send_command
         target:
@@ -178,13 +167,6 @@ actions:
           params:
             - segments: "{{ daytime_segments }}"
               repeat: 1
-      - alias: Notify that daytime cleaning started
-        action: notify.send_message
-        target:
-          entity_id: notify.nates_iphone
-        data:
-          title: Vacuum
-          message: Started cleaning remaining rooms.
     else:
       - alias: If the daytime clean was blocked by the mop pad, say so
         note: >-
