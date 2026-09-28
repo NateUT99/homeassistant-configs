@@ -87,7 +87,7 @@ actions:
         data:
           option: away
         note: >-
-          Not daytime -- Vacuum Progress Tracking's 65% threshold assumes
+          Not daytime -- the daytime zone's 65% completion check assumes
           the daytime room set's closed-door coverage cap, which doesn't
           apply to a whole-map job.
       - alias: Start whole-house clean

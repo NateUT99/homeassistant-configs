@@ -90,11 +90,12 @@ actions:
     data: {}
   - alias: Start the daytime vacuum clean of the remaining rooms
     note: >-
-      Folded in from the former automation.household_vacuum_start_cleaning
-      daytime branch so it rides the same departure trigger and the Immediate
-      Departure fast path. The "not already cleaning" and "ran_daytime off"
-      conditions make the 5-minute trigger's idempotent re-run after an
-      immediate departure a no-op here. Evening common-areas cleaning stays in
+      Rides the same departure trigger and Immediate Departure fast path as
+      the rest of this automation, since it shares the debounce with the
+      leave-home routine rather than the evening pass. The "not already
+      cleaning" and "ran_daytime off" conditions make the 5-minute trigger's
+      idempotent re-run after an immediate departure a no-op here. Evening
+      common-areas cleaning stays in
       automation.household_vacuum_evening_cleaning. The mop-attached gate keeps a
       hand-fitted wet pad from being dragged across the carpeted Office and the
       bedrooms -- the weekly mop pass covers hard floor only.

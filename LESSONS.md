@@ -669,6 +669,10 @@ Confirmed 2026-09-28: after a Robot Trapped fault, the vacuum re-entered `cleani
 
 A completion check keyed to the daytime-zone progress threshold only needs to sample at state transitions (entry into `cleaning`/`paused`/`error`, leaving `cleaning`, `returning`, `docked`) to reliably beat the reset -- no dedicated continuous trigger or stored running-max helper needed. But it must sample at *every* transition, not just the terminal one: in the incident above, sampling only at `returning` would have read 0, since an earlier fault-recovery cycle had already reset it by then. The intermediate `cleaning`-re-entry sample is what caught the true peak. See `guides/vacuum_cleaning_routine.md` → *Architecture* (Household: Vacuum Live Activity's daytime completion check).
 
+### A `cleaning -> idle` transition can happen with no intervening state a normal active-state trigger would catch
+
+Confirmed 2026-09-28: the vacuum can drop directly from `cleaning` to `idle` while still faulted underneath -- not the `cleaning -> error -> idle` path seen elsewhere that day, but a direct edge with nothing in between for a `to: [cleaning, paused, returning, error]` trigger to match. A card or state machine watching only that enumerated list misses the transition entirely and is left showing whatever it displayed last, until the next coarse tick catches up. The reliable pattern is a `from: cleaning` trigger with no `to:` filter, so it catches every destination -- including one not yet seen -- rather than trying to enumerate all of them. See `automation.household_vacuum_live_activity`'s `left_cleaning` trigger.
+
 ---
 
 ## Zigbee & Lighting Groups

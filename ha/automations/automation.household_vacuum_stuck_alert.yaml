@@ -2,9 +2,7 @@ id: "1790615316878"
 alias: "Household: Vacuum Stuck Alert"
 description: >-
   One TTS heads-up when binary_sensor.vacuum_stuck turns on, only
-  if someone's home and awake. Added 2026-09-28 after a Robot Trapped fault
-  went unnoticed until physically discovered -- the only prior signal was a
-  passive Live Activity card. No push here: Household: Vacuum Live Activity's
+  if someone's home and awake. No push here: Household: Vacuum Live Activity's
   stuck-status update already sends a real, alerting push on this same
   transition; this adds the one thing that doesn't -- an audible announcement
   for whoever's actually in the house. See guides/vacuum_cleaning_routine.md.

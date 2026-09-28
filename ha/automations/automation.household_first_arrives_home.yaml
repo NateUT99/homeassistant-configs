@@ -35,14 +35,12 @@ actions:
     alias: Clear the vacuum routine-pause flag
   - alias: Dock the vacuum if it's mid-run now that someone is home, and it isn't stuck
     note: >-
-      Also folded in from automation.household_vacuum_stops_for_occupants. A
-      commanded dock cancels the active job on this unit -- expected, see
-      guides/vacuum_cleaning_routine.md. Gated on
-      binary_sensor.vacuum_stuck being off -- confirmed
-      2026-09-28 that a Robot Trapped fault can clear (state -> cleaning)
-      while the unit is still mechanically obstructed, so return_to_base
-      would just command more movement into whatever it's caught on instead
-      of actually sending it home.
+      A commanded dock cancels the active job on this unit -- expected, see
+      guides/vacuum_cleaning_routine.md. Gated on binary_sensor.vacuum_stuck
+      being off, since a fault can clear while the unit is still
+      mechanically obstructed and return_to_base would just command more
+      movement into whatever it's caught on -- see LESSONS.md -> Vacuum &
+      Roborock.
     if:
       - condition: state
         entity_id: vacuum.living_room_vacuum

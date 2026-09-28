@@ -23,10 +23,9 @@ triggers:
     entity_id: vacuum.living_room_vacuum
     from: cleaning
     note: >-
-      No to: filter -- catches every destination, including idle, without
-      needing to enumerate one we might not have seen yet. Added 2026-09-28
-      after a cleaning -> idle transition (still faulted underneath) went
-      unnoticed between coarse ticks.
+      No to: filter -- catches every destination, including one not yet
+      seen. See LESSONS.md -> Vacuum & Roborock (a direct cleaning -> idle
+      transition while still faulted underneath).
   - alias: Vacuum job finished
     id: job_finished
     trigger: state
@@ -132,17 +131,11 @@ actions:
               progress: "{{ states('sensor.living_room_vacuum_cleaning_progress') }}"
               periodic_tick: "{{ trigger.id == 'coarse_tick' }}"
             note: >-
-              critical_text (area cleaned) deliberately dropped here --
-              paired with progress and no chronometer, it displaced the
-              progress bar on the actual Lock Screen card instead of staying
-              confined to the Dynamic Island as assumed. See LESSONS.md ->
-              Live Activities. Area cleaned still surfaces on the done card
-              message. Title carries mop-vs-vacuum type (frozen once the
-              card is created); message combines status and room. started_at
-              (elapsed-time chronometer) was tried here and reverted -- on
-              this card it replaced the room in the message slot instead of
-              coexisting with it, and the room is the more useful of the
-              two. See LESSONS.md -> iOS Live Activities.
+              Title carries mop-vs-vacuum type (frozen once the card is
+              created); message combines status and room -- area cleaned
+              surfaces on the done card message instead. See LESSONS.md ->
+              iOS Live Activities for why critical_text and a started_at
+              chronometer were each tried on this card and dropped.
       - alias: Paused
         conditions:
           - condition: state
