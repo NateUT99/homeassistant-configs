@@ -1,0 +1,128 @@
+id: '1790603294414'
+alias: 'Household: Water Leak Alert'
+description: 'Sends a critical, actionable push notification and repeating TTS broadcast when
+  any labeled water leak sensor (label `water_leak_sensor`) detects moisture.
+
+
+  Fires on `moisture.detected` targeting the `water_leak_sensor` label -- any leak sensor
+  added to that label going forward is covered automatically, no entity list to maintain.
+  The area and sensor name for the alert message are derived from `area_name(trigger.entity_id)`
+  and the sensor''s own friendly name rather than parsed from the entity_id string, so the
+  message is correct regardless of how sensors are named.
+
+
+  The critical push (with an Acknowledge action button) uses the legacy `notify.mobile_app_nates_iphone`
+  service rather than `notify.send_message`, since only it can carry the critical-sound/actionable-button
+  payload -- see LESSONS.md. TTS repeats every minute via `script.household_tts_announce`
+  with `target: broadcast` (every always-on room, not just the best-guess single room), `chime_path:
+  error` (distinct from the soft chime routine announcements use), and `volume_override: 0.75`
+  (louder than any tuned per-room level) until the sensor dries or the push is acknowledged.
+  The follow-up dry/acknowledged TTS and the dry confirmation push use the normal soft chime
+  and tuned volume, since the emergency has passed by that point.'
+triggers:
+- trigger: moisture.detected
+  target:
+    label_id: water_leak_sensor
+  options:
+    behavior: each
+  alias: Any labeled leak sensor starts detecting water
+conditions: []
+actions:
+- alias: Derive area name, sensor label, and per-sensor ack/tag identifiers
+  variables:
+    leak_label: '{{ area_name(trigger.entity_id) ~ '' '' ~ state_attr(trigger.entity_id, ''friendly_name'')
+      }}'
+    leak_slug: '{{ trigger.entity_id.split(''.'')[1] }}'
+    ack_action: '{{ ''ACKNOWLEDGE_WATER_LEAK_'' ~ leak_slug | upper }}'
+- alias: Send critical notification to Nate's iPhone with acknowledge action
+  note: Uses the legacy mobile_app_* notify service rather than notify.send_message because
+    only it passes the platform-specific data.push payload an iOS critical alert and actionable
+    button require.
+  action: notify.mobile_app_nates_iphone
+  data:
+    title: 🚨 Water Leak Detected
+    message: '{{ leak_label }} detected water!'
+    data:
+      push:
+        interruption-level: critical
+        sound:
+          name: default
+          critical: 1
+          volume: 1
+      tag: water_leak_{{ leak_slug }}
+      actions:
+      - action: '{{ ack_action }}'
+        title: Acknowledge
+- alias: Repeat TTS every minute until sensor is dry or acknowledged
+  repeat:
+    sequence:
+    - alias: Broadcast TTS alert with the error chime and elevated volume
+      action: script.household_tts_announce
+      data:
+        message: '{{ leak_label }} detected. Please investigate immediately.'
+        target: broadcast
+        notification_title: '{{ leak_label }} Water Leak'
+        critical_fallback: true
+        chime_path: error
+        volume_override: 0.75
+    - alias: Wait one minute before repeating, or exit early if acknowledged
+      wait_for_trigger:
+      - trigger: event
+        alias: Acknowledgement action received from iPhone notification
+        event_type: mobile_app_notification_action
+        event_data:
+          action: '{{ ack_action }}'
+      timeout:
+        minutes: 1
+      continue_on_timeout: true
+    until:
+    - condition: or
+      alias: Stop loop if sensor is dry OR user has acknowledged via notification
+      conditions:
+      - alias: Sensor has returned to dry state
+        condition: template
+        value_template: '{{ is_state(trigger.entity_id, ''off'') }}'
+      - alias: Acknowledgement event was received (wait_for_trigger did not time out)
+        condition: template
+        value_template: '{{ wait.trigger is not none }}'
+- alias: Play acknowledgement or all-clear TTS
+  if:
+  - alias: Check if loop exited due to acknowledgement (not sensor clearing)
+    condition: template
+    value_template: '{{ wait.trigger is not none }}'
+  then:
+  - alias: Acknowledgement TTS
+    action: script.household_tts_announce
+    data:
+      message: '{{ leak_label }} has been acknowledged. Please investigate as soon as possible.'
+      target: broadcast
+      notification_title: '{{ leak_label }} Water Leak'
+  else:
+  - alias: All-clear TTS
+    action: script.household_tts_announce
+    data:
+      message: '{{ leak_label }} sensor is now dry.'
+      target: broadcast
+      notification_title: '{{ leak_label }} Water Leak'
+- alias: Clear the critical notification from Nate's iPhone
+  action: notify.mobile_app_nates_iphone
+  data:
+    message: clear_notification
+    data:
+      tag: water_leak_{{ leak_slug }}
+- alias: Send dry confirmation push to Nate's iPhone (only if sensor cleared on its own)
+  if:
+  - alias: Loop exited because sensor cleared, not because user acknowledged
+    condition: template
+    value_template: '{{ wait.trigger is none }}'
+  then:
+  - alias: Push dry confirmation
+    action: notify.mobile_app_nates_iphone
+    data:
+      title: '{{ leak_label }} Water Leak'
+      message: '{{ leak_label }} sensor is now dry.'
+      data:
+        tag: water_leak_{{ leak_slug }}
+mode: parallel
+max: 4
+category: 01M08ZEA6TZ73J9HYFTSTTAX0W

@@ -336,6 +336,7 @@ actions:
                     message: "{{ tts_message }}"
                     notification_title: "{{ tts_title }}"
                     target: master_bedroom
+                    chime_path: "{{ 'error' if (washer_fault or dryer_fault) else 'soft' }}"
           default:
             - alias: "Announce to auto-resolved room"
               action: script.household_tts_announce
@@ -343,6 +344,7 @@ actions:
                 message: "{{ tts_message }}"
                 notification_title: "{{ tts_title }}"
                 target: auto
+                chime_path: "{{ 'error' if (washer_fault or dryer_fault) else 'soft' }}"
             - alias: "If family room Sonos is playing, also push a notification"
               note: >-
                 A busy Sonos in the family room likely means a movie or

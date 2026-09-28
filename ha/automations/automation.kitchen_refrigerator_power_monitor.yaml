@@ -77,6 +77,7 @@ actions:
                       target: master_bedroom
                       notification_title: "🧊 Refrigerator Alert"
                       critical_fallback: true
+                      chime_path: error
             default:
               - alias: "Someone home, awake — broadcast"
                 action: script.household_tts_announce
@@ -84,6 +85,7 @@ actions:
                   message: "{{ alert_message }}"
                   target: broadcast
                   notification_title: "🧊 Refrigerator Alert"
+                  chime_path: error
           - alias: Wait for the plug to come back online
             wait_for_trigger:
               - trigger: state
@@ -145,6 +147,7 @@ actions:
                       target: master_bedroom
                       notification_title: "🧊 Refrigerator Alert"
                       critical_fallback: true
+                      chime_path: error
             default:
               - alias: "Someone home, awake — broadcast"
                 action: script.household_tts_announce
@@ -152,6 +155,7 @@ actions:
                   message: "{{ alert_message }}"
                   target: broadcast
                   notification_title: "🧊 Refrigerator Alert"
+                  chime_path: error
           - alias: Wait for power draw to resume
             wait_for_trigger:
               - trigger: numeric_state

@@ -135,6 +135,8 @@ data:
   target: auto                    # optional: kitchen / master_bedroom / office / averys_room / broadcast / auto
   notification_title: "My Alert"  # optional: push title used on the fallback path
   critical_fallback: true         # optional: send the fallback push as an iOS critical alert
+  chime_path: error               # optional: soft (default) or error
+  volume_override: 0.75           # optional: 0.0-1.0, overrides the tuned per-room volume
 ```
 
 | Field | Required | Default | Description |
@@ -143,6 +145,8 @@ data:
 | `target` | No | `auto` | `kitchen`, `master_bedroom`, `office`, `averys_room`, `broadcast`, or `auto` — `auto` picks `master_bedroom` if `everyone_sleeping`, else `living_room` if the AppleTV is on, else `kitchen`; `broadcast` unconditionally fans out to kitchen, master bedroom, office, and Avery's room |
 | `notification_title` | No | `Missed Announcement` | Title for the push notification sent when a room falls back to a push |
 | `critical_fallback` | No | `false` | When a fallback push fires, add the iOS `push.sound.critical` / `interruption-level: critical` payload so it breaks through silent mode and Focus |
+| `chime_path` | No | `soft` | Which Chime TTS preset plays before the message. `soft` is the routine-announcement chime every other caller uses; `error` is a distinct fault/life-safety chime — used by the water leak, refrigerator fault, and laundry fault callers |
+| `volume_override` | No | — | Overrides the tuned per-room volume table and the multi-room 0.5 default with this exact level (0.0–1.0) for every targeted HomePod. Used by the water leak alert (0.75) to be unmistakably louder than any routine announcement |
 
 **`target: broadcast` always reaches all four rooms — kitchen, master bedroom, office (unless it's busy with a call), and Avery's room (unless `input_boolean.avery_sleeping` is on).** There is no living-room exception on this path; automations that need whole-house coverage (`automation.household_hvac_exterior_open_pause`, `automation.kitchen_refrigerator_power_monitor`'s awake-hours branch) rely on `broadcast` reaching everyone, and the living room AppleTV is still ducked so it doesn't compete with the announcement — see Design Decisions.
 

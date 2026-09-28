@@ -58,6 +58,12 @@ description: >-
   literal state triggers works because only the ones a given call
   actually targeted can transition from playing to idle at all -- the
   rest simply never match.
+
+  Optional chime_path (default soft; pass error for fault/anomaly alerts) and
+  volume_override (0.0-1.0, bypasses the tuned per-room volume table and the
+  multi-room 0.5 default) let a caller make an announcement sound and play
+  distinctly louder/urgent. Used by the water leak, refrigerator fault, and
+  laundry fault callers.
 fields:
   message:
     name: Message
@@ -97,6 +103,31 @@ fields:
     default: false
     selector:
       boolean: {}
+  chime_path:
+    name: Chime
+    description: >-
+      Which Chime TTS preset plays before the message. soft (default) is
+      the routine-announcement chime used everywhere else; error signals
+      a fault or life-safety alert.
+    required: false
+    default: soft
+    selector:
+      select:
+        options: [soft, error]
+  volume_override:
+    name: Volume Override
+    description: >-
+      Override the per-room tuned volume with this exact level for every
+      targeted HomePod, bypassing the normal per-room table and the
+      multi-room 0.5 default. Use for urgent alerts that need to be
+      unmistakably loud. Leave unset for the normal tuned volume.
+    required: false
+    selector:
+      number:
+        min: 0.0
+        max: 1.0
+        step: 0.05
+        mode: slider
 variables:
   living_room_appletv_state: "{{ states('media_player.living_room_appletv') }}"
   living_room_on: "{{ living_room_appletv_state not in ['off', 'standby', 'unavailable', 'unknown'] }}"
@@ -130,10 +161,13 @@ variables:
     {% set ns = namespace(entities=[]) %}
     {% for r in rooms_to_speak %}{% set ns.entities = ns.entities + [speaker_map[r]] %}{% endfor %}
     {{ ns.entities }}
+  volume_override_resolved: "{{ volume_override | default(none) }}"
+  chime_path_resolved: "{{ chime_path | default('soft') }}"
   call_volume: >-
-    {{ {'kitchen': 0.6, 'office': 0.5, 'averys_room': 0.4, 'master_bedroom':
+    {{ volume_override_resolved if volume_override_resolved is not none else
+    ({'kitchen': 0.6, 'office': 0.5, 'averys_room': 0.4, 'master_bedroom':
     (0.4 if is_state('input_boolean.everyone_sleeping', 'on') else
-    0.5)}[rooms_to_speak[0]] if rooms_to_speak | length == 1 else 0.5 }}
+    0.5)}[rooms_to_speak[0]] if rooms_to_speak | length == 1 else 0.5) }}
   should_duck_living_room: "{{ living_room_playing and resolved_target != 'living_room' }}"
 sequence:
   - alias: Reject an unrecognized target before doing anything
@@ -167,7 +201,7 @@ sequence:
             action: chime_tts.say_url
             data:
               message: "{{ message }}"
-              chime_path: soft
+              chime_path: "{{ chime_path_resolved }}"
               tts_platform: cloud
               cache: true
               audio_conversion: "Volume 150%"
@@ -271,7 +305,7 @@ sequence:
             action: chime_tts.say_url
             data:
               message: "{{ message }}"
-              chime_path: soft
+              chime_path: "{{ chime_path_resolved }}"
               tts_platform: cloud
               cache: true
               audio_conversion: "Volume 150%"
