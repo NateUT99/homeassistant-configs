@@ -90,12 +90,6 @@ actions:
           Not daytime -- Vacuum Progress Tracking's 65% threshold assumes
           the daytime room set's closed-door coverage cap, which doesn't
           apply to a whole-map job.
-      - alias: Set max fan speed for whole-house cleaning
-        action: vacuum.set_fan_speed
-        target:
-          entity_id: vacuum.living_room_vacuum
-        data:
-          fan_speed: max
       - alias: Start whole-house clean
         action: vacuum.start
         target:

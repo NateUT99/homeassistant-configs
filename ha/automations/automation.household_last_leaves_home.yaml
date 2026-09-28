@@ -152,12 +152,6 @@ actions:
           entity_id: input_select.vacuum_active_zone
         data:
           option: daytime
-      - alias: Set max fan speed for daytime cleaning
-        action: vacuum.set_fan_speed
-        target:
-          entity_id: vacuum.living_room_vacuum
-        data:
-          fan_speed: max
       - alias: Start segment clean of remaining rooms
         action: vacuum.send_command
         target:
