@@ -1,5 +1,5 @@
 # Home Assistant Device & Entity Naming Standard
-*Version 2.3 — September 2026*
+*Version 2.4 — September 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 2.4 | September 2026 | Added a §7.1 bullet codifying the routine-scoped helper/template-entity convention already in use (`input_boolean.vacuum_*`, `binary_sensor.vacuum_stuck`) — no area prefix, named after the routine instead, since the helper describes routine state rather than a physical device |
 | 2.3 | September 2026 | Rewrite §9 again — chores moved from a native `local_todo` list with description metadata to the `ha-chore-calendar` HACS integration; naming is now just the `chore_name` field. Revised same day: trash pickup folded back in as a `oneshot` chore rather than staying a standalone helper |
 | 2.2 | September 2026 | Rewrite §9 for the `todo.household_chores` rebuild — reminders are now to-do items with description metadata, not per-reminder `input_datetime`/`input_number`/`sensor`/`binary_sensor` quartets |
 | 2.1 | September 2026 | Correct §4.1: the area prefix is injected by HA automatically at entity-creation time based on the device's area assignment, not typed into the device Name — device Names stay bare. Rewrite §4.4 to match (fix area-less entity_ids by overriding entity_id directly, not by renaming the device). This reverses guidance in 2.0 that had it backwards. |
@@ -274,6 +275,7 @@ When devices are physically oriented (facing the object), use `_left` / `_right`
 - Exterior devices use `outside` as the area prefix: `outside_porch`, `outside_patio`
 - Portable/roaming devices that genuinely have no fixed location use a functional prefix: `portable_speaker`
 - Household-scoped entities (not tied to a room) use the `household` prefix: `household_energy_monitor`
+- **Routine-scoped helpers and template entities** — `input_boolean`/`input_select`/`input_number`/`input_datetime` helpers and template `binary_sensor`s that track a multi-automation routine's own state, rather than a physical device — use the routine's name as the prefix, not an area: `input_boolean.vacuum_ran_daytime`, `input_select.vacuum_active_zone`, `binary_sensor.vacuum_stuck`. An area prefix would misdescribe these; the helper belongs to the routine, not to whatever room the device it tracks happens to sit in. See `guides/vacuum_cleaning_routine.md` for a worked set.
 
 ### 7.2 Integration-Generated Entity IDs
 
