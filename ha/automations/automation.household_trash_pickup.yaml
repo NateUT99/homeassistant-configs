@@ -2,28 +2,42 @@ id: "1789947413384"
 alias: "Household: Trash Pickup"
 description: >-
   Trash is a persistent oneshot chore on calendar.household_chores (summary:
-  Take Out Trash), synced from calendar.family. Two jobs, split by trigger
+  Take Out Trash), synced from calendar.family. Three jobs, split by trigger
   id.
 
 
-  Sync (18:00 daily, HA start, manual run): only acts when the chore is
-  unscheduled or completed -- finds the first calendar.family event
-  matching Trash past the chore's current due (or today, if unscheduled),
-  and writes it via chore_calendar.update_item (oneshot.due_datetime plus
-  description carrying the matched event's exact summary, e.g. Trash &
-  Recycling Pickup). An open chore is left untouched, which makes this
-  restart-safe with no floor/bump logic needed. If the search finds
-  nothing, pushes a one-time tag-replaced warning; clears it once a match
-  is found again.
+  **Sync** (18:00 daily, HA start, manual run): only acts when the chore is
+  unscheduled or completed -- finds the first calendar.family event matching
+  Trash past the chore's current due (or today, if unscheduled), and writes
+  it via chore_calendar.update_item (oneshot.due_datetime plus description
+  carrying the matched event's exact summary, e.g. Trash & Recycling
+  Pickup). An open chore is left untouched, which makes this restart-safe
+  with no floor/bump logic needed. If the search finds nothing, pushes a
+  one-time tag-replaced warning; clears it once a match is found again.
 
 
-  Escalate (19:00/19:30/20:00 if due today -- due is the evening-before
-  deadline, not the truck's arrival time; on the household waking up if
-  due yesterday): reads the chore's own due/status via todo.get_items and
-  announces via script.household_tts_announce using its description. No
-  push, no helper -- marking the chore done on the card silences every
-  remaining reminder for that cycle, and chore_calendar.update_item's due
-  edit reopens it automatically next sync.
+  **Escalate** (every 30 minutes, 19:00-23:30, if due today -- due is the
+  evening-before deadline, not the truck's arrival time): announces via
+  script.household_tts_announce only while someone is home and nobody is
+  asleep (everyone_sleeping and avery_sleeping both off). The chore's own
+  description (written by Sync) tells a trash-only week from a Trash &
+  Recycling week apart -- no separate helper. On a trash-only week the
+  chore is marked complete right after the first successful announcement,
+  silencing every later tick the same way the card's own mark-done does; a
+  Trash & Recycling week keeps escalating every 30 minutes until marked
+  done by hand.
+
+
+  **Wake-up** (on the household waking up, if due yesterday -- the
+  deadline was missed overnight): the same announcement and week-type
+  auto-complete, targeted explicitly at the master bedroom since
+  everyone_sleeping has just gone off.
+
+
+  No push from this automation -- marking the chore done (by hand, or
+  automatically on a trash-only week) silences every remaining reminder
+  for that cycle, and chore_calendar.update_item's due edit reopens it
+  automatically at the next sync.
 triggers:
   - trigger: time
     at: "18:00:00"
@@ -34,17 +48,19 @@ triggers:
     id: sync_recover
     alias: "HA start recovery sync"
   - trigger: time
-    at: "19:00:00"
-    id: escalate_first
-    alias: "19:00 evening reminder"
-  - trigger: time
-    at: "19:30:00"
-    id: escalate_repeat
-    alias: "19:30 evening reminder repeat"
-  - trigger: time
-    at: "20:00:00"
-    id: escalate_repeat
-    alias: "20:00 evening reminder repeat"
+    at:
+      - "19:00:00"
+      - "19:30:00"
+      - "20:00:00"
+      - "20:30:00"
+      - "21:00:00"
+      - "21:30:00"
+      - "22:00:00"
+      - "22:30:00"
+      - "23:00:00"
+      - "23:30:00"
+    id: escalate
+    alias: "Every 30 minutes, 19:00-23:30"
   - trigger: state
     entity_id: input_boolean.everyone_sleeping
     from: "on"
@@ -54,15 +70,9 @@ triggers:
   - trigger: event
     event_type: household_task_debug
     event_data:
-      branch: escalate_first
-    id: escalate_first
+      branch: escalate
+    id: escalate
     alias: "Debug: evening reminder"
-  - trigger: event
-    event_type: household_task_debug
-    event_data:
-      branch: escalate_repeat
-    id: escalate_repeat
-    alias: "Debug: evening reminder repeat"
   - trigger: event
     event_type: household_task_debug
     event_data:
@@ -84,6 +94,7 @@ conditions:
         state:
           - unavailable
           - unknown
+        alias: "Chore list is unavailable or unknown"
 actions:
   - action: todo.get_items
     alias: "Read the trash chore"
@@ -97,21 +108,53 @@ actions:
   - alias: "Isolate it by name"
     variables:
       trash: "{{ (all_result.get('todo.household_chores', {}).get('items', []) | selectattr('summary', 'eq', 'Take Out Trash') | list | first) | default(none) }}"
+  - alias: "Classify the week from the chore's description"
+    note: >-
+      The sync writes the matched calendar event's exact summary here, so
+      no separate helper is needed. Polarity is deliberate: only a
+      positively identified trash-only week auto-completes. A missing or
+      unparseable description falls through to the full recycling-week
+      escalation, which is the safe failure -- it over-reminds rather than
+      silently closing a cycle that was never handled.
+    variables:
+      trash_only: "{{ trash is not none and (trash.get('description','') ~ '') != '' and 'recycl' not in ((trash.get('description','') ~ '') | lower) }}"
   - alias: "Route by trigger"
     choose:
       - alias: "Escalate -- due today (evening deadline)"
         conditions:
           - condition: trigger
-            id:
-              - escalate_first
-              - escalate_repeat
+            id: escalate
+            alias: "Triggered by an evening tick"
         sequence:
-          - if:
+          - alias: "Announce if due today, not done, home, and awake"
+            if:
               - condition: template
                 value_template: "{{ trash is not none and trash.get('status') != 'completed' and (trash.get('due','') ~ '')[:10] == now().date() | string }}"
+                alias: "Due today and not yet completed"
               - condition: numeric_state
                 entity_id: zone.home
                 above: 0
+                alias: "Someone is home"
+              - condition: state
+                entity_id: input_boolean.everyone_sleeping
+                state: "off"
+                alias: "Nobody is asleep"
+                note: >-
+                  The escalate branch fires on a fixed clock regardless of
+                  household sleep state, unlike the wake-up branch below
+                  (which only fires on the asleep-to-awake edge and so
+                  never needs this gate). Without it, a 30-minute tick
+                  would announce into a sleeping house.
+              - condition: state
+                entity_id: input_boolean.avery_sleeping
+                state: "off"
+                alias: "Avery is not asleep"
+                note: >-
+                  script.household_tts_announce only drops Avery's room
+                  from a broadcast target when she's asleep -- an auto
+                  target still resolves to kitchen or the living room
+                  AppleTV, both audible from her room, so the suppression
+                  has to happen here instead.
             then:
               - action: script.household_tts_announce
                 alias: "Speak the evening reminder"
@@ -120,15 +163,39 @@ actions:
                   target: auto
                   notification_title: "Pickup Tomorrow"
                   critical_fallback: false
-            alias: "Announce if due today, not done, and someone is home"
+              - alias: "Assume it's handled on a trash-only week"
+                note: >-
+                  Runs only after the announcement action returns, so the
+                  chore closes once a reminder has actually been
+                  delivered. Completing it is the same silencer the
+                  card's mark-done uses -- every later tick no-ops on the
+                  status check above, which is what makes this the single
+                  reminder for the cycle. The next sync reopens it
+                  (update_item's due edit clears the completed oneshot's
+                  terminal flag).
+                if:
+                  - condition: template
+                    value_template: "{{ trash_only }}"
+                    alias: "Trash-only week"
+                then:
+                  - action: todo.update_item
+                    alias: "Mark the trash chore complete"
+                    target:
+                      entity_id: todo.household_chores
+                    data:
+                      item: "{{ trash.uid }}"
+                      status: completed
       - alias: "Wake-up -- due yesterday (pickup morning)"
         conditions:
           - condition: trigger
             id: wakeup
+            alias: "Triggered by everyone waking up"
         sequence:
-          - if:
+          - alias: "Announce if due yesterday and not done"
+            if:
               - condition: template
                 value_template: "{{ trash is not none and trash.get('status') != 'completed' and (trash.get('due','') ~ '')[:10] == (now().date() - timedelta(days=1)) | string }}"
+                alias: "Due yesterday and not yet completed"
             then:
               - action: script.household_tts_announce
                 alias: "Speak the wake-up reminder"
@@ -140,24 +207,45 @@ actions:
                   target: master_bedroom
                   notification_title: "Pickup Today"
                   critical_fallback: false
-            alias: "Announce if due yesterday and not done"
+              - alias: "Assume it's handled on a trash-only week"
+                note: >-
+                  Same auto-complete as the evening branch -- see that
+                  branch's note. Reached here on the morning-of safety
+                  net rather than the evening tick, e.g. nobody was home
+                  the evening before.
+                if:
+                  - condition: template
+                    value_template: "{{ trash_only }}"
+                    alias: "Trash-only week"
+                then:
+                  - action: todo.update_item
+                    alias: "Mark the trash chore complete"
+                    target:
+                      entity_id: todo.household_chores
+                    data:
+                      item: "{{ trash.uid }}"
+                      status: completed
       - alias: "Sync -- scheduled 18:00 or HA start"
         conditions:
           - condition: trigger
             id:
               - sync_evening
               - sync_recover
+            alias: "Triggered by scheduled sync or HA start"
         sequence:
-          - if:
+          - alias: "Delay only on the HA-start path"
+            if:
               - condition: trigger
                 id: sync_recover
+                alias: "Triggered by HA start"
             then:
               - delay: "00:02:00"
                 alias: "Let Remote Calendar settle after a restart"
-            alias: "Delay only on the HA-start path"
-          - if:
+          - alias: "Only search when the chore is unscheduled or completed"
+            if:
               - condition: template
                 value_template: "{{ trash is not none and (trash.get('status') == 'completed' or (trash.get('due','') ~ '') == '') }}"
+                alias: "Chore is unscheduled or already completed"
             then:
               - alias: "Compute the search floor"
                 note: >-
@@ -180,9 +268,11 @@ actions:
               - alias: "Find the first matching event past the floor"
                 variables:
                   hit: "{{ (cal_result.get('calendar.family', {}).get('events', []) | selectattr('start', 'ge', floor) | selectattr('summary', 'search', 'Trash') | list | first) | default(none) }}"
-              - if:
+              - alias: "Update the chore if a match was found, else warn"
+                if:
                   - condition: template
                     value_template: "{{ hit is not none }}"
+                    alias: "A matching pickup event was found"
                 then:
                   - action: chore_calendar.update_item
                     alias: "Write the matched pickup date"
@@ -211,7 +301,5 @@ actions:
                       message: "No upcoming pickup event matched in calendar.family within 21 days. Check the iCloud subscription."
                       data:
                         tag: trash_sync_warning
-                alias: "Update the chore if a match was found, else warn"
-            alias: "Only search when the chore is unscheduled or completed"
 mode: single
 category: 01M0XF7RJK5EX3A4YPNEX7X3DG

@@ -12,9 +12,12 @@ rescheduling on completion internally. Two automations layer daily push notifica
 lock-screen mark-done on top of the 8 interval chores. Trash pickup is a ninth chore — a
 persistent `oneshot` synced live from `calendar.family` rather than a fixed recurrence, so the
 real municipal schedule stays authoritative — with its own TTS-only escalation automation
-that reads the chore's own due/status directly; no helper, no separate to-do surface. A
-`chore-calendar-card` dashboard at `/household-chores` gives create/edit/skip/complete dialogs
-for all 9 chores, trash included.
+that reads the chore's own due/status directly; no helper, no separate to-do surface. That
+escalation is week-type-aware: a **Trash & Recycling** week escalates every 30 minutes until
+marked done by hand, same as any other chore, while a **trash-only** week announces once and
+auto-completes itself — the announcement alone is enough prompting, and the manual mark-done
+step would be pure friction. A `chore-calendar-card` dashboard at `/household-chores` gives
+create/edit/skip/complete dialogs for all 9 chores, trash included.
 
 ---
 
@@ -52,14 +55,22 @@ Household: Trash Pickup — one persistent oneshot chore (Take Out Trash, persis
     find the first calendar.family event matching "Trash" past the chore's current due
     (or today, if unscheduled) → chore_calendar.update_item(oneshot.due_datetime, description)
     An open (not-yet-completed) chore is left untouched -- restart-safe by construction.
+    The matched event's exact summary ("Trash Pickup" vs. "Trash & Recycling Pickup") is
+    what the escalation below reads to tell the two week types apart -- no separate helper.
   Escalate, reading the chore's own due/status via todo.get_items:
-    19:00/19:30/20:00 → if due tomorrow, not completed, someone home
-                       → script.household_tts_announce → kitchen
+    Every 30 min, 19:00-23:30 → if due tomorrow, not completed, someone home, and nobody
+                       asleep (everyone_sleeping and avery_sleeping both off)
+                       → script.household_tts_announce → auto (kitchen or living room
+                       AppleTV, unless everyone_sleeping is on)
     everyone_sleeping: on → off → if due today, not completed
                        → script.household_tts_announce → master bedroom
-  Marking the chore complete (the card, same as any other chore) silences every remaining
-  reminder for that cycle -- no helper. chore_calendar.update_item's due-datetime edit on a
-  completed oneshot clears its terminal flag, so the next sync reopens it automatically.
+  Either path auto-completes the chore right after a trash-only week's announcement --
+  the same silencer the card's own mark-done uses, so every later 30-minute tick that
+  cycle no-ops on the status check. A Trash & Recycling week is left for the household to
+  mark done by hand, and keeps escalating every 30 minutes until that happens.
+  Marking the chore complete (by hand, or automatically on a trash-only week) silences
+  every remaining reminder for that cycle. chore_calendar.update_item's due-datetime edit
+  on a completed oneshot clears its terminal flag, so the next sync reopens it automatically.
 ```
 
 **Design decisions:**
@@ -83,10 +94,20 @@ Household: Trash Pickup — one persistent oneshot chore (Take Out Trash, persis
   only writes a new `due_datetime` when the chore is unscheduled or completed — an open chore's
   due is already correct, so there is no floor/bump logic to get right at restart boundaries,
   unlike an earlier design that queried the calendar live at every reminder.
-- *No helper for trash — the chore's own status is the state.* Marking it complete on the card
-  is what silences the rest of that cycle's reminders; `chore_calendar.update_item`'s
-  `due_datetime` edit clears the completed oneshot's `terminal` flag automatically on the next
-  sync, reopening it for the next cycle with no explicit "reopen" step.
+- *No helper for trash — the chore's own status and description are the state.* Marking it
+  complete (by hand on the card, or automatically on a trash-only week) is what silences the
+  rest of that cycle's reminders; `chore_calendar.update_item`'s `due_datetime` edit clears the
+  completed oneshot's `terminal` flag automatically on the next sync, reopening it for the next
+  cycle with no explicit "reopen" step.
+- *Trash-only weeks auto-complete after the first announcement; Trash & Recycling weeks don't.*
+  The sync already writes the matched calendar event's exact summary into the chore's
+  `description`, so a plain substring check on that field (does it mention "recycling"?) tells
+  the week types apart with no new helper or entity. The check's polarity is deliberate: only a
+  positively identified trash-only week auto-completes, so a missing or unparseable description
+  falls through to the full escalate-until-acknowledged behavior — over-reminding is the safe
+  failure, silently closing a real Trash & Recycling week is not. The 30-minute repeats need no
+  suppression logic of their own; auto-completing right after the first successful announcement
+  reuses the same `status != 'completed'` guard that already stops every later tick.
 - *`due_datetime` is the evening-before deadline (19:00), not the truck's arrival time.* The
   chore is genuinely "due" when the bin needs to be at the curb, not when the truck picks it
   up the next morning — so the sync sets `due_datetime` to 19:00 the day *before* the matched
@@ -266,5 +287,14 @@ or push a manual `chore_calendar.update_item` with a correct `oneshot.due_dateti
 
 Expected — a manual run matches no `condition: trigger` branch, so nothing fires (there is no
 `default:` branch). Fire `household_task_debug` with `{"branch": "sync"}`, `{"branch":
-"escalate_first"}`, `{"branch": "escalate_repeat"}`, or `{"branch": "wakeup"}` from Developer
-Tools → Events to exercise a specific branch on demand.
+"escalate"}`, or `{"branch": "wakeup"}` from Developer Tools → Events to exercise a specific
+branch on demand.
+
+**The trash reminder only fired once, even though it's a Trash & Recycling week**
+
+Check the chore's `description` attribute on `sensor.household_chores_take_out_trash` — that's
+the only signal the escalation reads to classify the week. If it reads a trash-only summary
+(e.g. `Trash Pickup`) for what should have been a recycling week, the sync matched the wrong
+calendar event; check `calendar.family` for a mislabeled or missing entry. If `description` is
+empty, the chore predates the sync ever running against it and should self-correct at the next
+sync.
