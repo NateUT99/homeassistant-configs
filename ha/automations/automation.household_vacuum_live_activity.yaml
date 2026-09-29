@@ -9,7 +9,10 @@ description: >-
   screen-wake are suppressed while everyone is asleep. The stuck branch keys
   off binary_sensor.vacuum_stuck rather than the raw fault sensor, since a
   fault can clear while the vacuum is still mechanically obstructed -- see
-  LESSONS.md -> Vacuum & Roborock. See guides/vacuum_cleaning_routine.md and
+  LESSONS.md -> Vacuum & Roborock. The coarse tick itself is gated off once
+  the vacuum has been docked (and thus already cleared) for 15 minutes,
+  since that resting state has nothing left to reconcile -- see
+  guides/live_activities.md. See guides/vacuum_cleaning_routine.md and
   guides/live_activities.md.
 triggers:
   - alias: Vacuum entered an active or error state
@@ -65,6 +68,22 @@ triggers:
       Always non-silent, in case this moment lands before the
       returning-transition -- a real trigger, not coarse_tick, so it's
       never silenced.
+conditions:
+  - condition: or
+    alias: "Skip the coarse tick once docked and already cleared for a while"
+    conditions:
+      - condition: not
+        alias: "Not the coarse tick -- always let state-change triggers through"
+        conditions:
+          - condition: trigger
+            id: coarse_tick
+      - condition: not
+        alias: "Not docked long enough to already be cleared"
+        conditions:
+          - condition: state
+            entity_id: vacuum.living_room_vacuum
+            state: docked
+            for: "00:15:00"
 actions:
   - alias: Mark daytime zone done once live progress clears 65%
     if:

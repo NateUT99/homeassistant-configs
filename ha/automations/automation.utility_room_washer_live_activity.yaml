@@ -14,6 +14,9 @@ description: >-
   a level-based state condition on the input_select, independent of the TTS
   nag (guides/laundry_automation.md), which keeps its own sleep/away/
   re-engagement guardrails regardless of how long the card has been showing.
+  The coarse tick itself is gated off once idle with a terminal sensor
+  state, since that resting state has nothing left to reconcile -- see
+  guides/live_activities.md.
 triggers:
   - alias: "Washer cycle status changed"
     trigger: state
@@ -29,6 +32,27 @@ triggers:
       Named so live-update branches below can tell a routine refresh from a
       genuine transition and mark it periodic_tick -- see
       script.household_live_activity's field of the same name.
+conditions:
+  - condition: or
+    alias: "Skip the coarse tick when idle with nothing to reconcile"
+    conditions:
+      - condition: not
+        alias: "Not the coarse tick -- always let state-change triggers through"
+        conditions:
+          - condition: trigger
+            id: coarse_tick
+      - condition: not
+        alias: "Retrieval status is not idle"
+        conditions:
+          - condition: state
+            entity_id: input_select.utility_room_washer_status
+            state: "idle"
+      - condition: not
+        alias: "Status sensor is not in a terminal resting state"
+        conditions:
+          - condition: state
+            entity_id: sensor.utility_room_washer_current_status
+            state: ["power_off", "initial"]
 variables:
   washer_status: "{{ states('sensor.utility_room_washer_current_status') }}"
   washer_phase_labels: >-

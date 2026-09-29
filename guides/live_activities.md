@@ -45,6 +45,13 @@ iOS Lock Screen / Dynamic Island
   This means a stale queued tick computes the same payload as a fresh one (safe under
   `mode: queued`), and an HA restart mid-cycle self-heals on the next 5-minute tick instead of
   leaving a stuck card, with no separate recovery path needed.
+- **The coarse tick is skipped once the underlying process is fully at rest** — idle
+  `input_select` plus a terminal sensor state for the laundry consumers, docked 15+ minutes for
+  the vacuum. A top-level `condition: or` scopes this to the `coarse_tick` trigger id (via
+  `condition: trigger`) so every state-change trigger still runs unconditionally; only the
+  recurring tick is gated. A resting state has no `choose` branch left to change — the
+  state-change trigger already fires the one real `clear` on the genuine transition — so nothing
+  is lost by not re-running the reconciler every 5 minutes indefinitely.
 - **The chronometer does the per-second work on-device; pushes carry only phase changes and coarse
   progress.** iOS throttles and silently drops over-frequent Live Activity updates, and the push
   budget for *creating* an activity fails with no log entry when exhausted — both undiagnosable
@@ -145,6 +152,11 @@ change, every retrieval `input_select` change, and every 5-minute tick:
 | `current_status` = `pause` | `paused` |
 | `current_status` not in `[end, pause, power_off, error, initial]` | `running` — message from the phase-label map below, `progress` from the `_progress` sensor, `ends_at` from the `_remaining_time` sensor |
 | `input_select` = `idle` | `clear` |
+
+The `coarse_tick` trigger is itself skipped once `input_select` is `idle` and `current_status` is
+in `[power_off, initial]` (see Architecture above) — that resting state has nothing left to
+reconcile, since the `input_select` state-change trigger already fires the one real `clear` on
+the actual retrieval transition.
 
 The card therefore survives cycle-end and stays green until the existing retrieval logic
 (`guides/laundry_automation.md`'s occupancy/door detection) flips the `input_select` back to
@@ -303,6 +315,10 @@ by one artifact with nothing to keep in sync as that routine's automation count 
   fight a new job starting during that window. Unlike the old `done` guard, resending
   `clear_notification` on a spurious re-dock is harmless (it's a no-op against an already-cleared
   tag), so the `for:` heuristic is fine here even though it wasn't safe for `done`.
+- **The `coarse_tick` trigger is skipped once the vacuum has been docked for 15+ minutes** — 5
+  minutes past the 10-minute clear threshold, so the tick still lands once to fire the `clear`
+  branch above before shutting off, rather than resending the same no-op `clear_notification`
+  every 5 minutes for as long as the vacuum sits docked.
 
 ### 5. Verifying a consumer
 
@@ -331,7 +347,13 @@ real appliance cycle.
    Name the coarse-tick trigger's `id` (convention: `coarse_tick`) and pass
    `periodic_tick: "{{ trigger.id == 'coarse_tick' }}"` on every live-update branch that trigger
    can reach — if any branch is edge-trigger-guarded against the coarse tick (like the vacuum's
-   `done`), the field is unnecessary there but harmless to include anyway.
+   `done`), the field is unnecessary there but harmless to include anyway. Once the process's
+   fully-at-rest state is well-defined (no branch left to reconcile), add a top-level
+   `condition: or` gating the `coarse_tick` trigger out in that state: `not (condition: trigger,
+   id: coarse_tick)` OR `not (the resting-state condition)`, flattened as a single `or` of `not`
+   clauses — this keeps every state-change trigger unconditional while stopping the tick from
+   re-running forever once nothing is left to change. See the laundry and vacuum consumers above
+   for the two worked examples.
 4. **If the process has no reliable completion/retrieval signal** (or one that can fail to fire —
    an unavailable sensor, a step a person can skip), add a fallback max-age clear branch: a
    level-based `condition: state` with `for:` on the entity the `done`/`running` branches key off,
