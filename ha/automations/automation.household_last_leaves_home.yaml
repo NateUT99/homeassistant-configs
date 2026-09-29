@@ -162,6 +162,17 @@ actions:
           entity_id: input_select.vacuum_active_zone
         data:
           option: daytime
+      - alias: Set max fan speed for daytime cleaning
+        action: vacuum.set_fan_speed
+        target:
+          entity_id: vacuum.living_room_vacuum
+        data:
+          fan_speed: max
+        note: >-
+          Explicit here, matching Evening Cleaning's own quiet and the
+          master-suite follow-up's own balanced -- every job-starting
+          path now asserts its own fan speed rather than depending on
+          what a previous job left behind.
       - alias: Start segment clean of remaining rooms
         action: vacuum.send_command
         target:

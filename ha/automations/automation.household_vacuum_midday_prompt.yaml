@@ -90,6 +90,17 @@ actions:
           Not daytime -- the daytime zone's 65% completion check assumes
           the daytime room set's closed-door coverage cap, which doesn't
           apply to a whole-map job.
+      - alias: Set max fan speed for whole-house cleaning
+        action: vacuum.set_fan_speed
+        target:
+          entity_id: vacuum.living_room_vacuum
+        data:
+          fan_speed: max
+        note: >-
+          Explicit here, matching Evening Cleaning's own quiet and the
+          master-suite follow-up's own balanced -- every job-starting
+          path now asserts its own fan speed rather than depending on
+          what a previous job left behind.
       - alias: Start whole-house clean
         action: vacuum.start
         target:

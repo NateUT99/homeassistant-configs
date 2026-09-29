@@ -40,17 +40,17 @@ card key off this sensor rather than the raw fault sensor alone.
    on for 1h, or HA restart                     09:00-19:00 window
    recheck after the fact                          ▼
                   ▼                        ┌─────────────────────────┐
-        ┌─────────────────────┐            │ fan/mop: unset here --   │
-        │ fan: quiet          │            │ Vacuum Setting Defaults  │
-        │ mop: off unless     │            │ restores fan: max on the │
-        │ mop-eligible tonight│            │ prior dock. mop: off     │
-        │ segments: kitchen,  │            │ segments: bedroom, bath, │
-        │ living, pantry,     │            │ office, master closet,  │
-        │ utility, bathroom,  │            │ + entrance + master bed/│
-        │ entrance (mop night)│            │ bath unless mopped today│
-        │ or kitchen/living/  │            └──────────┬──────────────┘
+        ┌─────────────────────┐            │ fan: max, mop: off       │
+        │ fan: quiet          │            │ segments: bedroom, bath, │
+        │ mop: off unless     │            │ office, master closet,  │
+        │ mop-eligible tonight│            │ + entrance + master bed/│
+        │ segments: kitchen,  │            │ bath unless mopped today│
+        │ living, pantry,     │            └──────────┬──────────────┘
+        │ utility, bathroom,  │                       │
+        │ entrance (mop night)│                       │
+        │ or kitchen/living/  │                       │
         │ pantry/utility +    │                       │
-        │ entrance/bath if    │                       ▼
+        │ entrance/bath if    │                       │
         │ Avery away tonight  │                       │
         └──────────┬──────────┘                       │
                    │                                   │
@@ -100,11 +100,11 @@ card key off this sensor rather than the raw fault sensor alone.
                                                       but silenced via periodic_tick overnight
 
   Household: Vacuum Setting Defaults                 binary_sensor.vacuum_stuck
-  triggers: vacuum docks, pad clips on               (ha/packages/vacuum_stuck.yaml) -- on when the
-  resets fan speed to max on dock, mop               fault sensor is set, OR the vacuum has been
-  intensity to high on pad-on -- undoes the          cleaning for 3+ minutes with cleaning_area
-  prior job's quiet/balanced fan or a manual          unmoved for that same window (the dual dwell
-  intensity drop                                      keeps a fresh job's first seconds -- when the
+  trigger: pad clips on                              (ha/packages/vacuum_stuck.yaml) -- on when the
+  resets mop intensity to high -- undoes             fault sensor is set, OR the vacuum has been
+  a manual drop to medium                            cleaning for 3+ minutes with cleaning_area
+                                                      unmoved for that same window (the dual dwell
+                                                      keeps a fresh job's first seconds -- when the
                                                       area sensor still holds the prior job's stale
                                                       timestamp -- from reading as an instant stall)
 
@@ -122,8 +122,7 @@ card key off this sensor rather than the raw fault sensor alone.
                   ▼
         actionable Yes/No prompt (5 min timeout = Yes)
                   ▼
-        active_zone = away; fan/mop: unset here -- Vacuum Setting Defaults
-        restores fan: max on the prior dock; vacuum.start (whole map --
+        active_zone = away; fan: max; vacuum.start (whole map --
         no segment list, Stairs excluded by the app's virtual wall only);
         marks BOTH vacuum_ran_daytime and vacuum_ran_evening
         (one daily noon check covers both a missed departure
@@ -236,7 +235,7 @@ YAML alone:
 - **Vacuum Live Activity also owns the daytime zone's completion check**, folded in from the former Vacuum Progress Tracking automation: any of its own triggers (a status transition or the 5-minute tick) checks whether live progress has cleared 65% while `active_zone` is `daytime`, and marks `vacuum_ran_daytime` on if so. No dedicated progress-sensor trigger or stored running-max helper is needed — `sensor.<vacuum>_cleaning_progress` resets roughly 20 seconds *after* the relevant state transition, not before it (`LESSONS.md` → *Vacuum & Roborock*), so sampling at every transition reliably beats the reset, and the write is sticky once made.
 - **Vacuum Reset splits its two clears onto different triggers on purpose.** The daily 08:00 boundary (ran-today flags, routine-pause, mop-skip-today) and the Monday weekly-mop-flag clear don't share a trigger — the weekly clear fires at 12:00 instead, since an 08:00 firing can land before a late wake finishes the master-suite follow-up from a Sunday-night mop, clearing `vacuum_mop_common_areas_done_this_week` out from under it.
 - **The master-suite follow-up's segment-list read happens before the next daytime pass overwrites the signal it depends on.** *Household: Last Leaves Home* builds `daytime_segments` from `input_datetime.vacuum_master_mop_last_run` compared against today's date, immediately before setting `active_zone` to `daytime` — the date helper isn't touched by that write, so read-before-write ordering is what makes the drop reliable.
-- **Vacuum Setting Defaults centralizes device-state restoration** so no job-starting automation has to manage it inline: fan speed resets to `max` on every dock, and mop intensity resets to `high` whenever the pad clips on. This is why neither *Household: Last Leaves Home* nor *Vacuum Midday Prompt* sets a fan speed before starting a daytime job — the prior dock already restored `max`.
+- **Fan speed is set explicitly by every job-starting path, not restored from a prior dock.** *Vacuum Evening Cleaning* sets `quiet`, its master-suite branch sets `balanced`, and *Household: Last Leaves Home* and *Vacuum Midday Prompt* both set `max` — each asserts its own value at its own start rather than depending on what an earlier, unrelated job left behind. *Vacuum Setting Defaults* now owns only mop intensity, resetting it to `high` whenever the pad clips on, since there's no equivalent "explicit at start" moment for that setting the way there is for fan speed.
 - **The arrival dock and the routine-pause clear both live in *Household: First Arrives Home***, on the same confirmed-arrival trigger, rather than the pause-clear having its own automation watching raw `zone.home` — this household tracks only Nate (and, when toggled, a guest) via `zone.home`, so `arrival_confirmed` already covers every arrival that matters here.
 - **Vacuum Mop Pad Reminders also owns the Avery-tonight latch**, piggybacked on the `time_pattern` trigger it already runs every 30 minutes — see that action's own `note` for the window and why it's self-healing.
 - **Segment order in `app_segment_clean` does not determine cleaning route.** The robot path-plans from its own position, not the array order — no need to sort segment lists.
@@ -388,7 +387,7 @@ still being on the morning after an actual mop night, not to which path started 
 | Household: Vacuum Mop Pad Reminders | `automation.household_vacuum_mop_pad_reminders` | Automation (prep + cleanup nudges, plus the Avery-tonight latch) |
 | Household: Vacuum Live Activity | `automation.household_vacuum_live_activity` | Automation (iOS Lock Screen card, covers every job-start path; also marks the daytime zone done) |
 | Household: Vacuum Stuck Alert | `automation.household_vacuum_stuck_alert` | Automation (TTS heads-up when the vacuum is stuck and someone's home and awake) |
-| Household: Vacuum Setting Defaults | `automation.household_vacuum_setting_defaults` | Automation (resets fan speed to max on dock, mop intensity to high on pad attach) |
+| Household: Vacuum Setting Defaults | `automation.household_vacuum_setting_defaults` | Automation (resets mop intensity to high on pad attach) |
 | Live Activity dispatch | `script.household_live_activity` | Script |
 | TTS dispatch | `script.household_tts_announce` | Script |
 | Vacuum Stuck | `binary_sensor.vacuum_stuck` | Template sensor (`ha/packages/vacuum_stuck.yaml`, repo-authoritative) |
