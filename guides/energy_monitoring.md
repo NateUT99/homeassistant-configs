@@ -74,9 +74,11 @@ since its name no longer describes a door. Observed over a real cycle, the raw s
 on/off 40+ times in ~80 minutes: the wash/drain pump load is bursty (20–90W bursts separated
 by sub-5W troughs), not flat, so the raw flag reads "off" repeatedly during troughs that are
 really just gaps between pump bursts. `binary_sensor.kitchen_dishwasher_running`
-(`ha/packages/dishwasher_running.yaml`) debounces this with `delay_off: 3m`, collapsing the
-blips into one clean on/off span per cycle. `delay_off` has no Template Helper config-flow
-field, so this is a YAML `template:` package rather than a UI-created helper.
+(`ha/packages/dishwasher_running.yaml`) debounces this with `delay_off: 4m30s`, collapsing the
+blips into one clean on/off span per cycle. Some troughs run close to 4 minutes, so `delay_off`
+needs margin above that or the sensor reports false "off" spans mid-cycle. `delay_off` has no
+Template Helper config-flow field, so this is a YAML `template:` package rather than a
+UI-created helper.
 
 **Refrigerator.** Same plug model and configuration as the dishwasher — Metering only mode
 enabled, Power-on behavior On, `sensor.kitchen_refrigerator_summation_delivered` feeding the
@@ -225,7 +227,7 @@ dashboard's cost figure track the real bill.
 | Dishwasher Power | `sensor.kitchen_dishwasher_power` | Sensor (ZHA) — instantaneous W |
 | Dishwasher (switch, disabled) | `switch.kitchen_dishwasher` | ZHA — relay control, disabled; metering-only mode makes toggling it a no-op |
 | Dishwasher Power Threshold (hidden) | `binary_sensor.kitchen_dishwasher_opening` | ZHA — raw power-threshold flag; flaps during a cycle, kept as input to the sensor below |
-| Dishwasher Running | `binary_sensor.kitchen_dishwasher_running` | Template sensor (package) — debounced cycle-running flag, `delay_off: 3m` |
+| Dishwasher Running | `binary_sensor.kitchen_dishwasher_running` | Template sensor (package) — debounced cycle-running flag, `delay_off: 4m30s` |
 | Refrigerator | Energy Dashboard individual device | `.storage/energy` — consumed energy = `sensor.kitchen_refrigerator_summation_delivered` (ZHA, Third Reality metering plug) |
 | Refrigerator Power | `sensor.kitchen_refrigerator_power` | Sensor (ZHA) — instantaneous W |
 | Refrigerator (switch, hidden) | `switch.kitchen_refrigerator` | ZHA — relay control, hidden not disabled; watched by Keep Powered below |
