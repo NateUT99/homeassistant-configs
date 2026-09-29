@@ -68,11 +68,20 @@ actions:
     target:
       entity_id: cover.garage_door_opener_door
     data: {}
-  - alias: Lock front door
-    action: lock.lock
-    target:
-      entity_id: lock.entrance_front_door
-    data: {}
+  - alias: Lock front door if not already locked
+    if:
+      - condition: not
+        alias: Front door isn't already locked
+        conditions:
+          - condition: state
+            entity_id: lock.entrance_front_door
+            state: locked
+    then:
+      - alias: Lock front door
+        action: lock.lock
+        target:
+          entity_id: lock.entrance_front_door
+        data: {}
   - alias: Turn off lights labeled "No One Is Home"
     action: light.turn_off
     target:
