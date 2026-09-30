@@ -4,7 +4,8 @@ description: >-
   Single wall-control automation for the Office ceiling fan (VTM36 canopy
   + VTM30-SN switch), covering the links that don't run over the Matter
   binding. Down paddle double tap turns the fan and light off; up paddle
-  double tap turns the fan on to the last speed and the light on. Config
+  double tap releases Adaptive Lighting manual control on the ceiling
+  light, if it was left manually controlled. Config
   button: single tap resumes the last speed (fan off) or advances
   low->medium->high->low (fan on); double tap turns it off; triple tap
   peeks at the current LED state without changing the fan. Fan-percentage
@@ -162,7 +163,7 @@ actions:
             action: light.turn_off
             target:
               entity_id: light.office_ceiling_fan_light
-      - alias: Up paddle double-tapped - turn the fan and light on
+      - alias: Up paddle double-tapped - restore Adaptive Lighting if manually controlled
         conditions:
           - condition: trigger
             id: up_paddle
@@ -173,23 +174,11 @@ actions:
             attribute: event_type
             state: multi_press_2
         sequence:
-          - alias: Turn the fan on to the remembered speed
-            action: fan.set_percentage
-            target:
-              entity_id: fan.office_ceiling_fan
-            data:
-              percentage: >-
-                {% set s = states('input_select.office_ceiling_fan_last_speed') %}
-                {{ {'low': 33, 'medium': 66, 'high': 100}.get(s, 66) }}
-          - alias: Turn the fan light on
-            action: light.turn_on
-            target:
-              entity_id: light.office_ceiling_fan_light
           - alias: If the light was manually controlled, restore it to Adaptive Lighting
             note: >-
-              Double-tap up is a full "everything on" gesture; treat a
-              manually controlled light here as intent to return to the
-              adaptive curve.
+              Double-tap up no longer turns the fan or light on (the
+              single paddle tap and config-button tap already cover
+              that) -- this is now solely a manual-control release.
             if:
               - alias: Light is manually controlled
                 condition: template
