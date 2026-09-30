@@ -150,17 +150,19 @@ Six mechanisms connect the wall switch to the fan/light:
 |---|---|---|
 | Paddle tap up/down → light on/off | Matter binding, cluster 6 (switch → canopy) | Yes |
 | Paddle hold up/down → light dim up/down | Matter binding, cluster 8 (switch → canopy) | Yes |
-| Paddle double-tap down → fan + light off; double-tap up → Adaptive Lighting manual-control release (no fan/light action) | HA automation | No |
+| Paddle double-tap down → fan + light off; double-tap up → fan + light on if off, else Adaptive Lighting manual-control release | HA automation | No |
 | Config button taps → fan speed (1 tap cycle, 2 taps off, 3 taps peek) | HA automation | No |
 | Fan state change → switch LED bar update | HA automation ([Shared: LED Bar](#shared-led-bar)) | No |
 | Paddle hold start, paddle double-tap up (when the light was left manually controlled), any observed light turn-off, or any observed light turn-on → Adaptive Lighting manual-control handoff / correction | HA automation ([Step 6](#step-6--ha-automation), `guides/adaptive_lighting.md`) | No |
 
-The whole-room-**off** gesture is a paddle **double-tap down**
-(`multi_press_2` on the down paddle event entity), handled by the HA
-automation. Double-tap up does not turn anything on — the single paddle
-tap (light, Matter binding) and a config-button single tap (fan) already
-do that — so double-tap up is only an Adaptive Lighting manual-control
-release. Tap → light and hold → light are Matter bindings and are
+The whole-room off/on gesture is a paddle **double-tap** (`multi_press_2`
+on the up/down paddle event entity), handled by the HA automation.
+Double-tap down always turns the fan and light off. Double-tap up turns
+the fan and light on **only when the light is off**; if the light is
+already on, it instead releases Adaptive Lighting manual control on the
+light if it was left manually controlled, rather than silently re-running
+`fan.set_percentage` / `light.turn_on` on top of state that hasn't
+changed. Tap → light and hold → light are Matter bindings and are
 independent of the HA automation entirely.
 
 ```
@@ -177,7 +179,7 @@ independent of the HA automation entirely.
                        ┌────────┴─────────┴─────────┐
     wall paddle  ──────► VTM30-SN switch (node 11)  │
     config button ─────► endpoint 2: Binding cluster│
-                       │  event.*_button_down/up    │──► automation: double-tap down → fan/light off; up → AL release
+                       │  event.*_button_down/up    │──► automation: double-tap down → fan/light off; up → fan/light on if off, else AL release
                        │  event.*_button_config     │──► automation: Ceiling Fan Wall Control
                        │  light.*_switch_led_bar     │◄── script.household_ceiling_fan_led_state
                        └────────────────────────────┘     (Shared: LED Bar)
@@ -186,7 +188,8 @@ independent of the HA automation entirely.
       event.*_button_config        ──►  fan.set_percentage / fan.turn_off   (1 / 2 taps)
                                    └─►  script.household_ceiling_fan_led_state (3 taps: peek)
       event.*_button_down (multi_press_2) ─►  fan.turn_off + light.turn_off
-      event.*_button_up   (multi_press_2) ─►  adaptive_lighting.set_manual_control (false, if manual)
+      event.*_button_up   (multi_press_2) ─►  fan.set_percentage (last speed) + light.turn_on   (if light off)
+                                   └─►  adaptive_lighting.set_manual_control (false, if manual)  (if light on)
       event.*_button_up/down (long_press) ─►  adaptive_lighting.set_manual_control (true)
       fan.<prefix>_ceiling_fan      ──►  input_select.<prefix>_ceiling_fan_last_speed
                                    └─►  script.household_ceiling_fan_led_state
@@ -210,19 +213,19 @@ independent of the HA automation entirely.
   (Simulated)` is a non-`Instant` duration — [Step 3](#step-3--switch-vtm30-sn-parameters)
   sets the value; `LESSONS.md` has the values tried and rejected.
 
-- **Paddle double-tap down → whole-room off (HA automation); double-tap up →
-  Adaptive Lighting release only.** `multi_press_2` on
-  `event.<prefix>_ceiling_fan_switch_button_down` turns fan and light off.
-  `multi_press_2` on `…_button_up` does **not** turn the fan or light on —
-  the single paddle tap (light, Matter binding) and a config-button single
-  tap (fan) already cover that, so adding `fan.set_percentage` +
-  `light.turn_on` here would be redundant and, when the light is already on,
-  would silently re-run the fan command too. Double-tap up is solely a
-  manual-control release for the light. Each branch gates on `event_type`
-  being `multi_press_2`, so a single tap or a hold does not match — which is what
-  leaves the cluster 8 hold-to-dim binding free. The switch's `300ms` Button
-  Delay already covers multi-tap detection, so the double-tap costs no extra
-  latency.
+- **Paddle double-tap → whole-room off/on (HA automation), gated by the
+  light's current state on the up side.** `multi_press_2` on
+  `event.<prefix>_ceiling_fan_switch_button_down` unconditionally turns fan
+  and light off. `multi_press_2` on `…_button_up` branches on whether the
+  light is off: if off, it sets the fan to the remembered speed and turns
+  the light on, same as the down branch's mirror; if the light is already
+  on, `fan.set_percentage` / `light.turn_on` would be a redundant
+  re-command, so it instead releases Adaptive Lighting manual control on
+  the light if it was left manually controlled. Each branch gates on
+  `event_type` being `multi_press_2`, so a single tap or a hold does not
+  match — which is what leaves the cluster 8 hold-to-dim binding free. The
+  switch's `300ms` Button Delay already covers multi-tap detection, so the
+  double-tap costs no extra latency.
 
 - **Binding fires on physical presses only.** A command sent to the switch from HA
   or Apple Home does not propagate over the binding, and bound state does not
@@ -442,10 +445,10 @@ Done in the Matter Server Web UI.
    light off; hold up → smooth ramp up, hold down → ramp down, release → stop
    mid-ramp. Confirm all of it still works with Home Assistant stopped.
 
-The paddle **double-tap** (whole-room off on a down double-tap; an Adaptive
-Lighting manual-control release on an up double-tap) is not bound — it is an
-HA automation ([Step 6](#step-6--ha-automation)), independent of these
-bindings.
+The paddle **double-tap** (whole-room off on a down double-tap; whole-room
+on, or an Adaptive Lighting manual-control release if the light is already
+on, on an up double-tap) is not bound — it is an HA automation
+([Step 6](#step-6--ha-automation)), independent of these bindings.
 
 > **Rebuild the binding after a canopy firmware update.** VTM36 `1.0.1r1`
 > reworked the binding implementation; per Inovelli's advisory, bindings created
@@ -493,7 +496,7 @@ to the firmware without matching an automation branch:
 | Paddle gesture | Result |
 |---|---|
 | Double-tap down (`multi_press_2`) | `fan.turn_off` + `light.turn_off` |
-| Double-tap up (`multi_press_2`) | No fan/light action — if the light was left manually controlled, releases manual control so it returns to AL's curve. Turning things on is left to the single paddle tap (light) and a config-button single tap (fan). |
+| Double-tap up (`multi_press_2`) | If the light is off: `fan.set_percentage` to the remembered speed + `light.turn_on` (comes on at the `On level`, which Adaptive Lighting pre-stages — `guides/adaptive_lighting.md`). If the light is already on: no fan/light action — if it was left manually controlled, releases manual control so it returns to AL's curve. |
 | Hold start, either paddle (`long_press`) | `adaptive_lighting.set_manual_control(true)` for the ceiling light — pins the wall-set dim level against AL's curve for the whole gesture, until the light next turns off or the 30-minute autoreset fires |
 
 Gated on `trigger.to_state.attributes.event_type == 'long_press'`, which reads
@@ -769,13 +772,13 @@ place: a cluster 8 (Level Control) binding on the switch → canopy light endpoi
 not `Instant`. See `LESSONS.md`.
 
 **Paddle double-tap does nothing.** Double-tap down (whole-room off) and
-double-tap up (Adaptive Lighting manual-control release — no fan/light
-action, so it can look like "nothing happened" if the light wasn't manually
-controlled) are both HA automation branches — they do nothing with HA
-stopped or the automation disabled. When HA is up, watch
-`event.*_ceiling_fan_switch_button_down` / `_up` in Developer Tools while
-double-tapping: the `event_type` must land on `multi_press_2`. If it reports
-`multi_press_1` twice instead, raise `Button Delay`
+double-tap up (whole-room on if the light was off; otherwise an Adaptive
+Lighting manual-control release, which can look like "nothing happened" if
+the light wasn't manually controlled) are both HA automation branches —
+they do nothing with HA stopped or the automation disabled. When HA is up,
+watch `event.*_ceiling_fan_switch_button_down` / `_up` in Developer Tools
+while double-tapping: the `event_type` must land on `multi_press_2`. If it
+reports `multi_press_1` twice instead, raise `Button Delay`
 (`select.*_ceiling_fan_switch_button_delay`) to `300ms` or more.
 
 **One config tap advances two speeds, or the resumed speed is wrong.** The
