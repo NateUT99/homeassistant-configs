@@ -61,7 +61,7 @@ it:
 
 | Condition | `color_name` | Brightness |
 |---|---|---|
-| Fan running | `homeassistant` (blue) | Mapped to speed: `85` low / `170` medium / `255` high |
+| Fan running | `homeassistant` (blue) | Mapped to speed: `65` low / `130` medium / `255` high |
 | Fan off, ceiling light off, someone home | `white` | `8` (locator glow) |
 | Fan off, ceiling light on | — | off (`light.turn_off`) |
 | Nobody home | — | off (`light.turn_off`) |
@@ -74,15 +74,24 @@ countdown restarts on any further change (a fan-speed change, or the sleep flag 
 on) and the flag turning **off** jumps the bar back to the accurate state immediately, no
 delay — see [Resting-state script pattern](#resting-state-script-pattern).
 
+**Turning the ceiling light off while the fan is already running and the room is asleep skips
+straight to the locator glow, no flash.** Every other trigger (a real fan-speed change, the
+sleep flag itself, presence) still gets the full flash-then-settle behavior above — only a
+light-off event on an already-running, already-asleep fan bypasses it, since that event carries
+no new speed information worth announcing.
+
 ### Resting-state script pattern
 
-One **shared** script, `script.household_ceiling_fan_led_state`, `mode: restart`, taking four
-fields — `fan_entity`, `light_entity`, `led_bar_entity`, and an optional `sleeping_boolean`
-(omitted for a switch with no sleep gating, e.g. Office). `light_entity` is used only to decide
-the fan-off resting state, not for anything speed- or sleep-related. Called by every room's
-wall-control automation with that room's literal entity IDs, rather than one script per switch
-— a single source of truth for the speed→brightness mapping and the sleep-settle logic, instead
-of three near-identical copies that can silently drift out of sync with each other. Every call
+One **shared** script, `script.household_ceiling_fan_led_state`, `mode: restart`, taking five
+fields — `fan_entity`, `light_entity`, `led_bar_entity`, an optional `sleeping_boolean`
+(omitted for a switch with no sleep gating, e.g. Office), and an optional
+`light_just_turned_off` (passed only by the ceiling-light-changed trigger). `light_entity` is
+used to decide the fan-off resting state; `light_just_turned_off` is what lets that same trigger
+skip the flash described above without also suppressing it for genuine fan-speed changes. Called
+by every room's wall-control automation with that room's literal entity IDs, rather than one
+script per switch — a single source of truth for the speed→brightness mapping and the
+sleep-settle logic, instead of three near-identical copies that can silently drift out of sync
+with each other. Every call
 recomputes fully from live state: no snapshot, nothing timing-sensitive to get wrong on an
 out-of-order recompute.
 
@@ -486,7 +495,11 @@ needed):
 **Ceiling light state change** — any change to `light.*_ceiling_fan_light`
 (including one driven by the paddle binding, which HA still observes) recomputes
 the LED bar first (the fan-off resting state depends on whether the light is on
-or off — see [Shared: LED Bar](#shared-led-bar)), then:
+or off — see [Shared: LED Bar](#shared-led-bar)), passing
+`light_just_turned_off: "{{ is_state('light.<prefix>_ceiling_fan_light', 'off') }}"`
+so a light-off event while the fan is already running and the room is asleep
+settles straight to the locator glow instead of re-flashing the speed colour
+first. Then:
 
 - if the light is now **off**, calls `adaptive_lighting.set_manual_control(false)`
   to hand its brightness back to Adaptive Lighting. A single paddle down-tap turns
@@ -528,9 +541,14 @@ running state; brightness alone carries the speed, mapped by
 
 | Speed | `fan.percentage` | Bar brightness |
 |---|---|---|
-| low | 33 | 85 |
-| medium | 67 | 170 |
+| low | 33 | 65 |
+| medium | 67 | 130 |
 | high | 100 | 255 |
+
+Steps are geometric (each roughly double the last), not linear, since brightness
+perception is closer to logarithmic than linear — equal-interval steps (the
+original `85`/`170`/`255`) made medium and high look too similar to tell apart
+at a glance.
 
 Locator glow (fan off, ceiling light off, someone home) is `color_name: white` at
 brightness `8`, unchanged by day/night — see

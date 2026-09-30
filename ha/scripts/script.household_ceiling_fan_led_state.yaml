@@ -15,7 +15,11 @@ description: >-
   subsequent call cancels a pending countdown and starts over, and the
   boolean turning off recomputes the correct state immediately with no
   delay. Leave sleeping_boolean unset for a switch with no sleep gating
-  (e.g. Office).
+  (e.g. Office). Pass light_just_turned_off (true only from the
+  ceiling-light-changed trigger when the light is now off) to skip the
+  blue flash and settle straight to the locator glow when the fan is
+  already running and the room is asleep -- a real fan-speed change still
+  gets its flash regardless of this field.
 mode: restart
 fields:
   fan_entity:
@@ -54,6 +58,18 @@ fields:
     selector:
       entity:
         domain: input_boolean
+  light_just_turned_off:
+    name: Light just turned off
+    description: >-
+      Optional. Pass true only from the ceiling-light-changed trigger when
+      the light is now off, so a real fan-speed change still gets its blue
+      flash but a light-off event while the fan is already running and the
+      room is asleep skips straight to the locator glow. Leave unset/false
+      for every other caller.
+    required: false
+    default: false
+    selector:
+      boolean: {}
 sequence:
   - alias: Resolve live state
     variables:
@@ -64,7 +80,7 @@ sequence:
       sleeping: >-
         {{ (sleeping_boolean | default('')) not in ['', None] and
         is_state(sleeping_boolean, 'on') }}
-      speed_brightness: "{{ 85 if fan_pct < 50 else (170 if fan_pct < 90 else 255) }}"
+      speed_brightness: "{{ 65 if fan_pct < 50 else (130 if fan_pct < 90 else 255) }}"
   - alias: Apply the resting state
     choose:
       - alias: Nobody home - dark
@@ -77,6 +93,19 @@ sequence:
             action: light.turn_off
             target:
               entity_id: "{{ led_bar_entity }}"
+      - alias: Light just turned off, fan already running and asleep - skip the flash, settle immediately
+        conditions:
+          - condition: template
+            value_template: "{{ (light_just_turned_off | default(false)) and fan_on and sleeping }}"
+            alias: Light-off event, fan running, asleep
+        sequence:
+          - alias: Go straight to the white locator glow
+            action: light.turn_on
+            target:
+              entity_id: "{{ led_bar_entity }}"
+            data:
+              brightness: 8
+              color_name: white
       - alias: Fan running - speed-mapped blue, settling to locator glow if sleeping
         conditions:
           - condition: template

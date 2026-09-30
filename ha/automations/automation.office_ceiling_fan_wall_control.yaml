@@ -252,6 +252,7 @@ actions:
               fan_entity: fan.office_ceiling_fan
               light_entity: light.office_ceiling_fan_light
               led_bar_entity: light.office_ceiling_fan_switch_led_bar
+              light_just_turned_off: "{{ is_state('light.office_ceiling_fan_light', 'off') }}"
           - alias: If the light is now off, hand its brightness back to Adaptive Lighting
             note: >-
               A single paddle tap turns the light off via the cluster-6
