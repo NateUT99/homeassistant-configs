@@ -1,0 +1,103 @@
+alias: Ceiling Fan LED State
+description: >-
+  Shared LED-bar state for any Inovelli ceiling-fan canopy switch's RGB
+  Indicator light (light.<prefix>_ceiling_fan_switch_led_bar). Speed-mapped
+  blue (hs_color [194, 90]) while the fan runs, a white locator glow
+  (hs_color [0, 0], brightness 8) while off with someone home, dark when
+  nobody's home. Uses light.turn_on/turn_off directly on the RGB Indicator
+  entity -- does not touch the switch's select.*_led_color/_intensity_on/
+  _off/_effect parameters, which are left unmanaged. Pass sleeping_boolean
+  for a bedroom: while that boolean is on, the fan-running state settles
+  from the speed colour to the locator glow 30s after the last change (a
+  fan change, or the boolean itself turning on) -- mode: restart means any
+  subsequent call cancels a pending countdown and starts over, and the
+  boolean turning off recomputes the correct state immediately with no
+  delay. Leave sleeping_boolean unset for a switch with no sleep gating
+  (e.g. Office). See guides/inovelli_switches.md.
+mode: restart
+fields:
+  fan_entity:
+    name: Fan entity
+    description: The room's ceiling fan.
+    required: true
+    selector:
+      entity:
+        domain: fan
+  led_bar_entity:
+    name: LED bar entity
+    description: >-
+      The switch's RGB Indicator light entity
+      (light.*_ceiling_fan_switch_led_bar).
+    required: true
+    selector:
+      entity:
+        domain: light
+  sleeping_boolean:
+    name: Sleeping boolean
+    description: >-
+      Optional. The input_boolean that gates this room's sleep-mode
+      settle-to-locator-glow behavior. Leave unset for a switch with no
+      sleep gating.
+    required: false
+    default: ""
+    selector:
+      entity:
+        domain: input_boolean
+sequence:
+  - alias: Resolve live state
+    variables:
+      someone_home: "{{ states('zone.home') | int(0) > 0 }}"
+      fan_on: "{{ is_state(fan_entity, 'on') }}"
+      fan_pct: "{{ state_attr(fan_entity, 'percentage') | int(0) }}"
+      sleeping: >-
+        {{ (sleeping_boolean | default('')) not in ['', None] and
+        is_state(sleeping_boolean, 'on') }}
+      speed_brightness: "{{ 85 if fan_pct < 50 else (170 if fan_pct < 90 else 255) }}"
+  - alias: Apply the resting state
+    choose:
+      - alias: Nobody home - dark
+        conditions:
+          - condition: template
+            value_template: "{{ not someone_home }}"
+        sequence:
+          - alias: Turn off the LED bar
+            action: light.turn_off
+            target:
+              entity_id: "{{ led_bar_entity }}"
+      - alias: Fan running - speed-mapped blue, settling to locator glow if sleeping
+        conditions:
+          - condition: template
+            value_template: "{{ fan_on }}"
+        sequence:
+          - alias: Set the speed colour immediately
+            action: light.turn_on
+            target:
+              entity_id: "{{ led_bar_entity }}"
+            data:
+              hs_color: [194, 90]
+              brightness: "{{ speed_brightness }}"
+          - alias: If this room is asleep, settle to the locator glow after 30s
+            note: >-
+              mode: restart cancels this wait if any subsequent call
+              (another fan change, or the sleeping boolean itself) comes
+              in first.
+            if:
+              - condition: template
+                value_template: "{{ sleeping }}"
+            then:
+              - delay: "00:00:30"
+              - alias: Settle to the white locator glow
+                action: light.turn_on
+                target:
+                  entity_id: "{{ led_bar_entity }}"
+                data:
+                  hs_color: [0, 0]
+                  brightness: 8
+    default:
+      - alias: Fan off, someone home - locator glow
+        action: light.turn_on
+        target:
+          entity_id: "{{ led_bar_entity }}"
+        data:
+          hs_color: [0, 0]
+          brightness: 8

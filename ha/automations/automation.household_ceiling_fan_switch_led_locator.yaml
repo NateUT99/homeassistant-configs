@@ -1,19 +1,17 @@
 id: "1788920021778"
 alias: "Household: Ceiling Fan Switch LED Locator"
 description: >-
-  Keeps the three Inovelli ceiling-fan switch LED bars in sync with
-  presence and day/night dimming by recomputing each affected room via
-  its script.<prefix>_ceiling_fan_led_state. Every switch shows something
-  whenever someone is home (the running fan's speed colour, or a white
-  locator glow when idle), dimmer at night than during the day, dark only
-  when nobody is home - identically in Office, Master Bedroom, and
-  Avery's Room. Household-wide triggers (presence,
-  input_boolean.everyone_sleeping) recompute all three rooms. Avery's
-  personal input_boolean.avery_sleeping additionally recomputes just her
-  room, since her room should dim as soon as she goes to bed even if the
-  rest of the household is still awake - binary_sensor.avery_home_today
-  plays no part in this feature. Fires 30s after HA start to let Matter
-  settle.
+  Keeps the three Inovelli ceiling-fan switch RGB Indicator LED bars in
+  sync with presence via script.ceiling_fan_led_state (shared across all
+  three canopy switches). Every switch shows the running fan's speed
+  colour, a white locator glow when idle, or dark when nobody's home.
+  Household-wide triggers (presence, HA start) recompute all three rooms.
+  input_boolean.everyone_sleeping additionally recomputes Master Bedroom
+  only, and input_boolean.avery_sleeping recomputes Avery's Room only --
+  each bedroom's own sleep flag gates whether its bar settles from the
+  speed colour to the locator glow 30s after the last change (see
+  script.ceiling_fan_led_state). Office has no sleep gating. Fires 30s
+  after HA start to let Matter settle.
 triggers:
   - alias: HA started
     trigger: homeassistant
@@ -75,23 +73,32 @@ actions:
         alias: Wait 30 seconds for Matter to settle
   - alias: Route by trigger
     choose:
-      - alias: Household-wide presence or sleep change - recompute all three rooms
+      - alias: Household-wide presence change - recompute all three rooms
         conditions:
           - condition: trigger
             id:
               - ha_started
               - someone_home
               - nobody_home
-              - sleep_on
-              - sleep_off
-            alias: Triggered by HA start, presence, or everyone-sleeping
+            alias: Triggered by HA start or presence
         sequence:
           - alias: Office
-            action: script.office_ceiling_fan_led_state
+            action: script.ceiling_fan_led_state
+            data:
+              fan_entity: fan.office_ceiling_fan
+              led_bar_entity: light.office_ceiling_fan_switch_led_bar
           - alias: Master Bedroom
-            action: script.master_bedroom_ceiling_fan_led_state
+            action: script.ceiling_fan_led_state
+            data:
+              fan_entity: fan.master_bedroom_ceiling_fan
+              led_bar_entity: light.master_bedroom_ceiling_fan_switch_led_bar
+              sleeping_boolean: input_boolean.everyone_sleeping
           - alias: Avery's Room
-            action: script.averys_room_ceiling_fan_led_state
+            action: script.ceiling_fan_led_state
+            data:
+              fan_entity: fan.averys_room_ceiling_fan
+              led_bar_entity: light.averys_room_ceiling_fan_switch_led_bar
+              sleeping_boolean: input_boolean.avery_sleeping
       - alias: Avery-specific sleep change - recompute her room only
         conditions:
           - condition: trigger
@@ -101,7 +108,25 @@ actions:
             alias: Triggered by Avery's personal sleep flag
         sequence:
           - alias: Avery's Room
-            action: script.averys_room_ceiling_fan_led_state
+            action: script.ceiling_fan_led_state
+            data:
+              fan_entity: fan.averys_room_ceiling_fan
+              led_bar_entity: light.averys_room_ceiling_fan_switch_led_bar
+              sleeping_boolean: input_boolean.avery_sleeping
+      - alias: Master Bedroom sleep change - recompute her room only
+        conditions:
+          - condition: trigger
+            id:
+              - sleep_on
+              - sleep_off
+            alias: Triggered by Master Bedroom's sleep flag
+        sequence:
+          - alias: Master Bedroom
+            action: script.ceiling_fan_led_state
+            data:
+              fan_entity: fan.master_bedroom_ceiling_fan
+              led_bar_entity: light.master_bedroom_ceiling_fan_switch_led_bar
+              sleeping_boolean: input_boolean.everyone_sleeping
 mode: queued
 max: 5
 category: 01M08MMBZ719V4GZ2FT10RPTJ2
