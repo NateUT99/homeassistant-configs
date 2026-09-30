@@ -40,9 +40,6 @@ triggers:
     entity_id: fan.office_ceiling_fan
     attribute: percentage
     id: fan
-    not_from:
-      - unavailable
-      - unknown
   - alias: Down paddle gesture
     trigger: state
     entity_id: event.office_ceiling_fan_switch_button_down
@@ -67,9 +64,6 @@ triggers:
     trigger: state
     entity_id: light.office_ceiling_fan_light
     id: light
-    not_from:
-      - unavailable
-      - unknown
 conditions: []
 actions:
   - alias: Route by trigger
