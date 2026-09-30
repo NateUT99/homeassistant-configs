@@ -22,7 +22,10 @@ description: >-
   already has a real in-progress volume. It's paused first only if it
   was actually playing (not just on), and resumed afterward only if
   this call itself was the one that paused it -- a show the person had
-  already left paused stays paused rather than auto-resuming. For every
+  already left paused stays paused rather than auto-resuming. If the
+  AppleTV rejects the stream, the same pre-generated clip plays on the
+  kitchen HomePod instead (or pushes if that's offline too), and the
+  AppleTV is resumed only after that finishes. For every
   other call (any HomePod target, or a broadcast), the living room
   AppleTV is ducked -- paused before speaking, resumed after -- whenever
   it's actually playing, since its Sonos soundbar has no independent
@@ -226,7 +229,11 @@ sequence:
               idle announcement-only speakers, the AppleTV has an
               actual in-progress volume already set. The announce
               pipeline plays at that volume as-is and needs no
-              explicit restore.
+              explicit restore. continue_on_error lets a failed AirPlay
+              stream (pyatv busy/blocked/timeout, raised as
+              HomeAssistantError) fall through to the kitchen fallback
+              below instead of aborting the script with the AppleTV left
+              paused and the caller's run killed.
             action: media_player.play_media
             target:
               entity_id: media_player.living_room_appletv
@@ -234,6 +241,7 @@ sequence:
               media_content_id: "{{ tts_audio.url }}"
               media_content_type: music
               announce: true
+            continue_on_error: true
           - alias: Wait for the announcement to actually finish
             note: >-
               The AppleTV shows playing for the duration of the
@@ -255,6 +263,56 @@ sequence:
                 to: idle
             timeout: "{{ tts_audio.duration + 5 }}"
             continue_on_timeout: true
+          - alias: If the AppleTV never played the announcement, speak it in the kitchen instead
+            note: >-
+              On success play_media blocks until the clip finishes and
+              the AppleTV then settles from playing, completing the wait
+              above. A failed stream returns almost instantly without the
+              AppleTV ever entering playing, so the wait times out --
+              that timeout is the failure signal, since
+              continue_on_error exposes no error variable.
+            if:
+              - condition: template
+                value_template: "{{ not wait.completed }}"
+            then:
+              - alias: Kitchen HomePod offline too -- push instead
+                if:
+                  - condition: state
+                    entity_id: media_player.kitchen_homepod
+                    state:
+                      - unavailable
+                      - unknown
+                then:
+                  - alias: Push fallback (AppleTV failed, kitchen offline)
+                    action: notify.mobile_app_nates_iphone
+                    data:
+                      title: "{{ notification_title_resolved }}"
+                      message: "{{ message }}"
+                      data: "{{ fallback_push_data }}"
+                else:
+                  - alias: Set kitchen HomePod volume
+                    action: media_player.volume_set
+                    target:
+                      entity_id: media_player.kitchen_homepod
+                    data:
+                      volume_level: "{{ volume_override_resolved if volume_override_resolved is not none else 0.6 }}"
+                  - alias: Play the pre-generated announcement in the kitchen
+                    action: media_player.play_media
+                    target:
+                      entity_id: media_player.kitchen_homepod
+                    data:
+                      media_content_id: "{{ tts_audio.url }}"
+                      media_content_type: music
+                      announce: true
+                  - alias: Wait for the kitchen announcement to finish before resuming
+                    wait_for_trigger:
+                      - trigger: state
+                        alias: Kitchen HomePod finishes
+                        entity_id: media_player.kitchen_homepod
+                        from: playing
+                        to: idle
+                    timeout: "{{ tts_audio.duration + 5 }}"
+                    continue_on_timeout: true
           - alias: Resume the living room AppleTV only if it was ours to pause
             note: >-
               Gated on the original living_room_playing snapshot, not
