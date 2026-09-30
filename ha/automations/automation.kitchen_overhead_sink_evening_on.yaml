@@ -1,0 +1,58 @@
+id: "1790727869890"
+alias: "Kitchen: Overhead Sink Evening On"
+description: >-
+  Turns on the overhead sink light at sunset -30min if someone is home, or
+  immediately on arrival if it's already past that threshold. Skips entirely
+  if no one is home at sunset -30min -- arrival is what turns it on in that
+  case, not a missed-window catch-up.
+triggers:
+  - alias: Sunset minus 30 minutes
+    trigger: sun
+    event: sunset
+    offset: "-00:30:00"
+    id: sunset_threshold
+  - alias: Arrival confirmed
+    trigger: state
+    entity_id: input_boolean.arrival_confirmed
+    to: "on"
+    id: arrival
+conditions: []
+actions:
+  - alias: Route by trigger
+    choose:
+      - alias: "Sunset threshold reached -- turn on if someone's home"
+        conditions:
+          - condition: trigger
+            id: [sunset_threshold]
+          - alias: Someone is home
+            condition: numeric_state
+            entity_id: zone.home
+            above: 0
+        sequence:
+          - alias: Turn on overhead sink light
+            action: light.turn_on
+            target:
+              entity_id: light.kitchen_overhead_sink
+      - alias: "First arrival -- turn on if already past sunset -30min"
+        conditions:
+          - condition: trigger
+            id: [arrival]
+          - alias: Already past sunset -30min
+            note: >-
+              before: sunrise is required here, not optional -- a one-sided
+              after: sunset anchors at midnight (true sunset-30 to midnight,
+              then false again from midnight until next sunset), same as a
+              one-sided condition: time. Without the before bound, an
+              arrival between midnight and the next sunset would wrongly
+              fail this check.
+            condition: sun
+            after: sunset
+            after_offset: "-00:30:00"
+            before: sunrise
+        sequence:
+          - alias: Turn on overhead sink light
+            action: light.turn_on
+            target:
+              entity_id: light.kitchen_overhead_sink
+mode: single
+category: 01M08MMBZ719V4GZ2FT10RPTJ2
