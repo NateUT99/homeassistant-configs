@@ -153,7 +153,7 @@ Six mechanisms connect the wall switch to the fan/light:
 | Paddle double-tap down → fan + light off; double-tap up → fan on (last speed) + light on | HA automation | No |
 | Config button taps → fan speed (1 tap cycle, 2 taps off, 3 taps peek) | HA automation | No |
 | Fan state change → switch LED bar update | HA automation ([Shared: LED Bar](#shared-led-bar)) | No |
-| Paddle hold release, any observed light turn-off, or any observed light turn-on → Adaptive Lighting manual-control handoff / correction | HA automation ([Step 6](#step-6--ha-automation), `guides/adaptive_lighting.md`) | No |
+| Paddle hold start, paddle double-tap up (when the light was left manually controlled), any observed light turn-off, or any observed light turn-on → Adaptive Lighting manual-control handoff / correction | HA automation ([Step 6](#step-6--ha-automation), `guides/adaptive_lighting.md`) | No |
 
 The whole-room off/on gesture is a paddle **double-tap** (`multi_press_2` on the
 up/down paddle event entity), handled by the HA automation. Tap → light and
@@ -183,7 +183,8 @@ hold → light are Matter bindings and are independent of it.
                                    └─►  script.household_ceiling_fan_led_state (3 taps: peek)
       event.*_button_down (multi_press_2) ─►  fan.turn_off + light.turn_off
       event.*_button_up   (multi_press_2) ─►  fan.set_percentage (last speed) + light.turn_on
-      event.*_button_up/down (long_release) ─►  adaptive_lighting.set_manual_control (true)
+                                   └─►  adaptive_lighting.set_manual_control (false, if manual)
+      event.*_button_up/down (long_press) ─►  adaptive_lighting.set_manual_control (true)
       fan.<prefix>_ceiling_fan      ──►  input_select.<prefix>_ceiling_fan_last_speed
                                    └─►  script.household_ceiling_fan_led_state
       light.<prefix>_ceiling_fan_light ─►  script.household_ceiling_fan_led_state
@@ -255,10 +256,17 @@ hold → light are Matter bindings and are independent of it.
 - **Adaptive Lighting owns steady-state ceiling brightness.** The three fan lights
   are enrolled in Adaptive Lighting (`guides/adaptive_lighting.md`); `On level`
   (Step 2) is written by its pre-stage automation, not set here. A paddle hold
-  dims locally over the cluster 8 binding, and on `long_release` this automation
-  pins that level against AL's curve; any turn-off HA observes hands brightness
-  back to AL, and any turn-on HA observes gets a fast 2s snap to the curve since
-  pre-staging alone is not reliably honored on every turn-on path.
+  dims locally over the cluster 8 binding, and this automation pins that level
+  against AL's curve at the hold's *start* (`long_press`), not its release —
+  AL freely re-adapts brightness for as long as the light isn't marked
+  manual, which fights a live dim whenever the hold moves away from AL's
+  current target, so marking at start rather than release closes that
+  window. Any turn-off HA observes hands brightness back to AL; any turn-on
+  HA observes gets a fast 2s snap to the
+  curve since pre-staging alone is not reliably honored on every turn-on
+  path; and a double-tap up releases manual control if the light was left
+  manually controlled, since `light.turn_on` alone is a no-op on a light
+  that's already on.
 
 ## Prerequisites
 
@@ -474,10 +482,10 @@ to the firmware without matching an automation branch:
 | Paddle gesture | Result |
 |---|---|
 | Double-tap down (`multi_press_2`) | `fan.turn_off` + `light.turn_off` |
-| Double-tap up (`multi_press_2`) | `fan.set_percentage` to the remembered speed + `light.turn_on` (comes on at the `On level`, which Adaptive Lighting pre-stages — `guides/adaptive_lighting.md`) |
-| Hold release, either paddle (`long_release`) | `adaptive_lighting.set_manual_control(true)` for the ceiling light — pins the wall-set dim level against AL's curve until the light next turns off or the 30-minute autoreset fires |
+| Double-tap up (`multi_press_2`) | `fan.set_percentage` to the remembered speed + `light.turn_on` (comes on at the `On level`, which Adaptive Lighting pre-stages — `guides/adaptive_lighting.md`); if the light was left manually controlled, releases manual control so it returns to AL's curve |
+| Hold start, either paddle (`long_press`) | `adaptive_lighting.set_manual_control(true)` for the ceiling light — pins the wall-set dim level against AL's curve for the whole gesture, until the light next turns off or the 30-minute autoreset fires |
 
-Gated on `trigger.to_state.attributes.event_type == 'long_release'`, which reads
+Gated on `trigger.to_state.attributes.event_type == 'long_press'`, which reads
 the triggering entity, so the other paddle's stale attribute cannot match. No
 de-dup guard on the double-tap branches: `mode: queued` plus idempotent actions
 make a repeat `multi_press_2` a no-op.
@@ -520,12 +528,21 @@ See `guides/adaptive_lighting.md` and `LESSONS.md`.
 data, without touching the fan — a way to force a resync on demand (normally a
 no-op, since the bar already reflects current state continuously).
 
-All five triggers carry `not_from: [unavailable, unknown]` (the `event.*` ones
-also keep `not_to`). A Matter Server reconnect restores every entity on the
-switch from `unavailable` to its last-held value; without the `not_from` guard
-that restore transition replays the last button gesture and drives the fan. See
-`LESSONS.md` → "`event` entities re-fire their trigger on every HA restart or
-integration reload."
+The three button triggers (`config`, `down_paddle`, `up_paddle`) carry
+`not_from: [unavailable, unknown]` and `not_to`. A Matter Server reconnect
+restores every entity on the switch from `unavailable` to its last-held
+value; without the `not_from` guard that restore transition replays the
+last button gesture and drives the fan. See `LESSONS.md` → "`event`
+entities re-fire their trigger on every HA restart or integration
+reload."
+
+The `fan` and `light` triggers deliberately omit `not_from` — a
+Matter-disconnect restore on these should recompute the LED bar and the
+Adaptive Lighting handoff, not be suppressed. Guarding them the same way
+as the button triggers left the LED bar unable to self-heal after a
+disconnect: the bar would show whatever it last displayed before the
+disconnect until the next real fan-speed or light change happened to
+occur.
 
 `mode: queued`, `max: 10` — runs process in order.
 
@@ -653,8 +670,8 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 7. **Re-apply the parameters that reset.** The flash reverts Light Mode, Fan
    Mode, On level, Minimum dim level, and power-on behavior to defaults — set
    them again per [Step 2](#step-2--canopy-module-vtm36-parameters). Re-check the
-   light transition-time numbers too and reset them to `0.5` s if the flash
-   returned them to `2.5`.
+   light transition-time numbers too and reset them per [Step 2](#step-2--canopy-module-vtm36-parameters)
+   (`0.3` s On, `0.5` s Off / On-Off) if the flash returned them to `2.5`.
 8. **Verify**: paddle on/off; config-button speed cycle (1 tap) — the LED bar
    jumps to the speed-mapped brightness almost immediately; a config double-tap
    off returns the bar to the locator glow; the triple-tap peek re-asserts the
@@ -703,7 +720,7 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 - `standards/automations.md` — automation naming, category, and label rules
 - `standards/naming.md` — entity/device naming (the `avery_s` slug gotcha)
 - `guides/adaptive_lighting.md` — the three ceiling fan lights' brightness curve, and the
-  `On level` pre-staging that this guide's `long_release` and turn-off branches coordinate with
+  `On level` pre-staging that this guide's hold-start and turn-off branches coordinate with
 - `LESSONS.md` — Matter binding and VTM3x parameter gotchas (dimming speed values,
   `scene.create` inside a restart script, `light.turn_off` dropping `transition`,
   the RGB Indicator's colour-rendering behavior and the Load Control intensity
@@ -737,7 +754,7 @@ does. `LESSONS.md` has the mechanism.
 **Paddle tap works but paddle hold doesn't dim.** Two things must both be in
 place: a cluster 8 (Level Control) binding on the switch → canopy light endpoint
 1 ([Step 4](#step-4--matter-binding-paddle--light)), and `Dimming Speed
-(Simulated)` (`select.*_ceiling_fan_switch_dimming_speed_simulated`) set to `2s`,
+(Simulated)` (`select.*_ceiling_fan_switch_dimming_speed_simulated`) set to `5s`,
 not `Instant`. See `LESSONS.md`.
 
 **Paddle double-tap does nothing (whole-room off/on).** The double-tap is an HA
