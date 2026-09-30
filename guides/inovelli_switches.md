@@ -419,7 +419,7 @@ Set physically during the install (paddle + config taps) and confirmed in HA:
 | Switch mode | Single-pole | No traveler; single-location install. Set physically; the live readout in HA is `select.*_switch_type` = `Single-Pole` (the older `Switch Mode` select reads `unavailable`). |
 | Smart Bulb Mode | Enabled | Keeps the load permanently powered so the paddle emits Matter commands (events / bindings) instead of chasing the empty local relay. Required for the binding to fire. Live entity: `select.*_ceiling_fan_switch_smart_bulb_mode` = `Smart Bulb Enable`. |
 | Control of switch load | `Remote & paddle control` (default — **do not** change) | On the White series the outgoing On/Off binding is triggered by the paddle's local load action. Setting this to `Remote control only` (to stop the phantom `switch.*_ceiling_fan_switch_load_control` toggle) also kills the paddle → light binding, even with Smart Bulb Mode on. Leave it and accept the internal-relay toggle as the cost of a working binding. See `LESSONS.md`. Live entity: `select.*_ceiling_fan_switch_control_of_switch_load`. |
-| Dimming Speed (Simulated) | `4s` | End-to-end ramp time for a paddle press-and-hold over the cluster 8 (Level Control) binding — see [Step 4](#step-4--matter-binding-paddle--light). At `Instant` (default) a paddle hold emits no Move/Step and cluster 8 dimming does nothing. `4s` is the tested value on all three rooms; see `LESSONS.md` for values tried and rejected. Live entity: `select.*_ceiling_fan_switch_dimming_speed_simulated`. |
+| Dimming Speed (Simulated) | `3s` | End-to-end ramp time for a paddle press-and-hold over the cluster 8 (Level Control) binding — see [Step 4](#step-4--matter-binding-paddle--light). At `Instant` (default) a paddle hold emits no Move/Step and cluster 8 dimming does nothing. `3s` is the tested value on all three rooms; see `LESSONS.md` for values tried and rejected. Live entity: `select.*_ceiling_fan_switch_dimming_speed_simulated`. |
 | `LED on/off intensity (Load Control)` (`number.*`) | `0` | Normalize on every new switch — this parameter visually stacks under the RGB Indicator bar and ships at an inconsistent, uncommanded default per unit. See [Shared: LED Bar](#shared-led-bar). |
 | `LED Color`, `LED Intensity(On)` / `(Off)`, `LED Effect` (`select.*`) | Leave at default | Unmanaged — this design drives the bar through `light.<prefix>_ceiling_fan_switch_led_bar` instead. See [Shared: LED Bar](#shared-led-bar). |
 
@@ -437,7 +437,7 @@ Done in the Matter Server Web UI.
    - cluster **8 (Level Control)** — paddle press-and-hold → dim up/down
 4. If the UI has a separate ACL step, add an entry on node 10 granting node 11
    operate access. Most binding UIs write the ACL automatically.
-5. Set `Dimming Speed (Simulated)` = `4s` ([Step 3](#step-3--switch-vtm30-sn-parameters)).
+5. Set `Dimming Speed (Simulated)` = `3s` ([Step 3](#step-3--switch-vtm30-sn-parameters)).
    Without a non-`Instant` value the cluster 8 bind emits nothing on a paddle
    hold and the dim half of this step will look broken.
 6. Test at the wall: tap up → light on (at the `On level` — pre-staged by
@@ -775,7 +775,7 @@ does. `LESSONS.md` has the mechanism.
 **Paddle tap works but paddle hold doesn't dim.** Two things must both be in
 place: a cluster 8 (Level Control) binding on the switch → canopy light endpoint
 1 ([Step 4](#step-4--matter-binding-paddle--light)), and `Dimming Speed
-(Simulated)` (`select.*_ceiling_fan_switch_dimming_speed_simulated`) set to `4s`,
+(Simulated)` (`select.*_ceiling_fan_switch_dimming_speed_simulated`) set to `3s`,
 not `Instant`. See `LESSONS.md`.
 
 **Paddle double-tap does nothing.** Double-tap down (whole-room off) and
