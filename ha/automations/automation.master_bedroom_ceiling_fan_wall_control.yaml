@@ -208,17 +208,6 @@ actions:
                   lights:
                     - light.master_bedroom_ceiling_fan_light
                   manual_control: false
-              - alias: Snap to the current Adaptive Lighting target over 2s
-                action: adaptive_lighting.apply
-                data:
-                  entity_id: switch.adaptive_lighting_standard
-                  lights:
-                    - light.master_bedroom_ceiling_fan_light
-                  transition: 2
-                  turn_on_lights: false
-                  adapt_brightness: true
-                  adapt_color: false
-                enabled: false
       - alias: Paddle hold started - mark the ceiling light manually controlled
         conditions:
           - condition: trigger
