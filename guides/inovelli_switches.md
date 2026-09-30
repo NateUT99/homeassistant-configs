@@ -530,11 +530,18 @@ first. Then:
   `light.turn_off` service call — so AL's own turn-off listener never sees it;
   without this step a ceiling that was dimmed at the wall would stay manually
   controlled through an off/on.
-- if the light is now **on** and not manually controlled, calls
+- if this trigger fired on a real **off→on transition** (`trigger.from_state`
+  was off) and the light is not manually controlled, calls
   `adaptive_lighting.apply` with a 2s transition to snap it to the curve.
   `OnLevel` pre-staging is not reliably honored on every turn-on path, so this is
   a fast backstop rather than a redundant check — see `guides/adaptive_lighting.md`
-  Step 5.
+  Step 5. Gated on the transition, not just the light's current state: this
+  trigger has no `to:`/`from:` restriction, so it also fires on AL's own
+  periodic brightness-only attribute updates while the light is already on —
+  without the transition check, each of those would match "light is on, not
+  manually controlled" and fire `apply` again, and that `apply` call is itself
+  a light change that retriggers the same branch, forming a continuous
+  feedback loop with Adaptive Lighting.
 
 See `guides/adaptive_lighting.md` and `LESSONS.md`.
 
