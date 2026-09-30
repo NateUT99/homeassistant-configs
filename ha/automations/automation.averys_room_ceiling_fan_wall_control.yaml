@@ -16,9 +16,10 @@ description: >-
   change; the boolean turning off restores the correct state immediately.
   See guides/inovelli_switches.md. None of this works while HA is down;
   paddle tap -> light on/off (cluster 6) and paddle hold -> dim (cluster
-  8) are Matter bindings that run regardless. On the hold's release HA
-  marks the ceiling light manually controlled so Adaptive Lighting leaves
-  the wall-set brightness alone; any observed turn-off (single-tap,
+  8) are Matter bindings that run regardless. On the hold's start (not
+  its release) HA marks the ceiling light manually controlled, so
+  Adaptive Lighting leaves the wall-set brightness alone for the whole
+  gesture; any observed turn-off (single-tap,
   double-tap, HA) hands it back to Adaptive Lighting, and the 30-min
   autoreset is the backstop. Any observed turn-on that is not manually
   controlled gets snapped to the current Adaptive Lighting target over 2s
@@ -187,16 +188,47 @@ actions:
             action: light.turn_on
             target:
               entity_id: light.averys_room_ceiling_fan_light
-      - alias: Paddle held then released - hand the ceiling light's brightness to Adaptive Lighting
+          - alias: If the light was manually controlled, restore it to Adaptive Lighting
+            note: >-
+              Double-tap up is a full "everything on" gesture; treat a
+              manually controlled light here as intent to return to the
+              adaptive curve.
+            if:
+              - alias: Light is manually controlled
+                condition: template
+                value_template: >-
+                  {{ 'light.averys_room_ceiling_fan_light' in
+                  (state_attr('switch.adaptive_lighting_avery_schedule',
+                  'manual_control_brightness') or []) }}
+            then:
+              - alias: Release Adaptive Lighting manual control
+                action: adaptive_lighting.set_manual_control
+                data:
+                  entity_id: switch.adaptive_lighting_avery_schedule
+                  lights:
+                    - light.averys_room_ceiling_fan_light
+                  manual_control: false
+              - alias: Snap to the current Adaptive Lighting target over 2s
+                action: adaptive_lighting.apply
+                data:
+                  entity_id: switch.adaptive_lighting_avery_schedule
+                  lights:
+                    - light.averys_room_ceiling_fan_light
+                  transition: 2
+                  turn_on_lights: false
+                  adapt_brightness: true
+                  adapt_color: false
+                enabled: false
+      - alias: Paddle hold started - mark the ceiling light manually controlled
         conditions:
           - condition: trigger
             id:
               - up_paddle
               - down_paddle
             alias: Triggered by either paddle
-          - alias: Gesture was a hold-release (long_release), not a tap
+          - alias: Gesture is a hold-start (long_press), not a tap or a release
             condition: template
-            value_template: "{{ trigger.to_state.attributes.event_type == 'long_release' }}"
+            value_template: "{{ trigger.to_state.attributes.event_type == 'long_press' }}"
         sequence:
           - alias: Mark the ceiling light manually controlled so AL stops adapting its brightness
             action: adaptive_lighting.set_manual_control
