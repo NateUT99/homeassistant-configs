@@ -307,8 +307,19 @@ actions:
               Adaptive Lighting target -- confirmed on this light turning on
               to full brightness even with a correctly pre-staged OnLevel,
               then only fading down over AL's normal ~45s cycle. Forces a
-              fast 2s correction instead of waiting on that cycle.
+              fast 2s correction instead of waiting on that cycle. Gated on
+              trigger.from_state being off (not just the current state
+              being on) -- without that guard this step also fires on
+              Adaptive Lighting's own periodic brightness-only attribute
+              updates while the light is already on, and each apply call
+              is itself a light change that retriggers this same branch,
+              creating a continuous feedback loop with Adaptive Lighting.
             if:
+              - alias: This is a real off-to-on transition, not an attribute-only change
+                condition: template
+                value_template: >-
+                  {{ trigger.from_state is not none and
+                  trigger.from_state.state == 'off' }}
               - alias: Ceiling light is now on
                 condition: state
                 entity_id: light.office_ceiling_fan_light
