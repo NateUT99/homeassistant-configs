@@ -59,6 +59,7 @@ sequence:
         conditions:
           - condition: template
             value_template: "{{ not someone_home }}"
+            alias: Nobody home
         sequence:
           - alias: Turn off the LED bar
             action: light.turn_off
@@ -68,6 +69,7 @@ sequence:
         conditions:
           - condition: template
             value_template: "{{ fan_on }}"
+            alias: Fan is on
         sequence:
           - alias: Set the speed colour immediately
             action: light.turn_on
@@ -84,8 +86,10 @@ sequence:
             if:
               - condition: template
                 value_template: "{{ sleeping }}"
+                alias: Sleeping boolean is on
             then:
               - delay: "00:00:30"
+                alias: Wait 30 seconds
               - alias: Settle to the white locator glow
                 action: light.turn_on
                 target:

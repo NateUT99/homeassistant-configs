@@ -36,24 +36,20 @@ unmanaged:
 | `select.<prefix>_..._led_color` / `_led_intensity_on` / `_led_intensity_off` / `_led_effect` | Native discrete notification parameters — **not used**, left at whatever value they hold |
 | `number.<prefix>_..._led_on_intensity_load_control` / `_led_off_intensity_load_control` | A separate Load Control LED baseline (`0–75`) that visually stacks under the native parameters above — normalize to `0` on every switch at commissioning time so it can't interfere (see [Known hardware quirk](#known-hardware-quirk)) |
 
-**RGB Indicator light entity, not the native `select` parameters.** An earlier version of this
-design used the native `LED Color`/`LED Intensity(On)`/`(Off)`/`LED Effect` selects instead,
-on the theory that the RGB entity's `hs_color` silently drops white and low-saturation values
-when called from a script (`LESSONS.md`). That theory doesn't hold for this switch's actual
-`light.*_led_bar` entity — live-tested (Sept 2026) with both a saturated colour and true white
-(`hs_color: [0, 0]`) called from a script, both rendered correctly. The native `select`
-parameters were also found to have their own real problem: `LED Intensity` behaves as a
-**fill percentage** of the bar, not a uniform brightness (a commanded `26` renders as roughly
-a quarter of the bar lit, not a dim full bar), which made the "active" indicator read as
-partially lit rather than the intended subtle-but-clear signal. The RGB entity's `brightness`
-(0–255) doesn't have this fill-percentage behavior and gives standard, predictable dimming.
+**RGB Indicator light entity, not the native `select` parameters.** The native `LED Color` /
+`LED Intensity(On)` / `(Off)` / `LED Effect` selects aren't used because `LED Intensity`
+behaves as a **fill percentage** of the bar, not a uniform brightness — a commanded `26`
+renders as roughly a quarter of the bar lit, not a dim full bar (`LESSONS.md`). The RGB
+Indicator's `brightness` (0–255) doesn't have this behavior and gives standard, predictable
+dimming; both a saturated colour and true white (`hs_color: [0, 0]`) render correctly on this
+entity when called from a script (`LESSONS.md`).
 
 **`LED on/off intensity (Load Control)` (`number.*`) is a separate, per-device parameter that
-must be normalized.** It ships at an inconsistent, uncommanded default per physical unit (`0`
-on Avery's Room, `3` on Office, `26` on Master Bedroom, observed Sept 2026) and visually stacks
-underneath whatever the RGB Indicator renders — the same commanded colour/brightness looked
-different room to room until this was found and zeroed on all three switches. Set it to `0` as
-part of bringing up any new switch; nothing in this design writes to it afterward.
+must be normalized to `0`.** It ships at an inconsistent, uncommanded default per physical
+unit and visually stacks underneath whatever the RGB Indicator renders, so an unnormalized
+switch shows a different apparent brightness than an identically-commanded one elsewhere in
+the house (`LESSONS.md` has the per-unit values found). Set it to `0` as part of bringing up
+any new switch; nothing in this design writes to it afterward.
 
 ### Presence gates on/off; sleep settles to a dimmer glow
 
@@ -82,9 +78,8 @@ One **shared** script, `script.ceiling_fan_led_state`, `mode: restart`, taking t
 no sleep gating, e.g. Office). Called by every room's wall-control automation with that room's
 literal entity IDs, rather than one script per switch — a single source of truth for the
 speed→brightness mapping and the sleep-settle logic, instead of three near-identical copies
-that can silently drift (the day/night intensity value this design used before drifted
-exactly this way — see git history). Every call recomputes fully from live state: no
-snapshot, nothing timing-sensitive to get wrong on an out-of-order recompute.
+that can silently drift out of sync with each other. Every call recomputes fully from live
+state: no snapshot, nothing timing-sensitive to get wrong on an out-of-order recompute.
 
 The sleep-settle delay is the one place this script isn't purely idempotent-on-recompute: while
 the fan is on and its `sleeping_boolean` reads on, the script sets the speed-accurate state
