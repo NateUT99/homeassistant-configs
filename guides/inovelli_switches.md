@@ -59,10 +59,10 @@ off, the bar only shows a locator glow if the room's own ceiling light is also o
 is already visibly occupied, so the bar goes dark rather than adding a redundant glow next to
 it:
 
-| Condition | `hs_color` | Brightness |
+| Condition | `color_name` | Brightness |
 |---|---|---|
-| Fan running | `[194, 90]` (blue) | Mapped to speed: `85` low / `170` medium / `255` high |
-| Fan off, ceiling light off, someone home | `[0, 0]` (white) | `8` (locator glow) |
+| Fan running | `homeassistant` (blue) | Mapped to speed: `85` low / `170` medium / `255` high |
+| Fan off, ceiling light off, someone home | `white` | `8` (locator glow) |
 | Fan off, ceiling light on | — | off (`light.turn_off`) |
 | Nobody home | — | off (`light.turn_off`) |
 
@@ -522,8 +522,8 @@ The automations use 33 / 66 / 100, with `< 45` / `< 78` band edges to absorb the
 Matter fan's percentage rounding. All three rooms' fans share this same
 `percentage_step` — confirmed before building the shared script.
 
-The LED bar uses a single colour (`hs_color: [194, 90]`, blue) for the running
-state; brightness alone carries the speed, mapped by
+The LED bar uses a single colour (`color_name: homeassistant`, HA's brand blue) for the
+running state; brightness alone carries the speed, mapped by
 `script.household_ceiling_fan_led_state`:
 
 | Speed | `fan.percentage` | Bar brightness |
@@ -532,7 +532,7 @@ state; brightness alone carries the speed, mapped by
 | medium | 67 | 170 |
 | high | 100 | 255 |
 
-Locator glow (fan off, someone home) is `hs_color: [0, 0]` (white) at
+Locator glow (fan off, ceiling light off, someone home) is `color_name: white` at
 brightness `8`, unchanged by day/night — see
 [Shared: LED Bar](#shared-led-bar) for the sleep-settle behavior that applies
 to the running-speed brightness in a bedroom.
