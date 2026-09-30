@@ -1,19 +1,21 @@
-alias: Ceiling Fan LED State
+alias: "Household: Ceiling Fan LED State"
 description: >-
   Shared LED-bar state for any Inovelli ceiling-fan canopy switch's RGB
   Indicator light (light.<prefix>_ceiling_fan_switch_led_bar). Speed-mapped
   blue (hs_color [194, 90]) while the fan runs, a white locator glow
-  (hs_color [0, 0], brightness 8) while off with someone home, dark when
-  nobody's home. Uses light.turn_on/turn_off directly on the RGB Indicator
-  entity -- does not touch the switch's select.*_led_color/_intensity_on/
-  _off/_effect parameters, which are left unmanaged. Pass sleeping_boolean
-  for a bedroom: while that boolean is on, the fan-running state settles
-  from the speed colour to the locator glow 30s after the last change (a
-  fan change, or the boolean itself turning on) -- mode: restart means any
+  (hs_color [0, 0], brightness 8) while the fan is off and the ceiling
+  light is also off with someone home, dark when the fan is off and the
+  ceiling light is on (already lit and occupied) or when nobody's home.
+  Uses light.turn_on/turn_off directly on the RGB Indicator entity -- does
+  not touch the switch's select.*_led_color/_intensity_on/_off/_effect
+  parameters, which are left unmanaged. Pass sleeping_boolean for a
+  bedroom: while that boolean is on, the fan-running state settles from
+  the speed colour to the locator glow 30s after the last change (a fan
+  change, or the boolean itself turning on) -- mode: restart means any
   subsequent call cancels a pending countdown and starts over, and the
   boolean turning off recomputes the correct state immediately with no
   delay. Leave sleeping_boolean unset for a switch with no sleep gating
-  (e.g. Office). See guides/inovelli_switches.md.
+  (e.g. Office).
 mode: restart
 fields:
   fan_entity:
@@ -23,6 +25,15 @@ fields:
     selector:
       entity:
         domain: fan
+  light_entity:
+    name: Ceiling light entity
+    description: >-
+      The room's ceiling light (fan light kit) -- used only to decide the
+      fan-off resting state.
+    required: true
+    selector:
+      entity:
+        domain: light
   led_bar_entity:
     name: LED bar entity
     description: >-
@@ -48,6 +59,7 @@ sequence:
     variables:
       someone_home: "{{ states('zone.home') | int(0) > 0 }}"
       fan_on: "{{ is_state(fan_entity, 'on') }}"
+      light_on: "{{ is_state(light_entity, 'on') }}"
       fan_pct: "{{ state_attr(fan_entity, 'percentage') | int(0) }}"
       sleeping: >-
         {{ (sleeping_boolean | default('')) not in ['', None] and
@@ -97,11 +109,21 @@ sequence:
                 data:
                   hs_color: [0, 0]
                   brightness: 8
+      - alias: Fan off, ceiling light also off, someone home - locator glow
+        conditions:
+          - condition: template
+            value_template: "{{ not light_on }}"
+            alias: Ceiling light is off
+        sequence:
+          - alias: Turn on the locator glow
+            action: light.turn_on
+            target:
+              entity_id: "{{ led_bar_entity }}"
+            data:
+              hs_color: [0, 0]
+              brightness: 8
     default:
-      - alias: Fan off, someone home - locator glow
-        action: light.turn_on
+      - alias: Fan off, ceiling light on - dark
+        action: light.turn_off
         target:
           entity_id: "{{ led_bar_entity }}"
-        data:
-          hs_color: [0, 0]
-          brightness: 8

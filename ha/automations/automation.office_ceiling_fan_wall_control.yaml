@@ -9,9 +9,9 @@ description: >-
   low->medium->high->low (fan on); double tap turns it off; triple tap
   peeks at the current LED state without changing the fan. Fan-percentage
   changes recompute the switch's RGB Indicator LED bar via
-  script.ceiling_fan_led_state (shared across all three canopy switches)
-  -- the running fan's speed colour, a white locator glow when idle, or
-  dark when nobody's home. Office has no sleep gating -- always
+  script.household_ceiling_fan_led_state (shared across all three canopy
+  switches) -- the running fan's speed colour, a white locator glow when
+  idle, or dark when nobody's home. Office has no sleep gating -- always
   speed-accurate while running. See guides/inovelli_switches.md. None of
   this works while HA is down; paddle tap -> light on/off (cluster 6) and
   paddle hold -> dim (cluster 8) are Matter bindings that run regardless.
@@ -143,10 +143,11 @@ actions:
                     alias: Triple tap
                 sequence:
                   - alias: Recompute the LED state
-                    action: script.ceiling_fan_led_state
+                    action: script.household_ceiling_fan_led_state
                     data:
                       fan_entity: fan.office_ceiling_fan
                       led_bar_entity: light.office_ceiling_fan_switch_led_bar
+                      light_entity: light.office_ceiling_fan_light
       - alias: Down paddle double-tapped - turn the fan and light off
         conditions:
           - condition: trigger
@@ -234,16 +235,23 @@ actions:
                 data:
                   option: "{{ speed }}"
           - alias: Recompute the LED state
-            action: script.ceiling_fan_led_state
+            action: script.household_ceiling_fan_led_state
             data:
               fan_entity: fan.office_ceiling_fan
               led_bar_entity: light.office_ceiling_fan_switch_led_bar
-      - alias: Ceiling light changed - release AL if off, snap AL if on
+              light_entity: light.office_ceiling_fan_light
+      - alias: Ceiling light changed - recompute the LED bar, release AL if off, snap AL if on
         conditions:
           - condition: trigger
             id: light
             alias: Triggered by the ceiling light
         sequence:
+          - alias: Recompute the LED state
+            action: script.household_ceiling_fan_led_state
+            data:
+              fan_entity: fan.office_ceiling_fan
+              light_entity: light.office_ceiling_fan_light
+              led_bar_entity: light.office_ceiling_fan_switch_led_bar
           - alias: If the light is now off, hand its brightness back to Adaptive Lighting
             note: >-
               A single paddle tap turns the light off via the cluster-6

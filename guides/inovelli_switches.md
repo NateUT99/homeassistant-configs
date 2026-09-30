@@ -51,16 +51,19 @@ switch shows a different apparent brightness than an identically-commanded one e
 the house (`LESSONS.md` has the per-unit values found). Set it to `0` as part of bringing up
 any new switch; nothing in this design writes to it afterward.
 
-### Presence gates on/off; sleep settles to a dimmer glow
+### Presence gates on/off; sleep settles to a dimmer glow; the ceiling light gates the fan-off state
 
-**Every switch shows something whenever someone is home.** The bar reflects the fan's actual
-running speed as brightness (not a colour code to memorize) while the fan runs, a dim white
-locator glow while it's off, and goes dark only when nobody's home:
+**Every switch shows something whenever someone is home, unless the room is already lit.** The
+bar reflects the fan's actual running speed as brightness while the fan runs. While the fan is
+off, the bar only shows a locator glow if the room's own ceiling light is also off — a lit room
+is already visibly occupied, so the bar goes dark rather than adding a redundant glow next to
+it:
 
 | Condition | `hs_color` | Brightness |
 |---|---|---|
 | Fan running | `[194, 90]` (blue) | Mapped to speed: `85` low / `170` medium / `255` high |
-| Fan off, someone home | `[0, 0]` (white) | `8` (locator glow) |
+| Fan off, ceiling light off, someone home | `[0, 0]` (white) | `8` (locator glow) |
+| Fan off, ceiling light on | — | off (`light.turn_off`) |
 | Nobody home | — | off (`light.turn_off`) |
 
 **A bedroom's sleep flag settles the running-fan brightness to the locator glow, 30s after the
@@ -73,13 +76,15 @@ delay — see [Resting-state script pattern](#resting-state-script-pattern).
 
 ### Resting-state script pattern
 
-One **shared** script, `script.ceiling_fan_led_state`, `mode: restart`, taking three fields —
-`fan_entity`, `led_bar_entity`, and an optional `sleeping_boolean` (omitted for a switch with
-no sleep gating, e.g. Office). Called by every room's wall-control automation with that room's
-literal entity IDs, rather than one script per switch — a single source of truth for the
-speed→brightness mapping and the sleep-settle logic, instead of three near-identical copies
-that can silently drift out of sync with each other. Every call recomputes fully from live
-state: no snapshot, nothing timing-sensitive to get wrong on an out-of-order recompute.
+One **shared** script, `script.household_ceiling_fan_led_state`, `mode: restart`, taking four
+fields — `fan_entity`, `light_entity`, `led_bar_entity`, and an optional `sleeping_boolean`
+(omitted for a switch with no sleep gating, e.g. Office). `light_entity` is used only to decide
+the fan-off resting state, not for anything speed- or sleep-related. Called by every room's
+wall-control automation with that room's literal entity IDs, rather than one script per switch
+— a single source of truth for the speed→brightness mapping and the sleep-settle logic, instead
+of three near-identical copies that can silently drift out of sync with each other. Every call
+recomputes fully from live state: no snapshot, nothing timing-sensitive to get wrong on an
+out-of-order recompute.
 
 The sleep-settle delay is the one place this script isn't purely idempotent-on-recompute: while
 the fan is on and its `sleeping_boolean` reads on, the script sets the speed-accurate state
@@ -161,18 +166,19 @@ hold → light are Matter bindings and are independent of it.
     config button ─────► endpoint 2: Binding cluster│
                        │  event.*_button_down/up    │──► automation: double-tap → fan/light off / on
                        │  event.*_button_config     │──► automation: Ceiling Fan Wall Control
-                       │  light.*_switch_led_bar     │◄── script.ceiling_fan_led_state
+                       │  light.*_switch_led_bar     │◄── script.household_ceiling_fan_led_state
                        └────────────────────────────┘     (Shared: LED Bar)
 
   automation.<prefix>_ceiling_fan_wall_control   (one automation, five triggers)
       event.*_button_config        ──►  fan.set_percentage / fan.turn_off   (1 / 2 taps)
-                                   └─►  script.ceiling_fan_led_state (3 taps: peek)
+                                   └─►  script.household_ceiling_fan_led_state (3 taps: peek)
       event.*_button_down (multi_press_2) ─►  fan.turn_off + light.turn_off
       event.*_button_up   (multi_press_2) ─►  fan.set_percentage (last speed) + light.turn_on
       event.*_button_up/down (long_release) ─►  adaptive_lighting.set_manual_control (true)
       fan.<prefix>_ceiling_fan      ──►  input_select.<prefix>_ceiling_fan_last_speed
-                                   └─►  script.ceiling_fan_led_state
-      light.<prefix>_ceiling_fan_light ─►  adaptive_lighting.set_manual_control (false, when → off)
+                                   └─►  script.household_ceiling_fan_led_state
+      light.<prefix>_ceiling_fan_light ─►  script.household_ceiling_fan_led_state
+                                   ├─►  adaptive_lighting.set_manual_control (false, when → off)
                                    └─►  adaptive_lighting.apply, 2s (when → on, not manual)
 ```
 
@@ -306,7 +312,7 @@ back to the clean slug:
 Only `light.<prefix>_ceiling_fan_switch_led_bar` and
 `number.<prefix>_ceiling_fan_switch_led_on/off_intensity_load_control` are
 referenced by config — see [Shared: LED Bar](#shared-led-bar) — so if either
-slug changes, update `script.ceiling_fan_led_state`'s field data in the calling
+slug changes, update `script.household_ceiling_fan_led_state`'s field data in the calling
 automations and their `ha/` mirrors in the same pass. The
 `select.<prefix>_ceiling_fan_switch_led_*` entities are unmanaged (nothing
 writes to them), so their renames — and the rest of the config entities — are
@@ -473,12 +479,14 @@ needed):
    (`off`/`low`/`medium`/`high`).
 2. If the fan is on, write `speed` to `input_select.*_ceiling_fan_last_speed`
    (skipped when off, so the memory survives an off/on cycle).
-3. Call `script.ceiling_fan_led_state` with this room's `fan_entity`,
-   `led_bar_entity`, and (for a bedroom) `sleeping_boolean` to recompute the
-   bar. See [Shared: LED Bar](#shared-led-bar).
+3. Call `script.household_ceiling_fan_led_state` with this room's `fan_entity`,
+   `light_entity`, `led_bar_entity`, and (for a bedroom) `sleeping_boolean` to
+   recompute the bar. See [Shared: LED Bar](#shared-led-bar).
 
 **Ceiling light state change** — any change to `light.*_ceiling_fan_light`
-(including one driven by the paddle binding, which HA still observes):
+(including one driven by the paddle binding, which HA still observes) recomputes
+the LED bar first (the fan-off resting state depends on whether the light is on
+or off — see [Shared: LED Bar](#shared-led-bar)), then:
 
 - if the light is now **off**, calls `adaptive_lighting.set_manual_control(false)`
   to hand its brightness back to Adaptive Lighting. A single paddle down-tap turns
@@ -492,13 +500,9 @@ needed):
   a fast backstop rather than a redundant check — see `guides/adaptive_lighting.md`
   Step 5.
 
-This branch does **not** touch the LED bar — the bar's state depends only on
-the fan and presence/sleep, not the ceiling light, so there's nothing to
-recompute here.
-
 See `guides/adaptive_lighting.md` and `LESSONS.md`.
 
-**Triple-tap peek** calls `script.ceiling_fan_led_state` with the same field
+**Triple-tap peek** calls `script.household_ceiling_fan_led_state` with the same field
 data, without touching the fan — a way to force a resync on demand (normally a
 no-op, since the bar already reflects current state continuously).
 
@@ -520,7 +524,7 @@ Matter fan's percentage rounding. All three rooms' fans share this same
 
 The LED bar uses a single colour (`hs_color: [194, 90]`, blue) for the running
 state; brightness alone carries the speed, mapped by
-`script.ceiling_fan_led_state`:
+`script.household_ceiling_fan_led_state`:
 
 | Speed | `fan.percentage` | Bar brightness |
 |---|---|---|
@@ -554,7 +558,7 @@ substitutions.
 
 Every switch uses the same presence-gates-on/off rule — there is no
 bedroom/non-bedroom classification to decide at install time. Only the two
-bedrooms pass a `sleeping_boolean` to `script.ceiling_fan_led_state` at all;
+bedrooms pass a `sleeping_boolean` to `script.household_ceiling_fan_led_state` at all;
 Office omits the field entirely and always shows accurate fan speed. Avery's
 Room uses her own personal flag rather than the household one because she's a
 child whose bedtime doesn't line up with the rest of the household's; Master
@@ -569,20 +573,23 @@ separate personal flag for that room.
 to get wrong and worth re-checking per room: `Control of switch load` left at
 `Remote & paddle control`.
 
-Each room gets its own automation, with the prefix and `sleeping_boolean`
-substituted in the `script.ceiling_fan_led_state` call's `data`:
+Each room gets its own automation, with the prefix substituted throughout and
+`sleeping_boolean` set per the table above, in every
+`script.household_ceiling_fan_led_state` call's `data` (`fan_entity`,
+`light_entity`, and `led_bar_entity` all just take that room's literal
+entity IDs):
 
 - `automation.<prefix>_ceiling_fan_wall_control`
 - `input_select.<prefix>_ceiling_fan_last_speed`
 
-`script.ceiling_fan_led_state` and `automation.household_ceiling_fan_switch_led_locator`
+`script.household_ceiling_fan_led_state` and `automation.household_ceiling_fan_switch_led_locator`
 are both **shared**, not per-room — adding a room means adding that room's
 presence/sleep triggers and a dispatch branch (with its own field data) to the
 household automation, not creating a new script copy. The `int_inovelli_fan_canopy`
 and `int_inovelli_led_bar` labels and this guide are shared.
 
 **Parity check.** The per-room automation copies must differ *only* by the
-entity prefix, the `script.ceiling_fan_led_state` call's field data, the
+entity prefix, the `script.household_ceiling_fan_led_state` call's field data, the
 automation `id`, and the friendly-name prefix in `alias` / `description`.
 After editing any room, `diff` its `ha/` mirror against another room's to
 confirm nothing else diverged — any other difference is a bug.
@@ -590,7 +597,7 @@ confirm nothing else diverged — any other difference is a bug.
 Per-room automations, not a blueprint: a templated `target.entity_id` in a
 shared *automation* leaves the GUI editor showing only an inputs form, so each
 room keeps its own automation with literal entity IDs. That constraint doesn't
-apply to `script.ceiling_fan_led_state` itself — a script's own body is edited
+apply to `script.household_ceiling_fan_led_state` itself — a script's own body is edited
 as YAML regardless, the same reasoning already applied to
 `script.household_tts_announce`'s shared, templated `target.entity_id`.
 
@@ -654,7 +661,7 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 | Master Bedroom: Ceiling Fan Wall Control | `automation.master_bedroom_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar` + `int_adaptive_lighting`) |
 | Office: Ceiling Fan Wall Control | `automation.office_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar` + `int_adaptive_lighting`) |
 | Household: Ceiling Fan Switch LED Locator | `automation.household_ceiling_fan_switch_led_locator` | Automation (Lighting, `int_inovelli_led_bar`, `scope_multi_area`, `presence`) |
-| Ceiling Fan LED State | `script.ceiling_fan_led_state` | Script (`mode: restart`, shared across all three rooms) |
+| Ceiling Fan LED State | `script.household_ceiling_fan_led_state` | Script (`mode: restart`, shared across all three rooms) |
 | Avery's Room Ceiling Fan Last Speed | `input_select.averys_room_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
 | Master Bedroom Ceiling Fan Last Speed | `input_select.master_bedroom_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
 | Office Ceiling Fan Last Speed | `input_select.office_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
@@ -669,7 +676,7 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 | `ha/automations/automation.master_bedroom_ceiling_fan_wall_control.yaml` | HA automation registry | Mirror — Master Bedroom wall-control automation |
 | `ha/automations/automation.office_ceiling_fan_wall_control.yaml` | HA automation registry | Mirror — Office wall-control automation |
 | `ha/automations/automation.household_ceiling_fan_switch_led_locator.yaml` | HA automation registry | Mirror — shared presence/sleep LED dispatch |
-| `ha/scripts/script.ceiling_fan_led_state.yaml` | HA script registry | Mirror — shared LED-bar script, all three rooms |
+| `ha/scripts/script.household_ceiling_fan_led_state.yaml` | HA script registry | Mirror — shared LED-bar script, all three rooms |
 | `scripts/matter_write_attribute.py` | run from a LAN machine (Mac Mini) | Reads vendor-cluster attributes HA doesn't expose; `--dump-node` / `--dump-modes` for discovery |
 
 ## Related documents
@@ -731,7 +738,7 @@ the `percentage` **attribute**, not a bare `state` trigger.
 differently between rooms at the same commanded value.** Check
 `number.<prefix>_ceiling_fan_switch_led_on/off_intensity_load_control` is `0`
 on the affected switch — a non-zero value there visually stacks under whatever
-`script.ceiling_fan_led_state` commands and is the most common cause of a
+`script.household_ceiling_fan_led_state` commands and is the most common cause of a
 room-to-room mismatch (see [Shared: LED Bar](#shared-led-bar)). Confirm the
 room's `sleeping_boolean` field matches the per-room table under
 [Replicating for another room](#replicating-for-another-room). Also check for

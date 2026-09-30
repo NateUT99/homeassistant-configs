@@ -2,7 +2,7 @@ id: "1788920021778"
 alias: "Household: Ceiling Fan Switch LED Locator"
 description: >-
   Keeps the three Inovelli ceiling-fan switch RGB Indicator LED bars in
-  sync with presence via script.ceiling_fan_led_state (shared across all
+  sync with presence via script.household_ceiling_fan_led_state (shared across all
   three canopy switches). Every switch shows the running fan's speed
   colour, a white locator glow when idle, or dark when nobody's home.
   Household-wide triggers (presence, HA start) recompute all three rooms.
@@ -10,7 +10,7 @@ description: >-
   only, and input_boolean.avery_sleeping recomputes Avery's Room only --
   each bedroom's own sleep flag gates whether its bar settles from the
   speed colour to the locator glow 30s after the last change (see
-  script.ceiling_fan_led_state). Office has no sleep gating. Fires 30s
+  script.household_ceiling_fan_led_state). Office has no sleep gating. Fires 30s
   after HA start to let Matter settle.
 triggers:
   - alias: HA started
@@ -83,22 +83,25 @@ actions:
             alias: Triggered by HA start or presence
         sequence:
           - alias: Office
-            action: script.ceiling_fan_led_state
+            action: script.household_ceiling_fan_led_state
             data:
               fan_entity: fan.office_ceiling_fan
               led_bar_entity: light.office_ceiling_fan_switch_led_bar
+              light_entity: light.office_ceiling_fan_light
           - alias: Master Bedroom
-            action: script.ceiling_fan_led_state
+            action: script.household_ceiling_fan_led_state
             data:
               fan_entity: fan.master_bedroom_ceiling_fan
               led_bar_entity: light.master_bedroom_ceiling_fan_switch_led_bar
               sleeping_boolean: input_boolean.everyone_sleeping
+              light_entity: light.master_bedroom_ceiling_fan_light
           - alias: Avery's Room
-            action: script.ceiling_fan_led_state
+            action: script.household_ceiling_fan_led_state
             data:
               fan_entity: fan.averys_room_ceiling_fan
               led_bar_entity: light.averys_room_ceiling_fan_switch_led_bar
               sleeping_boolean: input_boolean.avery_sleeping
+              light_entity: light.averys_room_ceiling_fan_light
       - alias: Avery-specific sleep change - recompute her room only
         conditions:
           - condition: trigger
@@ -108,11 +111,12 @@ actions:
             alias: Triggered by Avery's personal sleep flag
         sequence:
           - alias: Avery's Room
-            action: script.ceiling_fan_led_state
+            action: script.household_ceiling_fan_led_state
             data:
               fan_entity: fan.averys_room_ceiling_fan
               led_bar_entity: light.averys_room_ceiling_fan_switch_led_bar
               sleeping_boolean: input_boolean.avery_sleeping
+              light_entity: light.averys_room_ceiling_fan_light
       - alias: Master Bedroom sleep change - recompute her room only
         conditions:
           - condition: trigger
@@ -122,11 +126,12 @@ actions:
             alias: Triggered by Master Bedroom's sleep flag
         sequence:
           - alias: Master Bedroom
-            action: script.ceiling_fan_led_state
+            action: script.household_ceiling_fan_led_state
             data:
               fan_entity: fan.master_bedroom_ceiling_fan
               led_bar_entity: light.master_bedroom_ceiling_fan_switch_led_bar
               sleeping_boolean: input_boolean.everyone_sleeping
+              light_entity: light.master_bedroom_ceiling_fan_light
 mode: queued
 max: 5
 category: 01M08MMBZ719V4GZ2FT10RPTJ2
