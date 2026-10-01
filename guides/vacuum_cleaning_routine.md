@@ -293,12 +293,13 @@ be dragged across the carpeted Office and all four bedrooms by the daytime clean
 daytime block in *Household: Last Leaves Home*, *Household: Vacuum Midday Prompt*'s whole-house
 branch, and its 12:00 gate all check `binary_sensor.living_room_vacuum_mop_attached` being
 `off`. The daytime block additionally pushes *"Daytime clean skipped — the mop pad is
-still attached"* so the skip is never silent; Midday Prompt self-heals — once the pad comes
+still attached"* so the skip is never silent, tagged `vacuum_mop_cleanup` so it clears when the
+pad comes off; Midday Prompt self-heals — once the pad comes
 off, the noon check runs the clean it skipped. The nightly common-area run covers hard floor
 only, so a pad on at bedtime is normally that night's mop prep. Once this week's common-area mop
 has already run, though, a pad still attached is a leftover, and the nightly pass skips rather
-than drag it through the common areas (no push; the cleanup reminders already cover getting it
-off).
+than drag it through the common areas, with a passive (silent) push tagged `vacuum_mop_cleanup`
+so it is waiting in the morning and clears when the pad comes off.
 
 ### Master suite follow-up (the next morning)
 
@@ -347,7 +348,7 @@ machine around the mop-attached sensor:
 | `mop_attached` → `on` | — | stops the loop (next 30-minute check simply fails the "pad off" condition) |
 | Vacuum re-docks | this week's follow-up already ran + pad still on + vacuum docked + not everyone asleep | push `tag: vacuum_mop_cleanup`; kitchen HomePod TTS if 06:00–21:00 + someone home |
 | Hourly on the hour | same as re-dock | kitchen HomePod TTS only, same 06:00–21:00 / someone home gate (repeats until the pad comes off) |
-| `mop_attached` → `off` | — | clears the `vacuum_mop_cleanup` banner |
+| `mop_attached` → `off` | — | clears the `vacuum_mop_cleanup` banner (cleanup reminder and both pad-blocked skip pushes) and the `vacuum_master_mop_missed` 11:00 push |
 
 The prep half is TTS-only by design — no push, no banner, no action buttons — because
 attaching the pad is itself the acknowledgement that stops the loop; a `time_pattern` trigger

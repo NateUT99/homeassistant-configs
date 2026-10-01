@@ -168,17 +168,27 @@ actions:
                   target: kitchen
                   notification_title: Vacuum Mop Cleanup
                   critical_fallback: false
-      - alias: Cleanup done -- clear the cleanup banner
+      - alias: Cleanup done -- clear the cleanup and missed-master-mop banners
         conditions:
           - condition: trigger
             id: cleanup_done
         sequence:
           - alias: Clear the cleanup push
+            note: >-
+              One tag covers the cleanup reminder and both pad-blocked skip
+              pushes (nightly pass, daytime pass).
             action: notify.mobile_app_nates_iphone
             data:
               message: clear_notification
               data:
                 tag: vacuum_mop_cleanup
+          - alias: Clear the missed-master-mop push
+            note: Its Mop master suite now button can't run once the pad is off.
+            action: notify.mobile_app_nates_iphone
+            data:
+              message: clear_notification
+              data:
+                tag: vacuum_master_mop_missed
 mode: queued
 max: 5
 category: 01M0XF7RJK5EX3A4YPNEX7X3DG

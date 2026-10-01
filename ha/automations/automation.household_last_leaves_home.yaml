@@ -201,11 +201,15 @@ actions:
             alias: Mop pad is still attached
         then:
           - alias: Tell Nate the daytime clean was skipped for the mop pad
-            action: notify.send_message
-            target:
-              entity_id: notify.nates_iphone
+            note: >-
+              Legacy notify service so it can carry the vacuum_mop_cleanup tag
+              -- Household: Vacuum Mop Pad Reminders clears that tag when the
+              pad comes off.
+            action: notify.mobile_app_nates_iphone
             data:
               title: Vacuum
               message: Daytime clean skipped -- the mop pad is still attached.
+              data:
+                tag: vacuum_mop_cleanup
 mode: single
 category: 01M08R77W9A83G7DDA33MT8R09

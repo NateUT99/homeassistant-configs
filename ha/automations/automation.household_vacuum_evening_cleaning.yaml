@@ -188,6 +188,33 @@ actions:
                       docks the evening run mid-way, so there is no partial
                       run to distinguish. Cleared at 8am by Household:
                       Vacuum Reset.
+            else:
+              - alias: If tonight was skipped for a leftover mop pad, say so quietly
+                note: >-
+                  The else branch fires for any failed condition (already ran,
+                  paused, mid-clean); only the leftover-pad case pushes. Passive
+                  so it lands silently overnight, and tagged vacuum_mop_cleanup
+                  so it replaces the cleanup banner and clears when the pad
+                  comes off.
+                if:
+                  - condition: state
+                    entity_id: binary_sensor.living_room_vacuum_mop_attached
+                    state: "on"
+                    alias: Mop pad is still attached
+                  - condition: state
+                    entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
+                    state: "on"
+                    alias: This week's common-area mop already ran
+                then:
+                  - alias: Tell Nate the nightly clean was skipped for the mop pad
+                    action: notify.mobile_app_nates_iphone
+                    data:
+                      title: Vacuum
+                      message: Nightly clean skipped -- the mop pad is still attached.
+                      data:
+                        tag: vacuum_mop_cleanup
+                        push:
+                          interruption-level: passive
       - alias: Master suite mop follow-up -- next morning after a mop night, or the 11:00 push button
         conditions:
           - condition: trigger
