@@ -17,10 +17,13 @@ triggers:
       minutes: 1
     id: cleanup_docked
     alias: Vacuum re-docked
-  - trigger: time
-    at: "17:00:00"
+  - trigger: time_pattern
+    minutes: 15
     id: cleanup_nag
-    alias: 17:00 daily backstop
+    alias: Hourly at :15
+    note: >-
+      Offset from prep_check (:00/:30) so the two never fire together --
+      mode: single would drop one.
   - trigger: state
     entity_id: binary_sensor.living_room_vacuum_mop_attached
     from: "on"
@@ -102,7 +105,7 @@ actions:
               target: auto
               notification_title: Vacuum Mop Prep
               critical_fallback: false
-      - alias: Cleanup nudge -- re-docked after the master-suite follow-up, or 17:00 backstop, pad still on
+      - alias: Cleanup nudge -- re-docked or hourly repeat after the master-suite follow-up, pad still on
         conditions:
           - condition: trigger
             id: [cleanup_docked, cleanup_nag]
@@ -115,20 +118,47 @@ actions:
             state: "on"
             alias: This week's master suite mop already ran
         sequence:
-          - alias: Announce the cleanup reminder
-            action: script.household_tts_announce
-            data:
-              message: Pull the mop pad off the robot to rinse it.
-              target: auto
-              notification_title: Vacuum Mop Cleanup
-              critical_fallback: false
-          - alias: Push the cleanup reminder
-            action: notify.mobile_app_nates_iphone
-            data:
-              title: Vacuum Mop Cleanup
-              message: Pull the mop pad off to rinse it.
-              data:
-                tag: vacuum_mop_cleanup
+          - alias: Push the cleanup reminder on re-dock only
+            note: >-
+              The tagged push stays on the lock screen until cleanup_done
+              clears it, so the hourly repeats are spoken only rather than
+              re-buzzing the phone.
+            if:
+              - condition: trigger
+                id: [cleanup_docked]
+            then:
+              - alias: Push the cleanup reminder
+                action: notify.mobile_app_nates_iphone
+                data:
+                  title: Vacuum Mop Cleanup
+                  message: Pull the mop pad off to rinse it.
+                  data:
+                    tag: vacuum_mop_cleanup
+          - alias: Speak the cleanup reminder in the kitchen during waking hours with someone home
+            note: >-
+              Also gates the re-dock announcement -- with the pad left on, the
+              evening pass docks around 00:30.
+            if:
+              - condition: time
+                after: "09:00:00"
+                before: "21:00:00"
+                alias: Between 09:00 and 21:00
+              - condition: numeric_state
+                entity_id: zone.home
+                above: 0
+                alias: Someone is home
+              - condition: state
+                entity_id: input_boolean.everyone_sleeping
+                state: "off"
+                alias: Not everyone is asleep
+            then:
+              - alias: Announce the cleanup reminder
+                action: script.household_tts_announce
+                data:
+                  message: Pull the mop pad off the robot to rinse it.
+                  target: kitchen
+                  notification_title: Vacuum Mop Cleanup
+                  critical_fallback: false
       - alias: Cleanup done -- clear the cleanup banner
         conditions:
           - condition: trigger
