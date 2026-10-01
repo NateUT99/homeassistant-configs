@@ -76,7 +76,7 @@ Volume is handled differently per branch: a single-room HomePod call keeps that 
 
 > **Family room Sonos is not a script target.** `chime_tts.say` against the family room Sonos (`media_player.family_room_theater`) produces no audio and no error at any log level — see `LESSONS.md` → TTS & Media. `guides/laundry_automation.md` handles family-room awareness with a plain push notification when the Sonos is busy, entirely outside this script. The family room is a separate Sonos-only system from the living room AppleTV this guide otherwise covers.
 
-> **Coordinated change:** The loopback URL rewrite assumes HA serves HTTP on port 80 (`http://127.0.0.1`, no port). If HA's HTTP port ever changes, update the `media_content_id` template on all three `play_media` steps in `script.household_tts_announce`.
+> **Coordinated change:** The loopback URL rewrite assumes HA serves HTTP on port 80 (`http://127.0.0.1`, no port). If HA's HTTP port ever changes, update the `media_content_id` template on all three `play_media` steps in `script.household_tts_announce`. The rewrite also assumes every `play_media` target is an Apple TV-integration device, where HA itself downloads the clip — a speaker that fetches the URL itself (Sonos, Cast, Alexa) would be handed its own loopback address, so it needs the original `tts_audio.url` on its own `play_media` step. Tracked in issue #9.
 
 > **Coordinated change:** Room volumes and the `audio_conversion` boost live inside `script.household_tts_announce`'s `variables:` and its `chime_tts.say_url` actions, not in a shared table. Adjusting either means editing the script directly — see `guides/reminders.md` and any other guide referencing this script for the current field contract.
 
