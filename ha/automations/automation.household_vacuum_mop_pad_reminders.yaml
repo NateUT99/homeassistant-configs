@@ -118,7 +118,7 @@ actions:
           - alias: Announce the cleanup reminder
             action: script.household_tts_announce
             data:
-              message: Pull the mop pad off the robot to rinse it, and empty the water tank.
+              message: Pull the mop pad off the robot to rinse it.
               target: auto
               notification_title: Vacuum Mop Cleanup
               critical_fallback: false
@@ -126,7 +126,7 @@ actions:
             action: notify.mobile_app_nates_iphone
             data:
               title: Vacuum Mop Cleanup
-              message: Pull the mop pad off to rinse it, and empty the water tank.
+              message: Pull the mop pad off to rinse it.
               data:
                 tag: vacuum_mop_cleanup
       - alias: Cleanup done -- clear the cleanup banner
