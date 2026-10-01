@@ -3,8 +3,9 @@ alias: "Household: Vacuum Evening Cleaning"
 description: >-
   Runs the nightly common-area vacuum pass (and, once a week, the mop pass)
   once everyone's been asleep for an hour, plus the next-morning master-suite
-  mop follow-up once everyone wakes -- two branches in one automation since
-  both are the same weekly pad/tank cycle. See guides/vacuum_cleaning_routine.md.
+  mop follow-up once everyone wakes, with an 11:00 push offering a manual
+  start if the follow-up hasn't run -- all in one automation since they are
+  the same weekly pad/tank cycle. See guides/vacuum_cleaning_routine.md.
 triggers:
   - trigger: state
     entity_id: input_boolean.everyone_sleeping
@@ -30,6 +31,16 @@ triggers:
       seconds: 20
     id: wake_transition
     alias: Everyone Sleeping cleared for 20 seconds -- someone is up for the day
+  - trigger: time
+    at: "11:00:00"
+    id: master_mop_check
+    alias: 11:00 -- check the master suite follow-up ran
+  - trigger: event
+    event_type: mobile_app_notification_action
+    event_data:
+      action: VACUUM_MASTER_MOP_NOW
+    id: master_mop_retry
+    alias: Mop master suite now tapped
 conditions: []
 actions:
   - choose:
@@ -68,6 +79,22 @@ actions:
                     entity_id: vacuum.living_room_vacuum
                     state: cleaning
                 alias: Vacuum is not currently cleaning
+              - condition: not
+                alias: Pad isn't left on from this week's finished mop
+                note: >-
+                  A pad still on after this week's common-area mop has already
+                  run is a leftover, not tonight's mop prep -- skip rather than
+                  drag it through the common areas. The cleanup reminders cover
+                  getting it off.
+                conditions:
+                  - condition: and
+                    conditions:
+                      - condition: state
+                        entity_id: binary_sensor.living_room_vacuum_mop_attached
+                        state: "on"
+                      - condition: state
+                        entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
+                        state: "on"
             then:
               - alias: Set active zone to evening
                 action: input_select.select_option
@@ -161,10 +188,14 @@ actions:
                       docks the evening run mid-way, so there is no partial
                       run to distinguish. Cleared at 8am by Household:
                       Vacuum Reset.
-      - alias: Master suite mop follow-up -- next morning after a mop night
+      - alias: Master suite mop follow-up -- next morning after a mop night, or the 11:00 push button
         conditions:
           - condition: trigger
-            id: [wake_transition]
+            id: [wake_transition, master_mop_retry]
+            note: >-
+              The push button reuses this branch, warning and 15-minute grace
+              included, so a manual start gets the same refill/clear-the-floor
+              window and re-checks.
         sequence:
           - alias: Proceed only if last night's mop happened and this week's follow-up hasn't
             if:
@@ -306,5 +337,38 @@ actions:
                         'on') else ('the routine is paused' if
                         is_state('input_boolean.vacuum_routine_pause', 'on')
                         else 'the vacuum is already mid-job'))) }}.
+      - alias: 11:00 backstop -- offer a manual start if this week's master suite follow-up hasn't run
+        conditions:
+          - condition: trigger
+            id: [master_mop_check]
+          - condition: state
+            entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
+            state: "on"
+            alias: This week's common-area mop pass already ran
+          - condition: state
+            entity_id: input_boolean.vacuum_mop_master_suite_done_this_week
+            state: "off"
+            alias: This week's master suite mop hasn't run yet
+          - condition: state
+            entity_id: input_boolean.everyone_sleeping
+            state: "off"
+            alias: Someone is up
+            note: On a late wake, the wake_transition branch handles the follow-up itself.
+          - condition: state
+            entity_id: binary_sensor.living_room_vacuum_mop_attached
+            state: "on"
+            alias: Mop pad is still attached
+        sequence:
+          - alias: Push the missed follow-up with a start button
+            note: Legacy notify service -- notify.send_message cannot carry actionable data.
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: Vacuum
+              message: The master suite mop hasn't run yet this week.
+              data:
+                tag: vacuum_master_mop_missed
+                actions:
+                  - action: VACUUM_MASTER_MOP_NOW
+                    title: Mop master suite now
 mode: single
 category: 01M0XF7RJK5EX3A4YPNEX7X3DG

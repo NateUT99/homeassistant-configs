@@ -294,9 +294,11 @@ daytime block in *Household: Last Leaves Home*, *Household: Vacuum Midday Prompt
 branch, and its 12:00 gate all check `binary_sensor.living_room_vacuum_mop_attached` being
 `off`. The daytime block additionally pushes *"Daytime clean skipped — the mop pad is
 still attached"* so the skip is never silent; Midday Prompt self-heals — once the pad comes
-off, the noon check runs the clean it skipped. The nightly common-area run needs no interlock:
-mop water only ever flows through the physically-attached pad, so a dry-vac pass covers hard
-floor only regardless of any select state.
+off, the noon check runs the clean it skipped. The nightly common-area run covers hard floor
+only, so a pad on at bedtime is normally that night's mop prep. Once this week's common-area mop
+has already run, though, a pad still attached is a leftover, and the nightly pass skips rather
+than drag it through the common areas (no push; the cleanup reminders already cover getting it
+off).
 
 ### Master suite follow-up (the next morning)
 
@@ -324,6 +326,13 @@ check (gated on `daytime`) from attributing this run to the daytime zone; the da
 Last Leaves Home*'s segment-list template reads to drop segments 19 and 21 from that day's
 daytime pass. The done flag is what stops the follow-up from re-attempting later the same week;
 *Household: Vacuum Reset* clears it every Monday.
+
+At 11:00, if this week's common-area mop has run but the follow-up hasn't, someone is up, and
+the pad is still on, the same automation pushes a notification with a **Mop master suite now**
+action button (`VACUUM_MASTER_MOP_NOW`). Tapping it re-enters the morning branch, warning
+announcement and 15-minute grace included, so a manual start gets the same re-checks. This
+covers anything that stops the morning branch: an HA restart during the delay, or a run
+aborted by an unexpected error.
 
 Skipping the master bedroom/bathroom from the daytime pass, rather than also mopping them
 there, is deliberate: *Household: Last Leaves Home* builds `daytime_segments` from a one-line
@@ -438,6 +447,6 @@ still being on the morning after an actual mop night, not to which path started 
 
 **Midday Prompt's whole-house clean doesn't start even though the vacuum looks idle.** Check `vacuum.living_room_vacuum`'s state is exactly `docked`, not merely not-`cleaning` — `vacuum.start` sends a dock command (`APP_CHARGE`) instead of cleaning if the vacuum is `returning`, and an autonomous mid-job recharge also reads `docked` while `binary_sensor.living_room_vacuum_cleaning` stays `on`. Both conditions must hold.
 
-**The master-suite follow-up skips with "the water module isn't seated."** The 2-in-1 dustbin + water module was pulled to refill the tank and hasn't been reseated by the time the 15-minute grace window elapses. Reseat it before the window closes, or wait for the next mop night — the follow-up doesn't retry later the same morning.
+**The master-suite follow-up skips with "the water module isn't seated."** The 2-in-1 dustbin + water module was pulled to refill the tank and hasn't been reseated by the time the 15-minute grace window elapses. Reseat it before the window closes. The follow-up doesn't retry on its own, but if it still hasn't run by 11:00 a push offers a **Mop master suite now** button.
 
 **Arrival doesn't dock the vacuum even though it looks like it's cleaning.** Check `binary_sensor.vacuum_stuck` — *Household: First Arrives Home* deliberately withholds `return_to_base` while it's `on` and pushes a notification instead, since commanding a stuck vacuum to move just adds another movement command on top of whatever it's caught on. Clear the physical obstruction first; the sensor drops back to `off` within a minute of real progress resuming.
