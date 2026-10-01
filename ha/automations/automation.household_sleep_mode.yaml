@@ -8,7 +8,8 @@ description: >-
   parallel sets the living room thermostat to Sleep preset, turns on
   the bathroom ambient lamp, master bedroom nightstand lamp, and
   kitchen sink light (dim nav light), turns on the master bedroom
-  Apple TV, closes the garage door, and locks the front door, and
+  Apple TV, turns off media players labeled "Sleeping", closes the
+  garage door, and locks the front door, and
   finally turns off every light labeled "Sleeping" (including the
   office ceiling fan light, which stays AL-enrolled for a later
   wall-tap to land dim, but must end up fully off now) -- last, so it
@@ -63,10 +64,11 @@ actions:
               entity_id: switch.adaptive_lighting_standard_sleep_mode
           - alias: Run independent night-prep actions in parallel
             note: >-
-              Seven independent actions (thermostat, 3 lights, garage,
-              lock, media player) with no ordering dependency -- parallel
-              avoids serializing the garage/lock actuation time ahead of
-              the bedroom actions. The "Sleeping"-label turn-off is
+              Eight independent actions (thermostat, 3 lights, garage,
+              lock, master bedroom Apple TV on, "Sleeping"-labeled media
+              players off) with no ordering dependency -- parallel avoids
+              serializing the garage/lock actuation time ahead of the
+              bedroom actions. The "Sleeping"-label light turn-off is
               deliberately NOT in here -- see the final step below.
             parallel:
               - alias: Set living room thermostat to Sleep preset
@@ -110,6 +112,11 @@ actions:
                 data:
                   color_temp_kelvin: 2000
                   brightness_pct: 10
+              - alias: Turn off media players labeled "Sleeping"
+                action: media_player.turn_off
+                target:
+                  label_id: sleeping
+                data: {}
           - alias: Turn off lights labeled "Sleeping"
             action: light.turn_off
             target:

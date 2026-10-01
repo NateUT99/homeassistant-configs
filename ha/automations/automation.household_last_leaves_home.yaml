@@ -2,8 +2,8 @@ id: "1787007774696"
 alias: "Household: Last Leaves Home"
 description: >-
   Runs the whole-house departure routine: closes the garage, locks the front
-  door, sets the living room thermostat to Away, turns off lights/fans/switches
-  labeled "No One Is Home", and starts the daytime vacuum clean of the remaining
+  door, sets the living room thermostat to Away, turns off lights/fans/switches/media
+  players labeled "No One Is Home", and starts the daytime vacuum clean of the remaining
   rooms (9am-7pm, if it hasn't run today) -- the Bathroom and Entrance drop out
   of that list on a night Avery is away, since Household: Vacuum Evening
   Cleaning picks them up instead. Normally fires 5 minutes after
@@ -94,6 +94,11 @@ actions:
     data: {}
   - alias: Turn off switches labeled "No One Is Home"
     action: switch.turn_off
+    target:
+      label_id: no_one_home
+    data: {}
+  - alias: Turn off media players labeled "No One Is Home"
+    action: media_player.turn_off
     target:
       label_id: no_one_home
     data: {}
