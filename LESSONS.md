@@ -483,7 +483,15 @@ data:
 response_variable: tts_audio
 ```
 
-Follow with `media_player.play_media` using `media_content_id: "{{ tts_audio.url }}"`, `media_content_type: music`, `announce: true`. This instance is configured for the www-folder path, so `url` populates and `media_content_id` comes back `null` (the reverse would be true under a media-folder configuration). See `guides/chime_tts.md`.
+Follow with `media_player.play_media` using `media_content_id: "{{ tts_audio.url }}"`, `media_content_type: music`, `announce: true`. This instance is configured for the www-folder path, so `url` populates and `media_content_id` comes back `null` (the reverse would be true under a media-folder configuration). See `guides/chime_tts.md` For Apple TV-integration speakers, rewrite that URL's host to loopback first — see the next entry.
+
+### `chime_tts.say_url` always returns the Nabu Casa external URL — rewrite it to loopback for Apple TV-integration speakers
+
+`chime_tts` (v1.3.0) builds the `say_url` URL in `helpers/filesystem.py:get_external_address()`: `hass.config.external_url` if set, else `get_url(hass, prefer_external=True)`. There is no option to request the internal URL, and setting HA's `internal_url` has no effect on it. On this instance that resolves to the Nabu Casa remote-UI address.
+
+For HomePods and the AppleTV (Apple TV integration), HA's own process downloads the clip via pyatv and decodes it with miniaudio before streaming over AirPlay — so playback took HA → internet → Nabu Casa → back into HA for a file in its own `www` folder. On 2026-10-01 that fetch failed and surfaced as `miniaudio.DecodeError: ('failed to init decoder', -1)`, an unexpected (non-`HomeAssistantError`) exception that aborted the TTS script and its caller; the same URL fetched fine minutes later.
+
+Fix: rewrite the host before playback — `{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}`. `/local/` is served unauthenticated, and HA Core shares the host network on HA OS, so loopback reaches it directly. This instance serves HTTP on **port 80**, not 8123. Live-verified 2026-10-01 on the office HomePod. Don't apply this to a speaker that fetches the URL itself (e.g. Sonos) — loopback would point at the speaker.
 
 ### `chime_tts.say_url`'s reported `duration` doesn't reliably match real multi-speaker playback time
 

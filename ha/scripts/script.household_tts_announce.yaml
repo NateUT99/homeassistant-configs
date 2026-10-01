@@ -234,11 +234,16 @@ sequence:
               HomeAssistantError) fall through to the kitchen fallback
               below instead of aborting the script with the AppleTV left
               paused and the caller's run killed.
+              The URL host is rewritten to loopback: chime_tts always
+              returns its Nabu Casa external URL, but HA itself (pyatv)
+              downloads the clip for these Apple TV-integration speakers,
+              so a local fetch skips the remote-UI round trip. Assumes HA
+              serves HTTP on port 80.
             action: media_player.play_media
             target:
               entity_id: media_player.living_room_appletv
             data:
-              media_content_id: "{{ tts_audio.url }}"
+              media_content_id: "{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}"
               media_content_type: music
               announce: true
             continue_on_error: true
@@ -305,7 +310,7 @@ sequence:
                     target:
                       entity_id: media_player.kitchen_homepod
                     data:
-                      media_content_id: "{{ tts_audio.url }}"
+                      media_content_id: "{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}"
                       media_content_type: music
                       announce: true
                   - alias: Wait for the kitchen announcement to finish before resuming
@@ -402,11 +407,16 @@ sequence:
             note: >-
               Starts immediately since the audio already exists -- no
               post-pause wait for generation.
+              The URL host is rewritten to loopback: chime_tts always
+              returns its Nabu Casa external URL, but HA itself (pyatv)
+              downloads the clip for these Apple TV-integration speakers,
+              so a local fetch skips the remote-UI round trip. Assumes HA
+              serves HTTP on port 80.
             action: media_player.play_media
             target:
               entity_id: "{{ speaker_entities }}"
             data:
-              media_content_id: "{{ tts_audio.url }}"
+              media_content_id: "{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}"
               media_content_type: music
               announce: true
           - alias: Wait for the announcement to actually finish before resuming

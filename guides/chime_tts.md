@@ -1,6 +1,6 @@
 # Chime TTS Integration
 
-*Last updated: September 2026*
+*Last updated: October 2026*
 
 ## Overview
 
@@ -76,6 +76,8 @@ Volume is handled differently per branch: a single-room HomePod call keeps that 
 
 > **Family room Sonos is not a script target.** `chime_tts.say` against the family room Sonos (`media_player.family_room_theater`) produces no audio and no error at any log level — see `LESSONS.md` → TTS & Media. `guides/laundry_automation.md` handles family-room awareness with a plain push notification when the Sonos is busy, entirely outside this script. The family room is a separate Sonos-only system from the living room AppleTV this guide otherwise covers.
 
+> **Coordinated change:** The loopback URL rewrite assumes HA serves HTTP on port 80 (`http://127.0.0.1`, no port). If HA's HTTP port ever changes, update the `media_content_id` template on all three `play_media` steps in `script.household_tts_announce`.
+
 > **Coordinated change:** Room volumes and the `audio_conversion` boost live inside `script.household_tts_announce`'s `variables:` and its `chime_tts.say_url` actions, not in a shared table. Adjusting either means editing the script directly — see `guides/reminders.md` and any other guide referencing this script for the current field contract.
 
 ---
@@ -88,6 +90,7 @@ Volume is handled differently per branch: a single-room HomePod call keeps that 
 - **The AppleTV's own state is checked directly, never its Sonos soundbar.** The living room soundbar (HDMI ARC) reports `playing` continuously based on the input being selected, not on whether the AppleTV is actually producing sound — it can't distinguish playing from paused, let alone idle. See `LESSONS.md` → TTS & Media.
 - **Pausing and resuming the AppleTV are both gated on it having actually been `playing`, not merely on** `auto` **routing there or the call ducking it.** Pausing an already-paused or idle AppleTV is a no-op that would also incorrectly mark it as this call's to resume; resuming is further gated on this call being the one that paused it, so a show the person had already left paused stays paused rather than auto-resuming.
 - **A rejected AppleTV stream falls back to the kitchen HomePod, then resumes.** The Apple TV integration intermittently refuses an AirPlay stream (pyatv busy/blocked/timeout, surfaced as "Failed to stream media to the Apple TV"). Without handling, that error aborts the script after the AppleTV is already paused and propagates up, killing the caller's run — including repeat loops like the laundry nag. The play step uses `continue_on_error: true`; since that exposes no error variable, success is detected from the settle wait: it must have caught a `playing` edge whose `app_id` is `com.apple.TVAirPlay` (the AppleTV's app while the clip plays). Anything else — a timeout, or the show's own `playing → paused` edge from the preceding `media_pause`, which the AppleTV reports about a second late and a near-instant failed stream lands right on top of — counts as a failure. The kitchen is the fallback because it's the `auto` default when the living room isn't in play, and the pre-generated clip is reused as-is. Cost on failure: roughly `duration + 5` seconds of paused silence before the kitchen speaks.
+- **Playback fetches the clip over loopback, not the Nabu Casa URL.** `chime_tts.say_url` always returns an external (Nabu Casa remote UI) URL — the integration has no setting to change that. Every target here is an Apple TV-integration device, where HA itself (pyatv) downloads and decodes the clip, so each `play_media` step rewrites the URL's host to `http://127.0.0.1`. That removes the remote-UI round trip and its failure mode (a bad fetch surfaces as `miniaudio.DecodeError` and aborts the script). Cloud TTS generation itself still needs the internet. See `LESSONS.md` → TTS & Media.
 - **`audio_conversion: "Volume 150%"` boosts the generated clip itself.** Cloud TTS masters noticeably quieter than TV/streaming audio even when the target speaker's own volume is untouched; this FFmpeg-level boost is independent of any speaker's `volume_level` and needs no restore step. See `LESSONS.md` → TTS & Media.
 - **Config entry over YAML.** The custom integration is enabled via a config entry (**Settings → Devices & Services → Add Integration → Chime TTS**), not a `configuration.yaml` block. HA discovers the custom component automatically once its files exist in `custom_components/`; the config entry is what triggers service registration. No restart is required.
 
