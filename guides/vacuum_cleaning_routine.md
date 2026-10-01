@@ -336,8 +336,8 @@ machine around the mop-attached sensor:
 |---|---|---|
 | Every 30 minutes, from 20:00 | mop-eligible night (Avery away tonight, week not yet mopped) + not bedtime yet + pad off + someone home + not skipped + not paused | TTS-only prep reminder → whoever's home (`target: auto`); no push |
 | `mop_attached` → `on` | — | stops the loop (next 30-minute check simply fails the "pad off" condition) |
-| Vacuum re-docks | this week's follow-up already ran + pad still on | push `tag: vacuum_mop_cleanup`; kitchen HomePod TTS if 09:00–21:00 + someone home + not everyone asleep |
-| Hourly at :15 | this week's follow-up already ran + pad still on | kitchen HomePod TTS only, same 09:00–21:00 / someone home / not asleep gate (repeats until the pad comes off) |
+| Vacuum re-docks | this week's follow-up already ran + pad still on + not everyone asleep | push `tag: vacuum_mop_cleanup`; kitchen HomePod TTS if 06:00–21:00 + someone home |
+| Hourly on the hour | same as re-dock | kitchen HomePod TTS only, same 06:00–21:00 / someone home gate (repeats until the pad comes off) |
 | `mop_attached` → `off` | — | clears the `vacuum_mop_cleanup` banner |
 
 The prep half is TTS-only by design — no push, no banner, no action buttons — because
@@ -349,11 +349,12 @@ for the rest of the day without affecting whether the mop pass itself is eligibl
 *Household: Vacuum Reset* clears it at 08:00. The cleanup half fires once the vacuum re-docks
 after the follow-up, then repeats hourly on the kitchen HomePod until the pad actually comes off —
 a pad left on drags through every later pass, so the reminder is persistent rather than daily.
-The hourly tick sits at :15 so it never coincides with the :00/:30 prep tick, which
-`mode: single` would drop. Only the re-dock sends the push; it stays on the lock screen until
-the pad comes off, so the hourly repeats are spoken only. Every cleanup announcement, including
-the re-dock one, is limited to 09:00–21:00 with someone home and not everyone asleep, since the
-evening pass re-docks around 00:30. TTS goes through `script.household_tts_announce`.
+The whole cleanup branch, push included, is gated on `everyone_sleeping` being off: the evening
+pass re-docks around 00:30, and this way the first reminder after a mop night lands when the
+morning follow-up re-docks. TTS is further limited to 06:00–21:00 with someone home. The hourly
+tick shares the :00 tick with the prep check, so the automation runs `mode: queued` to keep
+either from being dropped. Only the re-dock sends the push; it stays on the lock screen until
+the pad comes off, so the hourly repeats are spoken only. TTS goes through `script.household_tts_announce`.
 
 ## Ad Hoc Mop Pass
 

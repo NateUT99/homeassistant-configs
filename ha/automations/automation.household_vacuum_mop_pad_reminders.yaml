@@ -18,12 +18,12 @@ triggers:
     id: cleanup_docked
     alias: Vacuum re-docked
   - trigger: time_pattern
-    minutes: 15
+    minutes: 0
     id: cleanup_nag
-    alias: Hourly at :15
+    alias: Hourly on the hour
     note: >-
-      Offset from prep_check (:00/:30) so the two never fire together --
-      mode: single would drop one.
+      Lands on the same tick as prep_check -- mode: queued runs both instead
+      of dropping one.
   - trigger: state
     entity_id: binary_sensor.living_room_vacuum_mop_attached
     from: "on"
@@ -117,6 +117,14 @@ actions:
             entity_id: input_boolean.vacuum_mop_master_suite_done_this_week
             state: "on"
             alias: This week's master suite mop already ran
+          - condition: state
+            entity_id: input_boolean.everyone_sleeping
+            state: "off"
+            alias: Not everyone is asleep
+            note: >-
+              Gates the push as well as the TTS -- with the pad left on, the
+              evening pass re-docks around 00:30. The first reminder after a
+              mop night therefore lands when the morning follow-up re-docks.
         sequence:
           - alias: Push the cleanup reminder on re-dock only
             note: >-
@@ -135,22 +143,15 @@ actions:
                   data:
                     tag: vacuum_mop_cleanup
           - alias: Speak the cleanup reminder in the kitchen during waking hours with someone home
-            note: >-
-              Also gates the re-dock announcement -- with the pad left on, the
-              evening pass docks around 00:30.
             if:
               - condition: time
-                after: "09:00:00"
+                after: "06:00:00"
                 before: "21:00:00"
-                alias: Between 09:00 and 21:00
+                alias: Between 06:00 and 21:00
               - condition: numeric_state
                 entity_id: zone.home
                 above: 0
                 alias: Someone is home
-              - condition: state
-                entity_id: input_boolean.everyone_sleeping
-                state: "off"
-                alias: Not everyone is asleep
             then:
               - alias: Announce the cleanup reminder
                 action: script.household_tts_announce
@@ -170,5 +171,6 @@ actions:
               message: clear_notification
               data:
                 tag: vacuum_mop_cleanup
-mode: single
+mode: queued
+max: 5
 category: 01M0XF7RJK5EX3A4YPNEX7X3DG
