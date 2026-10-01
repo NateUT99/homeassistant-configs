@@ -265,15 +265,19 @@ sequence:
             continue_on_timeout: true
           - alias: If the AppleTV never played the announcement, speak it in the kitchen instead
             note: >-
-              On success play_media blocks until the clip finishes and
-              the AppleTV then settles from playing, completing the wait
-              above. A failed stream returns almost instantly without the
-              AppleTV ever entering playing, so the wait times out --
-              that timeout is the failure signal, since
-              continue_on_error exposes no error variable.
+              Success means the wait above caught the announcement itself
+              settling: while the clip plays the AppleTV reports app_id
+              com.apple.TVAirPlay, so the playing edge it leaves must
+              carry that app_id. A plain 'did the wait complete' check
+              isn't enough -- the AppleTV reports the preceding
+              media_pause about a second late, so on a failed stream
+              (which returns almost instantly) the wait catches the
+              show's own playing -> paused edge from the TV app and looks
+              like success. A timed-out wait (no trigger at all) is also
+              a failure.
             if:
               - condition: template
-                value_template: "{{ not wait.completed }}"
+                value_template: "{{ wait.trigger is none or wait.trigger.from_state.attributes.get('app_id') != 'com.apple.TVAirPlay' }}"
             then:
               - alias: Kitchen HomePod offline too -- push instead
                 if:
