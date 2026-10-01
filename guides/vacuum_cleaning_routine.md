@@ -336,7 +336,7 @@ machine around the mop-attached sensor:
 |---|---|---|
 | Every 30 minutes, from 20:00 | mop-eligible night (Avery away tonight, week not yet mopped) + not bedtime yet + pad off + someone home + not skipped + not paused | TTS-only prep reminder → whoever's home (`target: auto`); no push |
 | `mop_attached` → `on` | — | stops the loop (next 30-minute check simply fails the "pad off" condition) |
-| Vacuum re-docks | this week's follow-up already ran + pad still on + not everyone asleep | push `tag: vacuum_mop_cleanup`; kitchen HomePod TTS if 06:00–21:00 + someone home |
+| Vacuum re-docks | this week's follow-up already ran + pad still on + vacuum docked + not everyone asleep | push `tag: vacuum_mop_cleanup`; kitchen HomePod TTS if 06:00–21:00 + someone home |
 | Hourly on the hour | same as re-dock | kitchen HomePod TTS only, same 06:00–21:00 / someone home gate (repeats until the pad comes off) |
 | `mop_attached` → `off` | — | clears the `vacuum_mop_cleanup` banner |
 
@@ -349,7 +349,10 @@ for the rest of the day without affecting whether the mop pass itself is eligibl
 *Household: Vacuum Reset* clears it at 08:00. The cleanup half fires once the vacuum re-docks
 after the follow-up, then repeats hourly on the kitchen HomePod until the pad actually comes off —
 a pad left on drags through every later pass, so the reminder is persistent rather than daily.
-The whole cleanup branch, push included, is gated on `everyone_sleeping` being off: the evening
+The whole cleanup branch also requires the vacuum to be `docked`, since
+`vacuum_mop_master_suite_done_this_week` turns on when the follow-up starts rather than when it
+finishes — otherwise an hourly tick could announce mid-run. It is likewise gated, push included,
+on `everyone_sleeping` being off: the evening
 pass re-docks around 00:30, and this way the first reminder after a mop night lands when the
 morning follow-up re-docks. TTS is further limited to 06:00–21:00 with someone home. The hourly
 tick shares the :00 tick with the prep check, so the automation runs `mode: queued` to keep

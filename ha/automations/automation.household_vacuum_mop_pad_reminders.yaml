@@ -118,6 +118,14 @@ actions:
             state: "on"
             alias: This week's master suite mop already ran
           - condition: state
+            entity_id: vacuum.living_room_vacuum
+            state: docked
+            alias: Vacuum is on the dock
+            note: >-
+              master_suite_done turns on when the follow-up starts, not when it
+              finishes -- without this the hourly tick could announce mid-run,
+              or during a later pass with the pad still on.
+          - condition: state
             entity_id: input_boolean.everyone_sleeping
             state: "off"
             alias: Not everyone is asleep
