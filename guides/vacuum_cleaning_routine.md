@@ -1,6 +1,6 @@
 # Vacuum Cleaning Routine
 
-*Last updated: September 2026*
+*Last updated: October 2026*
 
 ## Overview
 
@@ -310,7 +310,9 @@ hasn't run yet), not on a weekday. It also checks the same three hardware condit
 common-area branch (pad on, water module seated, tank not empty) plus the usual routine-pause
 and not-mid-job guards. It announces a 15-minute grace window on the master bedroom HomePod —
 asking both to refill the water tank and to clear the floor, since this is the only branch in
-the routine that starts while people are awake — then re-checks pad, water module, and water
+the routine that starts while people are awake — via `script.turn_on` rather than a blocking
+call, so a playback error inside the TTS script can't abort the branch before the mop starts.
+It then re-checks pad, water module, and water
 state (not just before the delay, since fifteen minutes is enough time for someone to pull the
 pad off) and starts a segment clean at `fan: balanced` / `mop: high`. Master Closet (segment
 20) is never included — it's carpeted.

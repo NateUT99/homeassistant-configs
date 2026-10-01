@@ -198,15 +198,23 @@ actions:
                 alias: Vacuum is not currently mid-job
             then:
               - alias: Announce the master mop pass is coming
-                action: script.household_tts_announce
+                action: script.turn_on
+                target:
+                  entity_id: script.household_tts_announce
                 data:
-                  message: >-
-                    Refill the robot's water tank. The master bedroom and
-                    master bathroom will be mopped in 15 minutes -- pick
-                    anything up off the floor.
-                  target: master_bedroom
-                  notification_title: Vacuum Master Mop
-                  critical_fallback: false
+                  variables:
+                    message: >-
+                      Refill the robot's water tank. The master bedroom and
+                      master bathroom will be mopped in 15 minutes -- pick
+                      anything up off the floor.
+                    target: master_bedroom
+                    notification_title: Vacuum Master Mop
+                    critical_fallback: false
+                note: >-
+                  Fire-and-forget via script.turn_on, not a blocking call --
+                  a playback failure inside the TTS script would otherwise
+                  abort this branch before the delay, and the mop would
+                  never start.
               - alias: Wait 15 minutes for the water tank to be refilled and the floor cleared
                 delay:
                   minutes: 15
