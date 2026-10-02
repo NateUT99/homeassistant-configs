@@ -1,0 +1,102 @@
+id: "1790975179232"
+alias: "Garage: Interior Door Open Alert"
+description: >-
+  Nags when the house-to-garage door has been left open for 5 minutes.
+  With someone home and awake, repeats a TTS announcement (target: auto)
+  every 2 minutes until it closes. With nobody home, or everyone asleep,
+  sends one non-critical push instead, which is cleared when the door
+  closes.
+triggers:
+  - trigger: door.opened
+    target:
+      entity_id: binary_sensor.garage_interior_door
+    options:
+      for: "00:05:00"
+    id: left_open
+    alias: Interior door left open 5 minutes
+  - trigger: door.closed
+    target:
+      entity_id: binary_sensor.garage_interior_door
+    id: closed
+    alias: Interior door closed
+    note: >-
+      mode: restart means this trigger also cancels any in-flight nag loop,
+      so the close is the only exit the loop needs.
+conditions: []
+actions:
+  - choose:
+      - alias: Left open -- nag until closed
+        conditions:
+          - condition: trigger
+            id: left_open
+        sequence:
+          - alias: Repeat while the door stays open
+            repeat:
+              while:
+                - condition: door.is_open
+                  target:
+                    entity_id: binary_sensor.garage_interior_door
+                  alias: Interior door is still open
+              sequence:
+                - choose:
+                    - alias: Someone home and awake -- speak, then wait 2 minutes
+                      conditions:
+                        - condition: numeric_state
+                          entity_id: zone.home
+                          above: 0
+                          alias: Someone is home
+                        - condition: state
+                          entity_id: input_boolean.everyone_sleeping
+                          state: "off"
+                          alias: Not everyone is asleep
+                      sequence:
+                        - alias: Announce the open door
+                          action: script.household_tts_announce
+                          data:
+                            message: The door to the garage is still open.
+                            target: auto
+                            notification_title: Garage Door Open
+                            critical_fallback: false
+                        - alias: Wait 2 minutes before repeating
+                          delay:
+                            minutes: 2
+                  default:
+                    - alias: Push the open-door alert
+                      note: >-
+                        Tagged, so a repeat after a wake or arrival replaces
+                        the banner in place rather than stacking a new one.
+                      action: notify.mobile_app_nates_iphone
+                      data:
+                        title: Garage Door Open
+                        message: The door to the garage has been left open.
+                        data:
+                          tag: garage_interior_door_open
+                    - alias: Hold until someone is home and awake
+                      note: >-
+                        Waits on arrival_confirmed rather than zone.home so
+                        the TTS doesn't start at the geofence while the
+                        person is still in the car (standards/automations.md
+                        §5.12). No timeout -- the door closing restarts the
+                        automation.
+                      wait_for_trigger:
+                        - trigger: state
+                          entity_id: input_boolean.arrival_confirmed
+                          to: "on"
+                          alias: Arrival confirmed
+                        - trigger: state
+                          entity_id: input_boolean.everyone_sleeping
+                          to: "off"
+                          alias: Someone woke up
+      - alias: Closed -- clear the push
+        conditions:
+          - condition: trigger
+            id: closed
+        sequence:
+          - alias: Clear the open-door push
+            action: notify.mobile_app_nates_iphone
+            data:
+              message: clear_notification
+              data:
+                tag: garage_interior_door_open
+mode: restart
+category: 01M08ZEA6TZ73J9HYFTSTTAX0W
