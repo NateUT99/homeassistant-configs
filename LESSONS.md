@@ -971,11 +971,15 @@ A Companion App / `command_line` sensor reporting the Mac's primary-display name
 
 The inverse goal flips this: if the automation's actual intent is "someone is physically at the desk" (not merely "a Mac is active" — a Screen Sharing session also reports active), the same misreport is the signal you want, not noise to route around. `automation.office_monitor_light_bar`'s "computer became active" and "TV app closed" branches gate the light bar *on* only when the active computer's primary display reads `Studio Display`, deliberately relying on the empty-name misreport to suppress the bar during a remote-only session. Don't "fix" that condition back to a coarser check without confirming which of the two goals the automation actually has.
 
-### `pmset displaysleepnow` prints "error 1004" from a non-console user but still sleeps the display
+### `pmset displaysleepnow` fails from a non-console user — and exits `0` anyway
 
-Run over SSH as the `homeassistant` service account (not the user logged in at the console), `pmset displaysleepnow` prints `pmset: Failed to put the display to sleep, error 1004` — and the display goes to sleep anyway. Confirmed 2026-10-02 against the Mac Mini. It also exits `0`, so neither the message nor the exit code says anything about whether the display actually slept.
+Run over SSH as the `homeassistant` service account, `pmset displaysleepnow` prints `pmset: Failed to put the display to sleep, error 1004` and the display stays on. It exits `0`, so HA's `shell_command` reports success. One early test did see the display go dark at the same moment, which made the error look cosmetic; repeat runs (including the first real automation run) never slept the display. Running it as the console user via `sudo -u` works.
 
-**Rule:** don't treat the 1004 message as a failure and reach for `sudo -u <console user>` to "fix" it — no sudoers rule is needed. Verify display sleep by looking at the screen, not by reading pmset's output or exit status.
+**Rule:** run `pmset displaysleepnow` as the console user (a sudoers rule pinned to that exact command line). Verify with `pmset -g log | grep "Display is turned"`, not by pmset's exit status or by watching the screen once.
+
+### Screen Sharing wakes a display that `pmset displaysleepnow` just slept
+
+While the Mac is being driven over Screen Sharing, `screensharingd` asserts `UserIsActive` ("Remote user active") and the display turns back on within a second of sleeping. The power log shows both events back to back. This is not a failure of the sleep command — test display sleep with no Screen Sharing session connected.
 
 ### Principle of least privilege for shell access
 

@@ -84,7 +84,8 @@ case "$SSH_ORIGINAL_COMMAND" in
     TEMP="${SSH_ORIGINAL_COMMAND#litra temperature-down --value }"
     sudo -u "$RUN_AS" "$LITRA" temperature-down --value "$TEMP" ;;
   "litra devices --json")         sudo -u "$RUN_AS" "$LITRA" devices --json ;;
-  # Display power is system-wide, so no sudo -u to the console user is needed
-  "display sleep")                /usr/bin/pmset displaysleepnow ;;
+  # pmset refuses display sleep from a non-console user (error 1004), so it
+  # runs as the console user like litra does
+  "display sleep")                sudo -u "$RUN_AS" /usr/bin/pmset displaysleepnow ;;
   *) echo "Unauthorized command" >&2; exit 1 ;;
 esac

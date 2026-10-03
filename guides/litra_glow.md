@@ -20,7 +20,7 @@ Home Assistant
               └── litra_dispatch.sh (whitelist gatekeeper)
                     ├── litra apply [state=] [brightness=] [temperature=]
                     │     └── apply_composite: sequenced on → brightness → temp → off
-                    ├── display sleep ── /usr/bin/pmset displaysleepnow (runs as homeassistant)
+                    ├── display sleep ── sudo -u <your_username> /usr/bin/pmset displaysleepnow
                     └── litra devices --json
                           └── sudo -u <your_username> /opt/homebrew/bin/litra
                                 └── Logitech Litra Glow (USB HID)
@@ -515,7 +515,7 @@ Full YAML: `ha/automations/automation.office_camera_lighting.yaml` (HA is author
 When `input_boolean.everyone_sleeping` turns on, Household: Sleep Mode
 (`automation.household_sleep_mode`) calls `shell_command.mac_mini_display_sleep` in its
 night-prep parallel block. The dispatch script maps `display sleep` to
-`/usr/bin/pmset displaysleepnow`.
+`sudo -u <your_username> /usr/bin/pmset displaysleepnow`.
 
 Display sleep is what locks the Mac. That depends on the Mac Mini's **Lock Screen** setting
 *Require password after screen saver begins or display is turned off* being **Immediately**
@@ -539,9 +539,18 @@ shell_command:
 capability. Reusing the Litra key and dispatch script avoids a second key, `authorized_keys`
 entry, and deploy path for one argument-free command whose worst case is blanking the screen.
 
-**Why no `sudo -u`.** Display power is system-wide, so `pmset` runs as `homeassistant`
-directly. From that non-console user it prints `error 1004` but the display sleeps anyway, and it
-exits `0` either way — see the `pmset displaysleepnow` error-1004 entry in `LESSONS.md`. The
+**Why `sudo -u`.** `pmset` refuses display sleep from a non-console user (`error 1004`), so it
+runs as `<your_username>`, the same way `litra` does. A second sudoers file allows exactly that
+command line and nothing else:
+
+```bash
+echo 'homeassistant ALL=(<your_username>) NOPASSWD: /usr/bin/pmset displaysleepnow' > /tmp/hd
+visudo -cf /tmp/hd && sudo install -o root -g wheel -m 440 /tmp/hd /etc/sudoers.d/homeassistant-display
+```
+
+`pmset` exits `0` even when it refuses, so HA cannot see a failure; check
+`pmset -g log | grep "Display is turned"` on the Mac instead. Test with no Screen Sharing session
+connected — a remote session wakes the display within a second (both covered in `LESSONS.md`). The
 automation step sets `continue_on_error: true` so an unreachable Mac never fails the rest of night
 prep.
 
@@ -557,9 +566,9 @@ prep.
 | Command restriction | `restrict,command=` in `authorized_keys` — key can only invoke the dispatch script |
 | Dispatch script | Whitelist-based case statement — only explicit litra commands allowed, all others rejected with exit code 1 |
 | Composite command validation | `apply_composite` rejects any unknown arg key; brightness/temperature values must match `^[0-9]+$` before being passed to `litra` |
-| Display sleep | `display sleep` is the only non-`litra` command whitelisted; it runs `/usr/bin/pmset displaysleepnow` with no arguments from the caller and no `sudo` |
+| Display sleep | `display sleep` is the only non-`litra` command whitelisted; it runs `/usr/bin/pmset displaysleepnow` as `<your_username>` with no arguments from the caller |
 | Status query | `litra devices --json` is whitelisted as a read-only operation; it returns device metadata including serial number — no write capability exposed |
-| sudo scope | `homeassistant` can only run `/opt/homebrew/bin/litra` as `<your_username>`, no password required, nothing else permitted |
+| sudo scope | `homeassistant` can only run `/opt/homebrew/bin/litra` and the exact command line `/usr/bin/pmset displaysleepnow` as `<your_username>`, no password required, nothing else permitted |
 
 ---
 
@@ -585,6 +594,7 @@ prep.
 | Camera lighting automation | `ha/automations/automation.office_camera_lighting.yaml` | Mirror — HA authoritative |
 | Dispatch script | `scripts/litra_dispatch.sh` in this repo; deployed to `/usr/local/bin/litra_dispatch.sh` on Mac Mini | Command whitelist gatekeeper; includes composite `apply_composite` handler |
 | sudoers rule | `/etc/sudoers.d/homeassistant-litra` | Allows `homeassistant` to run `litra` as `<your_username>` |
+| sudoers rule | `/etc/sudoers.d/homeassistant-display` | Allows `homeassistant` to run `pmset displaysleepnow` as `<your_username>` |
 | SSH private key | `/config/.ssh/id_ed25519_litra` | HA's private key for authenticating to Mac Mini |
 | SSH public key | `/config/.ssh/id_ed25519_litra.pub` | Corresponding public key |
 | known_hosts | `/config/.ssh/known_hosts` | Mac Mini host key fingerprint |
