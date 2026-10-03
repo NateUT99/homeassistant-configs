@@ -9,8 +9,8 @@ description: >-
   the bathroom ambient lamp, master bedroom nightstand lamp, and
   kitchen sink light (dim nav light), turns on the master bedroom
   Apple TV, turns off media players labeled "Sleeping", closes the
-  garage door, and locks the front door, and
-  finally turns off every light labeled "Sleeping" (including the
+  garage door, locks the front door, and sleeps (locks) the Mac Mini
+  display, and finally turns off every light labeled "Sleeping" (including the
   office ceiling fan light, which stays AL-enrolled for a later
   wall-tap to land dim, but must end up fully off now) -- last, so it
   always wins over AL's own reaction to the sleep-mode flip instead of
@@ -64,9 +64,9 @@ actions:
               entity_id: switch.adaptive_lighting_standard_sleep_mode
           - alias: Run independent night-prep actions in parallel
             note: >-
-              Eight independent actions (thermostat, 3 lights, garage,
+              Nine independent actions (thermostat, 3 lights, garage,
               lock, master bedroom Apple TV on, "Sleeping"-labeled media
-              players off) with no ordering dependency -- parallel avoids
+              players off, Mac Mini display sleep) with no ordering dependency -- parallel avoids
               serializing the garage/lock actuation time ahead of the
               bedroom actions. The "Sleeping"-label light turn-off is
               deliberately NOT in here -- see the final step below.
@@ -117,6 +117,14 @@ actions:
                 target:
                   label_id: sleeping
                 data: {}
+              - alias: Sleep the Mac Mini display (locks it)
+                note: >-
+                  Display sleep locks the Mac because it requires a
+                  password immediately after display sleep.
+                  continue_on_error keeps an unreachable Mac from failing
+                  the rest of night prep.
+                action: shell_command.mac_mini_display_sleep
+                continue_on_error: true
           - alias: Turn off lights labeled "Sleeping"
             action: light.turn_off
             target:

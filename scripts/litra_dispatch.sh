@@ -1,9 +1,11 @@
 #!/bin/zsh
 # litra_dispatch.sh
-# SSH command gatekeeper for Logitech Litra Glow control.
+# SSH command gatekeeper for Logitech Litra Glow control, plus Mac Mini
+# display sleep (which locks the screen, since the Mac requires a password
+# immediately after display sleep).
 # Invoked exclusively via the restrict,command= directive in
 # /Users/homeassistant/.ssh/authorized_keys — never called directly.
-# Whitelists specific litra commands; rejects everything else with exit 1.
+# Whitelists specific commands; rejects everything else with exit 1.
 # Security model and integration details: guides/litra_glow.md
 
 LITRA="/opt/homebrew/bin/litra"
@@ -82,5 +84,7 @@ case "$SSH_ORIGINAL_COMMAND" in
     TEMP="${SSH_ORIGINAL_COMMAND#litra temperature-down --value }"
     sudo -u "$RUN_AS" "$LITRA" temperature-down --value "$TEMP" ;;
   "litra devices --json")         sudo -u "$RUN_AS" "$LITRA" devices --json ;;
+  # Display power is system-wide, so no sudo -u to the console user is needed
+  "display sleep")                /usr/bin/pmset displaysleepnow ;;
   *) echo "Unauthorized command" >&2; exit 1 ;;
 esac

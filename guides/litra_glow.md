@@ -1,9 +1,11 @@
 # Logitech Litra Glow — Home Assistant Integration
-*Last updated: September 2026*
+*Last updated: October 2026*
 
 ## Overview
 
 This document describes how to integrate a Logitech Litra Glow key light with Home Assistant, exposing it as a native light entity with on/off, brightness, and color temperature control. The integration uses the `litra-rs` CLI tool on a Mac Mini, accessed via a dedicated SSH user account from Home Assistant over the local network.
+
+The same SSH channel also carries one non-Litra command: Mac Mini display sleep, which locks the Mac when everyone goes to sleep (see [Mac Mini Display Sleep](#mac-mini-display-sleep)).
 
 ---
 
@@ -12,11 +14,13 @@ This document describes how to integrate a Logitech Litra Glow key light with Ho
 ```
 Home Assistant
   ├── shell_command.litra_apply (SSH) ── commands (on/off/brightness/temp)
+  ├── shell_command.mac_mini_display_sleep (SSH) ── display sleep (locks the Mac)
   └── sensor.office_key_light_status (SSH) ── status query (every 2 minutes + after each command)
         └── homeassistant@mac-mini
               └── litra_dispatch.sh (whitelist gatekeeper)
                     ├── litra apply [state=] [brightness=] [temperature=]
                     │     └── apply_composite: sequenced on → brightness → temp → off
+                    ├── display sleep ── /usr/bin/pmset displaysleepnow (runs as homeassistant)
                     └── litra devices --json
                           └── sudo -u <your_username> /opt/homebrew/bin/litra
                                 └── Logitech Litra Glow (USB HID)
@@ -506,6 +510,43 @@ Full YAML: `ha/automations/automation.office_camera_lighting.yaml` (HA is author
 
 ---
 
+## Mac Mini Display Sleep
+
+When `input_boolean.everyone_sleeping` turns on, Household: Sleep Mode
+(`automation.household_sleep_mode`) calls `shell_command.mac_mini_display_sleep` in its
+night-prep parallel block. The dispatch script maps `display sleep` to
+`/usr/bin/pmset displaysleepnow`.
+
+Display sleep is what locks the Mac. That depends on the Mac Mini's **Lock Screen** setting
+*Require password after screen saver begins or display is turned off* being **Immediately**
+(`sysadminctl -screenLock status` → `screenLock delay is immediate`). If that setting changes, the
+display still sleeps but the Mac no longer locks.
+
+The shell command lives in `ha/packages/litra_glow.yaml` beside `litra_apply`:
+
+```yaml
+shell_command:
+  mac_mini_display_sleep: >-
+    ssh -i /config/.ssh/id_ed25519_litra
+    -o StrictHostKeyChecking=yes
+    -o UserKnownHostsFile=/config/.ssh/known_hosts
+    -o ConnectTimeout=5
+    homeassistant@<mac-mini-hostname> "display sleep"
+```
+
+**Why it rides the Litra key.** A separate key with its own forced command
+(`command="/usr/bin/pmset displaysleepnow"`) would hold a tighter boundary — each key one
+capability. Reusing the Litra key and dispatch script avoids a second key, `authorized_keys`
+entry, and deploy path for one argument-free command whose worst case is blanking the screen.
+
+**Why no `sudo -u`.** Display power is system-wide, so `pmset` runs as `homeassistant`
+directly. From that non-console user it prints `error 1004` but the display sleeps anyway, and it
+exits `0` either way — see the `pmset displaysleepnow` error-1004 entry in `LESSONS.md`. The
+automation step sets `continue_on_error: true` so an unreachable Mac never fails the rest of night
+prep.
+
+---
+
 ## Security Summary
 
 | Layer | Detail |
@@ -516,6 +557,7 @@ Full YAML: `ha/automations/automation.office_camera_lighting.yaml` (HA is author
 | Command restriction | `restrict,command=` in `authorized_keys` — key can only invoke the dispatch script |
 | Dispatch script | Whitelist-based case statement — only explicit litra commands allowed, all others rejected with exit code 1 |
 | Composite command validation | `apply_composite` rejects any unknown arg key; brightness/temperature values must match `^[0-9]+$` before being passed to `litra` |
+| Display sleep | `display sleep` is the only non-`litra` command whitelisted; it runs `/usr/bin/pmset displaysleepnow` with no arguments from the caller and no `sudo` |
 | Status query | `litra devices --json` is whitelisted as a read-only operation; it returns device metadata including serial number — no write capability exposed |
 | sudo scope | `homeassistant` can only run `/opt/homebrew/bin/litra` as `<your_username>`, no password required, nothing else permitted |
 
@@ -531,6 +573,7 @@ Full YAML: `ha/automations/automation.office_camera_lighting.yaml` (HA is author
 | Office Ceiling Light Was On | `input_boolean.office_ceiling_light_was_on` | Helper — internal automation state, hidden from dashboards/voice; owned by this automation |
 | Office: Camera Lighting | `automation.office_camera_lighting` | Automation |
 | Office: Litra Status Refresh on HA Start | `automation.office_litra_status_refresh_on_ha_start` | Automation |
+| Household: Sleep Mode | `automation.household_sleep_mode` | Automation — calls `shell_command.mac_mini_display_sleep` in its night-prep block; owned by the sleep routine, not this integration |
 
 ---
 

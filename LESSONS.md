@@ -971,6 +971,12 @@ A Companion App / `command_line` sensor reporting the Mac's primary-display name
 
 The inverse goal flips this: if the automation's actual intent is "someone is physically at the desk" (not merely "a Mac is active" — a Screen Sharing session also reports active), the same misreport is the signal you want, not noise to route around. `automation.office_monitor_light_bar`'s "computer became active" and "TV app closed" branches gate the light bar *on* only when the active computer's primary display reads `Studio Display`, deliberately relying on the empty-name misreport to suppress the bar during a remote-only session. Don't "fix" that condition back to a coarser check without confirming which of the two goals the automation actually has.
 
+### `pmset displaysleepnow` prints "error 1004" from a non-console user but still sleeps the display
+
+Run over SSH as the `homeassistant` service account (not the user logged in at the console), `pmset displaysleepnow` prints `pmset: Failed to put the display to sleep, error 1004` — and the display goes to sleep anyway. Confirmed 2026-10-02 against the Mac Mini. It also exits `0`, so neither the message nor the exit code says anything about whether the display actually slept.
+
+**Rule:** don't treat the 1004 message as a failure and reach for `sudo -u <console user>` to "fix" it — no sudoers rule is needed. Verify display sleep by looking at the screen, not by reading pmset's output or exit status.
+
 ### Principle of least privilege for shell access
 
 Shell command integrations that SSH into another machine should use:
