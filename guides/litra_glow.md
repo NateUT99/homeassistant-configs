@@ -5,7 +5,7 @@
 
 This document describes how to integrate a Logitech Litra Glow key light with Home Assistant, exposing it as a native light entity with on/off, brightness, and color temperature control. The integration uses the `litra-rs` CLI tool on a Mac Mini, accessed via a dedicated SSH user account from Home Assistant over the local network.
 
-The same SSH channel also carries one non-Litra command: Mac Mini display sleep, which locks the Mac when everyone goes to sleep (see [Mac Mini Display Sleep](#mac-mini-display-sleep)).
+The same SSH channel also carries one non-Litra command: Mac Mini display sleep, which locks the Mac when everyone goes to sleep or the last person leaves (see [Mac Mini Display Sleep](#mac-mini-display-sleep)).
 
 ---
 
@@ -512,9 +512,10 @@ Full YAML: `ha/automations/automation.office_camera_lighting.yaml` (HA is author
 
 ## Mac Mini Display Sleep
 
-When `input_boolean.everyone_sleeping` turns on, Household: Sleep Mode
-(`automation.household_sleep_mode`) calls `shell_command.mac_mini_display_sleep` in its
-night-prep parallel block. The dispatch script maps `display sleep` to
+Two automations call `shell_command.mac_mini_display_sleep`: Household: Sleep Mode
+(`automation.household_sleep_mode`) in its night-prep parallel block when
+`input_boolean.everyone_sleeping` turns on, and Household: Last Leaves Home
+(`automation.household_last_leaves_home`) in its departure routine. The dispatch script maps `display sleep` to
 `sudo -u <your_username> /usr/bin/pmset displaysleepnow`.
 
 Display sleep is what locks the Mac. That depends on the Mac Mini's **Lock Screen** setting
@@ -583,6 +584,7 @@ prep.
 | Office: Camera Lighting | `automation.office_camera_lighting` | Automation |
 | Office: Litra Status Refresh on HA Start | `automation.office_litra_status_refresh_on_ha_start` | Automation |
 | Household: Sleep Mode | `automation.household_sleep_mode` | Automation — calls `shell_command.mac_mini_display_sleep` in its night-prep block; owned by the sleep routine, not this integration |
+| Household: Last Leaves Home | `automation.household_last_leaves_home` | Automation — calls `shell_command.mac_mini_display_sleep` in its departure routine; owned by presence tracking, not this integration |
 
 ---
 

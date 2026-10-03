@@ -3,7 +3,7 @@ alias: "Household: Last Leaves Home"
 description: >-
   Runs the whole-house departure routine: closes the garage, locks the front
   door, sets the living room thermostat to Away, turns off lights/fans/switches/media
-  players labeled "No One Is Home", and starts the daytime vacuum clean of the remaining
+  players labeled "No One Is Home", sleeps (locks) the Mac Mini display, and starts the daytime vacuum clean of the remaining
   rooms (9am-7pm, if it hasn't run today) -- the Bathroom and Entrance drop out
   of that list on a night Avery is away, since Household: Vacuum Evening
   Cleaning picks them up instead. Normally fires 5 minutes after
@@ -102,6 +102,13 @@ actions:
     target:
       label_id: no_one_home
     data: {}
+  - alias: Sleep the Mac Mini display (locks it)
+    note: >-
+      Display sleep locks the Mac because it requires a password immediately
+      after display sleep. continue_on_error keeps an unreachable Mac from
+      stopping the vacuum step below.
+    action: shell_command.mac_mini_display_sleep
+    continue_on_error: true
   - alias: Start the daytime vacuum clean of the remaining rooms
     note: >-
       Rides the same departure trigger and Immediate Departure fast path as
