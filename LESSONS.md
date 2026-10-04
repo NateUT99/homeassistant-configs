@@ -977,9 +977,13 @@ Run over SSH as the `homeassistant` service account, `pmset displaysleepnow` pri
 
 **Rule:** run `pmset displaysleepnow` as the console user (a sudoers rule pinned to that exact command line). Verify with `pmset -g log | grep "Display is turned"`, not by pmset's exit status or by watching the screen once.
 
-### Screen Sharing wakes a display that `pmset displaysleepnow` just slept
+### A Screen Sharing session wakes a slept display only on input — don't kill the session
 
-While the Mac is being driven over Screen Sharing, `screensharingd` asserts `UserIsActive` ("Remote user active") and the display turns back on within a second of sleeping. The power log shows both events back to back. This is not a failure of the sleep command — test display sleep with no Screen Sharing session connected.
+Input sent through a Screen Sharing session (even moving the mouse over the viewer window) asserts `UserIsActive` ("Remote user active") and turns a just-slept display back on within a second. A connected but idle session does not: verified 2026-10-04, the display stayed off with a session connected and nobody touching the viewer.
+
+Ending the session to make display sleep "stick" doesn't work either. `killall screensharingd` drops it, but the macOS Screen Sharing client reconnected in under a second. And it isn't needed for security: once the display sleeps the Mac is locked, so a connected viewer sees the lock screen.
+
+**Rule:** sleep the display and leave Screen Sharing alone. When testing display sleep, keep hands off any viewer window; read `pmset -g log | grep "Display is turned"` to tell a remote wake from a failed sleep.
 
 ### Principle of least privilege for shell access
 

@@ -1,11 +1,9 @@
 # Logitech Litra Glow — Home Assistant Integration
-*Last updated: October 2026*
+*Last updated: September 2026*
 
 ## Overview
 
 This document describes how to integrate a Logitech Litra Glow key light with Home Assistant, exposing it as a native light entity with on/off, brightness, and color temperature control. The integration uses the `litra-rs` CLI tool on a Mac Mini, accessed via a dedicated SSH user account from Home Assistant over the local network.
-
-The same SSH channel also carries one non-Litra command: Mac Mini display sleep, which locks the Mac when everyone goes to sleep or the last person leaves (see [Mac Mini Display Sleep](#mac-mini-display-sleep)).
 
 ---
 
@@ -14,13 +12,11 @@ The same SSH channel also carries one non-Litra command: Mac Mini display sleep,
 ```
 Home Assistant
   ├── shell_command.litra_apply (SSH) ── commands (on/off/brightness/temp)
-  ├── shell_command.mac_mini_display_sleep (SSH) ── display sleep (locks the Mac)
   └── sensor.office_key_light_status (SSH) ── status query (every 2 minutes + after each command)
         └── homeassistant@mac-mini
               └── litra_dispatch.sh (whitelist gatekeeper)
                     ├── litra apply [state=] [brightness=] [temperature=]
                     │     └── apply_composite: sequenced on → brightness → temp → off
-                    ├── display sleep ── sudo -u <your_username> /usr/bin/pmset displaysleepnow
                     └── litra devices --json
                           └── sudo -u <your_username> /opt/homebrew/bin/litra
                                 └── Logitech Litra Glow (USB HID)
@@ -215,7 +211,7 @@ ssh-keyscan -H <mac-mini-hostname> > /config/.ssh/known_hosts
 
 > **Prefer the Mac's `.lan` hostname over a static IP** if your router registers DHCP hostnames in local DNS (verify with `ping <mac-mini-hostname>` from the HA host first). It tracks the Mac's current lease automatically, so there's no reservation to maintain. If the LAN has dual-stack IPv6, expect `ssh-keyscan` to occasionally return nothing on the first attempt — retry a few times before concluding the host is unreachable. This is a `ssh-keyscan` quirk, not a real connectivity problem; a plain `ssh` connection to the same hostname works reliably even when `ssh-keyscan` doesn't on the first try.
 
-> **Coordinated change:** the hostname (or IP) appears in three places — `shell_command.litra_apply` and the `command_line` sensor's `command:` in Step 8, plus this `ssh-keyscan` call. If the Mac Mini's address changes, update all three.
+> **Coordinated change:** the hostname (or IP) appears in three places — `shell_command.litra_apply` and the `command_line` sensor's `command:` in Step 8, plus this `ssh-keyscan` call. If the Mac Mini's address changes, update all three, plus the package in `guides/mac_mini_remote_control.md`, which shares this `known_hosts` file.
 
 ---
 
@@ -510,53 +506,6 @@ Full YAML: `ha/automations/automation.office_camera_lighting.yaml` (HA is author
 
 ---
 
-## Mac Mini Display Sleep
-
-Two automations call `shell_command.mac_mini_display_sleep`: Household: Sleep Mode
-(`automation.household_sleep_mode`) in its night-prep parallel block when
-`input_boolean.everyone_sleeping` turns on, and Household: Last Leaves Home
-(`automation.household_last_leaves_home`) in its departure routine. The dispatch script maps `display sleep` to
-`sudo -u <your_username> /usr/bin/pmset displaysleepnow`.
-
-Display sleep is what locks the Mac. That depends on the Mac Mini's **Lock Screen** setting
-*Require password after screen saver begins or display is turned off* being **Immediately**
-(`sysadminctl -screenLock status` → `screenLock delay is immediate`). If that setting changes, the
-display still sleeps but the Mac no longer locks.
-
-The shell command lives in `ha/packages/litra_glow.yaml` beside `litra_apply`:
-
-```yaml
-shell_command:
-  mac_mini_display_sleep: >-
-    ssh -i /config/.ssh/id_ed25519_litra
-    -o StrictHostKeyChecking=yes
-    -o UserKnownHostsFile=/config/.ssh/known_hosts
-    -o ConnectTimeout=5
-    homeassistant@<mac-mini-hostname> "display sleep"
-```
-
-**Why it rides the Litra key.** A separate key with its own forced command
-(`command="/usr/bin/pmset displaysleepnow"`) would hold a tighter boundary — each key one
-capability. Reusing the Litra key and dispatch script avoids a second key, `authorized_keys`
-entry, and deploy path for one argument-free command whose worst case is blanking the screen.
-
-**Why `sudo -u`.** `pmset` refuses display sleep from a non-console user (`error 1004`), so it
-runs as `<your_username>`, the same way `litra` does. A second sudoers file allows exactly that
-command line and nothing else:
-
-```bash
-echo 'homeassistant ALL=(<your_username>) NOPASSWD: /usr/bin/pmset displaysleepnow' > /tmp/hd
-visudo -cf /tmp/hd && sudo install -o root -g wheel -m 440 /tmp/hd /etc/sudoers.d/homeassistant-display
-```
-
-`pmset` exits `0` even when it refuses, so HA cannot see a failure; check
-`pmset -g log | grep "Display is turned"` on the Mac instead. Test with no Screen Sharing session
-connected — a remote session wakes the display within a second (both covered in `LESSONS.md`). The
-automation step sets `continue_on_error: true` so an unreachable Mac never fails the rest of night
-prep.
-
----
-
 ## Security Summary
 
 | Layer | Detail |
@@ -567,9 +516,8 @@ prep.
 | Command restriction | `restrict,command=` in `authorized_keys` — key can only invoke the dispatch script |
 | Dispatch script | Whitelist-based case statement — only explicit litra commands allowed, all others rejected with exit code 1 |
 | Composite command validation | `apply_composite` rejects any unknown arg key; brightness/temperature values must match `^[0-9]+$` before being passed to `litra` |
-| Display sleep | `display sleep` is the only non-`litra` command whitelisted; it runs `/usr/bin/pmset displaysleepnow` as `<your_username>` with no arguments from the caller |
 | Status query | `litra devices --json` is whitelisted as a read-only operation; it returns device metadata including serial number — no write capability exposed |
-| sudo scope | `homeassistant` can only run `/opt/homebrew/bin/litra` and the exact command line `/usr/bin/pmset displaysleepnow` as `<your_username>`, no password required, nothing else permitted |
+| sudo scope | For this integration, `homeassistant` can only run `/opt/homebrew/bin/litra` as `<your_username>`, no password required. The account's other sudo rules belong to `guides/mac_mini_remote_control.md` and are unreachable through this key's dispatch script |
 
 ---
 
@@ -583,8 +531,6 @@ prep.
 | Office Ceiling Light Was On | `input_boolean.office_ceiling_light_was_on` | Helper — internal automation state, hidden from dashboards/voice; owned by this automation |
 | Office: Camera Lighting | `automation.office_camera_lighting` | Automation |
 | Office: Litra Status Refresh on HA Start | `automation.office_litra_status_refresh_on_ha_start` | Automation |
-| Household: Sleep Mode | `automation.household_sleep_mode` | Automation — calls `shell_command.mac_mini_display_sleep` in its night-prep block; owned by the sleep routine, not this integration |
-| Household: Last Leaves Home | `automation.household_last_leaves_home` | Automation — calls `shell_command.mac_mini_display_sleep` in its departure routine; owned by presence tracking, not this integration |
 
 ---
 
@@ -596,7 +542,6 @@ prep.
 | Camera lighting automation | `ha/automations/automation.office_camera_lighting.yaml` | Mirror — HA authoritative |
 | Dispatch script | `scripts/litra_dispatch.sh` in this repo; deployed to `/usr/local/bin/litra_dispatch.sh` on Mac Mini | Command whitelist gatekeeper; includes composite `apply_composite` handler |
 | sudoers rule | `/etc/sudoers.d/homeassistant-litra` | Allows `homeassistant` to run `litra` as `<your_username>` |
-| sudoers rule | `/etc/sudoers.d/homeassistant-display` | Allows `homeassistant` to run `pmset displaysleepnow` as `<your_username>` |
 | SSH private key | `/config/.ssh/id_ed25519_litra` | HA's private key for authenticating to Mac Mini |
 | SSH public key | `/config/.ssh/id_ed25519_litra.pub` | Corresponding public key |
 | known_hosts | `/config/.ssh/known_hosts` | Mac Mini host key fingerprint |

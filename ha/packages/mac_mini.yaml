@@ -1,0 +1,17 @@
+# Mac Mini display sleep (which locks the Mac).
+# SSH dispatch to mac_dispatch.sh on the Mac Mini. Security model and
+# architecture documented in guides/mac_mini_remote_control.md.
+#
+# Deployed as a package: /config/packages/mac_mini.yaml on HA,
+# loaded via `homeassistant: packages: !include_dir_named packages`
+# in configuration.yaml. Replace <mac-mini-hostname> before deploying.
+
+shell_command:
+  # Display sleep locks the Mac (password required immediately after display
+  # sleep). pmset exits 0 even when it refuses, so a failure is not visible to HA.
+  mac_mini_display_sleep: >-
+    ssh -i /config/.ssh/id_ed25519_mac_mini
+    -o StrictHostKeyChecking=yes
+    -o UserKnownHostsFile=/config/.ssh/known_hosts
+    -o ConnectTimeout=5
+    homeassistant@<mac-mini-hostname> "display sleep"

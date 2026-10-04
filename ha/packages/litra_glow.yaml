@@ -13,16 +13,6 @@ shell_command:
     -o UserKnownHostsFile=/config/.ssh/known_hosts
     -o ConnectTimeout=5
     homeassistant@<mac-mini-hostname> "litra apply {{ args }}"
-  # Rides the Litra key and dispatch script rather than a key of its own.
-  # Display sleep locks the Mac (password required immediately after
-  # display sleep). pmset exits 0 even when it reports an error, so a
-  # failure here is not visible to HA.
-  mac_mini_display_sleep: >-
-    ssh -i /config/.ssh/id_ed25519_litra
-    -o StrictHostKeyChecking=yes
-    -o UserKnownHostsFile=/config/.ssh/known_hosts
-    -o ConnectTimeout=5
-    homeassistant@<mac-mini-hostname> "display sleep"
 
 template:
   - light:
