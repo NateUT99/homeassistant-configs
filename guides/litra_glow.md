@@ -27,7 +27,7 @@ Key design decisions:
 - **State is pushed, not polled by HA.** The agent reads the light locally about once a second and broadcasts only changes. Physical button presses and USB unplug/replug reach HA within a second, and a restart needs no refresh automation, because the stream sends full state on connect.
 - **One request per command.** The integration is a real `LightEntity`, so `light.turn_on` with brightness and color temperature becomes a single request carrying both. The agent always applies on → brightness → temperature → off, because a Litra that is off stores brightness and temperature without lighting up.
 - **HID responses are matched to their requests.** On macOS every open handle receives every HID response, so the agent accepts only a response that echoes its own request's header. Any other program polling the light (including the `litra` CLI) cannot corrupt the reading. See `LESSONS.md` → *macOS delivers every HID input report to every open handle*.
-- **A separate connectivity sensor on the agent device.** The light going `unavailable` can mean the agent is unreachable or the Litra is unplugged. `binary_sensor.office_litra_agent_connected` tells the two apart. It belongs to the agent device because one agent serves every Litra on that Mac.
+- **A separate connectivity sensor on the agent device.** The light going `unavailable` can mean the agent is unreachable or the Litra is unplugged. `binary_sensor.office_litra_agent_connectivity` tells the two apart. It belongs to the agent device because one agent serves every Litra on that Mac.
 
 ---
 
@@ -98,7 +98,7 @@ The integration creates two devices: **Litra Agent** (the service) and the light
 | Device | Device name | Entity ID | Registry settings |
 | --- | --- | --- | --- |
 | Litra Glow | `Desk Key Light` | `light.office_desk_key_light` | Labels `sleeping`, `no_one_home`; exposed to Assist |
-| Litra Agent | `Litra Agent` | `binary_sensor.office_litra_agent_connected` | Diagnostic connectivity sensor |
+| Litra Agent | `Litra Agent` | `binary_sensor.office_litra_agent_connectivity` | Diagnostic connectivity sensor |
 
 The `sleeping` and `no_one_home` labels put the key light in the household's label-targeted "lights off" sweeps.
 
@@ -134,7 +134,7 @@ On `on`, the first step records whether the ceiling light is on into `input_bool
 
 | Branch | Condition | Action |
 | --- | --- | --- |
-| Agent offline | `binary_sensor.office_litra_agent_connected` is `off`/`unavailable`/`unknown` | Push: "Litra agent on the Mac Mini is offline." |
+| Agent offline | `binary_sensor.office_litra_agent_connectivity` is `off`/`unavailable`/`unknown` | Push: "Litra agent on the Mac Mini is offline." |
 | Light unplugged | `light.office_desk_key_light` is `unavailable`/`unknown` | Push: "Litra Glow not detected - check its USB cable." |
 | Default | — | Turn off ceiling light and monitor light bar; `light.turn_on` the key light with `brightness_pct: 45`, `color_temp_kelvin: 4500` |
 
@@ -146,7 +146,7 @@ Full YAML: `ha/automations/automation.office_camera_lighting.yaml` (HA is author
 
 ## Step 6: Agent Offline Alert
 
-Office: Litra Agent Offline Alert (`automation.office_litra_agent_offline_alert`) sends a push to both Macs (`notify.nates_mac_mini`, `notify.nates_work_laptop`) when `binary_sensor.office_litra_agent_connected` has been `off` for two minutes. The two-minute hold rides out an agent restart or reinstall. The trigger requires `from: "on"`, so an agent that is already down when HA starts (sensor `unavailable`) doesn't fire it.
+Office: Litra Agent Offline Alert (`automation.office_litra_agent_offline_alert`) sends a push to both Macs (`notify.nates_mac_mini`, `notify.nates_work_laptop`) when `binary_sensor.office_litra_agent_connectivity` has been `off` for two minutes. The two-minute hold rides out an agent restart or reinstall. The trigger requires `from: "on"`, so an agent that is already down when HA starts (sensor `unavailable`) doesn't fire it.
 
 Full YAML: `ha/automations/automation.office_litra_agent_offline_alert.yaml`.
 
@@ -185,7 +185,7 @@ The ranges come from the device at runtime (`min/max_brightness_lumen`, `min/max
 | Artifact | Entity ID | Type |
 | --- | --- | --- |
 | Desk Key Light | `light.office_desk_key_light` | Light (`litra` custom integration) |
-| Litra Agent Connected | `binary_sensor.office_litra_agent_connected` | Connectivity binary sensor (`litra` custom integration) |
+| Litra Agent Connectivity | `binary_sensor.office_litra_agent_connectivity` | Connectivity binary sensor (`litra` custom integration) |
 | Office Ceiling Light | `light.office_ceiling_fan_light` | Matter light (`guides/inovelli_switches.md`, `guides/adaptive_lighting.md`) — switched off/on by the camera automation, not owned by it |
 | Office Ceiling Light Was On | `input_boolean.office_ceiling_light_was_on` | Helper — internal automation state, hidden from dashboards/voice; owned by the camera automation |
 | Office: Camera Lighting | `automation.office_camera_lighting` | Automation |

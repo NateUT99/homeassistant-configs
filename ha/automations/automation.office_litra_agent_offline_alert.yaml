@@ -4,9 +4,9 @@ description: >-
   Notifies both Macs when the Litra agent on the Mac Mini has been unreachable
   for two minutes, so the desk key light isn't silently unavailable.
 triggers:
-  - alias: Litra agent disconnected for two minutes
+  - alias: Litra agent connectivity lost for two minutes
     trigger: state
-    entity_id: binary_sensor.office_litra_agent_connected
+    entity_id: binary_sensor.office_litra_agent_connectivity
     from: "on"
     to: "off"
     for:
