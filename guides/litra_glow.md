@@ -1,508 +1,159 @@
 # Logitech Litra Glow — Home Assistant Integration
-*Last updated: September 2026*
+*Last updated: October 2026*
 
 ## Overview
 
-This document describes how to integrate a Logitech Litra Glow key light with Home Assistant, exposing it as a native light entity with on/off, brightness, and color temperature control. The integration uses the `litra-rs` CLI tool on a Mac Mini, accessed via a dedicated SSH user account from Home Assistant over the local network.
+A Logitech Litra Glow key light, USB-attached to the Mac Mini, appears in Home Assistant as a native light with on/off, brightness, and color temperature. A small Rust service, `litra-agent`, runs as a LaunchAgent in the console user's session on the Mac. It talks to the light over USB HID and serves an authenticated HTTPS + WebSocket API. A custom integration, `litra`, discovers the agent over zeroconf, pins its certificate at pairing, and receives state changes over a push stream. Both components live in the private repo [`NateUT99/ha-litra`](https://github.com/NateUT99/ha-litra), which is the source of truth for their code. This guide covers the deployment in this house.
 
 ---
 
 ## Architecture
 
 ```
-Home Assistant
-  ├── shell_command.litra_apply (SSH) ── commands (on/off/brightness/temp)
-  └── sensor.office_key_light_status (SSH) ── status query (every 2 minutes + after each command)
-        └── homeassistant@mac-mini
-              └── litra_dispatch.sh (whitelist gatekeeper)
-                    ├── litra apply [state=] [brightness=] [temperature=]
-                    │     └── apply_composite: sequenced on → brightness → temp → off
-                    └── litra devices --json
-                          └── sudo -u <your_username> /opt/homebrew/bin/litra
-                                └── Logitech Litra Glow (USB HID)
+Home Assistant (litra integration)
+  ├── HTTPS POST /api/v1/devices/{id}  ── commands (one request per light.turn_on/off)
+  └── WebSocket /api/v1/events          ── full device state, pushed on every change
+        │   TLS, certificate fingerprint pinned at pairing; bearer token on every request
+        ▼
+<mac-mini-hostname>:47810
+  └── litra-agent (LaunchAgent, console user's session)
+        └── HID worker thread (polls ~1 s; only code that touches USB)
+              └── Logitech Litra Glow (USB HID)
 ```
 
 Key design decisions:
 
-- A dedicated `homeassistant` macOS user handles SSH — no admin rights, key-only auth
-- The SSH key is locked to a dispatch script via `restrict,command=` in `authorized_keys`
-- The dispatch script whitelists only specific `litra` commands, rejecting everything else
-- `litra` requires USB HID access, which is only available to the logged-in user (`<your_username>`), so a targeted `sudo` rule allows `homeassistant` to run `litra` as `<your_username>` only
-- A `command_line` sensor (`sensor.office_key_light_status`) polls the device's actual state via `litra devices --json`, serving as the source of truth for the template light's `state`, `level`, and `temperature` templates — the light is no longer in optimistic mode. Each command handler also triggers an immediate sensor refresh so the UI stays in sync without waiting for the scheduled poll. See `LESSONS.md` ("Poll for state on command-line lights that can change out-of-band") for why polling was chosen over optimistic mode.
-- A composite `litra apply` command applies on/off, brightness, and temperature in a single SSH invocation, working around Home Assistant's template light convention where only one of `set_level` / `set_temperature` fires when both parameters are supplied to `light.turn_on`
-- All three HA-side config blocks (`shell_command`, `template`, `command_line`) live in a single package file (`ha/packages/litra_glow.yaml` in this repo, deployed to `/config/packages/litra_glow.yaml`) rather than inline in `configuration.yaml`, keeping the integration reviewable as one unit
+- **The agent runs in the console user's session.** macOS grants USB HID access to the logged-in user's session. A LaunchAgent gets that access natively, so there is no sudo rule, service account, or SSH in this path.
+- **State is pushed, not polled by HA.** The agent reads the light locally about once a second and broadcasts only changes. Physical button presses and USB unplug/replug reach HA within a second, and a restart needs no refresh automation, because the stream sends full state on connect.
+- **One request per command.** The integration is a real `LightEntity`, so `light.turn_on` with brightness and color temperature becomes a single request carrying both. The agent always applies on → brightness → temperature → off, because a Litra that is off stores brightness and temperature without lighting up.
+- **HID responses are matched to their requests.** On macOS every open handle receives every HID response, so the agent accepts only a response that echoes its own request's header. Any other program polling the light (including the `litra` CLI) cannot corrupt the reading. See `LESSONS.md` → *macOS delivers every HID input report to every open handle*.
+- **A separate connectivity sensor on the agent device.** The light going `unavailable` can mean the agent is unreachable or the Litra is unplugged. `binary_sensor.office_litra_agent_connected` tells the two apart. It belongs to the agent device because one agent serves every Litra on that Mac.
 
 ---
 
 ## Prerequisites
 
-- Home Assistant instance on the local network
-- Logitech Litra Glow connected via USB to a Mac Mini
-- Mac Mini running macOS with the Home Assistant companion app installed
-- Homebrew installed on the Mac Mini
+- Logitech Litra Glow connected via USB to the Mac Mini
+- Rust toolchain on the Mac (`brew install rust`)
+- A clone of `NateUT99/ha-litra` on the Mac
+- SSH access to the HA host (`ssh ha`) for deploying the integration
 
 ---
 
-## Step 1: Install litra-rs on the Mac Mini
+## Step 1: Install the Agent on the Mac Mini
 
-[`litra-rs`](https://github.com/timrogers/litra-rs) is a Rust-based CLI tool that provides full control of Logitech Litra devices over USB.
+Run as the console user, not root. HID access comes from that user's session:
 
 ```bash
-brew install litra
+cd ha-litra/agent
+./install.sh
 ```
 
-Verify the installation and note the binary path:
+`install.sh` builds the release binary, installs it to `~/.local/bin/litra-agent`, writes `~/Library/LaunchAgents/com.github.nateut99.litra-agent.plist` (`RunAtLoad`, `KeepAlive`), and bootstraps it into the user's GUI domain. The agent listens on `0.0.0.0:47810` and advertises `_litra-agent._tcp` over mDNS.
+
+The Mac's application firewall is on, so `install.sh` also adds an allow rule with `sudo`. The firewall keys that rule on the binary's code signature, and each rebuild produces a new ad-hoc signature. After any rebuild, re-run `install.sh` rather than only `cargo build`.
+
+On first run the agent creates `~/Library/Application Support/litra-agent/` (`0700`), containing a self-signed TLS certificate and key, a stable agent ID, and, after pairing, the token hash. All files are `0600`.
+
+Verify:
 
 ```bash
-which litra
-# /opt/homebrew/bin/litra
-```
-
-### Device specifications (Litra Glow)
-
-Retrieved via `litra devices --json`:
-
-| Property | Value |
-| --- | --- |
-| Brightness range | 20–250 lumen |
-| Temperature range | 2700–6500 kelvin |
-| Temperature increment | Must be a multiple of 100 |
-
-### Key CLI commands
-
-| Command | Description |
-| --- | --- |
-| `litra on` | Turn the light on |
-| `litra off` | Turn the light off |
-| `litra toggle` | Toggle on/off |
-| `litra brightness --value <n>` | Set brightness in lumens (20–250) |
-| `litra brightness --percentage <n>` | Set brightness as a percentage |
-| `litra brightness-up --value <n>` | Increase brightness by lumen value |
-| `litra brightness-up --percentage <n>` | Increase brightness by percentage |
-| `litra brightness-down --value <n>` | Decrease brightness by lumen value |
-| `litra brightness-down --percentage <n>` | Decrease brightness by percentage |
-| `litra temperature --value <n>` | Set color temperature in kelvin (2700–6500, multiples of 100) |
-| `litra temperature-up --value <n>` | Increase temperature by kelvin value |
-| `litra temperature-down --value <n>` | Decrease temperature by kelvin value |
-| `litra devices --json` | Return full device state as JSON |
-
----
-
-## Step 2: Create a Dedicated SSH User on the Mac Mini
-
-A dedicated `homeassistant` user isolates SSH access. This user has no admin rights and can only authenticate via SSH key.
-
-### Create the user via System Settings
-
-**System Settings → Users & Groups → Add Account**
-
-- Account type: **Standard**
-- Full name: `Home Assistant`
-- Account name: `homeassistant`
-- Set a strong password (password login is disabled via SSH config)
-
-### Hide from login screen
-
-```bash
-sudo dscl . -create /Users/homeassistant IsHidden 1
-```
-
-### Grant SSH access
-
-macOS manages SSH access via a system group. Add the user to it:
-
-```bash
-sudo dseditgroup -o edit -t user -a homeassistant com.apple.access_ssh
-```
-
-### Set up the SSH directory
-
-```bash
-sudo mkdir -p /Users/homeassistant/.ssh
-sudo chmod 700 /Users/homeassistant/.ssh
-sudo chown homeassistant:staff /Users/homeassistant/.ssh
+launchctl print gui/$(id -u)/com.github.nateut99.litra-agent | grep "state ="
+tail ~/Library/Logs/litra-agent.log
 ```
 
 ---
 
-## Step 3: Configure sshd on the Mac Mini
-
-Enable Remote Login in **System Settings → General → Sharing → Remote Login**.
-
-Edit `/etc/ssh/sshd_config` and add the following to restrict access and disable password authentication:
-
-```
-AllowUsers homeassistant
-PasswordAuthentication no
-ChallengeResponseAuthentication no
-```
-
-Restart sshd:
+## Step 2: Pair
 
 ```bash
-sudo launchctl stop com.openssh.sshd
-sudo launchctl start com.openssh.sshd
+~/.local/bin/litra-agent pair
 ```
 
-Even with "Allow access for all users" enabled in Sharing, only the `homeassistant` account can authenticate, and only via SSH key.
+This prints a new 256-bit token and the certificate's SHA-256 fingerprint. The agent stores only the token's hash, and running `pair` again immediately invalidates the previous token. Enter the token directly into HA (Step 3). Don't paste it into chat, notes, or tickets.
 
 ---
 
-## Step 4: Configure sudo for USB HID Access
+## Step 3: Install the Integration in Home Assistant
 
-The `litra` CLI requires USB HID access, which macOS restricts to the active logged-in user session (`<your_username>`). A targeted `sudo` rule allows `homeassistant` to run `litra` as `<your_username>` — and nothing else.
+The repo is private, so HACS can't install it. Copy the integration onto the HA host and restart HA:
 
 ```bash
-sudo visudo -f /etc/sudoers.d/homeassistant-litra
+cd ha-litra
+scp -r custom_components/litra ha:/config/custom_components/
 ```
 
-Add:
+Python code changes take effect only after a full HA restart, not an integration reload.
 
-```
-homeassistant ALL=(<your_username>) NOPASSWD: /opt/homebrew/bin/litra
-```
+After the restart, **Settings → Devices & services** lists *Litra Agent on nates-mac-mini* under Discovered. If it doesn't appear, add **Logitech Litra** manually with `<mac-mini-hostname>` and port `47810`. Confirm that the fingerprint HA shows matches the `pair` output exactly, then enter the token.
+
+> **Coordinated change:** HA pins the certificate fingerprint. If the agent's certificate is regenerated (by deleting `cert.pem`/`key.pem`), HA starts a re-pair flow showing the new fingerprint. Confirm it against `litra-agent fingerprint` before accepting. A fingerprint change you didn't cause means something else is answering at the agent's address.
 
 ---
 
-## Step 5: Create the Dispatch Script
+## Step 4: Entities
 
-The dispatch script acts as a security gatekeeper. The SSH authorized key is locked to only execute this script via `restrict,command=`. The script whitelists specific `litra` commands and rejects everything else with a non-zero exit code.
+The integration creates two devices: **Litra Agent** (the service) and the light, linked to the agent via `via_device`. After pairing, apply these registry settings:
 
-The `apply_composite` function handles the composite `litra apply` pseudo-command, which accepts optional `state=`, `brightness=`, and `temperature=` arguments and sequences them in the correct order on the Mac side, all within one SSH session. A read-only `litra devices --json` case is also whitelisted for the state-tracking sensor added in Step 8.
+| Device | Device name | Entity ID | Registry settings |
+| --- | --- | --- | --- |
+| Litra Glow | `Desk Key Light` | `light.office_desk_key_light` | Labels `sleeping`, `no_one_home`; exposed to Assist |
+| Litra Agent | `Litra Agent` | `binary_sensor.office_litra_agent_connected` | Diagnostic connectivity sensor |
 
-The script is maintained in this repository at `scripts/litra_dispatch.sh`. Before deploying, open it and replace `<your_username>` with your macOS username. Then copy it to the Mac Mini and make it executable:
-
-```bash
-sudo cp scripts/litra_dispatch.sh /usr/local/bin/litra_dispatch.sh
-sudo chmod +x /usr/local/bin/litra_dispatch.sh
-```
-
-### Composite command examples
-
-| Composite invocation | Resulting `litra` calls |
-| --- | --- |
-| `litra apply state=on` | `litra on` |
-| `litra apply state=off` | `litra off` |
-| `litra apply state=on brightness=50` | `litra on` → `litra brightness --percentage 50` |
-| `litra apply state=on brightness=50 temperature=4500` | `litra on` → `litra brightness --percentage 50` → `litra temperature --value 4500` |
-| `litra apply brightness=75 temperature=5500` | `litra brightness --percentage 75` → `litra temperature --value 5500` |
-
-> **Important:** brightness or temperature applied to an off Litra is a silent no-op at the device — the device accepts the command but the LEDs are unlit. For this reason, the HA template light handlers in Step 8 always assert `state=on` whenever they send brightness or temperature, even when the user only changed one of them.
+The `sleeping` and `no_one_home` labels put the key light in the household's label-targeted "lights off" sweeps.
 
 ---
 
-## Step 6: Generate SSH Key on Home Assistant
+## Step 5: Camera Automation
 
-In the Home Assistant terminal:
+Automatically controls office lighting when the active camera on the MacBook Pro (`sensor.nates_work_laptop_active_camera`) becomes the Studio Display Camera. It's scoped to the MacBook Pro only, because that's the only Mac used for video calls; the Mac Mini is never a source, so it isn't watched.
 
-```bash
-mkdir -p /config/.ssh
-chmod 700 /config/.ssh
-ssh-keygen -t ed25519 -C "homeassistant-litra" -f /config/.ssh/id_ed25519_litra
-```
+When that camera turns on, the ceiling light and monitor light bar turn off and the key light turns on at a video-call preset (45% brightness, 4500 K). When the camera turns off, nothing happens immediately if the microphone is still captured. A video-only pause (stepping away briefly while still connected to the call) holds the room lighting as-is rather than flickering it off and back on.
 
-Leave the passphrase empty — HA connects non-interactively.
+Once the microphone also releases, or after a 3-minute safety cap, the key light turns off. If the MacBook Pro is currently active, the monitor light bar is then restored, and the ceiling light too if it was on before the call. If the MacBook Pro isn't active, nothing comes back on after you've walked away mid-call.
 
-Build the known_hosts file:
+The trigger fires on the camera-name sensor, which reports the active camera's display name as a string. This matches only Studio Display Camera sessions and ignores the laptop's built-in FaceTime camera, since the goal is lighting for the desk-mounted Studio Display setup.
 
-```bash
-ssh-keyscan -H <mac-mini-hostname> > /config/.ssh/known_hosts
-```
+The restore guard is "MacBook Pro currently active", deliberately not gated on which display is attached. macOS primary-display sensors misreport over Screen Sharing, so a display-identity check would make the restore depend on how the Mac was accessed. See `LESSONS.md` → *Shell Command Integration*.
 
-> **Prefer the Mac's `.lan` hostname over a static IP** if your router registers DHCP hostnames in local DNS (verify with `ping <mac-mini-hostname>` from the HA host first). It tracks the Mac's current lease automatically, so there's no reservation to maintain. If the LAN has dual-stack IPv6, expect `ssh-keyscan` to occasionally return nothing on the first attempt — retry a few times before concluding the host is unreachable. This is a `ssh-keyscan` quirk, not a real connectivity problem; a plain `ssh` connection to the same hostname works reliably even when `ssh-keyscan` doesn't on the first try.
+The ceiling light (`light.office_ceiling_fan_light`) is under Adaptive Lighting (`guides/adaptive_lighting.md`). The automation turns it off and restores it with a bare `light.turn_off`/`light.turn_on`, with no brightness or temperature data. That lets AL's `intercept` adapt the restore to the current curve target. `automation.office_ceiling_fan_wall_control`'s "Ceiling light changed" branch handles AL manual control and the switch LED bar on each transition.
 
-> **Coordinated change:** the hostname (or IP) appears in three places — `shell_command.litra_apply` and the `command_line` sensor's `command:` in Step 8, plus this `ssh-keyscan` call. If the Mac Mini's address changes, update all three, plus the package in `guides/mac_mini_remote_control.md`, which shares this `known_hosts` file.
-
----
-
-## Step 7: Authorize the Key on the Mac Mini
-
-Add the HA public key to the `homeassistant` user's `authorized_keys`, locked to the dispatch script:
-
-```bash
-sudo vi /Users/homeassistant/.ssh/authorized_keys
-```
-
-The entry must include the `restrict,command=` prefix:
-
-```
-restrict,command="/usr/local/bin/litra_dispatch.sh" ssh-ed25519 AAAA...your-key... homeassistant-litra
-```
-
-Set correct permissions:
-
-```bash
-sudo chmod 600 /Users/homeassistant/.ssh/authorized_keys
-sudo chown homeassistant:staff /Users/homeassistant/.ssh/authorized_keys
-```
-
-The `restrict,command=` prefix means this key can only ever invoke the dispatch script. Even if the private key were compromised, an attacker could only toggle the light.
-
-**Verify before moving on** — both directions matter:
-
-```bash
-# Should return the device JSON array:
-ssh -i /config/.ssh/id_ed25519_litra -o StrictHostKeyChecking=yes \
-  -o UserKnownHostsFile=/config/.ssh/known_hosts -o ConnectTimeout=5 \
-  homeassistant@<mac-mini-hostname> "litra devices --json"
-
-# Should print "Unauthorized command" and exit 1:
-ssh -i /config/.ssh/id_ed25519_litra -o StrictHostKeyChecking=yes \
-  -o UserKnownHostsFile=/config/.ssh/known_hosts -o ConnectTimeout=5 \
-  homeassistant@<mac-mini-hostname> "whoami"
-```
-
-If the second command succeeds instead of being rejected, the `restrict,command=` prefix is missing from `authorized_keys` and the key is over-privileged.
-
----
-
-## Step 8: Home Assistant Configuration
-
-All three blocks below live in one package file, deployed to `/config/packages/litra_glow.yaml` and loaded via:
-
-```yaml
-homeassistant:
-  packages: !include_dir_named packages
-```
-
-in `configuration.yaml`. The package source is version-controlled at `ha/packages/litra_glow.yaml` in this repo (with `<mac-mini-hostname>` as a placeholder — substitute the real value when deploying).
-
-### Shell Command
-
-A single composite `litra_apply` shell command handles all dispatch. The `{{ args }}` token is substituted with the composite argument string built by the template light handlers below.
-
-```yaml
-shell_command:
-  litra_apply: >-
-    ssh -i /config/.ssh/id_ed25519_litra
-    -o StrictHostKeyChecking=yes
-    -o UserKnownHostsFile=/config/.ssh/known_hosts
-    -o ConnectTimeout=5
-    homeassistant@<mac-mini-hostname> "litra apply {{ args }}"
-```
-
-### Template Light
-
-The template light is state-tracked rather than optimistic. A `command_line` sensor (`sensor.office_key_light_status`, defined below) polls the device's actual state and drives the `state`, `level`, and `temperature` templates. After each command handler runs, it triggers an immediate sensor refresh via `homeassistant.update_entity` so the UI reflects the new state within a second rather than waiting for the next scheduled poll.
-
-All four handlers (`turn_on`, `turn_off`, `set_level`, `set_temperature`) are defined for two reasons:
-
-1. `set_level` and `set_temperature` must exist for HA to render the brightness and color-temperature sliders in the UI. The presence of these handlers is what tells HA the light supports those features. `supported_color_modes` is a Python LightEntity API concept and is not accepted by the template light YAML schema.
-2. Each handler routes to the same composite `shell_command.litra_apply`, with arg strings built from whatever variables HA passes in.
-
-The arg-string templates must be written on a single logical line. YAML's folded scalar (`>-`) does not collapse newlines that originate inside Jinja `{% if %}` blocks — the literal `\n` characters survive into the rendered string and truncate `SSH_ORIGINAL_COMMAND` at the first newline on the remote side, silently dropping everything after `state=on`. Inline Jinja with explicit spacing avoids this.
-
-The brightness formula converts HA's 0–255 scale to a 0–100 percentage for `litra`. The temperature formula converts HA's mired scale (153–500) to kelvin (2700–6500), rounded to the nearest 100 as required by `litra-rs`. `color_temp | int` forces integer conversion before the formula runs.
-
-```yaml
-template:
-  - light:
-      - name: "Office Desk Key Light"
-        unique_id: litra_glow
-        availability: "{{ states('sensor.office_key_light_status') not in ['unavailable', 'unknown'] }}"
-        state: "{{ is_state('sensor.office_key_light_status', 'on') }}"
-        level: >-
-          {% set l = state_attr('sensor.office_key_light_status', 'brightness_in_lumen') %}
-          {{ ((l | int - 20) / 230 * 255) | int if l is not none else none }}
-        temperature: >-
-          {% set k = state_attr('sensor.office_key_light_status', 'temperature_in_kelvin') %}
-          {{ (1000000 / (k | int)) | int if k is not none else none }}
-        turn_on:
-          - alias: Turn on (and apply brightness/temp if supplied)
-            action: shell_command.litra_apply
-            data:
-              args: "state=on{% if brightness is defined %} brightness={{ (brightness / 255 * 100) | int }}{% endif %}{% if color_temp is defined %} temperature={{ (1000000 / (color_temp | int)) | round(-2) | int }}{% endif %}"
-          - alias: Refresh Litra status sensor
-            action: homeassistant.update_entity
-            target:
-              entity_id: sensor.office_key_light_status
-        turn_off:
-          - alias: Turn off
-            action: shell_command.litra_apply
-            data:
-              args: "state=off"
-          - alias: Refresh Litra status sensor
-            action: homeassistant.update_entity
-            target:
-              entity_id: sensor.office_key_light_status
-        set_level:
-          - alias: Brightness adjustment (also ensures light is on)
-            action: shell_command.litra_apply
-            data:
-              args: "state=on brightness={{ (brightness / 255 * 100) | int }}"
-          - alias: Refresh Litra status sensor
-            action: homeassistant.update_entity
-            target:
-              entity_id: sensor.office_key_light_status
-        set_temperature:
-          - alias: Color temp adjustment (also ensures light is on, plus brightness if supplied)
-            action: shell_command.litra_apply
-            data:
-              args: "state=on temperature={{ (1000000 / (color_temp | int)) | round(-2) | int }}{% if brightness is defined %} brightness={{ (brightness / 255 * 100) | int }}{% endif %}"
-          - alias: Refresh Litra status sensor
-            action: homeassistant.update_entity
-            target:
-              entity_id: sensor.office_key_light_status
-```
-
-The `availability` template excludes both `unavailable` (Mac unreachable via SSH) and `unknown` (Mac reachable but Litra not found — typically a USB disconnect). Either state means commands will fail, so the light is hidden from the UI until the sensor reports a real state. The `level` and `temperature` templates return `none` when their source attributes are absent during initial sensor load, which tells HA to leave those values unset rather than silently writing a wrong value.
-
-At the top of the Litra's temperature range, expect the round-trip through mireds to display a few kelvin off from what was requested (e.g. commanding 6500K reads back as 6535K) — `color_temp | int` truncates rather than rounds when converting to mireds, and HA re-expands that truncated mired value back to kelvin for display. This is a cosmetic display artifact, not a control error; the device itself receives the exact requested value.
-
-### Command-line Status Sensor
-
-This sensor polls the device state via SSH every 2 minutes as a safety net, and is also refreshed immediately after every command handler runs. It is the source of truth for the template light's `state`, `level`, and `temperature` templates.
-
-`litra devices --json` returns a JSON array. The first element contains the Litra Glow's state. `value_template` normalizes the boolean `is_on` field to the HA-idiomatic `'on'`/`'off'` string so downstream templates can use `is_state()`. `json_attributes_path: "$[0]"` extracts all attributes from the first device object.
-
-```yaml
-command_line:
-  - sensor:
-      name: "Office Key Light Status"
-      unique_id: office_key_light_status
-      command: >-
-        ssh -i /config/.ssh/id_ed25519_litra
-        -o StrictHostKeyChecking=yes
-        -o UserKnownHostsFile=/config/.ssh/known_hosts
-        -o ConnectTimeout=5
-        homeassistant@<mac-mini-hostname> "litra devices --json"
-      command_timeout: 10
-      value_template: "{{ 'on' if value_json[0].is_on else 'off' }}"
-      json_attributes_path: "$[0]"
-      json_attributes:
-        - is_on
-        - brightness_in_lumen
-        - temperature_in_kelvin
-        - minimum_brightness_in_lumen
-        - maximum_brightness_in_lumen
-        - minimum_temperature_in_kelvin
-        - maximum_temperature_in_kelvin
-      scan_interval: 120
-```
-
-`ConnectTimeout=5` and `command_timeout: 10` prevent the sensor from hanging when the Mac is unreachable — a 75-second default SSH connect timeout would freeze HA's command_line integration worker thread for each failed poll. If the Mac is unreachable, the sensor goes `unavailable`. If the Mac is reachable but the Litra is physically disconnected from USB, `litra devices --json` returns an empty array, which causes the `value_template` to fail and the sensor to go `unknown`. Both states propagate to the template light via the `availability` template.
-
-`scan_interval: 120` polls every 2 minutes, so a USB disconnect surfaces in HA within 2 minutes even without a command in flight. Handler-side `update_entity` covers normal post-command latency.
-
-### Startup Recovery Automation
-
-On every HA restart, the command_line sensor would otherwise sit idle until its next scheduled poll (up to 2 minutes away). This automation fires on `homeassistant.start` to refresh the sensor immediately, so state is accurate before the first user interaction.
-
-```yaml
-alias: "Office: Litra Status Refresh on HA Start"
-description: >
-  Forces sensor.office_key_light_status to poll the device immediately when HA starts up,
-  so the template light reflects accurate state before the next scheduled scan_interval.
-triggers:
-  - alias: HA finished starting
-    trigger: homeassistant
-    event: start
-conditions: []
-actions:
-  - alias: Refresh Litra status sensor
-    action: homeassistant.update_entity
-    target:
-      entity_id: sensor.office_key_light_status
-mode: single
-```
-
-> HA generates the automation's `entity_id` by slugifying the full `alias`, so this one lands as `automation.office_litra_status_refresh_on_ha_start` (not `..._on_start`) — the alias's "HA Start" carries all the way through.
-
-### Why every command-sending handler asserts `state=on`
-
-The Litra accepts brightness and temperature commands while off, but does not power up — it stores the settings silently and applies them on the next `litra on`. From the user's perspective, this looks like "HA shows the light at 50% / 5400K but the room is still dark."
-
-To eliminate this footgun, `set_level` and `set_temperature` always include `state=on` in their composite args. On an already-on Litra this is a harmless no-op USB call (under 100ms, no visible flicker). On an off Litra it correctly powers up the light alongside the requested adjustment.
-
-### Behavior matrix
-
-The matrix below assumes the Litra starts in the off state. All cases physically power up the light and apply the requested parameters.
-
-| HA call | Handler invoked | Composite args sent | Resulting actions on Litra |
-|---|---|---|---|
-| `light.turn_on` (no params) | `turn_on` | `state=on` | Light turns on |
-| `light.turn_on` with `brightness=128` | `set_level` | `state=on brightness=50` | Light turns on, brightness set to 50% |
-| `light.turn_on` with `color_temp=250` | `set_temperature` | `state=on temperature=4000` | Light turns on, color temp set to 4000K |
-| `light.turn_on` with `brightness=128, color_temp=250` | `set_temperature` (with `brightness` as side variable) | `state=on temperature=4000 brightness=50` | Light turns on, brightness and temp both set |
-| `light.turn_off` | `turn_off` | `state=off` | Light turns off |
-
-HA accepts `brightness_pct: 50` as an alternative to `brightness: 128` in service calls. The template light receives the value normalized to the 0–255 `brightness` variable regardless of which form the caller used.
-
-### Scale Conversions Reference
-
-| Direction | Formula |
-| --- | --- |
-| HA brightness (0–255) → litra percentage (0–100) | `(brightness / 255 * 100) \| int` |
-| litra brightness_in_lumen (20–250) → HA brightness (0–255) | `((brightness_in_lumen \| int - 20) / 230 * 255) \| int` |
-| HA mireds → device kelvin (rounded to nearest 100K) | `(1000000 / (color_temp \| int)) \| round(-2) \| int` |
-| device kelvin → HA mireds | `(1000000 / (temperature_in_kelvin \| int)) \| int` |
-
-The temperature conversions use the standard mireds formula (`1,000,000 / mireds = kelvin`). The Litra Glow's usable range is 2700–6500K (370–153 mireds). HA's default mired range extends beyond this, so the device silently clamps values outside its supported range — the conversion formulas are the only guard. Neither `min_mireds` nor `min_color_temp_kelvin` are valid properties in the template light YAML schema.
-
-> **Coordinated change:** the forward and reverse conversion formulas must move together. If the Litra's brightness or temperature range changes (e.g., a device firmware update or a different model), update both the forward conversion in the template light handlers and the reverse conversion in the `level` / `temperature` templates simultaneously, or HA's reported and commanded values will drift apart.
-
-The lumens-to-HA-brightness reverse conversion introduces a rounding asymmetry of up to ±1 out of 255 (< 0.4% of range) because `litra brightness --percentage` operates in percent while `litra devices --json` reports back in lumens. The drift is imperceptible and self-corrects on the next user adjustment.
-
----
-
-## Step 9: Camera Automation
-
-Automatically controls office lighting when the active camera on the MacBook Pro (`sensor.nates_work_laptop_active_camera`) becomes the Studio Display Camera. Scoped to the MacBook Pro only — it's the only Mac used for video calls; the Mac Mini is never a source, so it isn't watched. When that camera turns on, the ceiling light and monitor light bar are turned off and the Litra key light is enabled at a video-call preset (45% brightness, 4500K). When the camera turns off, nothing happens immediately if the microphone is still captured — video-only pauses (stepping away to cough, refill a water bottle, etc., while still connected to the call) hold the room lighting as-is rather than flickering it off and back on. Once the microphone also releases (or after a 3-minute safety cap), the key light is turned off, the monitor light bar is restored unconditionally, and the ceiling light is restored only if it was on before the call — but only if the MacBook Pro is currently active, so nothing comes back on after you've walked away mid-call.
-
-The trigger fires on the camera-name sensor (`sensor.nates_work_laptop_active_camera`), which reports the active camera's display name as a string. This matches only Studio Display Camera sessions and ignores the built-in laptop FaceTime camera, since the goal is to optimize lighting specifically for the desk-mounted Studio Display setup.
-
-The restore guard is "MacBook Pro currently active" — deliberately not gated on which display is attached. macOS primary-display sensors misreport over Screen Sharing (empty name, generic virtual resolution), so a display-identity check would make the restore fire or not fire based purely on how the Mac was accessed. See `LESSONS.md` → *Shell Command Integration*.
-
-The ceiling light (`light.office_ceiling_fan_light`) is under Adaptive Lighting (`guides/adaptive_lighting.md`). The turn-off and the conditional restore call it with a bare `light.turn_off`/`light.turn_on` — no brightness or temperature data — so AL's `intercept` adapts the restore to the current curve target rather than snapping to a fixed level, and `automation.office_ceiling_fan_wall_control`'s "Ceiling light changed" branch handles releasing/re-acquiring AL manual control and updating the switch LED bar on each transition without any extra wiring here.
-
-The ceiling light's prior state is remembered across the two separate automation runs (call-start and call-end are different trigger firings, so a mid-sequence `variables:` can't carry a value between them) via `input_boolean.office_ceiling_light_was_on` — set at the top of the call-start branch, before the light is touched, and read by the call-end branch's restore step. The monitor light bar has no equivalent memory; it's simply always turned back on, since it's never in any state other than on or off-for-a-call.
+Call start and call end are separate trigger firings, so the ceiling light's prior state is carried between them in `input_boolean.office_ceiling_light_was_on`. It's set at the top of the call-start branch, before the light is touched, and read by the call-end branch's restore step. The monitor light bar is always restored, since it's never in any state other than on or off-for-a-call.
 
 #### Why the microphone, not a longer debounce
 
-The camera-off trigger's own `for:` debounce is intentionally short (3s, just enough to absorb
-sensor jitter) — the real tolerance for brief away-periods comes from a `wait_for_trigger` in the
-"Camera turned off" branch, not a longer fixed delay. A fixed debounce forces a choice between
-"long enough to cover a water-bottle refill" and "restores lights promptly after a real call
-ends"; those pull in opposite directions and no single number satisfies both. The microphone
-instead answers the actual question — is the call still connected — directly: most conferencing
-apps hold the OS-level mic open for the whole call and only release it on actual leave, even
-through a muted or video-paused stretch, so gating on
-`binary_sensor.nates_work_laptop_audio_input_in_use` lets an arbitrarily long-but-still-connected
-pause pass with zero light changes, while a genuine call end (mic released promptly) restores
-within the 3s debounce instead of waiting out a fixed guess.
+The camera-off trigger's own `for:` debounce is short (3 s, enough to absorb sensor jitter). Tolerance for brief away-periods comes instead from a `wait_for_trigger` in the "Camera turned off" branch. A fixed debounce forces a choice between "long enough to cover a water-bottle refill" and "restores lights promptly after a real call ends", and no single number satisfies both.
 
-**Confirmed live (2026-09-22):** during a real Zoom call on the MacBook Pro, the automation traces
-showed `binary_sensor.nates_work_laptop_audio_input_in_use` stayed continuously `on` for the full
-call — including through an ~8-second camera drop mid-call — only releasing when the call actually
-ended. The 3-minute `wait_for_trigger` timeout remains as a backstop regardless (self-corrects if a
-future app/version releases the mic differently, e.g. a fully-muted call that never registers as
-in-use).
+The microphone answers the actual question, whether the call is still connected. Conferencing apps hold the OS-level mic open for the whole call, even through muted or video-paused stretches, and release it only when you leave. Gating on `binary_sensor.nates_work_laptop_audio_input_in_use` lets an arbitrarily long pause pass with no light changes, while a real call end restores within the 3 s debounce. Live traces confirm the mic stays `on` through mid-call camera drops. The 3-minute timeout is a backstop for an app that releases the mic differently, such as a fully muted call that never registers as in use.
 
 ### Automation
 
-Two triggers, `on` and `off` (3s debounce — see above), route through a `choose`; `mode: restart`
-so a fresh trigger cancels any in-progress run (see below). On `on`, the first step records
-whether the ceiling light is currently on into `input_boolean.office_ceiling_light_was_on` before
-anything else changes it. A nested `choose` then checks `sensor.office_key_light_status` for
-`unavailable`/`unknown` — if the Litra is disconnected, it notifies instead of applying a preset
-that would silently no-op; the `default` branch turns off the ceiling light and monitor light bar,
-then turns on the desk key light with `brightness_pct: 45` / `color_temp_kelvin: 4500`. HA
-normalizes both to the `brightness` (0–255) and `color_temp` (mireds) variables expected by the
-template light's `set_temperature` handler before invocation, so the integration applies them
-correctly without any template changes.
+Two triggers, `on` and `off` (with the 3 s debounce above), route through a `choose` with `mode: restart`, so a fresh trigger cancels any in-progress run.
 
-On `off`, the first step checks `binary_sensor.nates_work_laptop_audio_input_in_use`; if it's
-still `on`, a `wait_for_trigger` blocks (event-driven, not polling) until it goes `off` or 3
-minutes elapse (`continue_on_timeout: true`). Only after that does it turn off the key light,
-then — gated on "MacBook Pro currently active" — unconditionally restore the monitor light bar
-and restore the ceiling light with a bare `light.turn_on` only if
-`input_boolean.office_ceiling_light_was_on` is `on` (see the note above on why no data is passed).
-No lights are touched before the wait resolves, so `mode: restart` is what makes a camera coming
-back on mid-wait a true no-op: the pending "off" run is cancelled outright rather than racing
-against the fresh "on" run.
+On `on`, the first step records whether the ceiling light is on into `input_boolean.office_ceiling_light_was_on`. A nested `choose` then checks the light's availability before applying the preset, since the preset would silently no-op otherwise:
 
-Full YAML: `ha/automations/automation.office_camera_lighting.yaml` (HA is authoritative — see
-`standards/documentation.md`).
+| Branch | Condition | Action |
+| --- | --- | --- |
+| Agent offline | `binary_sensor.office_litra_agent_connected` is `off`/`unavailable`/`unknown` | Push: "Litra agent on the Mac Mini is offline." |
+| Light unplugged | `light.office_desk_key_light` is `unavailable`/`unknown` | Push: "Litra Glow not detected - check its USB cable." |
+| Default | — | Turn off ceiling light and monitor light bar; `light.turn_on` the key light with `brightness_pct: 45`, `color_temp_kelvin: 4500` |
+
+On `off`, if `binary_sensor.nates_work_laptop_audio_input_in_use` is still `on`, a `wait_for_trigger` blocks until it goes `off` or 3 minutes elapse (`continue_on_timeout: true`). The run then turns off the key light. If the MacBook Pro is currently active, it restores the monitor light bar, and restores the ceiling light with a bare `light.turn_on` when `input_boolean.office_ceiling_light_was_on` is `on`. No lights change before the wait resolves, so `mode: restart` makes a camera coming back on mid-wait a true no-op.
+
+Full YAML: `ha/automations/automation.office_camera_lighting.yaml` (HA is authoritative — see `standards/documentation.md`).
+
+---
+
+## Scale Conversions Reference
+
+All conversion happens in the integration's light entity. The agent API speaks the device's native units.
+
+| Quantity | HA side | Agent / device side | Conversion |
+| --- | --- | --- | --- |
+| Brightness | 1–255 | 20–250 lumen (Glow) | `value_to_brightness` / `brightness_to_value` from `homeassistant.util.color` over the device's lumen range; HA → device rounds up |
+| Color temperature | kelvin | 2700–6500 K | None. The agent rounds to the nearest 100 K (a device requirement) and clamps to range |
+
+The ranges come from the device at runtime (`min/max_brightness_lumen`, `min/max_temperature_kelvin` in the API), so a Beam or Beam LX on the same agent gets its own correct ranges without configuration.
 
 ---
 
@@ -510,14 +161,14 @@ Full YAML: `ha/automations/automation.office_camera_lighting.yaml` (HA is author
 
 | Layer | Detail |
 | --- | --- |
-| SSH user | Dedicated `homeassistant` account, Standard (non-admin) |
-| Authentication | ED25519 key only — password auth disabled in `sshd_config` |
-| SSH access restriction | `AllowUsers homeassistant` in `sshd_config` + `com.apple.access_ssh` group membership |
-| Command restriction | `restrict,command=` in `authorized_keys` — key can only invoke the dispatch script |
-| Dispatch script | Whitelist-based case statement — only explicit litra commands allowed, all others rejected with exit code 1 |
-| Composite command validation | `apply_composite` rejects any unknown arg key; brightness/temperature values must match `^[0-9]+$` before being passed to `litra` |
-| Status query | `litra devices --json` is whitelisted as a read-only operation; it returns device metadata including serial number — no write capability exposed |
-| sudo scope | For this integration, `homeassistant` can only run `/opt/homebrew/bin/litra` as `<your_username>`, no password required. The account's other sudo rules belong to `guides/mac_mini_remote_control.md` and are unreachable through this key's dispatch script |
+| Privilege | Agent runs as the console user in that user's session; no sudo rule, service account, or SSH for this integration |
+| Transport | TLS with a self-signed certificate generated on first run; HA pins its SHA-256 fingerprint at pairing (trust on first use, confirmed by the user against `litra-agent pair`) |
+| Authentication | 256-bit random bearer token on every request, including the WebSocket upgrade; the agent stores only its SHA-256 hash and compares in constant time |
+| Command surface | Four endpoints (`info`, `devices`, `devices/{id}`, `events`). Typed JSON with unknown fields rejected, 1 KB body limit, values clamped to the device's range. Nothing reaches a shell |
+| On-disk secrets | `~/Library/Application Support/litra-agent/` is `0700`; certificate key, token hash, and agent ID are `0600` |
+| Network exposure | Listens on `0.0.0.0:47810`; reachable through the macOS application firewall by an explicit allow rule for the binary |
+| Rotation | `litra-agent pair` issues a new token and revokes the old one at once; HA then starts its re-pair flow |
+| Worst case if the token leaks | Someone on the LAN can turn the key light on or off and change its brightness and temperature. No shell, file access, or other device control. The token is useless against an agent whose certificate HA doesn't pin |
 
 ---
 
@@ -525,12 +176,11 @@ Full YAML: `ha/automations/automation.office_camera_lighting.yaml` (HA is author
 
 | Artifact | Entity ID | Type |
 | --- | --- | --- |
-| Office Desk Key Light | `light.office_desk_key_light` | Template light (package: `ha/packages/litra_glow.yaml`) |
-| Office Key Light Status | `sensor.office_key_light_status` | Command-line sensor (package: `ha/packages/litra_glow.yaml`) |
-| Office Ceiling Light | `light.office_ceiling_fan_light` | Matter light (`guides/inovelli_switches.md`, `guides/adaptive_lighting.md`) — switched off/on by this automation, not owned by it |
-| Office Ceiling Light Was On | `input_boolean.office_ceiling_light_was_on` | Helper — internal automation state, hidden from dashboards/voice; owned by this automation |
+| Desk Key Light | `light.office_desk_key_light` | Light (`litra` custom integration) |
+| Litra Agent Connected | `binary_sensor.office_litra_agent_connected` | Connectivity binary sensor (`litra` custom integration) |
+| Office Ceiling Light | `light.office_ceiling_fan_light` | Matter light (`guides/inovelli_switches.md`, `guides/adaptive_lighting.md`) — switched off/on by the camera automation, not owned by it |
+| Office Ceiling Light Was On | `input_boolean.office_ceiling_light_was_on` | Helper — internal automation state, hidden from dashboards/voice; owned by the camera automation |
 | Office: Camera Lighting | `automation.office_camera_lighting` | Automation |
-| Office: Litra Status Refresh on HA Start | `automation.office_litra_status_refresh_on_ha_start` | Automation |
 
 ---
 
@@ -538,12 +188,25 @@ Full YAML: `ha/automations/automation.office_camera_lighting.yaml` (HA is author
 
 | File | Location | Purpose |
 | --- | --- | --- |
-| Package config | `ha/packages/litra_glow.yaml` in this repo; deployed to `/config/packages/litra_glow.yaml` on HA | `shell_command`, template light, and status sensor definitions |
+| Agent source | `NateUT99/ha-litra` → `agent/`; binary at `~/.local/bin/litra-agent` on the Mac Mini | HID worker and HTTPS/WebSocket API |
+| LaunchAgent | `~/Library/LaunchAgents/com.github.nateut99.litra-agent.plist` on the Mac Mini | Keeps the agent running in the console user's session |
+| Agent state | `~/Library/Application Support/litra-agent/` on the Mac Mini | Certificate, key, agent ID, token hash |
+| Agent log | `~/Library/Logs/litra-agent.log` on the Mac Mini | launchd-captured stderr |
+| Integration source | `NateUT99/ha-litra` → `custom_components/litra/`; deployed to `/config/custom_components/litra/` on HA | HA integration |
 | Camera lighting automation | `ha/automations/automation.office_camera_lighting.yaml` | Mirror — HA authoritative |
-| Dispatch script | `scripts/litra_dispatch.sh` in this repo; deployed to `/usr/local/bin/litra_dispatch.sh` on Mac Mini | Command whitelist gatekeeper; includes composite `apply_composite` handler |
-| sudoers rule | `/etc/sudoers.d/homeassistant-litra` | Allows `homeassistant` to run `litra` as `<your_username>` |
-| SSH private key | `/config/.ssh/id_ed25519_litra` | HA's private key for authenticating to Mac Mini |
-| SSH public key | `/config/.ssh/id_ed25519_litra.pub` | Corresponding public key |
-| known_hosts | `/config/.ssh/known_hosts` | Mac Mini host key fingerprint |
-| authorized_keys | `/Users/homeassistant/.ssh/authorized_keys` | HA public key, locked to dispatch script |
-| HA config | `/config/configuration.yaml` | `homeassistant: packages: !include_dir_named packages` — the only line this integration adds here |
+
+---
+
+## Related Documents
+
+- `NateUT99/ha-litra` `README.md` — agent API reference and development setup
+- `guides/adaptive_lighting.md` — the ceiling light the camera automation switches
+- `guides/mac_mini_remote_control.md` — the other HA → Mac Mini integration (SSH-based; independent of this one)
+
+---
+
+## Troubleshooting
+
+- **Light and connectivity sensor both unavailable after an agent upgrade.** The firewall allow rule is tied to the old binary's signature. Re-run `install.sh`, which re-applies it.
+- **Re-pair flow appears unexpectedly.** Either the token was rotated (`pair` was run) or the certificate changed. The flow labels the fingerprint *CHANGED* or *unchanged*. Treat an unexplained change as an address conflict or interception until proven otherwise.
+- **`litra devices --json` shows an impossible value (e.g. `256 K`).** The `litra` CLI doesn't match responses to requests, so it can read the agent's traffic. The agent itself is unaffected; re-run the CLI.

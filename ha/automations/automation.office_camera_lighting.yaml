@@ -48,22 +48,35 @@ actions:
                   entity_id: input_boolean.office_ceiling_light_was_on
           - alias: Check Litra availability before applying camera preset
             choose:
-              - alias: Litra unavailable, skip preset and notify
+              - alias: Litra agent offline, skip preset and notify
                 conditions:
-                  - alias: Litra Glow status sensor is unavailable or disconnected
+                  - alias: Litra agent on the Mac Mini is not connected
                     condition: state
-                    entity_id: sensor.office_key_light_status
+                    entity_id: binary_sensor.office_litra_agent_connected
+                    state:
+                      - "off"
+                      - unavailable
+                      - unknown
+                sequence:
+                  - alias: Notify Litra agent offline
+                    action: notify.mobile_app_nates_iphone
+                    data:
+                      title: Camera Lighting Unavailable
+                      message: Litra agent on the Mac Mini is offline.
+              - alias: Litra unplugged, skip preset and notify
+                conditions:
+                  - alias: Desk key light is unavailable while the agent is up
+                    condition: state
+                    entity_id: light.office_desk_key_light
                     state:
                       - unavailable
                       - unknown
                 sequence:
-                  - alias: Notify Litra unavailable
+                  - alias: Notify Litra not detected
                     action: notify.mobile_app_nates_iphone
                     data:
                       title: Camera Lighting Unavailable
-                      message: >-
-                        Litra Glow status sensor is unavailable - check the
-                        Mac Mini's SSH connection or the light's USB cable.
+                      message: Litra Glow not detected - check its USB cable.
             default:
               - alias: Turn off ceiling light and monitor light bar
                 action: light.turn_off

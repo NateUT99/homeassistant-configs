@@ -155,7 +155,7 @@ or maintenance utilities.
 
 No prescribed structure — they are what they are. The conventions that apply:
 
-- **Filename matches purpose:** `scripts/litra_dispatch.sh`, not `scripts/script1.sh`
+- **Filename matches purpose:** `scripts/mac_dispatch.sh`, not `scripts/script1.sh`
 - **Header comment explains intent:** what it does, what calls it, any prerequisites
 - **Security-relevant scripts cross-reference their guide:** a comment near the top points
   to the guide documenting the security model
@@ -169,7 +169,7 @@ not HA, being authoritative for them.
 - **Filename matches the deployed name:** `ha/packages/hvac_monitoring.yaml` deploys to
   `/config/packages/hvac_monitoring.yaml`
 - **Header comment explains intent and deployment:** what the package does, and the
-  deployed path, per the pattern in `ha/packages/litra_glow.yaml`
+  deployed path, per the pattern in `ha/packages/mac_mini.yaml`
 - **Embedded in the guide, in full:** unlike automation/script YAML, package YAML has no
   MCP-retrievable counterpart, so the guide's Steps section reproduces it in full (§3.3)
 

@@ -967,7 +967,7 @@ The polling sensor closes that gap: it's the actual source of truth, refreshed i
 
 A Companion App / `command_line` sensor reporting the Mac's primary-display name or resolution reads correctly at the physical console, but while the Mac is being controlled via Screen Sharing it can report an empty display name and a generic virtual resolution instead of the real attached display. An automation that gates on display *identity* (e.g. "restore the desk light only if the primary display is `Studio Display`") then fires or fails to fire depending purely on how the Mac happened to be accessed at that moment.
 
-**Rule:** don't gate automations on which display is attached when the goal is "restore correctly no matter how the Mac was accessed" — use a coarser signal instead, at least one Mac reporting active, which doesn't depend on display detection. `guides/litra_glow.md` §9 uses exactly this fallback.
+**Rule:** don't gate automations on which display is attached when the goal is "restore correctly no matter how the Mac was accessed" — use a coarser signal instead, at least one Mac reporting active, which doesn't depend on display detection. `guides/litra_glow.md` (Camera Automation) uses exactly this fallback.
 
 The inverse goal flips this: if the automation's actual intent is "someone is physically at the desk" (not merely "a Mac is active" — a Screen Sharing session also reports active), the same misreport is the signal you want, not noise to route around. `automation.office_monitor_light_bar`'s "computer became active" and "TV app closed" branches gate the light bar *on* only when the active computer's primary display reads `Studio Display`, deliberately relying on the empty-name misreport to suppress the bar during a remote-only session. Don't "fix" that condition back to a coarser check without confirming which of the two goals the automation actually has.
 
@@ -993,6 +993,16 @@ Shell command integrations that SSH into another machine should use:
 - A **scoped SSH key** with `command="..."` restrictions in `authorized_keys` if the command set is fixed
 - **Sudoers whitelisting** for any privileged operations, naming the exact commands allowed
 - A **dispatch script** on the remote side that validates inputs rather than passing arbitrary strings to the shell
+
+---
+
+## macOS USB HID
+
+### macOS delivers every HID input report to every open handle — match responses to requests
+
+On macOS, every process that opens a USB HID device non-exclusively (the `litra` crate's default) receives *every* input report the device sends, including responses to another process's queries. The `litra` crate's getters write a query and then read whatever report arrives next. When two programs poll the same Litra, each can take the other's answer. Observed: the new agent read brightness and temperature swapped (`4500 lm / 124 K`) at the moment the old SSH status sensor ran `litra devices --json`, and the old template light logged an invalid level (`-22`) and temperature (`8064 K`) in return. It's intermittent and self-corrects on the next poll, so a single spot check looks fine.
+
+**Rule:** for any HID++ device that may be opened by more than one process, drain stale reports, send the query, and accept only a response whose header (report ID, device index, feature index, function/software ID: the first four bytes) echoes the request. Read with a timeout, never a blocking read. `litra-agent` does this (`NateUT99/ha-litra`, `agent/src/device.rs`). The `litra` CLI doesn't, so its readings are unreliable while the agent is running.
 
 ---
 

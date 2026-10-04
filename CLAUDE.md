@@ -34,7 +34,7 @@ The author has a security engineering background; security controls in any propo
 **HA mirror (`ha/`):** Every automation and script is mirrored as YAML in `ha/automations/` and `ha/scripts/`; HA packages live in `ha/packages/`. The sync direction differs by subdirectory:
 
 - `ha/automations/`, `ha/scripts/` — **HA is authoritative.** Downstream, human-readable, version-controlled copies used for recovery and diffing. Updated in the same session as any automation/script change (export via MCP → write file → commit). Updating these is part of "done" for any automation/script work.
-- `ha/packages/` — **the repo is authoritative**, the reverse direction. There is no HA-storage registry entry to fetch back via MCP; the file in the repo is deployed to the host with `scp`, and a config reload or restart is what makes it live. See `guides/litra_glow.md` for the deploy pattern.
+- `ha/packages/` — **the repo is authoritative**, the reverse direction. There is no HA-storage registry entry to fetch back via MCP; the file in the repo is deployed to the host with `scp`, and a config reload or restart is what makes it live. See `guides/vacuum_cleaning_routine.md` for the deploy pattern.
 
 **Snapshot (`snapshot/2026-07-27-pre-move/`):** A frozen, read-only point-in-time export from the old apartment captured before the move. It is a rebuild reference — consult it freely when replicating prior functionality. **Never write to it or update it.**
 

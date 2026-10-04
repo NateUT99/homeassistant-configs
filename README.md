@@ -34,7 +34,7 @@ See `CLAUDE.md` for full project conventions (working preferences, commit discip
 | [HVAC Daily Usage Tracking](guides/hvac_monitoring.md) | Derives daily HVAC runtime, cycle count, and average cycle length from thermostat `hvac_action` via a `history_stats` chain |
 | [Inovelli Switches](guides/inovelli_switches.md) | Shared notification-LED bar pattern and the ceiling-fan-canopy device pattern for Matter-over-Thread Inovelli switches |
 | [Laundry Automation](guides/laundry_automation.md) | LG ThinQ washer/dryer monitoring with per-appliance status state machine, repeating TTS alerts, acknowledge flow, and mobile dashboard chips |
-| [Logitech Litra Glow](guides/litra_glow.md) | Key light exposed as a native HA light entity via SSH and the `litra-rs` CLI |
+| [Logitech Litra Glow](guides/litra_glow.md) | Key light exposed as a native, push-updated HA light via a macOS agent and the `litra` custom integration |
 | [iOS Live Activities](guides/live_activities.md) | `script.household_live_activity`, the single dispatch point for Lock Screen / Dynamic Island cards across laundry and vacuum |
 | [Mac Mini Bluetooth Peripheral Battery Monitor](guides/mac_mini_bluetooth_battery.md) | Shell script polling ioreg for Bluetooth peripheral battery levels, posted to HA via webhook (decommissioned) |
 | [Mobile Dashboard](guides/mobile_dashboard.md) | `mobile-home` Bubble Card dashboard — chip strip, feature pop-ups, and room tile layout |
@@ -50,7 +50,6 @@ See `CLAUDE.md` for full project conventions (working preferences, commit discip
 | Script | Purpose |
 |---|---|
 | [battery_monitor.sh](scripts/battery_monitor.sh) | Polls ioreg for Bluetooth peripheral battery levels and POSTs to HA webhook (decommissioned May 2026) |
-| [litra_dispatch.sh](scripts/litra_dispatch.sh) | SSH dispatch script for Litra Glow key light control via the `litra-rs` CLI |
 | [matter_write_attribute.py](scripts/matter_write_attribute.py) | Reads or writes a single Matter attribute via the HA Matter Server WebSocket API, for attributes HA's Matter integration doesn't surface |
 
 ### HA Mirror (`ha/`)

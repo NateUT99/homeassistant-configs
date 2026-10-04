@@ -82,7 +82,6 @@ Every automation belongs to exactly one category, chosen by primary *purpose* (n
 - Vacuum consumable lifecycle notifications → **Maintenance** (consumable tracking triggered at dock return)
 - Movie Mode toggle automation → **Entertainment** (sets state consumed by entertainment-experience automations)
 - Holiday Christmas color cycle → **Routines** (time-driven recurring cycle)
-- Litra Glow startup refresh → **Maintenance** (integration housekeeping)
 
 ### 3.2 Labels
 

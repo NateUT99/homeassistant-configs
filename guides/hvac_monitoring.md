@@ -61,7 +61,7 @@ HVAC load in the meantime.
 
 - A `climate` entity that exposes `hvac_action` when actively heating/cooling
 - `homeassistant: packages: !include_dir_named packages` already present in
-  `configuration.yaml` (established by `guides/litra_glow.md`)
+  `configuration.yaml`
 
 ## Steps
 
