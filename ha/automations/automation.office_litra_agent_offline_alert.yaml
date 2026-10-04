@@ -1,0 +1,30 @@
+id: "1791153438762"
+alias: "Office: Litra Agent Offline Alert"
+description: >-
+  Notifies both Macs when the Litra agent on the Mac Mini has been unreachable
+  for two minutes, so the desk key light isn't silently unavailable.
+triggers:
+  - alias: Litra agent disconnected for two minutes
+    trigger: state
+    entity_id: binary_sensor.office_litra_agent_connected
+    from: "on"
+    to: "off"
+    for:
+      minutes: 2
+    note: >-
+      Two minutes rides out an agent restart (launchd KeepAlive, reinstall) or
+      a brief network blip.
+conditions: []
+actions:
+  - alias: Notify the Mac Mini and MacBook Pro
+    action: notify.send_message
+    target:
+      entity_id:
+        - notify.nates_mac_mini
+        - notify.nates_work_laptop
+    data:
+      title: Litra agent offline
+      message: >-
+        Home Assistant can't reach litra-agent on the Mac Mini. The desk key
+        light is unavailable.
+mode: single

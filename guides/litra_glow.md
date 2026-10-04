@@ -144,6 +144,14 @@ Full YAML: `ha/automations/automation.office_camera_lighting.yaml` (HA is author
 
 ---
 
+## Step 6: Agent Offline Alert
+
+Office: Litra Agent Offline Alert (`automation.office_litra_agent_offline_alert`) sends a push to both Macs (`notify.nates_mac_mini`, `notify.nates_work_laptop`) when `binary_sensor.office_litra_agent_connected` has been `off` for two minutes. The two-minute hold rides out an agent restart or reinstall. The trigger requires `from: "on"`, so an agent that is already down when HA starts (sensor `unavailable`) doesn't fire it.
+
+Full YAML: `ha/automations/automation.office_litra_agent_offline_alert.yaml`.
+
+---
+
 ## Scale Conversions Reference
 
 All conversion happens in the integration's light entity. The agent API speaks the device's native units.
@@ -181,6 +189,7 @@ The ranges come from the device at runtime (`min/max_brightness_lumen`, `min/max
 | Office Ceiling Light | `light.office_ceiling_fan_light` | Matter light (`guides/inovelli_switches.md`, `guides/adaptive_lighting.md`) — switched off/on by the camera automation, not owned by it |
 | Office Ceiling Light Was On | `input_boolean.office_ceiling_light_was_on` | Helper — internal automation state, hidden from dashboards/voice; owned by the camera automation |
 | Office: Camera Lighting | `automation.office_camera_lighting` | Automation |
+| Office: Litra Agent Offline Alert | `automation.office_litra_agent_offline_alert` | Automation |
 
 ---
 
@@ -194,6 +203,7 @@ The ranges come from the device at runtime (`min/max_brightness_lumen`, `min/max
 | Agent log | `~/Library/Logs/litra-agent.log` on the Mac Mini | launchd-captured stderr |
 | Integration source | `NateUT99/ha-litra` → `custom_components/litra/`; deployed to `/config/custom_components/litra/` on HA | HA integration |
 | Camera lighting automation | `ha/automations/automation.office_camera_lighting.yaml` | Mirror — HA authoritative |
+| Agent offline alert automation | `ha/automations/automation.office_litra_agent_offline_alert.yaml` | Mirror — HA authoritative |
 
 ---
 
