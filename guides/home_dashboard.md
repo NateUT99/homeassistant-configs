@@ -191,8 +191,9 @@ cards have a fixed height. Each shows *Working on it…* while its script entity
   digest. The other rows render live, so they are current between digests:
   - Vacuuming: a check when both the day and night counters
     (`sensor.household_vacuum_day_runs_this_week`, `_night_`) are above zero; otherwise
-    "Night not yet" / "Day not yet".
-  - Mopping: the same, from the two this-week mop flags.
+    "Not yet".
+  - Mopping: a check when both this-week mop flags are on; otherwise "Common not yet" /
+    "Master not yet".
   - Chores: the overdue count and the count due in the next 7 days.
 
 The UIX style on these cards removes table borders and keeps the first column on one line.
