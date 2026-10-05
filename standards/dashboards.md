@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.2.0 — October 2026*
+*Version 1.3.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.3.0 | October 2026 | §11: AI text in structured markdown (lists, tables); numbers from HA, live where computable |
 | 1.2.0 | October 2026 | Home order: chips, then greeting (markdown) with the AI briefing; AI content lives in `#ai` behind an always-visible AI chip |
 | 1.1.0 | October 2026 | Expander Card approved; collapsible-section pattern for secondary views |
 | 1.0.5 | October 2026 | Battery State Card approved |
@@ -252,9 +253,13 @@ Cards that show Claude-generated text (briefing, house summary, weekly digest):
 - Home shows only the briefing headline (in the greeting); the full briefing, the house
   summary, and the weekly digest live in the `#ai` pop-up, reached by the always-visible AI
   chip.
-- Show the content's age ("Updated 5 minutes ago", from the sensor's `generated_at`).
-- Generate buttons call the script with `script.turn_on` (no confirmation) and show
-  "Working…" while the script entity is `on`. The script enforces its own cooldown.
+- Show the content's age (a heading entity badge with `state_content: last_updated`).
+- Render AI text in markdown cards (they auto-size), and structure it: lists and tables
+  from typed fields, not paragraphs of prose.
+- Numbers come from HA, never from the model. Any figure that can be computed live
+  (counts, flags) renders live rather than from a stored snapshot.
+- Refresh buttons (heading button badges) call the script with `script.turn_on` (no
+  confirmation); the body shows "Working…" while the script entity is `on`. The script enforces its own cooldown.
 - When the sensor is `unknown` or unavailable, show a neutral placeholder, never an error.
 
 ---

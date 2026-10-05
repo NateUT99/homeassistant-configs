@@ -1591,79 +1591,115 @@ views:
       popup_mode: adaptive-dialog
       popup_style: bubble
       cards:
-      - type: custom:bubble-card
-        card_type: separator
-        name: Briefing
+      - type: heading
+        heading: Briefing
         icon: mdi:creation
-      - type: markdown
-        content: '{% if has_value(''sensor.household_ai_briefing'') %}**{{ states(''sensor.household_ai_briefing'') }}**
-
-
-          {{ state_attr(''sensor.household_ai_briefing'',''tip'') }}
-
-
-          {% set g = state_attr(''sensor.household_ai_briefing'',''generated_at'') %}{% if g %}_Updated {{ relative_time(as_datetime(g)) }} ago_{% endif %}{% else %}No briefing yet.{% endif %}'
-      - type: custom:bubble-card
-        card_type: button
-        button_type: name
-        entity: script.household_ai_briefing
-        name: '{{ ''Working…'' if is_state(''script.household_ai_briefing'',''on'') else ''Refresh briefing'' }}'
-        icon: '{{ ''mdi:timer-sand'' if is_state(''script.household_ai_briefing'',''on'') else ''mdi:refresh'' }}'
-        grid_options:
-          columns: 12
-        tap_action:
-          action: perform-action
-          perform_action: script.turn_on
-          target:
-            entity_id: script.household_ai_briefing
-        button_action:
+        heading_style: title
+        badges:
+        - type: entity
+          entity: sensor.household_ai_briefing
+          show_state: true
+          show_icon: false
+          state_content: last_updated
+        - type: button
+          icon: mdi:refresh
           tap_action:
             action: perform-action
             perform_action: script.turn_on
             target:
               entity_id: script.household_ai_briefing
-      - type: custom:bubble-card
-        card_type: separator
-        name: House Summary
-        icon: mdi:text-box-search-outline
       - type: markdown
-        content: '{% if has_value(''sensor.household_ai_house_summary'') %}{{ state_attr(''sensor.household_ai_house_summary'',''summary'') }}
-
-
-          {% set g = state_attr(''sensor.household_ai_house_summary'',''generated_at'') %}{% if g %}_Updated {{ relative_time(as_datetime(g)) }} ago_{% endif %}{% else %}Tap below for a rundown of the house.{%
-          endif %}'
-      - type: custom:bubble-card
-        card_type: button
-        button_type: name
-        entity: script.household_ai_house_summary
-        name: '{{ ''Working…'' if is_state(''script.household_ai_house_summary'',''on'') else ''Summarize the house'' }}'
-        icon: '{{ ''mdi:timer-sand'' if is_state(''script.household_ai_house_summary'',''on'') else ''mdi:text-box-search-outline'' }}'
-        grid_options:
-          columns: 12
-        tap_action:
-          action: perform-action
-          perform_action: script.turn_on
-          target:
-            entity_id: script.household_ai_house_summary
-        button_action:
+        content: '{% if is_state(''script.household_ai_briefing'',''on'') %}*Working on it…*{% elif has_value(''sensor.household_ai_briefing'') %}**{{ states(''sensor.household_ai_briefing'') }}**<br>{{
+          state_attr(''sensor.household_ai_briefing'',''tip'') }}{% else %}No briefing yet.{% endif %}'
+        uix:
+          style:
+            ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--orange-color); } ha-icon[icon=''mdi:check-circle'']
+              { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
+              none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
+              0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
+            'ha-markdown $ ha-markdown-element:': 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--orange-color); } ha-icon[icon=''mdi:check-circle'']
+              { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
+              none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
+              0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
+      - type: heading
+        heading: House Summary
+        icon: mdi:home-search-outline
+        heading_style: title
+        badges:
+        - type: entity
+          entity: sensor.household_ai_house_summary
+          show_state: true
+          show_icon: false
+          state_content: last_updated
+        - type: button
+          icon: mdi:refresh
           tap_action:
             action: perform-action
             perform_action: script.turn_on
             target:
               entity_id: script.household_ai_house_summary
-      - type: custom:bubble-card
-        card_type: separator
-        name: This Week
-        icon: mdi:calendar-week
       - type: markdown
-        content: '{% if has_value(''sensor.household_ai_weekly_digest'') %}**{{ states(''sensor.household_ai_weekly_digest'') }}**
+        content: '{% set a = state_attr(''sensor.household_ai_house_summary'',''attention_items'') or [] %}{% set ok = state_attr(''sensor.household_ai_house_summary'',''ok_items'') or [] %}{% if is_state(''script.household_ai_house_summary'',''on'')
+          %}*Working on it…*{% elif (a | count + ok | count) == 0 %}Tap ↻ for a rundown of the house.{% else %}{% if a %}<b>NEEDS ATTENTION</b><br>{% for i in a %}<ha-icon icon="mdi:alert-circle"></ha-icon>{{
+          i }}<br>{% endfor %}<br>{% endif %}<b>ALL GOOD</b><br>{% for i in ok %}<ha-icon icon="mdi:check-circle"></ha-icon>{{ i }}<br>{% endfor %}{% endif %}'
+        uix:
+          style:
+            ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--orange-color); } ha-icon[icon=''mdi:check-circle'']
+              { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
+              none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
+              0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
+            'ha-markdown $ ha-markdown-element:': 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--orange-color); } ha-icon[icon=''mdi:check-circle'']
+              { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
+              none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
+              0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
+      - type: heading
+        heading: This Week
+        icon: mdi:calendar-week
+        heading_style: title
+        badges:
+        - type: entity
+          entity: sensor.household_ai_weekly_digest
+          show_state: true
+          show_icon: false
+          state_content: last_updated
+      - type: markdown
+        content: '{% macro mark(ok) %}<ha-icon icon="{{ ''mdi:check-circle'' if ok else ''mdi:close-circle'' }}"></ha-icon>{% endmacro %}{% if state_attr(''sensor.household_ai_weekly_digest'',''headline'')
+          %}{% set kwh = state_attr(''sensor.household_ai_weekly_digest'',''energy_kwh'') | float(0) %}{% set prev = state_attr(''sensor.household_ai_weekly_digest'',''energy_prev_kwh'') | float(0) %}{%
+          set pct = (((kwh - prev) / prev) * 100) | round(0) | int if prev > 0 else 0 %}{% set done = state_attr(''sensor.household_ai_weekly_digest'',''chores_done'') or [] %}{% set late = state_attr(''sensor.household_ai_weekly_digest'',''chores_overdue'')
+          or [] %}*{{ state_attr(''sensor.household_ai_weekly_digest'',''headline'') }}*
 
+          <table>
 
-          {{ state_attr(''sensor.household_ai_weekly_digest'',''digest'') }}
+          <tr><td><ha-icon icon="mdi:flash"></ha-icon>Electricity</td><td>{{ kwh | round(0) | int }} kWh · ${{ state_attr(''sensor.household_ai_weekly_digest'',''energy_cost'') | round(0) | int }} · {{
+          (''↓ '' ~ (pct | abs) ~ ''%'') if pct < 0 else (''↑ '' ~ pct ~ ''%'') }}</td></tr>
 
+          <tr><td><ha-icon icon="mdi:hvac"></ha-icon>Climate</td><td>Heat {{ state_attr(''sensor.household_ai_weekly_digest'',''heating_h'') }} h · Cool {{ state_attr(''sensor.household_ai_weekly_digest'',''cooling_h'')
+          }} h</td></tr>
 
-          {% set g = state_attr(''sensor.household_ai_weekly_digest'',''generated_at'') %}{% if g %}_Updated {{ relative_time(as_datetime(g)) }} ago_{% endif %}{% else %}The first digest arrives Sunday
-          evening.{% endif %}'
+          {% set day = states(''sensor.household_vacuum_day_runs_this_week'') | int(0) > 0 %}{% set night = states(''sensor.household_vacuum_night_runs_this_week'') | int(0) > 0 %}{% set mop = is_state(''input_boolean.vacuum_mop_common_areas_done_this_week'',''on'')
+          %}{% set master = is_state(''input_boolean.vacuum_mop_master_suite_done_this_week'',''on'') %}<tr><td><ha-icon icon="mdi:robot-vacuum"></ha-icon>Vacuuming</td><td>{{ mark(day and night) }}{{ ''Day
+          & night'' if day and night else (''Night not yet'' if day else (''Day not yet'' if night else ''Not yet'')) }}</td></tr>
+
+          <tr><td><ha-icon icon="mdi:water"></ha-icon>Mopping</td><td>{{ mark(mop and master) }}{{ ''Common + master'' if mop and master else (''Master not yet'' if mop else (''Common not yet'' if master
+          else ''Not yet'')) }}</td></tr>
+
+          {% set ch = expand(integration_entities(''chore_calendar'') | select(''match'',''sensor\\.'') | list) %}{% set late_now = ch | selectattr(''state'',''eq'',''overdue'') | list | count %}{% set
+          soon = ch | rejectattr(''state'',''eq'',''overdue'') | selectattr(''attributes.next_due'',''defined'') | rejectattr(''attributes.next_due'',''none'') | map(attribute=''attributes.next_due'') |
+          map(''as_datetime'') | select(''le'', now() + timedelta(days=7)) | list | count %}<tr><td><ha-icon icon="mdi:clipboard-check-outline"></ha-icon>Chores</td><td>{{ late_now }} overdue · {{ soon
+          }} due this week</td></tr>
+
+          </table>{% else %}The first digest arrives Sunday evening.{% endif %}'
+        uix:
+          style:
+            ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--orange-color); } ha-icon[icon=''mdi:check-circle'']
+              { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
+              none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
+              0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
+            'ha-markdown $ ha-markdown-element:': 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--orange-color); } ha-icon[icon=''mdi:check-circle'']
+              { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
+              none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
+              0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
+      show_header: false
 - title: Climate
   path: climate
   type: sections

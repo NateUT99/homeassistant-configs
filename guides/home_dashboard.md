@@ -177,8 +177,25 @@ header shows the same `room_summary` as the tile.
 | `#climate` | Thermostat and fireplace (Bubble climate) |
 | `#weather` | 12-hour temperature and rain-chance forecast, daily forecast, outside conditions, AQI and pollutants |
 | `#vacuum` | Commands, routine pause, Mop now (confirm), map (only when out or ran today), status, mop settings (when the pad is on), 4 consumables |
-| `#ai` | "House Assistant": briefing with Refresh, house summary with "Summarize the house" (shows "Working…" while the script runs), weekly digest — each with its age |
+| `#ai` | No header bar (`show_header: false`). Three heading cards (Briefing, House Summary, This Week), each with an age badge (`state_content: last_updated`); Briefing and House Summary add a refresh button badge that starts their script. Each heading is followed by a markdown body; see below |
 | `#laundry` | Washer and dryer status, remaining, progress, start/finish; "stop reminders" acknowledge (only while `alerting`); dishwasher; washer stats; utility room light |
+
+**`#ai` bodies** are markdown cards, not Bubble cards, because their length varies and Bubble
+cards have a fixed height. Each shows *Working on it…* while its script entity is `on`.
+
+- **Briefing:** the headline in bold, then the tip.
+- **House Summary:** a *Needs attention* list (orange alert icons) when `attention_items` is
+  non-empty, then an *All good* list (green checks).
+- **This Week:** the digest headline in italics, then a borderless table. Electricity (kWh,
+  cost, change vs. the week before) and Climate (heating/cooling hours) come from the Sunday
+  digest. The other rows render live, so they are current between digests:
+  - Vacuuming: a check when both the day and night counters
+    (`sensor.household_vacuum_day_runs_this_week`, `_night_`) are above zero; otherwise
+    "Night not yet" / "Day not yet".
+  - Mopping: the same, from the two this-week mop flags.
+  - Chores: the overdue count and the count due in the next 7 days.
+
+The UIX style on these cards removes table borders and keeps the first column on one line.
 
 `#laundry` is reachable only while a washer, dryer, or dishwasher chip is showing; it is about
 the current cycle.
@@ -237,7 +254,7 @@ row showing the lowest level. New devices appear automatically.
 | Household: Vacuum Reset Consumable | `script.household_vacuum_reset_consumable` | Script |
 | Household: Vacuum Mop Now | `script.household_vacuum_mop_now` | Script |
 | Household: Secure Doors | `script.household_secure_doors` | Script (lock front door if closed, close garage) |
-| Household AI Briefing / House Summary | `sensor.household_ai_briefing`, `sensor.household_ai_house_summary` | Template sensors (`guides/ai_insights.md`) |
+| Household AI Briefing / House Summary / Weekly Digest | `sensor.household_ai_briefing`, `sensor.household_ai_house_summary`, `sensor.household_ai_weekly_digest` | Template sensors (`guides/ai_insights.md`) |
 | Living Room Vacuum Filter Clean Time Left | `sensor.living_room_vacuum_filter_clean_time_left` | Template helper |
 | HVAC Mode Before Pause | `input_select.household_hvac_mode_before_pause` | Helper |
 

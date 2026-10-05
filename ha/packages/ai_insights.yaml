@@ -7,7 +7,8 @@
 # restarts, and a failed generation fires no event, so the previous text simply
 # stays (the cards show its age). See guides/ai_insights.md.
 #
-# Deployed to /config/packages/ai_insights.yaml; reload with template.reload.
+# Deployed to /config/packages/ai_insights.yaml; reload with template.reload and
+# history_stats.reload.
 
 template:
   - trigger:
@@ -31,13 +32,13 @@ template:
     sensor:
       - name: Household AI House Summary
         unique_id: household_ai_house_summary
-        # State is a short status the dashboard can show and gate on; the bullets
-        # live in an attribute because they can exceed the 255-character state limit.
-        state: "{{ 'attention' if trigger.event.data.attention | default(false) else 'ok' }}"
-        icon: "{{ 'mdi:alert-circle-outline' if trigger.event.data.attention | default(false) else 'mdi:check-circle-outline' }}"
+        # State is a short status the dashboard gates on; the items live in list
+        # attributes so the pop-up can render them as two lists.
+        state: "{{ 'attention' if trigger.event.data.attention_items | default([]) | count > 0 else 'ok' }}"
+        icon: "{{ 'mdi:alert-circle-outline' if trigger.event.data.attention_items | default([]) | count > 0 else 'mdi:check-circle-outline' }}"
         attributes:
-          summary: "{{ trigger.event.data.summary | default('') }}"
-          attention: "{{ trigger.event.data.attention | default(false) }}"
+          attention_items: "{{ trigger.event.data.attention_items | default([]) }}"
+          ok_items: "{{ trigger.event.data.ok_items | default([]) }}"
           generated_at: "{{ now().isoformat() }}"
 
   - trigger:
@@ -49,6 +50,45 @@ template:
         unique_id: household_ai_weekly_digest
         state: "Week of {{ (now() - timedelta(days=6)).strftime('%b %-d') }}"
         icon: mdi:calendar-week
+        # The numbers are computed by the script from statistics, not written by
+        # Claude, so they are exact; Claude only writes the one-line headline.
         attributes:
-          digest: "{{ trigger.event.data.digest | default('') }}"
+          headline: "{{ trigger.event.data.headline | default('') }}"
+          energy_kwh: "{{ trigger.event.data.energy_kwh | default(0) }}"
+          energy_prev_kwh: "{{ trigger.event.data.energy_prev_kwh | default(0) }}"
+          energy_cost: "{{ trigger.event.data.energy_cost | default(0) }}"
+          heating_h: "{{ trigger.event.data.heating_h | default(0) }}"
+          cooling_h: "{{ trigger.event.data.cooling_h | default(0) }}"
+          vacuum_day_runs: "{{ trigger.event.data.vacuum_day_runs | default(0) }}"
+          vacuum_night_runs: "{{ trigger.event.data.vacuum_night_runs | default(0) }}"
+          mop_common_done: "{{ trigger.event.data.mop_common_done | default(false) }}"
+          mop_master_done: "{{ trigger.event.data.mop_master_done | default(false) }}"
+          chores_done: "{{ trigger.event.data.chores_done | default([]) }}"
+          chores_overdue: "{{ trigger.event.data.chores_overdue | default([]) }}"
           generated_at: "{{ now().isoformat() }}"
+
+# Weekly vacuum coverage: how many times each daily "ran" flag turned on this
+# week. Both flags reset at 08:00 daily (see guides/vacuum_cleaning_routine.md),
+# so the week starts Monday 08:05: an earlier start would catch Sunday night's
+# still-on flag (it clears a fraction of a second after 08:00) as a Monday run.
+sensor:
+  - platform: history_stats
+    name: Household Vacuum Day Runs This Week
+    unique_id: household_vacuum_day_runs_this_week
+    entity_id: input_boolean.vacuum_ran_daytime
+    state: "on"
+    type: count
+    start: >-
+      {% set s = today_at('08:05') - timedelta(days=now().weekday()) %}
+      {{ s if s <= now() else s - timedelta(days=7) }}
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: Household Vacuum Night Runs This Week
+    unique_id: household_vacuum_night_runs_this_week
+    entity_id: input_boolean.vacuum_ran_evening
+    state: "on"
+    type: count
+    start: >-
+      {% set s = today_at('08:05') - timedelta(days=now().weekday()) %}
+      {{ s if s <= now() else s - timedelta(days=7) }}
+    end: "{{ now() }}"
