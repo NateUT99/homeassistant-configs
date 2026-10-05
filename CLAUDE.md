@@ -13,7 +13,7 @@ The repository serves four purposes:
 1. **Reference standards** that govern how the HA instance is structured (see `standards/naming.md` for entities, `standards/automations.md` for automations, `standards/documentation.md` for how the docs themselves are written)
 2. **Implementation guides** for custom integrations, written for the author's future reference and for sharing in HA community forums
 3. **Supporting scripts** that aren't UI-editable and live outside HA's entity registry (shell scripts, Python utilities)
-4. **Living HA mirror** (`ha/`) — version-controlled copies of every automation, script, and HA package, kept in sync with HA each session
+4. **Living HA mirror** (`ha/`) — version-controlled copies of every automation, script, dashboard, HA package, and dashboard support file, kept in sync with HA each session
 
 The author has a security engineering background; security controls in any proposed implementation should be thorough, scoped to least privilege, and clearly explained — never glossed over.
 
@@ -31,10 +31,10 @@ The author has a security engineering background; security controls in any propo
 - **HA packages** (template sensors, `history_stats`, and other YAML not manageable via the UI) live in `ha/packages/` as the authoritative source — authored in the repo, deployed to `/config/packages/` on the host via `scp`.
 - Changes to HA and the repo happen in the same session and are kept in sync.
 
-**HA mirror (`ha/`):** Every automation and script is mirrored as YAML in `ha/automations/` and `ha/scripts/`; HA packages live in `ha/packages/`. The sync direction differs by subdirectory:
+**HA mirror (`ha/`):** Every automation, script, and dashboard is mirrored as YAML in `ha/automations/`, `ha/scripts/`, and `ha/dashboards/`; HA packages and dashboard support files live in `ha/packages/`, `ha/custom_templates/`, and `ha/bubble_modules/`. The sync direction differs by subdirectory:
 
-- `ha/automations/`, `ha/scripts/` — **HA is authoritative.** Downstream, human-readable, version-controlled copies used for recovery and diffing. Updated in the same session as any automation/script change (export via MCP → write file → commit). Updating these is part of "done" for any automation/script work.
-- `ha/packages/` — **the repo is authoritative**, the reverse direction. There is no HA-storage registry entry to fetch back via MCP; the file in the repo is deployed to the host with `scp`, and a config reload or restart is what makes it live. See `guides/vacuum_cleaning_routine.md` for the deploy pattern.
+- `ha/automations/`, `ha/scripts/`, `ha/dashboards/` — **HA is authoritative.** Downstream, human-readable, version-controlled copies used for recovery and diffing. Updated in the same session as any automation/script/dashboard change (export via MCP → write file → commit). Updating these is part of "done" for any automation/script/dashboard work.
+- `ha/packages/`, `ha/custom_templates/`, `ha/bubble_modules/` — **the repo is authoritative**, the reverse direction. There is no HA-storage registry entry to fetch back via MCP; the file in the repo is deployed to the host with `scp`, and a config reload or restart is what makes it live. See `guides/vacuum_cleaning_routine.md` for the deploy pattern.
 
 **Snapshot (`snapshot/2026-07-27-pre-move/`):** A frozen, read-only point-in-time export from the old apartment captured before the move. It is a rebuild reference — consult it freely when replicating prior functionality. **Never write to it or update it.**
 
@@ -163,28 +163,40 @@ Push after each commit unless explicitly working on a sequence of related commit
 ## Mirror Discipline
 
 The `ha/` directory holds version-controlled copies of everything that has a real, deployed
-location on the HA host filesystem: automations, scripts, and packages. `ha/automations/`
-and `ha/scripts/` are downstream — HA remains authoritative, the mirror is a copy for
-recovery and diffing. `ha/packages/` runs the opposite direction — the repo is authoritative
-and the file is deployed *to* the host. Both live under `ha/` because both correspond to a
+location on the HA host: automations, scripts, dashboards, packages, Jinja macros, and Bubble
+Card modules. `ha/automations/`, `ha/scripts/`, and `ha/dashboards/` are downstream — HA
+remains authoritative, the mirror is a copy for recovery and diffing. `ha/packages/`,
+`ha/custom_templates/`, and `ha/bubble_modules/` run the opposite direction — the repo is
+authoritative and the file is deployed *to* the host. Both live under `ha/` because both correspond to a
 real path under `/config` on the HA server; the direction of sync is documented per
 subdirectory, not implied by location. See [Source of Truth](#source-of-truth) for the full
 authority breakdown.
 
-**What's mirrored:** `ha/automations/`, `ha/scripts/`, and `ha/packages/` only. Helpers,
-scenes, and dashboards are not mirrored (they're either UI-editable in HA or covered by
-guides).
+**What's mirrored:** `ha/automations/`, `ha/scripts/`, `ha/dashboards/`, `ha/packages/`,
+`ha/custom_templates/`, and `ha/bubble_modules/` only. Helpers and scenes are not mirrored
+(they're either UI-editable in HA or covered by guides).
 
 **File naming:**
 - `ha/automations/automation.<object_id>.yaml`, `ha/scripts/script.<object_id>.yaml` —
   matching the frozen snapshot convention for easy comparison
+- `ha/dashboards/<url_path>.yaml` — the full storage-mode dashboard config
 - `ha/packages/<name>.yaml` — matching the deployed filename under `/config/packages/`
+- `ha/custom_templates/<name>.jinja`, `ha/bubble_modules/<id>.yaml` — matching the deployed
+  filenames under `/config/custom_templates/` and `/config/bubble_card/modules/`
 
 **When to update `ha/automations/` or `ha/scripts/`:** Anytime an automation or script is
 created, modified, or deleted in HA, update the mirror in the same session:
 1. Export from HA via `ha_config_get_automation` or `ha_config_get_script`
 2. Write/update/delete the corresponding file in `ha/automations/` or `ha/scripts/`
 3. Include the mirror update in the same commit as any guide or standards changes for that automation
+
+**When to update `ha/dashboards/`:** Anytime a dashboard is created, modified, or deleted:
+export with `ha_config_get_dashboard`, write `ha/dashboards/<url_path>.yaml`, and commit it
+with any related guide or standards change. Throwaway test dashboards are not mirrored.
+
+**When to update `ha/custom_templates/` or `ha/bubble_modules/`:** edit the repo file, `scp`
+it to the host path above, then run `homeassistant.reload_custom_templates` (macros) or
+reload the dashboard (modules). See `standards/dashboards.md` §13.
 
 **When to update `ha/packages/`:** Anytime a package is created or changed:
 1. Write/update the file in `ha/packages/`
@@ -315,8 +327,14 @@ Full rules, worked examples, and the pre-commit checklist: `standards/documentat
 │   │   └── automation.<object_id>.yaml   ← Living mirror, HA authoritative
 │   ├── scripts/
 │   │   └── script.<object_id>.yaml       ← Living mirror, HA authoritative
-│   └── packages/
-│       └── <name>.yaml                   ← Repo authoritative, deployed to /config/packages/
+│   ├── dashboards/
+│   │   └── <url_path>.yaml               ← Living mirror, HA authoritative
+│   ├── packages/
+│   │   └── <name>.yaml                   ← Repo authoritative, deployed to /config/packages/
+│   ├── custom_templates/
+│   │   └── <name>.jinja                  ← Repo authoritative, deployed to /config/custom_templates/
+│   └── bubble_modules/
+│       └── <id>.yaml                     ← Repo authoritative, deployed to /config/bubble_card/modules/
 └── snapshot/
     └── 2026-07-27-pre-move/  ← Frozen pre-move export (READ-ONLY — never modify)
 ```

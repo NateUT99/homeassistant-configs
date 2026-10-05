@@ -1,5 +1,5 @@
 # Documentation Standard
-*Version 1.1 — September 2026*
+*Version 1.1.1 — October 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.1.1 | October 2026 | File tree adds `ha/dashboards/`, `ha/custom_templates/`, `ha/bubble_modules/` (see `standards/dashboards.md` §13) |
 | 1.1 | September 2026 | Splits packages YAML out of `scripts/` into its own type, `ha/packages/` (§3.5) — packages have a real deployed location on the HA host, unlike shell scripts, but reversed authority from the automation/script mirror |
 | 1.0 | September 2026 | Initial release. Absorbs the documentation-format content previously inline in `CLAUDE.md`; adds the current-state rule (§5), the rationale-vs-history distinction (§6), the single-owner rule (§7), and length discipline (§8) |
 
@@ -66,8 +67,14 @@ organization (`standards/automations.md`), dashboard conventions (`standards/das
 │   │   └── automation.<object_id>.yaml   ← Living mirror, HA authoritative
 │   ├── scripts/
 │   │   └── script.<object_id>.yaml       ← Living mirror, HA authoritative
-│   └── packages/
-│       └── <name>.yaml                   ← Repo authoritative, deployed to /config/packages/
+│   ├── dashboards/
+│   │   └── <url_path>.yaml               ← Living mirror, HA authoritative
+│   ├── packages/
+│   │   └── <name>.yaml                   ← Repo authoritative, deployed to /config/packages/
+│   ├── custom_templates/
+│   │   └── <name>.jinja                  ← Repo authoritative, deployed to /config/custom_templates/
+│   └── bubble_modules/
+│       └── <id>.yaml                     ← Repo authoritative, deployed to /config/bubble_card/modules/
 └── snapshot/
     └── 2026-07-27-pre-move/  ← Frozen pre-move export (READ-ONLY — never modify)
 ```
