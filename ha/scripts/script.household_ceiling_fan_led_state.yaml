@@ -81,7 +81,7 @@ sequence:
         {{ (sleeping_boolean | default('')) not in ['', None] and
         is_state(sleeping_boolean, 'on') }}
       # Speed is encoded as hue, not brightness -- brightness steps on the
-      # bar aren't distinguishable at a glance. cool hues spaced apart
+      # bar aren't distinguishable at a glance. Well-separated cool hues
       # avoid warning connotations and stay clear of the white locator glow.
       speed_hs: >-
         {{ [180, 100] if fan_pct < 50 else ([240, 100] if fan_pct < 90 else
