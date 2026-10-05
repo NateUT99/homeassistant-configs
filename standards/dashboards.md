@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.0.2 — October 2026*
+*Version 1.0.3 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.0.3 | October 2026 | Room tiles full width on phone, 4-up on desktop |
 | 1.0.2 | October 2026 | Chip strip height `rows: 1.2` |
 | 1.0.1 | October 2026 | Views stay visible; Kiosk Mode alone hides the tabs |
 | 1.0 | October 2026 | Rewrite for the new house: one responsive dashboard; Bubble Card 3.4 Jinja templates replace CSS-in-JS; Navbar Card + Kiosk Mode replace footer nav and the view header; Mushroom removed; room-tile eligibility rule; shared logic in `custom_templates` macros and Bubble modules; dashboard mirror; AI-content conventions |
@@ -94,8 +95,8 @@ the view's first section. Desktop `position: left`; labels shown on both form fa
   desktop. Size cards with `grid_options` (`columns` on the 12-column section grid); never
   `layout_options`.
 - Full-width bands (briefing, chip strip) are a section with `column_span: 4`.
-- Room tiles are `grid_options: {columns: 6}` — two per row on a phone, more sections side
-  by side on desktop.
+- Room tiles sit in one `column_span: 4` section with `grid_options: {columns: 12}` — full
+  width on a phone (one tile per row), four per row on desktop.
 - Use the `screen` visibility condition only when a card genuinely differs by form factor.
   The default is the same content everywhere.
 - Pop-ups use `popup_mode: adaptive-dialog`: fit-content sheet on a phone, centred dialog

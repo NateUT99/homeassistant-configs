@@ -1,0 +1,1016 @@
+kiosk_mode:
+  hide_header: true
+navbar-templates:
+  main:
+    desktop:
+      position: left
+      show_labels: true
+    mobile:
+      show_labels: true
+    routes:
+    - url: /home-main/home
+      icon: mdi:home-outline
+      icon_selected: mdi:home
+      label: Home
+    - url: /home-main/chores
+      icon: mdi:clipboard-check-outline
+      icon_selected: mdi:clipboard-check
+      label: Chores
+views:
+- title: Home
+  path: home
+  type: sections
+  max_columns: 4
+  theme: Frosted Glass
+  sections:
+  - type: grid
+    column_span: 4
+    cards:
+    - type: custom:navbar-card
+      template: main
+    - type: custom:bubble-card
+      card_type: sub-buttons
+      hide_main_background: true
+      rows: 1.2
+      styles: '{% from ''dashboard.jinja'' import alert_level, alert_tint %}{% set lvl = alert_level() %}
+
+        .lock ha-icon { color: var(--{{ ''green'' if is_state(''lock.entrance_front_door'',''locked'') else lvl }}-color) !important; }
+
+        {% if not is_state(''lock.entrance_front_door'',''locked'') %}.lock { background-color: {{ alert_tint(lvl) }} !important; }{% endif %}
+
+        .garage ha-icon { color: var(--{{ ''green'' if is_state(''cover.garage_door_opener_door'',''closed'') else lvl }}-color) !important; }
+
+        {% if not is_state(''cover.garage_door_opener_door'',''closed'') %}.garage { background-color: {{ alert_tint(lvl) }} !important; }{% endif %}
+
+        .openings ha-icon { color: var(--{{ lvl }}-color) !important; }
+
+        .openings { background-color: {{ alert_tint(lvl) }} !important; }
+
+        .leak ha-icon, .internet ha-icon, .fridge ha-icon { color: var(--red-color) !important; }
+
+        .leak, .internet, .fridge { background-color: {{ alert_tint(''red'') }} !important; }
+
+        .hvac-paused ha-icon { color: var(--orange-color) !important; }
+
+        .generator ha-icon { color: var(--orange-color) !important; }
+
+        {% set aqi = states(''sensor.erie_ohio_usa_air_quality_index'') | int(0) %}
+
+        .aqi ha-icon { color: var(--{{ ''green'' if aqi <= 50 else (''yellow'' if aqi <= 100 else (''orange'' if aqi <= 150 else ''red'')) }}-color) !important; }
+
+        .updates ha-icon { color: var(--primary-color) !important; }
+
+        .guest ha-icon { color: {{ ''var(--green-color)'' if is_state(''input_boolean.guest_mode'',''on'') else ''var(--secondary-text-color)'' }} !important; }
+
+        .avery ha-icon { color: {{ ''var(--green-color)'' if is_state(''input_boolean.avery_sleeping'',''on'') else ''var(--secondary-text-color)'' }} !important; }
+
+        .thermo ha-icon { color: {{ ''var(--orange-color)'' if is_state(''binary_sensor.household_hvac_heating'',''on'') else (''var(--blue-color)'' if is_state(''binary_sensor.household_hvac_cooling'',''on'')
+        else ''var(--secondary-text-color)'') }} !important; }
+
+        .fireplace ha-icon { color: var(--orange-color) !important; }
+
+        .vacuum ha-icon { color: {% if states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable''] or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable'']
+        or is_state(''binary_sensor.vacuum_stuck'',''on'') %}var(--red-color){% elif is_state(''input_boolean.vacuum_routine_pause'',''on'') or states(''vacuum.living_room_vacuum'') in [''cleaning'',''returning'',''paused'']
+        %}var(--orange-color){% elif is_state(''input_boolean.vacuum_ran_daytime'',''on'') or is_state(''input_boolean.vacuum_ran_evening'',''on'') %}var(--green-color){% else %}var(--secondary-text-color){%
+        endif %} !important; }
+
+        .chores ha-icon { color: var(--{{ ''red'' if expand(integration_entities(''chore_calendar'') | select(''match'',''sensor\\.'') | list) | selectattr(''state'',''eq'',''overdue'') | list | count >
+        0 else ''amber'' }}-color) !important; }
+
+        .trash ha-icon { color: var(--{{ ''red'' if is_state(''sensor.household_chores_take_out_trash'',''overdue'') else ''amber'' }}-color) !important; }
+
+        .washer ha-icon { color: var(--{{ ''red'' if is_state(''input_select.utility_room_washer_status'',''fault'') else (''green'' if is_state(''input_select.utility_room_washer_status'',''alerting'')
+        else ''blue'') }}-color) !important; }
+
+        .dryer ha-icon { color: var(--{{ ''red'' if is_state(''input_select.utility_room_dryer_status'',''fault'') else (''green'' if is_state(''input_select.utility_room_dryer_status'',''alerting'') else
+        ''blue'') }}-color) !important; }
+
+        .dishwasher ha-icon { color: var(--blue-color) !important; }
+
+        '
+      sub_button:
+        main: []
+        bottom_layout: rows
+        bottom:
+        - name: Status
+          buttons_layout: inline
+          justify_content: center
+          group:
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: weather.outside_waterville_oh_usa
+            show_name: true
+            name: '{{ states(''sensor.outside_temperature'') | float(0) | round(0) | int }}°'
+            tap_action:
+              action: navigate
+              navigation_path: '#weather'
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: sensor.erie_ohio_usa_air_quality_index
+            css_class: aqi
+            show_name: true
+            icon: mdi:weather-hazy
+            name: AQI {{ states('sensor.erie_ohio_usa_air_quality_index') }}
+            tap_action:
+              action: navigate
+              navigation_path: '#weather'
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: lock.entrance_front_door
+            css_class: lock
+            icon: '{{ ''mdi:lock'' if is_state(''lock.entrance_front_door'',''locked'') else ''mdi:lock-open-variant'' }}'
+            tap_action:
+              action: navigate
+              navigation_path: '#security'
+            hold_action:
+              action: perform-action
+              perform_action: lock.lock
+              target:
+                entity_id: lock.entrance_front_door
+              confirmation:
+                text: Lock the front door?
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: cover.garage_door_opener_door
+            css_class: garage
+            icon: '{{ ''mdi:garage-variant'' if is_state(''cover.garage_door_opener_door'',''closed'') else ''mdi:garage-open-variant'' }}'
+            tap_action:
+              action: navigate
+              navigation_path: '#security'
+            hold_action:
+              action: perform-action
+              perform_action: cover.close_cover
+              target:
+                entity_id: cover.garage_door_opener_door
+              confirmation:
+                text: Close the garage door?
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: binary_sensor.household_exterior_openings
+            css_class: openings
+            show_name: true
+            icon: mdi:door-open
+            name: '{{ expand(''binary_sensor.household_exterior_openings'') | selectattr(''state'',''eq'',''on'') | list | count }} open'
+            tap_action:
+              action: navigate
+              navigation_path: '#security'
+            visibility:
+            - condition: state
+              entity: binary_sensor.household_exterior_openings
+              state: 'on'
+          - fill_width: false
+            state_background: false
+            light_background: false
+            css_class: leak
+            show_name: true
+            icon: mdi:water-alert
+            name: Leak
+            tap_action:
+              action: navigate
+              navigation_path: '#water-leaks'
+            visibility:
+            - condition: template
+              value_template: '{{ label_entities(''water_leak_sensor'') | select(''is_state'',''on'') | list | count > 0 }}'
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: input_select.household_hvac_mode_before_pause
+            css_class: hvac-paused
+            show_name: true
+            icon: mdi:hvac-off
+            name: HVAC paused
+            tap_action:
+              action: navigate
+              navigation_path: '#climate'
+            visibility:
+            - condition: state
+              entity: input_select.household_hvac_mode_before_pause
+              state_not: none
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: binary_sensor.utility_room_firewalla_gold_se_wan_buckeye_broadband_status
+            css_class: internet
+            show_name: true
+            icon: mdi:web-off
+            name: '{{ ''Modem reset'' if is_state(''input_boolean.utility_room_cable_modem_power_cycle_active'',''on'') else ''Offline'' }}'
+            visibility:
+            - condition: or
+              conditions:
+              - condition: state
+                entity: binary_sensor.utility_room_firewalla_gold_se_wan_buckeye_broadband_status
+                state: 'off'
+              - condition: state
+                entity: input_boolean.utility_room_cable_modem_power_cycle_active
+                state: 'on'
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: sensor.outside_home_generator_status
+            css_class: generator
+            show_name: true
+            icon: mdi:home-lightning-bolt
+            name: Generator
+            visibility:
+            - condition: state
+              entity: sensor.outside_home_generator_status
+              state: Running
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: sensor.kitchen_refrigerator_power
+            css_class: fridge
+            show_name: true
+            icon: mdi:fridge-alert
+            name: Fridge
+            visibility:
+            - condition: or
+              conditions:
+              - condition: state
+                entity: switch.kitchen_refrigerator
+                state: 'off'
+              - condition: state
+                entity: sensor.kitchen_refrigerator_power
+                state: unavailable
+          - fill_width: false
+            state_background: false
+            light_background: false
+            css_class: updates
+            show_name: true
+            icon: mdi:update
+            name: '{{ states.update | selectattr(''state'',''eq'',''on'') | list | count }}'
+            tap_action:
+              action: navigate
+              navigation_path: /config/updates
+            visibility:
+            - condition: template
+              value_template: '{{ states.update | selectattr(''state'',''eq'',''on'') | list | count > 0 }}'
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: input_boolean.guest_mode
+            css_class: guest
+            icon: mdi:account-star
+            tap_action: &id001
+              action: none
+            hold_action:
+              action: toggle
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: input_boolean.avery_sleeping
+            css_class: avery
+            icon: mdi:teddy-bear
+            tap_action: *id001
+            hold_action:
+              action: toggle
+            visibility:
+            - condition: or
+              conditions:
+              - condition: and
+                conditions:
+                - condition: state
+                  entity: binary_sensor.avery_home_today
+                  state: 'on'
+                - condition: state
+                  entity: input_boolean.avery_sleeping
+                  state: 'on'
+                - condition: time
+                  after: 06:30
+                  before: 09:00
+              - condition: and
+                conditions:
+                - condition: state
+                  entity: binary_sensor.avery_home_today
+                  state: 'on'
+                - condition: state
+                  entity: input_boolean.everyone_sleeping
+                  state: 'off'
+                - condition: time
+                  after: '20:30'
+                  before: '22:30'
+        - name: Features
+          buttons_layout: inline
+          justify_content: center
+          group:
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: climate.living_room_thermostat
+            css_class: thermo
+            show_name: true
+            icon: mdi:home-thermometer
+            name: '{{ state_attr(''climate.living_room_thermostat'',''current_temperature'') | float(0) | round(0) | int }}°'
+            tap_action:
+              action: navigate
+              navigation_path: '#climate'
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: climate.living_room_fireplace
+            css_class: fireplace
+            show_name: true
+            icon: mdi:fireplace
+            name: '{{ state_attr(''climate.living_room_fireplace'',''temperature'') | int(0) }}°'
+            tap_action:
+              action: navigate
+              navigation_path: '#climate'
+            visibility:
+            - condition: state
+              entity: climate.living_room_fireplace
+              state_not: 'off'
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: vacuum.living_room_vacuum
+            css_class: vacuum
+            icon: '{{ ''mdi:robot-vacuum-off'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') else (''mdi:robot-vacuum-alert'' if (states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable'']
+              or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable''] or is_state(''binary_sensor.vacuum_stuck'',''on'')) else ''mdi:robot-vacuum'') }}'
+            tap_action:
+              action: navigate
+              navigation_path: '#vacuum'
+            hold_action:
+              action: perform-action
+              perform_action: input_boolean.toggle
+              target:
+                entity_id: input_boolean.vacuum_routine_pause
+              confirmation:
+                text: Toggle the vacuum routine pause?
+          - fill_width: false
+            state_background: false
+            light_background: false
+            css_class: chores
+            show_name: true
+            icon: mdi:clipboard-check-outline
+            name: '{{ expand(integration_entities(''chore_calendar'') | select(''match'',''sensor\\.'') | list) | rejectattr(''entity_id'',''eq'',''sensor.household_chores_take_out_trash'') | selectattr(''state'',''in'',[''due'',''overdue''])
+              | list | count }} due'
+            tap_action:
+              action: navigate
+              navigation_path: /home-main/chores
+            visibility:
+            - condition: template
+              value_template: '{{ expand(integration_entities(''chore_calendar'') | select(''match'',''sensor\\.'') | list) | rejectattr(''entity_id'',''eq'',''sensor.household_chores_take_out_trash'')
+                | selectattr(''state'',''in'',[''due'',''overdue'']) | list | count > 0 }}'
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: sensor.household_chores_take_out_trash
+            css_class: trash
+            show_name: true
+            icon: mdi:recycle
+            name: Recycling
+            tap_action:
+              action: navigate
+              navigation_path: /home-main/chores
+            hold_action:
+              action: perform-action
+              perform_action: todo.update_item
+              target:
+                entity_id: todo.household_chores
+              data:
+                item: Take Out Trash
+                status: completed
+            visibility:
+            - condition: state
+              entity: sensor.household_chores_take_out_trash
+              state:
+              - due
+              - overdue
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: input_select.utility_room_washer_status
+            css_class: washer
+            show_name: true
+            icon: mdi:washing-machine
+            name: '{{ ''Done'' if is_state(''input_select.utility_room_washer_status'',''alerting'') else (states(''sensor.utility_room_washer_progress'') | int(0) ~ ''%'') }}'
+            tap_action:
+              action: navigate
+              navigation_path: '#laundry'
+            visibility:
+            - condition: or
+              conditions:
+              - condition: state
+                entity: input_select.utility_room_washer_status
+                state:
+                - alerting
+                - fault
+              - condition: state
+                entity: sensor.utility_room_washer_current_status
+                state_not: &id002
+                - power_off
+                - initial
+                - unavailable
+                - unknown
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: input_select.utility_room_dryer_status
+            css_class: dryer
+            show_name: true
+            icon: mdi:tumble-dryer
+            name: '{{ ''Done'' if is_state(''input_select.utility_room_dryer_status'',''alerting'') else (states(''sensor.utility_room_dryer_progress'') | int(0) ~ ''%'') }}'
+            tap_action:
+              action: navigate
+              navigation_path: '#laundry'
+            visibility:
+            - condition: or
+              conditions:
+              - condition: state
+                entity: input_select.utility_room_dryer_status
+                state:
+                - alerting
+                - fault
+              - condition: state
+                entity: sensor.utility_room_dryer_current_status
+                state_not: *id002
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: binary_sensor.kitchen_dishwasher_running
+            css_class: dishwasher
+            icon: mdi:dishwasher
+            tap_action:
+              action: navigate
+              navigation_path: '#laundry'
+            visibility:
+            - condition: state
+              entity: binary_sensor.kitchen_dishwasher_running
+              state: 'on'
+  - type: grid
+    column_span: 4
+    cards:
+    - type: custom:bubble-card
+      card_type: button
+      button_type: name
+      name: Living Room
+      icon: mdi:sofa
+      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''living_room'', ''sensor.living_room_thermostat_temperature'') }}'
+      tap_action:
+        action: navigate
+        navigation_path: '#living-room'
+      hold_action: *id001
+      button_action:
+        tap_action:
+          action: navigate
+          navigation_path: '#living-room'
+        hold_action: *id001
+      grid_options:
+        columns: 12
+      sub_button:
+        main:
+        - entity: media_player.living_room_appletv
+          icon: mdi:apple
+          tap_action:
+            action: more-info
+        - entity: climate.living_room_fireplace
+          icon: mdi:fireplace
+          tap_action:
+            action: more-info
+    - type: custom:bubble-card
+      card_type: button
+      button_type: name
+      name: Kitchen
+      icon: mdi:stove
+      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''kitchen'', ''sensor.kitchen_climate_temperature'') }}'
+      tap_action:
+        action: navigate
+        navigation_path: '#kitchen'
+      hold_action: *id001
+      button_action:
+        tap_action:
+          action: navigate
+          navigation_path: '#kitchen'
+        hold_action: *id001
+      grid_options:
+        columns: 12
+    - type: custom:bubble-card
+      card_type: button
+      button_type: name
+      name: Family Room
+      icon: mdi:pac-man
+      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''entertainment_room'', ''sensor.family_room_climate_temperature'') }}'
+      tap_action:
+        action: navigate
+        navigation_path: '#family-room'
+      hold_action: *id001
+      button_action:
+        tap_action:
+          action: navigate
+          navigation_path: '#family-room'
+        hold_action: *id001
+      grid_options:
+        columns: 12
+      sub_button:
+        main:
+        - entity: media_player.family_room_appletv
+          icon: mdi:apple
+          tap_action:
+            action: more-info
+    - type: custom:bubble-card
+      card_type: button
+      button_type: switch
+      name: Office
+      icon: mdi:desktop-classic
+      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''office'', ''sensor.office_climate_temperature'', ''fan.office_ceiling_fan'') }}'
+      tap_action:
+        action: navigate
+        navigation_path: '#office'
+      hold_action: &id003
+        action: toggle
+      button_action:
+        tap_action:
+          action: navigate
+          navigation_path: '#office'
+        hold_action: *id003
+      grid_options:
+        columns: 12
+      entity: light.office_ceiling_fan_light
+      sub_button:
+        main:
+        - entity: fan.office_ceiling_fan
+          icon: mdi:ceiling-fan
+          tap_action:
+            action: toggle
+    - type: custom:bubble-card
+      card_type: button
+      button_type: switch
+      name: Master Bedroom
+      icon: mdi:bed-king
+      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''master_bedroom'', ''sensor.master_bedroom_climate_temperature'', ''fan.master_bedroom_ceiling_fan'') }}'
+      tap_action:
+        action: navigate
+        navigation_path: '#master-bedroom'
+      hold_action: &id004
+        action: toggle
+      button_action:
+        tap_action:
+          action: navigate
+          navigation_path: '#master-bedroom'
+        hold_action: *id004
+      grid_options:
+        columns: 12
+      entity: light.master_bedroom_ceiling_fan_light
+      sub_button:
+        main:
+        - entity: fan.master_bedroom_ceiling_fan
+          icon: mdi:ceiling-fan
+          tap_action:
+            action: toggle
+    - type: custom:bubble-card
+      card_type: button
+      button_type: switch
+      name: Avery's Room
+      icon: mdi:teddy-bear
+      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''averys_room'', ''sensor.averys_room_climate_temperature'', ''fan.averys_room_ceiling_fan'') }}'
+      tap_action:
+        action: navigate
+        navigation_path: '#averys-room'
+      hold_action: &id005
+        action: toggle
+      button_action:
+        tap_action:
+          action: navigate
+          navigation_path: '#averys-room'
+        hold_action: *id005
+      grid_options:
+        columns: 12
+      entity: light.averys_room_ceiling_fan_light
+      sub_button:
+        main:
+        - entity: fan.averys_room_ceiling_fan
+          icon: mdi:ceiling-fan
+          tap_action:
+            action: toggle
+  - type: grid
+    cards:
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#living-room'
+      name: Living Room
+      icon: mdi:sofa
+      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''living_room'', ''sensor.living_room_thermostat_temperature'') }}'
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: custom:bubble-card
+        card_type: separator
+        name: Lights
+        icon: mdi:lightbulb-group
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.living_room_tv_accent
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.living_room_status_lamp
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.living_room_mantle_status_light
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.living_room_turntable_platter
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: separator
+        name: Climate
+        icon: mdi:thermostat
+      - type: custom:bubble-card
+        card_type: climate
+        entity: climate.living_room_thermostat
+      - type: custom:bubble-card
+        card_type: climate
+        entity: climate.living_room_fireplace
+      - type: custom:bubble-card
+        card_type: separator
+        name: Media
+        icon: mdi:play-circle-outline
+      - type: custom:bubble-card
+        card_type: media-player
+        entity: media_player.living_room_appletv
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#kitchen'
+      name: Kitchen
+      icon: mdi:stove
+      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''kitchen'', ''sensor.kitchen_climate_temperature'') }}'
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: custom:bubble-card
+        card_type: separator
+        name: Lights
+        icon: mdi:lightbulb-group
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.kitchen_overhead_sink
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: separator
+        name: Appliances
+        icon: mdi:fridge
+      - type: tile
+        entity: binary_sensor.kitchen_dishwasher_running
+        name: Dishwasher
+        grid_options:
+          columns: 6
+      - type: tile
+        entity: sensor.kitchen_refrigerator_power
+        name: Refrigerator
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: separator
+        name: Media
+        icon: mdi:play-circle-outline
+      - type: custom:bubble-card
+        card_type: media-player
+        entity: media_player.kitchen_homepod
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#family-room'
+      name: Family Room
+      icon: mdi:pac-man
+      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''entertainment_room'', ''sensor.family_room_climate_temperature'') }}'
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: custom:bubble-card
+        card_type: separator
+        name: Lights
+        icon: mdi:lightbulb-group
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.family_room_ambient_lamp
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.family_room_peanuts_pinball_underglow
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.family_room_alice_pinball_underglow
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: separator
+        name: Games
+        icon: mdi:gamepad-variant
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: switch.family_room_alice_pinball
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: switch.family_room_peanuts_pinball
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: switch.family_room_dragon_s_lair_arcade
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: separator
+        name: Media
+        icon: mdi:play-circle-outline
+      - type: custom:bubble-card
+        card_type: media-player
+        entity: media_player.family_room_appletv
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#office'
+      name: Office
+      icon: mdi:desktop-classic
+      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''office'', ''sensor.office_climate_temperature'', ''fan.office_ceiling_fan'') }}'
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: custom:bubble-card
+        card_type: separator
+        name: Lights
+        icon: mdi:lightbulb-group
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.office_ceiling_fan_light
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.office_desk_key_light
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.office_monitor_light_bar
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.office_wall_wash
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.record_cabinets
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.office_bourbon_lamp
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.office_coke_machine
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: separator
+        name: Fan
+        icon: mdi:ceiling-fan
+      - type: tile
+        entity: fan.office_ceiling_fan
+        features:
+        - type: fan-speed
+      - type: custom:bubble-card
+        card_type: separator
+        name: Media
+        icon: mdi:play-circle-outline
+      - type: custom:bubble-card
+        card_type: media-player
+        entity: media_player.office_homepod
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#master-bedroom'
+      name: Master Bedroom
+      icon: mdi:bed-king
+      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''master_bedroom'', ''sensor.master_bedroom_climate_temperature'', ''fan.master_bedroom_ceiling_fan'') }}'
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: custom:bubble-card
+        card_type: separator
+        name: Lights
+        icon: mdi:lightbulb-group
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.master_bedroom_ceiling_fan_light
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.master_bedroom_left_nightstand_lamp
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: separator
+        name: Fan
+        icon: mdi:ceiling-fan
+      - type: tile
+        entity: fan.master_bedroom_ceiling_fan
+        features:
+        - type: fan-speed
+      - type: custom:bubble-card
+        card_type: separator
+        name: Media
+        icon: mdi:play-circle-outline
+      - type: custom:bubble-card
+        card_type: media-player
+        entity: media_player.master_bedroom_appletv
+      - type: custom:bubble-card
+        card_type: media-player
+        entity: media_player.master_bedroom_homepod
+      - type: custom:bubble-card
+        card_type: media-player
+        entity: media_player.master_bedroom_bathroom_speaker
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#averys-room'
+      name: Avery's Room
+      icon: mdi:teddy-bear
+      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''averys_room'', ''sensor.averys_room_climate_temperature'', ''fan.averys_room_ceiling_fan'') }}'
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: custom:bubble-card
+        card_type: separator
+        name: Lights
+        icon: mdi:lightbulb-group
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.averys_room_ceiling_fan_light
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.averys_room_desk_lamp
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.averys_room_dresser_lamp
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: separator
+        name: Fan
+        icon: mdi:ceiling-fan
+      - type: tile
+        entity: fan.averys_room_ceiling_fan
+        features:
+        - type: fan-speed
+      - type: custom:bubble-card
+        card_type: separator
+        name: Media
+        icon: mdi:play-circle-outline
+      - type: custom:bubble-card
+        card_type: media-player
+        entity: media_player.averys_room_homepod
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#security'
+      name: Security
+      icon: mdi:shield-home
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: custom:bubble-card
+        card_type: separator
+        name: Doors
+        icon: mdi:door
+      - type: tile
+        entity: lock.entrance_front_door
+        features:
+        - type: lock-commands
+        grid_options:
+          columns: 6
+      - type: tile
+        entity: cover.garage_door_opener_door
+        name: Garage Door
+        features:
+        - type: cover-open-close
+        grid_options:
+          columns: 6
+      - type: tile
+        entity: binary_sensor.garage_interior_door
+        name: Garage Interior
+        grid_options:
+          columns: 6
+      - type: tile
+        entity: binary_sensor.household_exterior_openings
+        name: Doors & Windows
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: separator
+        name: Outside Lights
+        icon: mdi:outdoor-lamp
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.outside_porch_bulbs
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.outside_front_door_bulbs
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.outside_garage_bulbs
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.garage_door_opener_light
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: separator
+        name: Doorbell
+        icon: mdi:doorbell-video
+      - type: picture-entity
+        entity: camera.entrance_front_doorbell_camera
+        show_state: false
+        show_name: false
+        aspect_ratio: '1:1'
+        fit_mode: cover
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#climate'
+      name: Climate
+      icon: mdi:thermostat
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: custom:bubble-card
+        card_type: climate
+        entity: climate.living_room_thermostat
+      - type: custom:bubble-card
+        card_type: climate
+        entity: climate.living_room_fireplace
+- title: Chores
+  path: chores
+  type: sections
+  max_columns: 4
+  theme: Frosted Glass
+  sections:
+  - type: grid
+    column_span: 2
+    cards:
+    - type: custom:navbar-card
+      template: main
+    - type: custom:chore-calendar-card
+      entities:
+      - calendar.household_chores

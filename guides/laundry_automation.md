@@ -242,7 +242,7 @@ When dashboard work starts, `sensor.utility_room_washer_cycles` and `sensor.util
 
 - `guides/chime_tts.md` — `script.household_tts_announce` field contract, per-room volumes, and why family room isn't a script target
 - `guides/live_activities.md` — `script.household_live_activity` field contract, status palette, and the phase-label conversion tables for both appliances
-- `guides/mobile_dashboard.md` — future home of the laundry chips and `#laundry` pop-up (not yet built)
+- `guides/home_dashboard.md` — the Washer/Dryer chips; the `#laundry` pop-up is not yet built
 - `guides/reminders.md` — why `ha-chore-calendar` isn't installed in this instance, blocking cycles-since-cleaned
 - `standards/automations.md` — §5.10 (arrival entry-grace, used by the announcement automation), §5.11 (semantic triggers, used by both status managers), category/label/alias requirements
 - `standards/dashboards.md` — chip strip pattern and Bubble Card pop-up conventions, for whenever the dashboard section is built

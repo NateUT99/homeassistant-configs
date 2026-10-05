@@ -375,10 +375,9 @@ in this pass.
 ## Deferred
 
 - **Dashboard tap targets.** Every card's `url` is the default `/lovelace/0` (the primary
-  dashboard) rather than a specific pop-up. `guides/mobile_dashboard.md` specs a `#laundry`
-  pop-up and already has a `#vacuum` pop-up built; once dashboard work resumes, both consumers'
-  `url` fields become one-line additions (`/lovelace/mobile-home#laundry`,
-  `/lovelace/mobile-home#vacuum`).
+  dashboard) rather than a specific pop-up. `guides/home_dashboard.md` plans `#laundry` and
+  `#vacuum` pop-ups on `home-main`; once they exist, both consumers' `url` fields become
+  one-line changes (`/home-main/home#laundry`, `/home-main/home#vacuum`).
 - **`attention` status has no consumer yet.** Reserved for a future case where a Live Activity
   should prompt a human action rather than report progress — the weekly mop pass's pad/water
   checks (`guides/vacuum_cleaning_routine.md`) are the most likely first user, but that automation
@@ -403,8 +402,8 @@ in this pass.
   machine the washer/dryer consumers read
 - `guides/vacuum_cleaning_routine.md` — the job-start automations and the zone/error sensors the
   vacuum consumer reads
-- `guides/mobile_dashboard.md` — future home of the `#laundry` pop-up and the existing `#vacuum`
-  pop-up, once tap targets move off the default dashboard
+- `guides/home_dashboard.md` — future home of the `#laundry` and `#vacuum` pop-ups, once tap
+  targets move off the default dashboard
 - `standards/automations.md` §3.2 — the `live_activity` label definition and the two-step label
   creation procedure
 - `LESSONS.md` → *Vacuum & Roborock* — why `current_room` isn't used for the vacuum card's message

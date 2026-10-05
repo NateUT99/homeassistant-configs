@@ -1,0 +1,37 @@
+{#-
+  Shared dashboard logic for home-main (standards/dashboards.md §9.2).
+  Deployed to /config/custom_templates/dashboard.jinja; reload with
+  homeassistant.reload_custom_templates after every change.
+
+  Import in a Bubble Card template:
+    {% from 'dashboard.jinja' import room_summary %}{{ room_summary('office', ...) }}
+-#}
+
+{#-
+  Room tile / pop-up summary line, e.g. "2 lights on · Fan on · 69°".
+  Hidden entities are excluded so switch LED bars, status LEDs, and light-group
+  members don't count as room lights (LESSONS.md: an area's light.* entities
+  include indicator LEDs and group members).
+-#}
+{% macro room_summary(area, temp_sensor=none, fan=none) -%}
+{%- set n = area_entities(area) | select('match', 'light\\.') | reject('is_hidden_entity') | select('is_state', 'on') | list | count -%}
+{%- set parts = [] -%}
+{%- if n > 0 %}{% set parts = parts + [n ~ (' light on' if n == 1 else ' lights on')] %}{% endif -%}
+{%- if fan and is_state(fan, 'on') %}{% set parts = parts + ['Fan on'] %}{% endif -%}
+{%- if temp_sensor and has_value(temp_sensor) %}{% set parts = parts + [states(temp_sensor) | float | round(0) | int ~ '°'] %}{% endif -%}
+{{- parts | join(' · ') if parts else 'All off' -}}
+{%- endmacro %}
+
+{#-
+  Severity for an open door/window/garage or an unlocked lock: 'red' when the
+  household is asleep or nobody is home, otherwise 'orange'. Leaks are always
+  red and do not use this.
+-#}
+{% macro alert_level() -%}
+{{- 'red' if is_state('input_boolean.everyone_sleeping', 'on') or states('zone.home') | int(0) == 0 else 'orange' -}}
+{%- endmacro %}
+
+{#- Chip tint for an alert: a 30% wash of the severity colour. -#}
+{% macro alert_tint(level) -%}
+rgba(var(--rgb-{{ level }}-color), 0.3)
+{%- endmacro %}

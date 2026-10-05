@@ -37,7 +37,7 @@ See `CLAUDE.md` for full project conventions (working preferences, commit discip
 | [Logitech Litra Glow](guides/litra_glow.md) | Key light exposed as a native, push-updated HA light via a macOS agent and the `litra` custom integration |
 | [iOS Live Activities](guides/live_activities.md) | `script.household_live_activity`, the single dispatch point for Lock Screen / Dynamic Island cards across laundry and vacuum |
 | [Mac Mini Bluetooth Peripheral Battery Monitor](guides/mac_mini_bluetooth_battery.md) | Shell script polling ioreg for Bluetooth peripheral battery levels, posted to HA via webhook (decommissioned) |
-| [Mobile Dashboard](guides/mobile_dashboard.md) | `mobile-home` Bubble Card dashboard — chip strip, feature pop-ups, and room tile layout |
+| [Home Dashboard](guides/home_dashboard.md) | `home-main` responsive Bubble Card dashboard — chip strip, room tiles, pop-ups, Navbar + Kiosk Mode |
 | [Outdoor Air Quality Alerting](guides/outdoor_air_quality_alerting.md) | WAQI-based AQI monitoring with TTS and push notification alerts for poor air quality and clearance announcements |
 | [Presence Tracking](guides/presence_tracking.md) | HomeKit geofence-driven device trackers via Template Helper `device_tracker` entities, no MQTT required |
 | [Reminder System](guides/reminders.md) | Recurring maintenance reminders with actionable iOS notifications and automatic completion loop |
@@ -62,7 +62,7 @@ See `CLAUDE.md` for full project conventions (working preferences, commit discip
 
 ## Scope
 
-Automations, scripts, and packages are mirrored in `ha/` once they're touched as part of ongoing work — this repo is not retroactively backfilled with everything already in HA. Helpers, scenes, dashboards, and the entity and area registries live in HA only and are not duplicated here (dashboards are documented in guides where relevant, e.g. [Mobile Dashboard](guides/mobile_dashboard.md)).
+Automations, scripts, dashboards, packages, and dashboard support files are mirrored in `ha/` once they're touched as part of ongoing work — this repo is not retroactively backfilled with everything already in HA. Helpers, scenes, and the entity and area registries live in HA only and are not duplicated here.
 
 Documents use placeholder values (e.g. `<your_username>`, `<mac-mini-ip>`) wherever environment-specific values are required.
 
