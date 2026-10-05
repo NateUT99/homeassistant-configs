@@ -61,7 +61,7 @@ it:
 
 | Condition | Colour | Brightness |
 |---|---|---|
-| Fan running | Mapped to speed: cyan `hs_color: [180, 100]` low / blue `[240, 100]` medium / magenta `[300, 100]` high | `180` |
+| Fan running | Mapped to speed: cyan `hs_color: [180, 100]` low / blue `[240, 100]` medium / violet `[280, 100]` high | `180` |
 | Fan off, ceiling light off, someone home | `color_name: white` | `8` (locator glow) |
 | Fan off, ceiling light on | — | off (`light.turn_off`) |
 | Nobody home | — | off (`light.turn_off`) |
@@ -260,7 +260,7 @@ independent of the HA automation entirely.
 - **Speed is shown as hue, not brightness.** Three brightness steps on the 7-segment
   bar can't be told apart at a glance — there's no reference to compare against and
   ambient light shifts the perceived level — while a hue reads instantly. The three
-  hues are cool and 60° apart (cyan / blue / magenta), deepening with speed: no
+  hues are cool and well separated (cyan / blue / violet), deepening with speed: no
   warning connotation, no red-green pairing, and every one fully saturated so none
   can be mistaken for the white locator glow. Brightness is fixed at `180` across
   all three.
@@ -589,7 +589,7 @@ brightness of `180`, mapped by `script.household_ceiling_fan_led_state`:
 |---|---|---|
 | low | 33 | cyan, `hs_color: [180, 100]` |
 | medium | 67 | blue, `hs_color: [240, 100]` |
-| high | 100 | magenta, `hs_color: [300, 100]` |
+| high | 100 | violet, `hs_color: [280, 100]` |
 
 Locator glow (fan off, ceiling light off, someone home) is `color_name: white` at
 brightness `8`, unchanged by day/night — see

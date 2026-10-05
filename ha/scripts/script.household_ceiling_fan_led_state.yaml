@@ -2,7 +2,7 @@ alias: "Household: Ceiling Fan LED State"
 description: >-
   Shared LED-bar state for any Inovelli ceiling-fan canopy switch's RGB
   Indicator light (light.<prefix>_ceiling_fan_switch_led_bar). A distinct
-  speed colour while the fan runs (cyan low / blue medium / magenta high,
+  speed colour while the fan runs (cyan low / blue medium / violet high,
   fixed brightness), a white locator glow (color_name: white, brightness 8) while the fan is off and the
   ceiling light is also off with someone home, dark when the fan is off and the
   ceiling light is on (already lit and occupied) or when nobody's home.
@@ -81,11 +81,11 @@ sequence:
         {{ (sleeping_boolean | default('')) not in ['', None] and
         is_state(sleeping_boolean, 'on') }}
       # Speed is encoded as hue, not brightness -- brightness steps on the
-      # bar aren't distinguishable at a glance. Cool hues 60 degrees apart
+      # bar aren't distinguishable at a glance. cool hues spaced apart
       # avoid warning connotations and stay clear of the white locator glow.
       speed_hs: >-
         {{ [180, 100] if fan_pct < 50 else ([240, 100] if fan_pct < 90 else
-        [300, 100]) }}
+        [280, 100]) }}
   - alias: Apply the resting state
     choose:
       - alias: Nobody home - dark
