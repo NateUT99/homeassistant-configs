@@ -1,6 +1,6 @@
 # Adaptive Lighting
 
-*Last updated: September 2026*
+*Last updated: October 2026*
 
 ## Overview
 
@@ -18,9 +18,11 @@ binding-driven turn-on lands closer to the adapted level, and the wall-control a
 a fast 2-second correction on every observed turn-on as a backstop regardless of source (see
 Design Decisions). The Standard instance also carries `light.kitchen_overhead_sink`, a
 colour-capable ZHA light with no wall-paddle path — AL adapts its brightness on any bare
-`light.turn_on`. `automation.kitchen_sink_button_handler` drives it from a ZHA remote and
-releases AL's manual-control flag after each button-driven turn-on, since those calls carry
-explicit brightness/colour data that trips AL's non-bare-turn-on detection.
+`light.turn_on`. `automation.kitchen_sink_button_handler` drives it from a ZHA remote: a single
+press is a bare turn-on (or, if already on, releases manual control so AL re-adapts it), a double
+press sets full brightness and deliberately leaves AL's manual-control flag set so it holds, and
+a long press turns it off — except during sleep mode, where it releases manual control instead so
+the light stays on at AL's sleep level.
 
 ## Architecture
 
@@ -61,11 +63,10 @@ joins Standard.
 
 The canopy light kits report `supported_color_modes: ["brightness"]`, so there is nothing for
 AL to colour-adapt on those. `light.kitchen_overhead_sink` does support colour temperature, but
-its fixed 3000K on button press is a deliberate per-tap value, not something meant to ride AL's
-colour curve — so both instances' `adapt_color` sub-switches stay **off** rather than handing
-that light's colour to AL. The `*_color_temp` settings are still given sane values so flipping
-a sub-switch on is the only change needed if a light's colour should ever follow the curve
-instead.
+it simply keeps whatever colour was last set on it rather than riding AL's colour curve — so both
+instances' `adapt_color` sub-switches stay **off**. The `*_color_temp` settings are still given
+sane values so flipping a sub-switch on is the only change needed if a light's colour should ever
+follow the curve instead.
 
 #### `manual_control_on_external_turn_on` stays off
 
@@ -283,8 +284,8 @@ The three `light.*_ceiling_fan_light` entities and `light.kitchen_overhead_sink`
 `int_adaptive_lighting` label as enrolled members. The three `automation.*_ceiling_fan_wall_control`
 automations (whose `long_release`, turn-off, and turn-on-snap branches call
 `adaptive_lighting.set_manual_control` / `adaptive_lighting.apply`) and
-`automation.kitchen_sink_button_handler` (which releases manual control after each
-button-driven turn-on) carry it too.
+`automation.kitchen_sink_button_handler` (whose single-press and sleep-mode long-press branches
+release manual control) carry it too.
 
 ## Related Files
 
