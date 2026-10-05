@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.21 — September 2026*
+*Version 1.21.1 — October 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.21.1 | October 2026 | Clarified §3.2 — a guide whose integration consists of a single automation does not get an `int_` label |
 | 1.21 | September 2026 | Corrected §3.2 — `notification` means a push actually lands on a device (`notify.*` or a Live Activity), not merely "sends any kind of notification." A TTS-only automation no longer carries `notification` alongside `text_to_speech`; the two labels no longer imply each other |
 | 1.20 | September 2026 | Amended §5.11 — `event` entities are no longer listed as having no semantic trigger form; `event.received` (shipped 2026.7) is the preferred form, with a note on its required `options.event_type` and its own restart-replay behavior |
 | 1.19 | September 2026 | Added a §5.11 exception: skip the semantic trigger/condition form when the entity's device class misdescribes what the sensor means (Roborock's `mop_attached`/`water_box_attached` reporting as `connectivity`, `water_shortage` as `problem`) — the raw `state` form plus an accurate `alias` reads better than encoding a misleading classification into the trace view |
@@ -171,7 +172,7 @@ Applied to automations that belong to a documented integration in `guides/`, and
 
 > The `reminders` label predates this taxonomy and is applied to all reminder-system helpers and automations. Its ID does not carry the `int_` prefix — this is an intentional exception, not a bug to fix.
 
-When a new guide is added, a matching `int_<name>` label is created (color: purple) before the guide's automations are created or migrated. HA does not allow specifying a label ID on creation — use a two-step approach: create the label with the desired ID as the name (HA slugifies it into the ID), then update it with the clean friendly name, color, and icon. The friendly name can be shortened when the name is unwieldy as a chip label — `int_vacuum_cleaning_routine` displays as "Vacuum", `int_inovelli_fan_canopy` as "Ceiling Fan" — but the label ID always stays `int_<name>` so the link back is unambiguous.
+When a new guide is added, a matching `int_<name>` label is created (color: purple) before the guide's automations are created or migrated. A guide whose integration consists of a single automation doesn't need an `int_` label: the guide already names it, so there is nothing to cross-reference (e.g. `guides/fireplace.md`). HA does not allow specifying a label ID on creation — use a two-step approach: create the label with the desired ID as the name (HA slugifies it into the ID), then update it with the clean friendly name, color, and icon. The friendly name can be shortened when the name is unwieldy as a chip label — `int_vacuum_cleaning_routine` displays as "Vacuum", `int_inovelli_fan_canopy` as "Ceiling Fan" — but the label ID always stays `int_<name>` so the link back is unambiguous.
 
 **A guide may house more than one labelled pattern.** `guides/inovelli_switches.md` covers both a shared LED-bar pattern (`int_inovelli_led_bar`) and the specific Ceiling Fan Canopy device pattern (`int_inovelli_fan_canopy`) built on top of it — an automation implementing both (the per-room wall-control automations) carries both labels; the household LED-dispatch automation, which implements only the shared pattern, carries just `int_inovelli_led_bar`. The `int_<name>` label naming still applies per pattern; it no longer implies one label per guide file.
 
