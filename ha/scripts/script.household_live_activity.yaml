@@ -94,9 +94,11 @@ fields:
       text: {}
   url:
     name: URL
-    description: Tap destination. Defaults to the primary dashboard.
+    description: >-
+      Tap destination. When omitted, the card opens the matching home-main
+      pop-up for its tag (washer/dryer -> #laundry, vacuum -> #vacuum),
+      otherwise the Home view.
     required: false
-    default: /lovelace/0
     selector:
       text: {}
   target:
@@ -132,13 +134,17 @@ variables:
   chronometer_ref: "{{ ends_at | default(started_at | default('', true), true) }}"
   chronometer_active: "{{ status == 'running' and chronometer_ref != '' }}"
   resolved_progress: "{{ 100 if status == 'done' else progress | default(none, true) }}"
+  resolved_url: >-
+    {{ url | default({'utility-room-washer': '/home-main/home#laundry',
+    'utility-room-dryer': '/home-main/home#laundry',
+    'household-vacuum': '/home-main/home#vacuum'}.get(tag, '/home-main/home'), true) }}
   payload: >-
     {{ ({'tag': tag, 'live_update': true, 'silent': periodic_tick | default(false, true),
     'notification_icon': resolved_icon,
     'notification_icon_color': resolved_color, 'color': resolved_color,
     'background_color': '#101820', 'progress_bar_color': resolved_color,
     'progress_bar_direction': 'increasing',
-    'url': url | default('/lovelace/0', true)})
+    'url': resolved_url})
     | combine(({'progress': resolved_progress | int, 'progress_max': 100})
     if resolved_progress is not none else {})
     | combine(({'chronometer': true, 'when': as_timestamp(chronometer_ref) | int})

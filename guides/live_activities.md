@@ -1,6 +1,6 @@
 # iOS Live Activities
 
-*Last updated: September 2026*
+*Last updated: October 2026*
 
 ## Overview
 
@@ -107,7 +107,7 @@ Built once as the shared dispatch point. Full field contract:
 | `started_at` | No | — | ISO 8601 datetime the task began → count-up chronometer. Used only if `ends_at` is absent. |
 | `critical_text` | No | — | Short Dynamic Island text. **Ignored whenever a chronometer is active** — the timer replaces it. |
 | `color` | No | palette | Hex override of the status palette, for per-consumer identity. |
-| `url` | No | `/lovelace/0` | Tap destination — the primary dashboard's auto-generated Overview, until custom dashboard pop-ups exist (see Deferred below). |
+| `url` | No | by tag | Tap destination. When omitted, the script picks the `home-main` pop-up for the tag: `utility-room-washer` / `utility-room-dryer` → `/home-main/home#laundry`, `household-vacuum` → `/home-main/home#vacuum`, any other tag → `/home-main/home`. Consumers don't pass it. |
 | `target` | No | `nates_iphone` | Which iOS device to push to — one option registered today. |
 | `periodic_tick` | No | `false` | True when the call is a routine refresh from the consumer's recurring timer tick, not a genuine status change — the script sends it as a lower-priority (APNs 5, not 10), no-alert update that refreshes the Lock Screen/Dynamic Island content in place without the peek/expand animation. A genuine transition should leave this `false` (or omit it) for the normal alert-priority update. Per [companion.home-assistant.io](https://companion.home-assistant.io/docs/notifications/live-activities/), has no effect when starting a brand-new activity, only on updates to one already showing. |
 
@@ -374,10 +374,6 @@ in this pass.
 
 ## Deferred
 
-- **Dashboard tap targets.** Every card's `url` is the default `/lovelace/0` (the primary
-  dashboard) rather than a specific pop-up. `guides/home_dashboard.md` plans `#laundry` and
-  `#vacuum` pop-ups on `home-main`; once they exist, both consumers' `url` fields become
-  one-line changes (`/home-main/home#laundry`, `/home-main/home#vacuum`).
 - **`attention` status has no consumer yet.** Reserved for a future case where a Live Activity
   should prompt a human action rather than report progress — the weekly mop pass's pad/water
   checks (`guides/vacuum_cleaning_routine.md`) are the most likely first user, but that automation
@@ -402,8 +398,7 @@ in this pass.
   machine the washer/dryer consumers read
 - `guides/vacuum_cleaning_routine.md` — the job-start automations and the zone/error sensors the
   vacuum consumer reads
-- `guides/home_dashboard.md` — future home of the `#laundry` and `#vacuum` pop-ups, once tap
-  targets move off the default dashboard
+- `guides/home_dashboard.md` — the `#laundry` and `#vacuum` pop-ups the cards open
 - `standards/automations.md` §3.2 — the `live_activity` label definition and the two-step label
   creation procedure
 - `LESSONS.md` → *Vacuum & Roborock* — why `current_room` isn't used for the vacuum card's message
