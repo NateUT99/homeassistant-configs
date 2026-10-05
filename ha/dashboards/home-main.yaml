@@ -1680,8 +1680,7 @@ views:
           %}{% set master = is_state(''input_boolean.vacuum_mop_master_suite_done_this_week'',''on'') %}<tr><td><ha-icon icon="mdi:robot-vacuum"></ha-icon>Vacuuming</td><td>{{ mark(day and night) }}{{ ''Day
           & night'' if day and night else ''Not yet'' }}</td></tr>
 
-          <tr><td><ha-icon icon="mdi:water"></ha-icon>Mopping</td><td>{{ mark(mop and master) }}{{ ''Common + master'' if mop and master else (''Master not yet'' if mop else (''Common not yet'' if master
-          else ''Not yet'')) }}</td></tr>
+          <tr><td><ha-icon icon="mdi:water"></ha-icon>Mopping</td><td>{{ mark(mop and master) }}{{ ''Common + master'' if mop and master else ''Not yet'' }}</td></tr>
 
           {% set ch = expand(integration_entities(''chore_calendar'') | select(''match'',''sensor\\.'') | list) %}{% set late_now = ch | selectattr(''state'',''eq'',''overdue'') | list | count %}{% set
           soon = ch | rejectattr(''state'',''eq'',''overdue'') | selectattr(''attributes.next_due'',''defined'') | rejectattr(''attributes.next_due'',''none'') | map(attribute=''attributes.next_due'') |
