@@ -2,8 +2,8 @@ alias: "Household: Ceiling Fan LED State"
 description: >-
   Shared LED-bar state for any Inovelli ceiling-fan canopy switch's RGB
   Indicator light (light.<prefix>_ceiling_fan_switch_led_bar). A distinct
-  speed colour while the fan runs (cyan low / blue medium / violet high,
-  fixed brightness), a white locator glow (color_name: white, brightness 8) while the fan is off and the
+  speed colour while the fan runs (cyan low / blue medium / violet high;
+  blue a touch brighter to match the others), a white locator glow (color_name: white, brightness 8) while the fan is off and the
   ceiling light is also off with someone home, dark when the fan is off and the
   ceiling light is on (already lit and occupied) or when nobody's home.
   Uses light.turn_on/turn_off directly on the RGB Indicator entity -- does
@@ -86,6 +86,8 @@ sequence:
       speed_hs: >-
         {{ [180, 100] if fan_pct < 50 else ([240, 100] if fan_pct < 90 else
         [280, 100]) }}
+      # Blue renders perceptibly dimmer than cyan/violet at equal brightness.
+      speed_brightness: "{{ 210 if 50 <= fan_pct < 90 else 180 }}"
   - alias: Apply the resting state
     choose:
       - alias: Nobody home - dark
@@ -123,7 +125,7 @@ sequence:
               entity_id: "{{ led_bar_entity }}"
             data:
               hs_color: "{{ speed_hs }}"
-              brightness: 180
+              brightness: "{{ speed_brightness }}"
           - alias: If this room is asleep, settle to the locator glow after 30s
             note: >-
               mode: restart cancels this wait if any subsequent call

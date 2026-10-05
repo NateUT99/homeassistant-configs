@@ -61,7 +61,7 @@ it:
 
 | Condition | Colour | Brightness |
 |---|---|---|
-| Fan running | Mapped to speed: cyan `hs_color: [180, 100]` low / blue `[240, 100]` medium / violet `[280, 100]` high | `180` |
+| Fan running | Mapped to speed: cyan `hs_color: [180, 100]` low / blue `[240, 100]` medium / violet `[280, 100]` high | `180`; `210` for blue |
 | Fan off, ceiling light off, someone home | `color_name: white` | `8` (locator glow) |
 | Fan off, ceiling light on | — | off (`light.turn_off`) |
 | Nobody home | — | off (`light.turn_off`) |
@@ -262,8 +262,8 @@ independent of the HA automation entirely.
   ambient light shifts the perceived level — while a hue reads instantly. The three
   hues are cool and well separated (cyan / blue / violet), deepening with speed: no
   warning connotation, no red-green pairing, and every one fully saturated so none
-  can be mistaken for the white locator glow. Brightness is fixed at `180` across
-  all three.
+  can be mistaken for the white locator glow. Brightness is `180`, with blue raised
+  to `210` because it looks dimmer than the other two at equal brightness.
 
 - **The LED bar reacts to settled state, not button presses.** With no per-change
   animation to time precisely, dispatching from the button-gesture branches ahead
@@ -582,14 +582,14 @@ The automations use 33 / 66 / 100, with `< 45` / `< 78` band edges to absorb the
 Matter fan's percentage rounding. All three rooms' fans share this same
 `percentage_step` — confirmed before building the shared script.
 
-The LED bar shows each running speed as a distinct fully-saturated hue at a fixed
-brightness of `180`, mapped by `script.household_ceiling_fan_led_state`:
+The LED bar shows each running speed as a distinct fully-saturated hue, mapped by
+`script.household_ceiling_fan_led_state`:
 
-| Speed | `fan.percentage` | Bar colour |
-|---|---|---|
-| low | 33 | cyan, `hs_color: [180, 100]` |
-| medium | 67 | blue, `hs_color: [240, 100]` |
-| high | 100 | violet, `hs_color: [280, 100]` |
+| Speed | `fan.percentage` | Bar colour | Brightness |
+|---|---|---|---|
+| low | 33 | cyan, `hs_color: [180, 100]` | 180 |
+| medium | 67 | blue, `hs_color: [240, 100]` | 210 |
+| high | 100 | violet, `hs_color: [280, 100]` | 180 |
 
 Locator glow (fan off, ceiling light off, someone home) is `color_name: white` at
 brightness `8`, unchanged by day/night — see
