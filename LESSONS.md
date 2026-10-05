@@ -164,6 +164,14 @@ Found while designing `automation.household_trash_pickup` (`guides/reminders.md`
 
 ---
 
+### Calling a script directly waits for it to finish, including its delays
+
+`action: script.<name>` is a blocking call: the caller doesn't continue until the script run completes. If that script contains a `delay`, the calling automation sits on that step for the full delay. In a `mode: queued` automation, every later trigger lines up behind it. `script.turn_on` with `target: {entity_id: script.<name>}` and `data: {variables: {...}}` starts the script and returns immediately.
+
+Found 2026-10-04: the ceiling-fan wall-control automations called `script.household_ceiling_fan_led_state` directly. While a bedroom was asleep the script's 30s settle delay made config-button taps take effect ~20s late, so the button looked dead. Watch for the opposite trap too: with a shared `mode: restart` script, a non-blocking call lets the *next* call cancel the run still in progress (see `guides/inovelli_switches.md`, issue #11).
+
+---
+
 ## Dashboards
 
 ### Bubble Card `state_display` does not evaluate Jinja2 templates reliably

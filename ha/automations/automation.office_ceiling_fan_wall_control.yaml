@@ -141,11 +141,19 @@ actions:
                     alias: Triple tap
                 sequence:
                   - alias: Recompute the LED state
-                    action: script.household_ceiling_fan_led_state
+                    action: script.turn_on
+                    target:
+                      entity_id: script.household_ceiling_fan_led_state
                     data:
-                      fan_entity: fan.office_ceiling_fan
-                      led_bar_entity: light.office_ceiling_fan_switch_led_bar
-                      light_entity: light.office_ceiling_fan_light
+                      variables:
+                        fan_entity: fan.office_ceiling_fan
+                        led_bar_entity: light.office_ceiling_fan_switch_led_bar
+                        light_entity: light.office_ceiling_fan_light
+                    note: >-
+                      script.turn_on, not a direct call: matches the bedroom
+                      automations, where a blocking call would stall this
+                      queued automation behind the script's 30s sleep-settle
+                      wait.
       - alias: Down paddle double-tapped - turn the fan and light off
         conditions:
           - condition: trigger
@@ -262,11 +270,18 @@ actions:
                 data:
                   option: "{{ speed }}"
           - alias: Recompute the LED state
-            action: script.household_ceiling_fan_led_state
+            action: script.turn_on
+            target:
+              entity_id: script.household_ceiling_fan_led_state
             data:
-              fan_entity: fan.office_ceiling_fan
-              led_bar_entity: light.office_ceiling_fan_switch_led_bar
-              light_entity: light.office_ceiling_fan_light
+              variables:
+                fan_entity: fan.office_ceiling_fan
+                led_bar_entity: light.office_ceiling_fan_switch_led_bar
+                light_entity: light.office_ceiling_fan_light
+            note: >-
+              script.turn_on, not a direct call: matches the bedroom
+              automations, where a blocking call would stall this queued
+              automation behind the script's 30s sleep-settle wait.
       - alias: Ceiling light changed - recompute the LED bar, release AL if off, snap AL if on
         conditions:
           - condition: trigger
@@ -274,12 +289,19 @@ actions:
             alias: Triggered by the ceiling light
         sequence:
           - alias: Recompute the LED state
-            action: script.household_ceiling_fan_led_state
+            action: script.turn_on
+            target:
+              entity_id: script.household_ceiling_fan_led_state
             data:
-              fan_entity: fan.office_ceiling_fan
-              light_entity: light.office_ceiling_fan_light
-              led_bar_entity: light.office_ceiling_fan_switch_led_bar
-              light_just_turned_off: "{{ is_state('light.office_ceiling_fan_light', 'off') }}"
+              variables:
+                fan_entity: fan.office_ceiling_fan
+                light_entity: light.office_ceiling_fan_light
+                led_bar_entity: light.office_ceiling_fan_switch_led_bar
+                light_just_turned_off: "{{ is_state('light.office_ceiling_fan_light', 'off') }}"
+            note: >-
+              script.turn_on, not a direct call: matches the bedroom
+              automations, where a blocking call would stall this queued
+              automation behind the script's 30s sleep-settle wait.
           - alias: If the light is now off, hand its brightness back to Adaptive Lighting
             note: >-
               A single paddle tap turns the light off via the cluster-6

@@ -143,12 +143,20 @@ actions:
                     alias: Triple tap
                 sequence:
                   - alias: Recompute the LED state
-                    action: script.household_ceiling_fan_led_state
+                    action: script.turn_on
+                    target:
+                      entity_id: script.household_ceiling_fan_led_state
                     data:
-                      fan_entity: fan.averys_room_ceiling_fan
-                      led_bar_entity: light.averys_room_ceiling_fan_switch_led_bar
-                      sleeping_boolean: input_boolean.avery_sleeping
-                      light_entity: light.averys_room_ceiling_fan_light
+                      variables:
+                        fan_entity: fan.averys_room_ceiling_fan
+                        led_bar_entity: light.averys_room_ceiling_fan_switch_led_bar
+                        sleeping_boolean: input_boolean.avery_sleeping
+                        light_entity: light.averys_room_ceiling_fan_light
+                    note: >-
+                      script.turn_on, not a direct call: the script waits 30s
+                      to settle while the room is asleep, and a blocking call
+                      would stall this queued automation (config-button taps
+                      included) behind that wait.
       - alias: Down paddle double-tapped - turn the fan and light off
         conditions:
           - condition: trigger
@@ -265,12 +273,20 @@ actions:
                 data:
                   option: "{{ speed }}"
           - alias: Recompute the LED state
-            action: script.household_ceiling_fan_led_state
+            action: script.turn_on
+            target:
+              entity_id: script.household_ceiling_fan_led_state
             data:
-              fan_entity: fan.averys_room_ceiling_fan
-              led_bar_entity: light.averys_room_ceiling_fan_switch_led_bar
-              sleeping_boolean: input_boolean.avery_sleeping
-              light_entity: light.averys_room_ceiling_fan_light
+              variables:
+                fan_entity: fan.averys_room_ceiling_fan
+                led_bar_entity: light.averys_room_ceiling_fan_switch_led_bar
+                sleeping_boolean: input_boolean.avery_sleeping
+                light_entity: light.averys_room_ceiling_fan_light
+            note: >-
+              script.turn_on, not a direct call: the script waits 30s to
+              settle while the room is asleep, and a blocking call would stall
+              this queued automation (config-button taps included) behind that
+              wait.
       - alias: Ceiling light changed - recompute the LED bar, release AL if off, snap AL if on
         conditions:
           - condition: trigger
@@ -278,13 +294,21 @@ actions:
             alias: Triggered by the ceiling light
         sequence:
           - alias: Recompute the LED state
-            action: script.household_ceiling_fan_led_state
+            action: script.turn_on
+            target:
+              entity_id: script.household_ceiling_fan_led_state
             data:
-              fan_entity: fan.averys_room_ceiling_fan
-              light_entity: light.averys_room_ceiling_fan_light
-              led_bar_entity: light.averys_room_ceiling_fan_switch_led_bar
-              sleeping_boolean: input_boolean.avery_sleeping
-              light_just_turned_off: "{{ is_state('light.averys_room_ceiling_fan_light', 'off') }}"
+              variables:
+                fan_entity: fan.averys_room_ceiling_fan
+                light_entity: light.averys_room_ceiling_fan_light
+                led_bar_entity: light.averys_room_ceiling_fan_switch_led_bar
+                sleeping_boolean: input_boolean.avery_sleeping
+                light_just_turned_off: "{{ is_state('light.averys_room_ceiling_fan_light', 'off') }}"
+            note: >-
+              script.turn_on, not a direct call: the script waits 30s to
+              settle while the room is asleep, and a blocking call would stall
+              this queued automation (config-button taps included) behind that
+              wait.
           - alias: If the light is now off, hand its brightness back to Adaptive Lighting
             note: >-
               A single paddle tap turns the light off via the cluster-6

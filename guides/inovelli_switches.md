@@ -101,6 +101,16 @@ immediately, then waits 30s and sets the locator glow — `mode: restart` means 
 call (another fan change, the sleep flag itself, a wake) cancels that pending wait and starts
 over, so there's no separate cancellation logic to write.
 
+**How each caller invokes it matters because of that wait.** The wall-control automations
+start the script with `script.turn_on` (fire-and-forget). A direct `action:
+script.household_ceiling_fan_led_state` call waits for the script to finish, which while
+asleep includes the 30s settle, and the automation's `mode: queued` would hold every later
+event (config-button taps included) behind it. The locator automation deliberately keeps the
+direct, blocking call: it recomputes several rooms back to back, and because `mode: restart`
+is per script rather than per room, firing those calls without waiting would let the later
+rooms cancel the earlier ones. That cross-room restart is a known limitation, tracked in
+GitHub issue #11.
+
 A **household gating automation** (`automation.household_ceiling_fan_switch_led_locator`)
 reacts to presence and sleep-boolean changes and calls the shared script for each affected
 switch with that room's field values. Household-wide triggers (presence, HA start) recompute
