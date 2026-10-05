@@ -953,6 +953,16 @@ visible once the countdown chronometer is running, not silently replaced by it.
 
 ---
 
+## macOS Companion App Notifications
+
+### A successful `notify` call to a Mac doesn't mean the notification was shown
+
+`notify.send_message` to a macOS Companion App notify entity (e.g. `notify.nates_mac_mini`) completes without error and updates the entity's state timestamp as soon as HA hands the push to the relay. Whether the Mac displays it is decided entirely on the Mac. A Companion App that never got notification permission, or an active Focus mode, drops or hides it silently, and nothing in HA's trace or log shows the difference. Both Macs here received nothing until their notification settings were fixed.
+
+**Rule:** before relying on push to a Mac, check **System Settings → Notifications → Home Assistant** (allowed, style Banners or Alerts) and Focus on that Mac, then confirm with a test send that actually shows up. A notify entity in `unknown` state has never been sent to, so it's unproven.
+
+---
+
 ## Shell Command Integration
 
 ### Poll for state on command-line lights that can change out-of-band

@@ -49,7 +49,7 @@ cd ha-litra/agent
 ./install.sh
 ```
 
-`install.sh` builds the release binary, installs it to `~/.local/bin/litra-agent`, writes `~/Library/LaunchAgents/com.github.nateut99.litra-agent.plist` (`RunAtLoad`, `KeepAlive`), and bootstraps it into the user's GUI domain. The agent listens on `0.0.0.0:47810` and advertises `_litra-agent._tcp` over mDNS.
+`install.sh` builds the release binary, installs it to `~/.local/bin/litra-agent`, writes `~/Library/LaunchAgents/com.github.nateut99.litra-agent.plist` (`RunAtLoad`, `KeepAlive`), and bootstraps it into the user's GUI domain. The agent listens on `[::]:47810`, which on macOS accepts both IPv4 and IPv6, and advertises `_litra-agent._tcp` over mDNS. It runs only while the console user is logged in, so after a reboot it's offline until that user logs in.
 
 The Mac's application firewall is on, so `install.sh` also adds an allow rule with `sudo`. The firewall keys that rule on the binary's code signature, and each rebuild produces a new ad-hoc signature. After any rebuild, re-run `install.sh` rather than only `cargo build`.
 
@@ -169,7 +169,7 @@ The ranges come from the device at runtime (`min/max_brightness_lumen`, `min/max
 | Authentication | 256-bit random bearer token on every request, including the WebSocket upgrade; the agent stores only its SHA-256 hash and compares in constant time |
 | Command surface | Four endpoints (`info`, `devices`, `devices/{id}`, `events`). Typed JSON with unknown fields rejected, 1 KB body limit, values clamped to the device's range. Nothing reaches a shell |
 | On-disk secrets | `~/Library/Application Support/litra-agent/` is `0700`; certificate key, token hash, and agent ID are `0600` |
-| Network exposure | Listens on `0.0.0.0:47810`; reachable through the macOS application firewall by an explicit allow rule for the binary |
+| Network exposure | Listens on `[::]:47810` (IPv4 and IPv6); reachable through the macOS application firewall by an explicit allow rule for the binary |
 | Rotation | `litra-agent pair` issues a new token and revokes the old one at once; HA then starts its re-pair flow |
 | Worst case if the token leaks | Someone on the LAN can turn the key light on or off and change its brightness and temperature. No shell, file access, or other device control. The token is useless against an agent whose certificate HA doesn't pin |
 
