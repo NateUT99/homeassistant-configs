@@ -425,6 +425,10 @@ Hiding every view from HA's tab bar (`visible: false`, so Navbar Card is the onl
 
 Leave views visible and hide the header with Kiosk Mode instead (`kiosk_mode: {hide_header: true}` at the dashboard root, all widths). That removes the tabs along with the toolbar, and the bare URL opens the first view. Append `?disable_km` to the URL to get the toolbar back for editing.
 
+### Bubble `sub-buttons` cards anchor their rows to the bottom — size the card with `rows`
+
+A `card_type: sub-buttons` card keeps its `bottom` sub-button rows pinned to the card's bottom edge and does not grow to fit them. When the content is taller than the card, the extra spills out of the top; with the HA header hidden, the window edge clips it. When the card is taller than the content, the gap shows up above the chips. Set the card's `rows` explicitly. For two single-line chip rows on `home-main`, `rows: 1.2` fits on both iPhone and Mac; `1` clips the top and `1.4` leaves a visible gap. A row that wraps to a second line needs more height, so keep chip rows short enough not to wrap.
+
 ### Bubble Card Tools must be added as an integration, not just installed from HACS
 
 Installing Bubble Card Tools from HACS only drops the files into `custom_components/`. Until it is added under **Settings → Devices & Services**, there is no config entry and no module store: modules have nowhere to save. Once set up, modules are individual YAML files in `/config/bubble_card/modules/`.

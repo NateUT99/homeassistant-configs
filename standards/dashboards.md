@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.0.1 — October 2026*
+*Version 1.0.2 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.0.2 | October 2026 | Chip strip height `rows: 1.2` |
 | 1.0.1 | October 2026 | Views stay visible; Kiosk Mode alone hides the tabs |
 | 1.0 | October 2026 | Rewrite for the new house: one responsive dashboard; Bubble Card 3.4 Jinja templates replace CSS-in-JS; Navbar Card + Kiosk Mode replace footer nav and the view header; Mushroom removed; room-tile eligibility rule; shared logic in `custom_templates` macros and Bubble modules; dashboard mirror; AI-content conventions |
 | 0.1 | June 2026 | Initial release; Bubble Card primary commitment; inline toggle pattern |
@@ -120,7 +121,9 @@ Sections, in order:
 ## 7. Chip Strip
 
 A single Bubble `card_type: sub-buttons` card with `hide_main_background: true`, two
-`bottom` groups laid out as rows (`bottom_layout: rows`), each `justify_content: center`.
+`bottom` groups laid out as rows (`bottom_layout: rows`), each `justify_content: center`,
+and `rows: 1.2` — the height that fits two single-line chip rows. See `LESSONS.md` →
+*Bubble `sub-buttons` cards anchor their rows to the bottom*.
 
 | Row | Purpose | Contents |
 |---|---|---|
