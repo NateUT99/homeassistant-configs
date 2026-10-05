@@ -1796,229 +1796,273 @@ views:
     cards:
     - type: custom:navbar-card
       template: main
-    - type: heading
-      heading: Vacuum
-      icon: mdi:robot-vacuum
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      entity: sensor.living_room_vacuum_filter_clean_time_left
-      name: Filter clean
-      icon: mdi:air-filter
-      modules:
-      - consumable_status
-      grid_options:
-        columns: 6
-      tap_action:
-        action: more-info
-      hold_action:
-        action: perform-action
-        perform_action: script.household_vacuum_reset_consumable
-        data:
-          consumable: filter_clean
-      button_action:
-        tap_action:
-          action: more-info
-        hold_action:
-          action: perform-action
-          perform_action: script.household_vacuum_reset_consumable
-          data:
-            consumable: filter_clean
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      entity: sensor.living_room_vacuum_filter_time_left
-      name: Filter replace
-      icon: mdi:air-filter
-      modules:
-      - consumable_status
-      grid_options:
-        columns: 6
-      tap_action:
-        action: more-info
-      hold_action:
-        action: perform-action
-        perform_action: script.household_vacuum_reset_consumable
-        data:
-          consumable: air_filter
-      button_action:
-        tap_action:
-          action: more-info
-        hold_action:
-          action: perform-action
-          perform_action: script.household_vacuum_reset_consumable
-          data:
-            consumable: air_filter
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      entity: sensor.living_room_vacuum_main_brush_time_left
-      name: Main brush
-      icon: mdi:brush
-      modules:
-      - consumable_status
-      grid_options:
-        columns: 6
-      tap_action:
-        action: more-info
-      hold_action:
-        action: perform-action
-        perform_action: script.household_vacuum_reset_consumable
-        data:
-          consumable: main_brush
-      button_action:
-        tap_action:
-          action: more-info
-        hold_action:
-          action: perform-action
-          perform_action: script.household_vacuum_reset_consumable
-          data:
-            consumable: main_brush
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      entity: sensor.living_room_vacuum_side_brush_time_left
-      name: Side brush
-      icon: mdi:brush-variant
-      modules:
-      - consumable_status
-      grid_options:
-        columns: 6
-      tap_action:
-        action: more-info
-      hold_action:
-        action: perform-action
-        perform_action: script.household_vacuum_reset_consumable
-        data:
-          consumable: side_brush
-      button_action:
-        tap_action:
-          action: more-info
-        hold_action:
-          action: perform-action
-          perform_action: script.household_vacuum_reset_consumable
-          data:
-            consumable: side_brush
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      entity: sensor.living_room_vacuum_sensor_time_left
-      name: Sensors
-      icon: mdi:eye-outline
-      modules:
-      - consumable_status
-      grid_options:
-        columns: 6
-      tap_action:
-        action: more-info
-      hold_action:
-        action: perform-action
-        perform_action: script.household_vacuum_reset_consumable
-        data:
-          consumable: sensor
-      button_action:
-        tap_action:
-          action: more-info
-        hold_action:
-          action: perform-action
-          perform_action: script.household_vacuum_reset_consumable
-          data:
-            consumable: sensor
-  - type: grid
-    cards:
-    - type: heading
-      heading: Updates
-      icon: mdi:update
-    - type: markdown
-      content: '{% set u = states.update | selectattr(''state'',''eq'',''on'') | list %}{% if u %}{% for s in u %}- **{{ s.name }}** {{ s.attributes.installed_version }} → {{ s.attributes.latest_version
-        }}
-
-        {% endfor %}{% else %}All up to date.{% endif %}'
+    - type: custom:expander-card
+      title-card:
+        type: heading
+        heading: Vacuum
+        icon: mdi:robot-vacuum
+      title-card-clickable: true
+      icon: mdi:chevron-down
+      expanded: false
+      storage-id: home-main-maintenance-vacuum
+      clear: true
+      padding: '0'
+      child-margin-top: 0.6em
       grid_options:
         columns: 12
-    - type: custom:bubble-card
-      card_type: button
-      button_type: name
-      name: Open Updates
-      icon: mdi:open-in-app
-      grid_options:
-        columns: 12
-      tap_action:
-        action: navigate
-        navigation_path: /config/updates
-      button_action:
-        tap_action:
-          action: navigate
-          navigation_path: /config/updates
+      cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          entity: sensor.living_room_vacuum_filter_clean_time_left
+          name: Filter clean
+          icon: mdi:air-filter
+          modules:
+          - consumable_status
+          tap_action:
+            action: more-info
+          hold_action:
+            action: perform-action
+            perform_action: script.household_vacuum_reset_consumable
+            data:
+              consumable: filter_clean
+          button_action:
+            tap_action:
+              action: more-info
+            hold_action:
+              action: perform-action
+              perform_action: script.household_vacuum_reset_consumable
+              data:
+                consumable: filter_clean
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          entity: sensor.living_room_vacuum_filter_time_left
+          name: Filter replace
+          icon: mdi:air-filter
+          modules:
+          - consumable_status
+          tap_action:
+            action: more-info
+          hold_action:
+            action: perform-action
+            perform_action: script.household_vacuum_reset_consumable
+            data:
+              consumable: air_filter
+          button_action:
+            tap_action:
+              action: more-info
+            hold_action:
+              action: perform-action
+              perform_action: script.household_vacuum_reset_consumable
+              data:
+                consumable: air_filter
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          entity: sensor.living_room_vacuum_main_brush_time_left
+          name: Main brush
+          icon: mdi:brush
+          modules:
+          - consumable_status
+          tap_action:
+            action: more-info
+          hold_action:
+            action: perform-action
+            perform_action: script.household_vacuum_reset_consumable
+            data:
+              consumable: main_brush
+          button_action:
+            tap_action:
+              action: more-info
+            hold_action:
+              action: perform-action
+              perform_action: script.household_vacuum_reset_consumable
+              data:
+                consumable: main_brush
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          entity: sensor.living_room_vacuum_side_brush_time_left
+          name: Side brush
+          icon: mdi:brush-variant
+          modules:
+          - consumable_status
+          tap_action:
+            action: more-info
+          hold_action:
+            action: perform-action
+            perform_action: script.household_vacuum_reset_consumable
+            data:
+              consumable: side_brush
+          button_action:
+            tap_action:
+              action: more-info
+            hold_action:
+              action: perform-action
+              perform_action: script.household_vacuum_reset_consumable
+              data:
+                consumable: side_brush
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          entity: sensor.living_room_vacuum_sensor_time_left
+          name: Sensors
+          icon: mdi:eye-outline
+          modules:
+          - consumable_status
+          tap_action:
+            action: more-info
+          hold_action:
+            action: perform-action
+            perform_action: script.household_vacuum_reset_consumable
+            data:
+              consumable: sensor
+          button_action:
+            tap_action:
+              action: more-info
+            hold_action:
+              action: perform-action
+              perform_action: script.household_vacuum_reset_consumable
+              data:
+                consumable: sensor
   - type: grid
     cards:
-    - type: heading
-      heading: Network
-      icon: mdi:router-network
-    - type: tile
-      entity: binary_sensor.utility_room_firewalla_gold_se_wan_buckeye_broadband_status
-      grid_options:
-        columns: 6
-      name: Internet
-    - type: tile
-      entity: binary_sensor.utility_room_firewalla_gold_se_system_status
-      grid_options:
-        columns: 6
-      name: Firewalla
-    - type: tile
-      entity: sensor.utility_room_firewalla_gold_se_buckeye_broadband_speed_test_download
-      grid_options:
-        columns: 6
-      name: Download
-    - type: tile
-      entity: sensor.utility_room_firewalla_gold_se_buckeye_broadband_speed_test_upload
-      grid_options:
-        columns: 6
-      name: Upload
-    - type: tile
-      entity: sensor.utility_room_firewalla_gold_se_buckeye_broadband_ping_latency
-      grid_options:
-        columns: 6
-      name: Latency
-    - type: tile
-      entity: sensor.utility_room_firewalla_gold_se_buckeye_broadband_ping_packet_loss
-      grid_options:
-        columns: 6
-      name: Packet loss
-    - type: tile
-      entity: sensor.utility_room_firewalla_gold_se_active_alarms
-      grid_options:
-        columns: 6
-      name: Alarms
-    - type: tile
-      entity: counter.utility_room_cable_modem_power_cycles
-      grid_options:
-        columns: 6
-      name: Modem resets
-    - type: tile
-      entity: input_boolean.utility_room_cable_modem_maintenance
-      grid_options:
-        columns: 6
-      name: Modem maintenance
-    - type: tile
-      entity: binary_sensor.office_litra_agent_connectivity
-      grid_options:
-        columns: 6
-      name: Litra agent
-  - type: grid
-    cards:
-    - type: heading
-      heading: Batteries
-      icon: mdi:battery
-    - type: markdown
-      content: '{% set phones = integration_entities(''mobile_app'') %}{% set ns = namespace(rows=[]) %}{% for s in states.sensor | selectattr(''attributes.device_class'',''defined'') | selectattr(''attributes.device_class'',''eq'',''battery'')
-        | rejectattr(''state'',''in'',[''unknown'',''unavailable'']) | rejectattr(''entity_id'',''in'',phones) %}{% set a = area_name(s.entity_id) or '''' %}{% set n = s.name | replace('' Battery'','''')
-        %}{% set ns.rows = ns.rows + [(s.state | float(0), n if n.startswith(a) else (a ~ '' '' ~ n) | trim)] %}{% endfor %}| Device | Level |
-
-        |---|---|
-
-        {% for lvl, name in ns.rows | sort %}| {{ name }} | {{ ''🔴 '' if lvl < 20 else (''🟠 '' if lvl < 40 else '''') }}{{ lvl | int }}% |
-
-        {% endfor %}'
+    - type: custom:expander-card
+      title-card:
+        type: heading
+        heading: Updates
+        icon: mdi:update
+      title-card-clickable: true
+      icon: mdi:chevron-down
+      expanded: false
+      storage-id: home-main-maintenance-updates
+      clear: true
+      padding: '0'
+      child-margin-top: 0.6em
       grid_options:
         columns: 12
+      cards:
+      - type: grid
+        columns: 1
+        square: false
+        cards:
+        - type: markdown
+          content: '{% set u = states.update | selectattr(''state'',''eq'',''on'') | list %}{% if u %}{% for s in u %}- **{{ s.name }}** {{ s.attributes.installed_version }} → {{ s.attributes.latest_version
+            }}
+
+            {% endfor %}{% else %}All up to date.{% endif %}'
+        - type: custom:bubble-card
+          card_type: button
+          button_type: name
+          name: Open Updates
+          icon: mdi:open-in-app
+          tap_action:
+            action: navigate
+            navigation_path: /config/updates
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: /config/updates
+  - type: grid
+    cards:
+    - type: custom:expander-card
+      title-card:
+        type: heading
+        heading: Network
+        icon: mdi:router-network
+      title-card-clickable: true
+      icon: mdi:chevron-down
+      expanded: false
+      storage-id: home-main-maintenance-network
+      clear: true
+      padding: '0'
+      child-margin-top: 0.6em
+      grid_options:
+        columns: 12
+      cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: tile
+          entity: binary_sensor.utility_room_firewalla_gold_se_wan_buckeye_broadband_status
+          name: Internet
+        - type: tile
+          entity: binary_sensor.utility_room_firewalla_gold_se_system_status
+          name: Firewalla
+        - type: tile
+          entity: sensor.utility_room_firewalla_gold_se_buckeye_broadband_speed_test_download
+          name: Download
+        - type: tile
+          entity: sensor.utility_room_firewalla_gold_se_buckeye_broadband_speed_test_upload
+          name: Upload
+        - type: tile
+          entity: sensor.utility_room_firewalla_gold_se_buckeye_broadband_ping_latency
+          name: Latency
+        - type: tile
+          entity: sensor.utility_room_firewalla_gold_se_buckeye_broadband_ping_packet_loss
+          name: Packet loss
+        - type: tile
+          entity: sensor.utility_room_firewalla_gold_se_active_alarms
+          name: Alarms
+        - type: tile
+          entity: counter.utility_room_cable_modem_power_cycles
+          name: Modem resets
+        - type: tile
+          entity: input_boolean.utility_room_cable_modem_maintenance
+          name: Modem maintenance
+        - type: tile
+          entity: binary_sensor.office_litra_agent_connectivity
+          name: Litra agent
+  - type: grid
+    cards:
+    - type: custom:expander-card
+      title-card:
+        type: heading
+        heading: Batteries
+        icon: mdi:battery
+      title-card-clickable: true
+      icon: mdi:chevron-down
+      expanded: true
+      storage-id: home-main-maintenance-batteries
+      clear: true
+      padding: '0'
+      child-margin-top: 0.6em
+      grid_options:
+        columns: 12
+      cards:
+      - type: grid
+        columns: 1
+        square: false
+        cards:
+        - type: custom:battery-state-card
+          sort: state
+          filter:
+            include:
+            - name: attributes.device_class
+              value: battery
+            exclude:
+            - name: entity_id
+              value: sensor.nates_*
+          bulk_rename:
+          - from: ' Battery'
+            to: ''
+          colors:
+            steps:
+            - value: 20
+              color: var(--red-color)
+            - value: 30
+              color: var(--orange-color)
+            - value: 100
+              color: var(--green-color)
+          collapse:
+          - name: '{count} others OK'
+            secondary_info: Lowest {min}%
+            icon: mdi:battery-check
+            icon_color: var(--green-color)
+            min: 30

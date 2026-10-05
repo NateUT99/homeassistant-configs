@@ -55,7 +55,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 ## Prerequisites
 
 - Home Assistant 2026.9 or later
-- HACS frontend: Bubble Card ≥ 3.4, Navbar Card, Kiosk Mode; theme: Frosted Glass
+- HACS frontend: Bubble Card ≥ 3.4, Navbar Card, Kiosk Mode, Battery State Card, Expander Card; theme: Frosted Glass
 - HACS integration: Bubble Card Tools, added under **Settings → Devices & Services**
 - Chore Calendar integration (provides `todo.household_chores`, the chore sensors, and
   `chore-calendar-card`) — see `guides/reminders.md`
@@ -192,7 +192,7 @@ Navbar order: Home · Climate · Energy · Chores · Maintenance.
 | Climate | `climate` | Thermostat and fireplace (Bubble climate), HVAC-paused line (only while paused), HVAC runtime and cycles today; per-room temperature tiles with a 24 h trend; one 24 h humidity history graph |
 | Energy | `energy` | Built-in energy cards: date selection, compare, Sankey, per-device detail graph; cost table; generator status, warning, maintenance, last ran, run time, battery, connection, status message |
 | Chores | `chores` | `chore-calendar-card` on `calendar.household_chores` |
-| Maintenance | `maintenance` | Vacuum consumables (same cards as `#vacuum`); pending updates; network (WAN, Firewalla, speed test, latency, loss, alarms, modem resets, modem maintenance, Litra agent); battery table |
+| Maintenance | `maintenance` | Collapsible sections (Expander Card; Batteries open by default, the rest collapsed): vacuum consumables (same cards as `#vacuum`); pending updates; network (WAN, Firewalla, speed test, latency, loss, alarms, modem resets, modem maintenance, Litra agent); batteries |
 
 **Energy** reads the Energy settings: grid import from `sensor.household_energy_monitor_total_energy_delivered`
 with `sensor.household_energy_monitor_power_demand` as the grid power sensor, and the six
@@ -205,10 +205,10 @@ here; they fail outside the built-in Energy dashboard, which keeps its own Now t
 problems surface there rather than as a Home chip. The Maintenance route is hidden for
 non-admin users (`hidden: [[[ return !user.is_admin ]]]`).
 
-**Battery table** is a markdown card listing every battery sensor except Companion App
-devices, lowest first, with 🟠 under 40 % and 🔴 under 20 %. Each name is prefixed with its
-area unless it already starts with it, since device names omit the room. New devices appear
-automatically.
+**Batteries** use Battery State Card (HACS): every `device_class: battery` sensor except the
+Companion App devices (`sensor.nates_*`), lowest first. Batteries under 30 % are listed
+individually (orange under 30 %, red under 20 %); the rest collapse into one "N others OK"
+row showing the lowest level. New devices appear automatically.
 
 ---
 

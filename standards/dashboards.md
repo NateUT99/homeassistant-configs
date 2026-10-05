@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.0.4 — October 2026*
+*Version 1.1.0 — October 2026*
 
 ---
 
@@ -8,6 +8,8 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.1.0 | October 2026 | Expander Card approved; collapsible-section pattern for secondary views |
+| 1.0.5 | October 2026 | Battery State Card approved |
 | 1.0.4 | October 2026 | Alerts use icon colour only — no chip background tint |
 | 1.0.3 | October 2026 | Room tiles full width on phone, 4-up on desktop |
 | 1.0.2 | October 2026 | Chip strip height `rows: 1.2` |
@@ -63,6 +65,8 @@ and an update to this table.
 | Frosted Glass | HACS theme | Base theme, applied per view |
 | UIX | HACS integration | CSS escape hatch for cases Bubble styles can't reach (e.g. vacuum map crop) |
 | chore-calendar-card | Bundled with Chore Calendar | Chores view |
+| Battery State Card | HACS frontend | Battery list on the Maintenance view (auto-discovered, threshold-filtered) |
+| Expander Card | HACS frontend | Collapsible sections on long secondary views |
 
 > Mushroom is not approved. The view-level `badges` row is not used, which removes the only
 > case Mushroom ever covered.
@@ -102,6 +106,11 @@ the view's first section. Desktop `position: left`; labels shown on both form fa
   The default is the same content everywhere.
 - Pop-ups use `popup_mode: adaptive-dialog`: fit-content sheet on a phone, centred dialog
   on desktop.
+- **Collapsible sections** on long secondary views: each section's cards go in one
+  `custom:expander-card` whose `title-card` is the section's `heading` card (icon and name on
+  one line, `title-card-clickable: true`), with a `grid` card inside to keep the 2-across
+  layout. Set `storage-id` (`home-main-<view>-<section>`) so open/closed state persists per
+  device. The Home view does not collapse.
 
 ---
 
