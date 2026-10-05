@@ -1,0 +1,74 @@
+id: "1791211624555"
+alias: "Living Room: Fireplace Auto Off"
+description: >-
+  Turns the gas fireplace off when everyone leaves or goes to sleep, or after
+  4 hours in heat mode or with the relay held closed, so it is never left
+  running unattended. Sends a push when it acts.
+triggers:
+  - trigger: state
+    entity_id: climate.living_room_fireplace
+    to: heat
+    for: "04:00:00"
+    id: runtime_limit
+    alias: Fireplace in heat mode for 4 hours
+  - trigger: state
+    entity_id: switch.living_room_fireplace
+    to: "on"
+    for: "04:00:00"
+    id: runtime_limit
+    alias: Fireplace relay closed for 4 hours
+    note: >-
+      Backstop for the relay being on outside the thermostat's control. In
+      normal use the thermostat cycles the relay, so the heat-mode trigger
+      fires first.
+  - trigger: state
+    entity_id: zone.home
+    to: "0"
+    id: everyone_left
+    alias: Everyone left home
+  - trigger: state
+    entity_id: input_boolean.everyone_sleeping
+    to: "on"
+    id: everyone_asleep
+    alias: Everyone went to sleep
+conditions:
+  - alias: Fireplace is on
+    note: >-
+      Keeps a departure or bedtime with the fireplace already off from
+      sending a push.
+    condition: or
+    conditions:
+      - condition: state
+        entity_id: climate.living_room_fireplace
+        state: heat
+        alias: Thermostat in heat mode
+      - condition: state
+        entity_id: switch.living_room_fireplace
+        state: "on"
+        alias: Relay closed
+actions:
+  - alias: Set the fireplace thermostat to off
+    action: climate.set_hvac_mode
+    target:
+      entity_id: climate.living_room_fireplace
+    data:
+      hvac_mode: "off"
+  - alias: Open the fireplace relay
+    note: >-
+      Turning the thermostat off should already open the relay; this makes
+      sure, and covers the case where the relay was closed directly.
+    action: switch.turn_off
+    target:
+      entity_id: switch.living_room_fireplace
+  - alias: Push that the fireplace was shut off
+    action: notify.mobile_app_nates_iphone
+    data:
+      title: "🔥 Fireplace Turned Off"
+      message: >-
+        {{ {'everyone_left': 'Everyone left, so the fireplace has been turned off.',
+            'everyone_asleep': 'Everyone is asleep, so the fireplace has been turned off.'}
+           .get(trigger.id, 'The fireplace hit its 4-hour limit and has been turned off.') }}
+      data:
+        tag: living_room_fireplace_auto_off
+mode: single
+category: 01M0BFFGNX30MJNVWS58ZKEH3H
