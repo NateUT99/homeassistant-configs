@@ -3,7 +3,7 @@
 
 ## Overview
 
-A Logitech Litra Glow key light, USB-attached to the Mac Mini, appears in Home Assistant as a native light with on/off, brightness, and color temperature. A small Rust service, `litra-agent`, runs as a LaunchAgent in the console user's session on the Mac. It talks to the light over USB HID and serves an authenticated HTTPS + WebSocket API. A custom integration, `litra`, discovers the agent over zeroconf, pins its certificate at pairing, and receives state changes over a push stream. Both components live in the private repo [`NateUT99/ha-litra`](https://github.com/NateUT99/ha-litra), which is the source of truth for their code. This guide covers the deployment in this house.
+A Logitech Litra Glow key light, USB-attached to the Mac Mini, appears in Home Assistant as a native light with on/off, brightness, and color temperature. A small Rust service, `litra-agent`, runs as a LaunchAgent in the console user's session on the Mac. It talks to the light over USB HID and serves an authenticated HTTPS + WebSocket API. A custom integration, `litra`, discovers the agent over zeroconf, pins its certificate at pairing, and receives state changes over a push stream. Both components live in the public repo [`NateUT99/ha-litra`](https://github.com/NateUT99/ha-litra), which is the source of truth for their code. This guide covers the deployment in this house.
 
 ---
 
@@ -76,14 +76,9 @@ This prints a new 256-bit token and the certificate's SHA-256 fingerprint. The a
 
 ## Step 3: Install the Integration in Home Assistant
 
-The repo is private, so HACS can't install it. Copy the integration onto the HA host and restart HA:
+The integration is installed through HACS as a custom repository (`NateUT99/ha-litra`, type Integration). It isn't in the HACS default store. Download it in HACS, then restart HA.
 
-```bash
-cd ha-litra
-scp -r custom_components/litra ha:/config/custom_components/
-```
-
-Python code changes take effect only after a full HA restart, not an integration reload.
+To ship a change: merge to `main`, update `version` in `manifest.json`, and publish a GitHub release with a matching tag (`vX.Y.Z`). HACS offers it as an update; installing it requires a full HA restart, because Python changes don't load on an integration reload.
 
 After the restart, **Settings → Devices & services** lists *Litra Agent on nates-mac-mini* under Discovered. If it doesn't appear, add **Logitech Litra** manually with `<mac-mini-hostname>` and port `47810`. Confirm that the fingerprint HA shows matches the `pair` output exactly, then enter the token.
 
@@ -201,7 +196,7 @@ The ranges come from the device at runtime (`min/max_brightness_lumen`, `min/max
 | LaunchAgent | `~/Library/LaunchAgents/com.github.nateut99.litra-agent.plist` on the Mac Mini | Keeps the agent running in the console user's session |
 | Agent state | `~/Library/Application Support/litra-agent/` on the Mac Mini | Certificate, key, agent ID, token hash |
 | Agent log | `~/Library/Logs/litra-agent.log` on the Mac Mini | launchd-captured stderr |
-| Integration source | `NateUT99/ha-litra` → `custom_components/litra/`; deployed to `/config/custom_components/litra/` on HA | HA integration |
+| Integration source | `NateUT99/ha-litra` → `custom_components/litra/`; installed by HACS to `/config/custom_components/litra/` on HA | HA integration |
 | Camera lighting automation | `ha/automations/automation.office_camera_lighting.yaml` | Mirror — HA authoritative |
 | Agent offline alert automation | `ha/automations/automation.office_litra_agent_offline_alert.yaml` | Mirror — HA authoritative |
 
