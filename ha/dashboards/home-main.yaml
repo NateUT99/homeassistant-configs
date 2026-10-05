@@ -1677,10 +1677,10 @@ views:
           }} h</td></tr>
 
           {% set day = states(''sensor.household_vacuum_day_runs_this_week'') | int(0) > 0 %}{% set night = states(''sensor.household_vacuum_night_runs_this_week'') | int(0) > 0 %}{% set mop = is_state(''input_boolean.vacuum_mop_common_areas_done_this_week'',''on'')
-          %}{% set master = is_state(''input_boolean.vacuum_mop_master_suite_done_this_week'',''on'') %}<tr><td><ha-icon icon="mdi:robot-vacuum"></ha-icon>Vacuuming</td><td>{{ mark(day and night) }}{{ ''Day
-          & night'' if day and night else ''Not yet'' }}</td></tr>
+          %}{% set master = is_state(''input_boolean.vacuum_mop_master_suite_done_this_week'',''on'') %}<tr><td><ha-icon icon="mdi:robot-vacuum"></ha-icon>Vacuuming</td><td>{{ mark(day and night) }}{{ ''Done''
+          if day and night else ''Not yet'' }}</td></tr>
 
-          <tr><td><ha-icon icon="mdi:water"></ha-icon>Mopping</td><td>{{ mark(mop and master) }}{{ ''Common + master'' if mop and master else ''Not yet'' }}</td></tr>
+          <tr><td><ha-icon icon="mdi:water"></ha-icon>Mopping</td><td>{{ mark(mop and master) }}{{ ''Done'' if mop and master else ''Not yet'' }}</td></tr>
 
           {% set ch = expand(integration_entities(''chore_calendar'') | select(''match'',''sensor\\.'') | list) %}{% set late_now = ch | selectattr(''state'',''eq'',''overdue'') | list | count %}{% set
           soon = ch | rejectattr(''state'',''eq'',''overdue'') | selectattr(''attributes.next_due'',''defined'') | rejectattr(''attributes.next_due'',''none'') | map(attribute=''attributes.next_due'') |

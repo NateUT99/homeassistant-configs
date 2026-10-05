@@ -189,10 +189,10 @@ cards have a fixed height. Each shows *Working on it…* while its script entity
 - **This Week:** the digest headline in italics, then a borderless table. Electricity (kWh,
   cost, change vs. the week before) and Climate (heating/cooling hours) come from the Sunday
   digest. The other rows render live, so they are current between digests:
-  - Vacuuming: a check when both the day and night counters
+  - Vacuuming: "Done" with a check when both the day and night counters
     (`sensor.household_vacuum_day_runs_this_week`, `_night_`) are above zero; otherwise
     "Not yet".
-  - Mopping: a check when both this-week mop flags are on; otherwise "Not yet".
+  - Mopping: "Done" with a check when both this-week mop flags are on; otherwise "Not yet".
   - Chores: the overdue count and the count due in the next 7 days.
 
 The UIX style on these cards removes table borders and keeps the first column on one line.
