@@ -184,12 +184,31 @@ is `alerting` or `fault`). Retrieval or the next cycle returns the status to `id
 
 ### 6. Views
 
+Navbar order: Home · Climate · Energy · Chores · Maintenance.
+
 | View | Path | Contents |
 |---|---|---|
 | Home | `home` | Steps 3–5 |
+| Climate | `climate` | Thermostat and fireplace (Bubble climate), HVAC-paused line (only while paused), HVAC runtime and cycles today; per-room temperature tiles with a 24 h trend; one 24 h humidity history graph |
+| Energy | `energy` | Built-in energy cards: date selection, compare, Sankey, per-device detail graph; cost table; generator status, warning, maintenance, last ran, run time, battery, connection, status message |
 | Chores | `chores` | `chore-calendar-card` on `calendar.household_chores` |
+| Maintenance | `maintenance` | Vacuum consumables (same cards as `#vacuum`); pending updates; network (WAN, Firewalla, speed test, latency, loss, alarms, modem resets, modem maintenance, Litra agent); battery table |
 
-Planned: Climate, Energy, Maintenance (admin-only route).
+**Energy** reads the Energy settings: grid import from `sensor.household_energy_monitor_total_energy_delivered`
+with `sensor.household_energy_monitor_power_demand` as the grid power sensor, and the six
+tracked devices. Small smart plugs are deliberately not tracked devices — they read as
+"untracked" in the Sankey. The live power cards (`power-total`, `power-sankey`) are not used
+here; they fail outside the built-in Energy dashboard, which keeps its own Now tab.
+
+**Navbar badges and visibility:** the Energy route shows a red badge while
+`binary_sensor.outside_home_generator_warning` or `_maintenance_alert` is on — generator
+problems surface there rather than as a Home chip. The Maintenance route is hidden for
+non-admin users (`hidden: [[[ return !user.is_admin ]]]`).
+
+**Battery table** is a markdown card listing every battery sensor except Companion App
+devices, lowest first, with 🟠 under 40 % and 🔴 under 20 %. Each name is prefixed with its
+area unless it already starts with it, since device names omit the room. New devices appear
+automatically.
 
 ---
 

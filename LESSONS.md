@@ -429,6 +429,10 @@ Leave views visible and hide the header with Kiosk Mode instead (`kiosk_mode: {h
 
 A `card_type: sub-buttons` card keeps its `bottom` sub-button rows pinned to the card's bottom edge and does not grow to fit them. When the content is taller than the card, the extra spills out of the top; with the HA header hidden, the window edge clips it. When the card is taller than the content, the gap shows up above the chips. Set the card's `rows` explicitly. For two single-line chip rows on `home-main`, `rows: 1.2` fits on both iPhone and Mac; `1` clips the top and `1.4` leaves a visible gap. A row that wraps to a second line needs more height, so keep chip rows short enough not to wrap.
 
+### The energy "Now" cards show a configuration error outside the built-in Energy dashboard
+
+`power-total` and `power-sankey`, the cards behind the built-in Energy dashboard's Now tab, rendered as a configuration error when placed in a custom sections view (`home-main`, October 2026), even with the grid source's power sensor set in the Energy settings. The period-based energy cards (`energy-date-selection`, `energy-compare`, `energy-sankey`, `energy-devices-detail-graph`, `energy-sources-table`) work fine in the same view. Leave live power to the built-in dashboard's Now tab.
+
 ### Bubble Card Tools must be added as an integration, not just installed from HACS
 
 Installing Bubble Card Tools from HACS only drops the files into `custom_components/`. Until it is added under **Settings → Devices & Services**, there is no config entry and no module store: modules have nowhere to save. Once set up, modules are individual YAML files in `/config/bubble_card/modules/`.
