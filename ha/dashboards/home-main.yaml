@@ -1555,144 +1555,160 @@ views:
     cards:
     - type: custom:navbar-card
       template: main
-    - type: heading
-      heading: Thermostat
-      icon: mdi:thermostat
-    - type: custom:bubble-card
-      card_type: climate
-      entity: climate.living_room_thermostat
-    - type: custom:bubble-card
-      card_type: climate
-      entity: climate.living_room_fireplace
-    - type: tile
-      entity: input_select.household_hvac_mode_before_pause
+    - type: custom:expander-card
+      title-card:
+        type: heading
+        heading: Thermostat
+        icon: mdi:thermostat
+      title-card-clickable: true
+      icon: mdi:chevron-down
+      expanded: true
+      storage-id: home-main-climate-thermostat
+      clear: true
+      padding: '0'
+      child-margin-top: 0.6em
       grid_options:
         columns: 12
-      name: Paused (doors/windows open)
-      visibility:
-      - condition: state
+      cards:
+      - type: custom:bubble-card
+        card_type: climate
+        entity: climate.living_room_thermostat
+      - type: custom:bubble-card
+        card_type: climate
+        entity: climate.living_room_fireplace
+      - type: tile
         entity: input_select.household_hvac_mode_before_pause
-        state_not: none
-    - type: heading
-      heading: HVAC Today
-      icon: mdi:hvac
-      heading_style: subtitle
-    - type: tile
-      entity: sensor.household_hvac_heating_runtime_today
-      grid_options:
-        columns: 6
-      name: Heating
-    - type: tile
-      entity: sensor.household_hvac_cooling_runtime_today
-      grid_options:
-        columns: 6
-      name: Cooling
-    - type: tile
-      entity: sensor.household_hvac_heating_cycles_today
-      grid_options:
-        columns: 6
-      name: Heat cycles
-    - type: tile
-      entity: sensor.household_hvac_cooling_cycles_today
-      grid_options:
-        columns: 6
-      name: Cool cycles
+        name: Paused (doors/windows open)
+        visibility:
+        - condition: state
+          entity: input_select.household_hvac_mode_before_pause
+          state_not: none
+      - type: heading
+        heading: HVAC Today
+        icon: mdi:hvac
+        heading_style: subtitle
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: tile
+          entity: sensor.household_hvac_heating_runtime_today
+          name: Heating
+        - type: tile
+          entity: sensor.household_hvac_cooling_runtime_today
+          name: Cooling
+        - type: tile
+          entity: sensor.household_hvac_heating_cycles_today
+          name: Heat cycles
+        - type: tile
+          entity: sensor.household_hvac_cooling_cycles_today
+          name: Cool cycles
   - type: grid
     column_span: 2
     cards:
-    - type: heading
-      heading: Rooms
-      icon: mdi:home-thermometer
-    - type: tile
-      entity: sensor.living_room_thermostat_temperature
-      grid_options:
-        columns: 6
-      name: Living Room
-      features:
-      - type: trend-graph
-        hours_to_show: 24
-    - type: tile
-      entity: sensor.kitchen_climate_temperature
-      grid_options:
-        columns: 6
-      name: Kitchen
-      features:
-      - type: trend-graph
-        hours_to_show: 24
-    - type: tile
-      entity: sensor.family_room_climate_temperature
-      grid_options:
-        columns: 6
-      name: Family Room
-      features:
-      - type: trend-graph
-        hours_to_show: 24
-    - type: tile
-      entity: sensor.office_climate_temperature
-      grid_options:
-        columns: 6
-      name: Office
-      features:
-      - type: trend-graph
-        hours_to_show: 24
-    - type: tile
-      entity: sensor.master_bedroom_climate_temperature
-      grid_options:
-        columns: 6
-      name: Master Bedroom
-      features:
-      - type: trend-graph
-        hours_to_show: 24
-    - type: tile
-      entity: sensor.averys_room_climate_temperature
-      grid_options:
-        columns: 6
-      name: Avery's Room
-      features:
-      - type: trend-graph
-        hours_to_show: 24
-    - type: tile
-      entity: sensor.utility_room_climate_temperature
-      grid_options:
-        columns: 6
-      name: Utility Room
-      features:
-      - type: trend-graph
-        hours_to_show: 24
-    - type: tile
-      entity: sensor.outside_temperature
-      grid_options:
-        columns: 6
-      name: Outside
-      features:
-      - type: trend-graph
-        hours_to_show: 24
-  - type: grid
-    cards:
-    - type: heading
-      heading: Humidity
-      icon: mdi:water-percent
-    - type: history-graph
-      hours_to_show: 24
+    - type: custom:expander-card
+      title-card:
+        type: heading
+        heading: Rooms
+        icon: mdi:home-thermometer
+      title-card-clickable: true
+      icon: mdi:chevron-down
+      expanded: true
+      storage-id: home-main-climate-rooms
+      clear: true
+      padding: '0'
+      child-margin-top: 0.6em
       grid_options:
         columns: 12
-      entities:
-      - entity: sensor.living_room_thermostat_humidity
-        name: Living Room
-      - entity: sensor.kitchen_climate_humidity
-        name: Kitchen
-      - entity: sensor.family_room_climate_humidity
-        name: Family Room
-      - entity: sensor.office_climate_humidity
-        name: Office
-      - entity: sensor.master_bedroom_climate_humidity
-        name: Master Bedroom
-      - entity: sensor.averys_room_climate_humidity
-        name: Avery's Room
-      - entity: sensor.utility_room_climate_humidity
-        name: Utility Room
-      - entity: sensor.outside_humidity
-        name: Outside
+      cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: tile
+          entity: sensor.living_room_thermostat_temperature
+          name: Living Room
+          features:
+          - type: trend-graph
+            hours_to_show: 24
+        - type: tile
+          entity: sensor.kitchen_climate_temperature
+          name: Kitchen
+          features:
+          - type: trend-graph
+            hours_to_show: 24
+        - type: tile
+          entity: sensor.family_room_climate_temperature
+          name: Family Room
+          features:
+          - type: trend-graph
+            hours_to_show: 24
+        - type: tile
+          entity: sensor.office_climate_temperature
+          name: Office
+          features:
+          - type: trend-graph
+            hours_to_show: 24
+        - type: tile
+          entity: sensor.master_bedroom_climate_temperature
+          name: Master Bedroom
+          features:
+          - type: trend-graph
+            hours_to_show: 24
+        - type: tile
+          entity: sensor.averys_room_climate_temperature
+          name: Avery's Room
+          features:
+          - type: trend-graph
+            hours_to_show: 24
+        - type: tile
+          entity: sensor.utility_room_climate_temperature
+          name: Utility Room
+          features:
+          - type: trend-graph
+            hours_to_show: 24
+        - type: tile
+          entity: sensor.outside_temperature
+          name: Outside
+          features:
+          - type: trend-graph
+            hours_to_show: 24
+  - type: grid
+    cards:
+    - type: custom:expander-card
+      title-card:
+        type: heading
+        heading: Humidity
+        icon: mdi:water-percent
+      title-card-clickable: true
+      icon: mdi:chevron-down
+      expanded: false
+      storage-id: home-main-climate-humidity
+      clear: true
+      padding: '0'
+      child-margin-top: 0.6em
+      grid_options:
+        columns: 12
+      cards:
+      - type: history-graph
+        hours_to_show: 24
+        entities:
+        - entity: sensor.living_room_thermostat_humidity
+          name: Living Room
+        - entity: sensor.kitchen_climate_humidity
+          name: Kitchen
+        - entity: sensor.family_room_climate_humidity
+          name: Family Room
+        - entity: sensor.office_climate_humidity
+          name: Office
+        - entity: sensor.master_bedroom_climate_humidity
+          name: Master Bedroom
+        - entity: sensor.averys_room_climate_humidity
+          name: Avery's Room
+        - entity: sensor.utility_room_climate_humidity
+          name: Utility Room
+        - entity: sensor.outside_humidity
+          name: Outside
 - title: Energy
   path: energy
   type: sections
