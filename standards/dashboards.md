@@ -1,395 +1,282 @@
 # Dashboard Design Standard
 
-**Version 0.1** — June 2026
+*Version 1.0 — October 2026*
+
+---
+
+## Changelog
 
 | Version | Date | Changes |
 |---|---|---|
-| 0.1 | June 2026 | Initial release; Bubble Card primary commitment; inline toggle pattern confirmed as active for thermostat/vacuum/reminders |
+| 1.0 | October 2026 | Rewrite for the new house: one responsive dashboard; Bubble Card 3.4 Jinja templates replace CSS-in-JS; Navbar Card + Kiosk Mode replace footer nav and the view header; Mushroom removed; room-tile eligibility rule; shared logic in `custom_templates` macros and Bubble modules; dashboard mirror; AI-content conventions |
+| 0.1 | June 2026 | Initial release; Bubble Card primary commitment; inline toggle pattern |
 
 ---
 
-## Purpose & Scope
+## 1. Purpose & Scope
 
-This standard governs the design and construction of all Home Assistant storage-mode dashboards in this instance. It covers visual layer choices, card conventions, room tile design, pop-up patterns, chip strip conventions, and HACS dependency policy.
+Governs every storage-mode Lovelace dashboard on this instance: dependencies, structure,
+layout, the card vocabulary, templating, colour, and how dashboards are mirrored in the repo.
 
-Scope: storage-mode dashboards created via the HA UI or `ha_config_set_dashboard`. YAML-mode dashboards (`configuration.yaml`) are out of scope.
-
-The standard is viewport-agnostic. The `mobile` dashboard is the reference implementation. When a desktop dashboard is built, a separate guide documents the grid and nav differences; the card vocabulary, pop-up pattern, and theming rules in this standard apply to both.
-
----
-
-## Core Principles
-
-- **Bubble Card is the primary card framework.** Use it for room tiles, pop-up overlays, chip strips, media, climate, separator headings, and utility controls. Use native HA cards (`tile`, `grid`, `markdown`, `conditional`) for read-only data display. Do not use Mushroom Cards except for `mushroom-template-badge` in the view-level `badges` array — that is an HA constraint with no Bubble Card equivalent.
-- **Modal pop-ups replace page navigation.** Use Bubble Card pop-ups (triggered by URL hash) for all room drill-down and utility detail views. Do not use `subview: true` views. Browser back navigation, ESC, tap-outside, and swipe-down all close pop-ups.
-- **Room tiles: tap = popup, hold = toggle, sub-buttons = key devices.** Every room tile is a single Bubble Card `button` card. Tapping opens the area's modal pop-up. Holding toggles the primary light. Sub-buttons on the tile surface provide 2–4 quick-action controls for the most-used devices in that room (fan, primary media, key lights) without requiring the pop-up.
-- **No brightness or color sliders anywhere.** Adaptive Lighting manages brightness and color temperature automatically. Do not expose a slider on any room tile, pop-up, or inline card — it creates a confusing dual-control surface. The `button_type: switch` layout shows entity state color without a slider.
-- **Bubble Card `sub-buttons` for chip strips.** The Home view chip strip is a single Bubble Card `sub-buttons` card. All chip visibility, icon color, and content injection is driven by the card's `styles` CSS-in-JS block.
-- **Condition-triggered sections for ambient context.** Sections can appear and disappear automatically by setting section-level `visibility` directly on an entity's state — no chip, no `input_boolean` toggle needed. Use this for content that is relevant whenever a particular state exists (e.g., overdue reminders, vacuum not docked). The chip for the same feature navigates directly to the full pop-up; the inline section just surfaces the most actionable summary automatically.
-- **Inline toggle as a manual override pattern.** A chip's `tap_action` can toggle an `input_boolean` helper (`input_boolean.show_<feature>`, initial: `false`) to show or hide a section inline on the Home view rather than opening a pop-up modal. Use when the content is compact, the user should explicitly request it, and there is no clear automatic trigger condition. Pop-ups are better for extensive content or when isolating focus from the Home view matters. Tapping the chip again dismisses the inline content. A `hold_action` on the same chip can navigate to the full pop-up if one exists.
-- **Theming via Bubble Card CSS variables.** Centralize all visual tokens (border radius, accent color, blur, sub-button spacing) in global Bubble Card CSS variable overrides. Bubble Neon provides the base visual language. card-mod is retained for narrow CSS cases that global variables don't reach (currently: vacuum map image transforms).
-- **Confirmation dialogs always include descriptive text.** See the Confirmation Dialogs section below.
-- **The design target is between Apple Home and full HA.** Sufficient ambient context at a glance (chip strips, room state on tiles), with tap to drill into any room or utility. Avoid information density that requires interpretation on the Home view; reserve raw sensor data and detailed controls for pop-ups.
+Out of scope: YAML-mode dashboards, the per-dashboard build (entity lists, room inventory,
+pop-up contents) — that lives in the dashboard's guide (`guides/home_dashboard.md`), and
+the AI generation pipeline (`guides/ai_insights.md`).
 
 ---
 
-## HACS Dependency Policy
+## 2. Core Principles
 
-Approved frontend resources:
+- **One responsive dashboard.** `home-main` serves phone, tablet, and desktop from one
+  config. Sections views reflow by width; there is no separate mobile dashboard.
+- **Glanceable first, detail on demand.** The Home view answers "is anything wrong, and
+  what's on?" in one screen. Everything else is one tap away in a pop-up.
+- **Bubble Card is the card framework.** Native HA cards (`tile`, `heading`, `markdown`,
+  graphs) are fine inside pop-ups and secondary views where they fit better. No Mushroom.
+- **Templates, not scripts-in-CSS.** Dynamic text, icons, colours, and visibility use
+  Bubble's server-rendered Jinja (§9). JavaScript `${...}` templates are a last resort.
+- **Write logic once.** Anything used by more than two cards becomes a Jinja macro or a
+  Bubble module (§9.2). Never copy a non-trivial template between cards.
+- **Colour means something.** Neutral by default; colour only signals state worth noticing
+  (§10).
+- **No brightness or colour sliders.** Adaptive Lighting owns brightness and colour
+  temperature. Never expose a slider (or `read_only_slider: false`) on a light.
+- **Prefer native visibility.** A `visibility` condition (`state`, `numeric_state`,
+  `screen`, `template`) over CSS `display: none`.
 
-| Resource | Purpose | Status |
+---
+
+## 3. Dependencies
+
+Frontend resources approved for dashboards. Do not add another without an explicit decision
+and an update to this table.
+
+| Resource | Type | Purpose |
 |---|---|---|
-| Bubble Card | Primary card framework | Required |
-| Bubble Card Tools | Module store backend (required for custom modules) | Required |
-| Bubble Badges 2 | Overlay badge indicators on card surfaces | Deferred |
-| Bubble Weather | Weather icon templating module | Deferred |
-| Bubble Neon | Visual theme / CSS variable baseline | Deferred |
-| card-mod | CSS overrides where Bubble Card global variables don't reach | Narrow use |
-| Mushroom Cards | `mushroom-template-badge` for view-level badges only | Narrow use — HA constraint |
+| Bubble Card (≥ 3.4) | HACS frontend | Card framework: buttons, chips, pop-ups, climate, media, separators |
+| Bubble Card Tools | HACS integration | Module storage backend (`/config/bubble_card/modules/`) — must be added as an integration, not only installed |
+| Navbar Card | HACS frontend | Navigation: bottom bar on phone, left rail on desktop |
+| Kiosk Mode | HACS frontend | Hides the HA header on `home-main` |
+| Frosted Glass | HACS theme | Base theme, applied per view |
+| UIX | HACS integration | CSS escape hatch for cases Bubble styles can't reach (e.g. vacuum map crop) |
+| chore-calendar-card | Bundled with Chore Calendar | Chores view |
 
-**Mushroom Cards — sole approved use:**
-
-`mushroom-template-badge` in the view-level `badges` array. HA's badge row only accepts badge-type objects; Bubble Card cards placed there are silently dropped. This is a platform constraint, not a capability gap. All other Mushroom card types (`mushroom-chips-card`, `mushroom-template-card`, `mushroom-light-card`) are not used on this dashboard.
-
-Dynamic icon color previously cited as a reason to use `mushroom-template-card` is handled via the Bubble Card `styles` CSS-in-JS block instead.
-
-Do not introduce additional HACS frontend resources without an explicit decision.
+> Mushroom is not approved. The view-level `badges` row is not used, which removes the only
+> case Mushroom ever covered.
 
 ---
 
-## Dashboard Naming
+## 4. Dashboard Structure
 
-| Property | Convention |
+| Property | Value |
 |---|---|
-| `url_path` | Short hyphenated slug: `mobile-home`, `desktop` |
-| `title` | Human-readable without version numbers: `Mobile`, `Desktop` |
-| `icon` | Reflects the target device: `mdi:cellphone` for mobile, `mdi:monitor` for desktop |
-| `show_in_sidebar` | `true` |
+| `url_path` | `home-main` (custom paths need a hyphen) |
+| `title` | `Home` |
+| `icon` | `mdi:home` |
+| Views | `home`, `climate`, `energy`, `chores`, `maintenance` |
+| View type | `sections`, `max_columns: 4`, `theme: Frosted Glass` |
+| View tabs | Every view `visible: false` — Navbar Card is the only navigation |
+| Header | Hidden at all widths: `kiosk_mode: {hide_header: true}` at the dashboard root |
 
-Version numbers are dropped from dashboard slugs — they belong in git history and the guide's Last Updated date, not the URL.
+**Editing:** append `?disable_km` to the URL to restore the header and its edit pencil.
 
-> **HA constraint:** Custom dashboard `url_path` values must contain a hyphen. Single-word slugs (e.g., `mobile`) are rejected by the storage API with a validation error. The canonical mobile dashboard slug is `mobile-home`.
-
----
-
-## Home View Structure
-
-Every dashboard's primary view is titled **Home**, uses `type: sections` and `max_columns: 1` (mobile).
-
-**Sections, in this order:**
-
-1. **Chip strip** — no section title; one Bubble Card `sub-buttons` card
-2. **Condition-triggered sections** — no section titles; section-level `visibility` gated on entity state (e.g., overdue count, vacuum state); appear automatically when relevant, otherwise zero-height
-3. **Room tiles** — all rooms in a single section with no title; a Bubble Card `separator` card at the top acts as the visible heading. Do not use per-room sections — the `sections` view type renders a large top margin above each section heading, making per-room sections visually noisy.
-4. **Pop-up definitions** — one section per area at the bottom of the view; these render invisibly until triggered by their hash
-5. **Footer navigation** — a `card_type: sub-buttons` card with `footer_mode: true`; persistent room/area navigation bar at the bottom of the view
-
-Do not reorder these groups or add sections between them without updating this standard.
-
-Pop-up sections have no visible title. HA renders an empty section heading as zero-height when no title is set, so the block collapses cleanly — the pop-up overlay is the intended UI surface, not the section.
+**Navbar Card** is configured once under `navbar-templates.main` at the dashboard root and
+placed in every view as `{type: custom:navbar-card, template: main}` as the first card of
+the view's first section. Desktop `position: left`; labels shown on both form factors. The
+`maintenance` route is hidden for non-admin users.
 
 ---
 
-## Room Tile Pattern
+## 5. Layout & Responsiveness
 
-Each area (room or utility) on the Home view is a single Bubble Card `button` card. It serves as the visual entry point for that area.
+- Sections reflow on content width: roughly 1 column on a phone, 2 near 700 px, 3–4 on a
+  desktop. Size cards with `grid_options` (`columns` on the 12-column section grid); never
+  `layout_options`.
+- Full-width bands (briefing, chip strip) are a section with `column_span: 4`.
+- Room tiles are `grid_options: {columns: 6}` — two per row on a phone, more sections side
+  by side on desktop.
+- Use the `screen` visibility condition only when a card genuinely differs by form factor.
+  The default is the same content everywhere.
+- Pop-ups use `popup_mode: adaptive-dialog`: fit-content sheet on a phone, centred dialog
+  on desktop.
 
-**Standard room tile (rooms with a primary light):**
+---
 
-```yaml
-type: custom:bubble-card
-card_type: button
-name: <Room Name>
-icon: <mdi room icon>
-entity: light.<area>_<primary>        # primary light entity
-button_type: switch                    # shows entity on/off state in background; or use slider + read_only_slider: true for ambient brightness display
-tap_action:
-  action: navigate
-  navigation_path: "#<area-slug>"     # opens the room pop-up
-hold_action:
-  action: toggle                      # quick light on/off without popup
-double_tap_action:
-  action: none
-sub_button:
-  - entity: <key device 1>
-    name: <label>
-    tap_action: {action: toggle}
-  # 2–4 sub-buttons total; curate per room based on what's most-used
-```
+## 6. Home View
 
-**Sub-button selection rule:** Include the 2–4 devices you'd interact with most from the home view without needing the full pop-up. Default set: ceiling fan (if present), primary media player (if addressable from this view), any frequently-toggled secondary light. Don't include sensors (read-only entities belong in the pop-up).
+Sections, in order:
 
-**`button_type` options:** `switch` shows entity on/off color in the card background — default for most rooms. `slider` with `read_only_slider: true` shows a brightness bar as ambient state info without an interactive control. Do not use `slider` without `read_only_slider: true` — that exposes an adjustable brightness slider, which is prohibited.
+1. **Briefing** — the AI briefing card (§11), full width.
+2. **Chip strip** — one Bubble `sub-buttons` card, full width (§7).
+3. **Condition-triggered sections** — appear only while relevant (vacuum running, laundry
+   running, overdue chores), gated by section-level `visibility` on entity state. No
+   helper toggles.
+4. **Rooms** — one section of room tiles (§8).
+5. **Pop-ups** — one section holding every pop-up card; renders nothing until a hash opens
+   one.
 
-**Fallback room tiles (rooms without a primary light):**
+---
 
-| Room type | `button_type` | Entity |
+## 7. Chip Strip
+
+A single Bubble `card_type: sub-buttons` card with `hide_main_background: true`, two
+`bottom` groups laid out as rows (`bottom_layout: rows`), each `justify_content: center`.
+
+| Row | Purpose | Contents |
 |---|---|---|
-| Garage (cover only) | `name` | `cover.garage_door` — sub-buttons for garage door open/close |
-| Outside (sensors only) | `state` | `sensor.outside_temperature` |
+| 1 — Status & alerts | Is anything wrong? | Always: weather, AQI, front-door lock, garage. Conditional: alerts that only exist while true |
+| 2 — Features | What's running / due? | Thermostat, plus conditional feature chips (fireplace, vacuum, chores, laundry, dishwasher, trash) |
 
-**Utility tiles** follow the same structure with `button_type: name` or `state`, `tap_action: navigate #popup`, and sub-buttons for the 1–2 most relevant status readouts (e.g., overdue reminders count for the Reminders tile, vacuum state for the Vacuum tile).
+The current chip list and each chip's logic live in the guide.
+
+**Rules:**
+
+- **Neutral background on every chip:** `state_background: false`,
+  `light_background: false`. See `LESSONS.md` → *Bubble sub-buttons tint themselves*.
+- **Colour the icon, not the chip.** Tint the whole chip only for an alert state (§10).
+  Target a chip with `css_class` and style it with Jinja in the card's `styles`.
+- **Conditional chips use `visibility`**, not CSS.
+- **Icon-only chips omit `name`** — never `name: ""`, which reserves an empty text slot.
+- **Contextual gating for openings:** a door, window, garage, or unlocked lock is red when
+  the household is asleep or away, orange when someone is home and awake. Leaks are always
+  red, ungated.
+- **Sensitive toggles are hold-only:** `tap_action: none`, `hold_action: toggle` (guest
+  mode, presence booleans). A hold that changes a security device (lock, garage) also
+  carries a confirmation (§12).
+- **Every chip taps through** to the pop-up or view that explains it.
 
 ---
 
-## Pop-up Pattern
+## 8. Room Tiles
 
-Each area's pop-up is a Bubble Card `pop-up` card placed in its own section at the bottom of the Home view.
+### 8.1 Which areas get a tile
 
-**Hash slug naming:** `#<area-slug>` where `<area-slug>` is the hyphenated area name: `#living-room`, `#kitchen`, `#master-bedroom`, `#averys-room`, `#office`, `#bathroom`, `#garage`, `#outside`, `#reminders`, `#vacuum`, `#climate`, `#water-leaks`.
+An area gets a tile only if it has **something a person controls from the dashboard more
+than occasionally** — a room light or fan, primary media. Areas that are small, sensor-only,
+or fully automated do not get a tile; their content folds into the pop-up that already
+owns it (entrance and garage into `#security`, utility room into `#laundry`). The same
+tile set appears on every form factor.
 
-**Structure:**
+The current tile list and fold-in mapping live in the guide. Re-evaluate when an area gains
+controllable devices.
 
-```yaml
-type: custom:bubble-card
-card_type: pop-up
-hash: "#living-room"
-name: Living Room
-icon: mdi:sofa
-cards:
-  # Pop-up content — any Bubble Card or HA card
-  - type: custom:bubble-card
-    card_type: separator
-    name: Lights
-  - type: custom:bubble-card
-    card_type: button
-    entity: light.living_room_fan
-    ...
-```
+### 8.2 Tile pattern
 
-**Pop-up mode:** always set `popup_mode: adaptive-dialog` on every pop-up card. This selects "Fit content" sizing on mobile, which is the correct behavior for feature pop-ups. It is not the default — omitting it results in a fixed-size overlay.
+One Bubble `button` card per area:
 
-**Close behavior:** swipe down from header, ESC on desktop, tap outside, browser back. Do not add a manual back-navigation card — Bubble Card renders a close button.
+| Element | Rule |
+|---|---|
+| `button_type` | `switch` when the area has a primary HA light; `name` when it doesn't |
+| `entity` | The area's primary light, if it is in HA |
+| `name` / `icon` | The area name and the area registry icon |
+| `state_content` | Live summary from the shared macro (§9.2), e.g. `3 lights on · 69°` |
+| Tap (`button_action.tap_action` and `tap_action`) | `navigate` to `#<area-slug>` |
+| Hold (`button_action.hold_action` and `hold_action`) | `toggle` the primary light; `none` when there is no primary light in HA |
+| Sub-buttons | **Primary room controls only**: ceiling fan, primary TV/Apple TV, fireplace. Zero to two. Lamps, accents, key lights, and indicators belong in the pop-up |
 
-**Room pop-up content structure** (include only sections that apply):
+Bind actions on both the icon (`tap_action`/`hold_action`) and the body
+(`button_action.*`) — see `LESSONS.md` → *Bubble Card icon vs. button action areas*.
 
-| Section | Content | Required |
+**Light counts** come from the shared macro, which filters `area_entities(...)` with
+`reject('is_hidden_entity')`. Hide an indicator or group member in the entity registry
+instead of excluding it in a template. See `LESSONS.md` → *An area's `light.*` entities
+include indicator LEDs*.
+
+---
+
+## 9. Templates & Shared Logic
+
+### 9.1 Where templates go
+
+| Need | Use |
+|---|---|
+| Dynamic text, icon | Jinja in `name`, `icon`, `state_content` (quoted) |
+| Dynamic colour or alert tint | Jinja inside `styles`, targeting a `css_class` |
+| Show/hide | `visibility` with native conditions; `condition: template` only when no native one fits |
+| Something Jinja can't reach | JavaScript `${...}` in `styles` — comment why |
+
+Always quote a template (`name: "{{ ... }}"`). Bubble renders templates on the HA server,
+so every HA function and every `custom_templates` macro is available.
+
+### 9.2 Write it once
+
+- **Logic** (counts, summaries, gating rules) used by more than two cards is a Jinja macro
+  in `ha/custom_templates/dashboard.jinja`, imported with
+  `{% from 'dashboard.jinja' import <macro> %}`. Pass entity IDs and areas as arguments —
+  an imported macro cannot see the card's `entity` variable.
+- **Look** (a tile's styles, an alert chip's tint) used by more than two cards is a Bubble
+  module in `ha/bubble_modules/<id>.yaml`, applied by ID.
+- When an alert condition already exists as a helper (a group, a threshold, a template
+  binary sensor), the chip reads the helper — don't re-derive it in the dashboard.
+
+---
+
+## 10. Colour
+
+| Meaning | Colour | Variable |
 |---|---|---|
-| Lights | Bubble Card buttons, one per light entity; no sliders | If room has lights |
-| Fan | Bubble Card button with fan speed sub-buttons | If room has a ceiling fan |
-| Climate | Bubble Card climate card | If room has a thermostat |
-| Media | Bubble Card media-player card | If room has addressable media |
-| Sensors | Read-only state buttons or sub-buttons-only | If room has sensors worth surfacing |
+| Normal / secured | Green icon | `--green-color` |
+| Attention — home and awake | Orange icon, orange chip tint | `--orange-color` / `rgba(var(--rgb-orange-color), 0.3)` |
+| Alert — asleep, away, leak, fault | Red icon, red chip tint | `--red-color` / `rgba(var(--rgb-red-color), 0.3)` |
+| Active / running | Theme accent | entity state colour |
+| Neutral / informational | Theme default | — |
+
+Use theme variables, never hex values, so light and dark modes both work.
 
 ---
 
-## Status Chip System
+## 11. AI-Generated Content
 
-The chip strip at the top of the Home view is a single Bubble Card `sub-buttons` card. Chip visibility, icon color, and content injection are all driven by the card's `styles` CSS-in-JS block: visibility via `display: ${expr ? '' : 'none'}`, icon color via `.bubble-sub-button-N > ha-icon { color: ... }`, and dynamic text via `card.querySelector(...).innerText`.
+Cards that show Claude-generated text (briefing, house summary, weekly digest):
 
-**Two strips organized by function:**
-
-| Strip | Name | Purpose | Visibility |
-|---|---|---|---|
-| 1 | Controls | Interactive chips — navigate to views or popups | Always visible: Weather, Alarm, Thermostat, Vacuum, Reminders |
-| 2 | Status & Modes | Status indicators and conditional alert chips | 2 anchored (AQI, Guest) + conditional chips |
-
-**Sub-button visibility conditions:** controlled via the `styles` CSS-in-JS block using `display: none`. `state_not: "off"` logic for binary sensors (conservative default — surfaces `unknown` as alert).
-
-**Alert chip coloring:** use the Bubble Card JS template system or `icon_color` field for red/orange/green color logic. Do not rely on entity-class default colors for alert chips — explicit color control is required for correct behavior when the entity is in `unknown` or `unavailable` state.
-
-**Icon-only sub-buttons:** omit the `name` field when no label is needed. Do not set `name: ""` — it allocates an empty text area and shifts the icon off-center.
-
-**Hold-to-toggle for sensitive direct-toggle chips:** chips that directly toggle a high-impact feature (guest mode, presence booleans) should use `hold_action: toggle` and `tap_action: none`. This prevents accidental state changes from an unintended tap on a crowded strip.
-
-**Contextual gates for door and garage alerts** (same rule as mobile-3): only alert when the entity is open AND the household is sleeping OR nobody is home. Water leaks and the freezer door are never gated — always alert-worthy.
+- Read from the `ai_insights` sensors; never call `ai_task` from a card. Generation is
+  owned by scripts (see `guides/ai_insights.md`).
+- Show the content's age (`last-updated` in `state_content` or "Updated 7:00").
+- A Refresh action calls the generating script with a confirmation-free tap. The script
+  enforces its own cooldown.
+- When the sensor is `unknown` or unavailable, show a neutral placeholder, never an error.
 
 ---
 
-## Inline Toggle Pattern
+## 12. Confirmation Dialogs
 
-An alternative to the pop-up pattern for brief content that fits inline on the Home view without a modal overlay. A chip's `tap_action` toggles an `input_boolean` helper; a section uses `visibility` to show or hide its content based on that helper's state.
-
-**When to use:** content is compact (a handful of cards), ephemeral (not requiring sustained focus), and benefits from appearing in-place below the chips. Use pop-ups when the content is extensive or when modal focus is warranted.
-
-**Implementation:**
-
-1. Create `input_boolean.show_<feature>` (initial: `false`; icon matching the feature).
-2. Chip `tap_action`:
-   ```yaml
-   tap_action:
-     action: perform-action
-     perform_action: input_boolean.toggle
-     target:
-       entity_id: input_boolean.show_<feature>
-   ```
-3. Inline section with `visibility` (placed between the chip strip section and the room tile sections):
-   ```yaml
-   visibility:
-     - condition: state
-       entity: input_boolean.show_<feature>
-       state: "on"
-   cards:
-     - ...
-   ```
-4. Optionally set `hold_action: navigate` on the same chip to open the full pop-up if one exists.
-
-**Current uses:** none — `mobile-home` uses pop-ups for all feature detail surfaces. Chip taps navigate directly to pop-up hashes. The inline toggle pattern is documented for future use when content is compact enough that a modal overlay would feel heavy.
-
-**Half-width inline cards:** add `layout_options: {grid_columns: 2}` to each card in the inline section so the sections view renders them two-per-row.
-
----
-
-## State-Triggered Contextual Controls
-
-An alternative to the inline toggle pattern for controls that should appear automatically when a device is active — no chip or `input_boolean` involved. A Bubble Card `sub-buttons` card sits below a room tile in the same section; its `visibility` is gated on an entity's state.
-
-**When to use:** the controls are tightly coupled to a device with a clear active/inactive state (e.g., TV on/off), and auto-show/hide behavior is preferable to a manual chip toggle. The inline toggle pattern is better when user intent should drive visibility rather than device state.
-
-**Implementation:**
+Every confirmation uses the object form with text describing the consequence — never
+`confirmation: true`:
 
 ```yaml
-type: custom:bubble-card
-card_type: sub-buttons
-visibility:
-  - condition: state
-    entity: <triggering entity>
-    state: "on"
-sub_button:
-  bottom:
-    - entity: <control 1>
-      tap_action: {action: toggle}
-      name: <label>
-    # additional controls
-```
-
-**Current uses:**
-
-| Trigger entity | Location | Controls shown |
-|---|---|---|
-| `media_player.living_room_tv` | Below Living Room tile | TV Light Sync, Movie Mode, Night Mode, Sonos Volume |
-
----
-
-## Condition-Triggered Sections
-
-An alternative to the inline toggle pattern when content should appear automatically based on house state, with no user action required. Section-level `visibility` is set directly on an entity state — no chip toggle, no `input_boolean` helper.
-
-**When to use:** there is a clear, unambiguous state that makes the content relevant (vacuum running or ran today; overdue tasks exist). The user should not have to ask for it. Use the inline toggle pattern when user intent — not device state — should drive visibility.
-
-**Implementation:**
-
-```yaml
-# Section-level visibility — set on the section object, not on cards within it
-visibility:
-  - condition: numeric_state
-    entity: number.overdue_reminders_count
-    above: 0
-cards:
-  - ...
-```
-
-Or with an `or` condition:
-
-```yaml
-visibility:
-  - condition: or
-    conditions:
-      - condition: state
-        entity: vacuum.roborock_q8_max
-        state_not: docked
-      - condition: state
-        entity: input_select.vacuum_ran_today
-        state: "Yes"
-```
-
-**Current uses:**
-
-| Section | Visibility condition | Content |
-|---|---|---|
-| Overdue reminders / trash pickup | `number.overdue_reminders_count` > 0 OR `input_boolean.trash_pickup_pending` = on | Trash card (when pending) + half-width grid of overdue task cards |
-| Vacuum controls | vacuum not docked OR `input_select.vacuum_ran_today` = Yes | Vacuum tile with state and commands |
-
----
-
-## Footer Navigation
-
-A persistent room/area navigation bar at the bottom of the Home view. Implemented as a Bubble Card `card_type: sub-buttons` card with `footer_mode: true` — renders as a fixed-position strip of icon-only sub-buttons.
-
-Each sub-button uses `tap_action: navigate` with a hash to the relevant pop-up. The footer replaces page-level navigation: rather than switching views, the user opens any room's pop-up directly from anywhere on the Home view.
-
-```yaml
-type: custom:bubble-card
-card_type: sub-buttons
-footer_mode: true
-sub_button:
-  bottom:
-    - name: Living Room
-      icon: mdi:sofa
-      tap_action:
-        action: navigate
-        navigation_path: "#living-room"
-    # additional rooms
-```
-
----
-
-## card-mod Use Cases
-
-card-mod is approved for two use cases:
-
-**1. Vacuum map image crop/zoom** — the Roborock integration bakes excess black padding into map images. card-mod removes the card's default padding and applies CSS transforms to crop and reposition the floor plan:
-
-```yaml
-card_mod:
-  style: |
-    ha-card { padding: 0; overflow: hidden; }
-    hui-image {
-      transform: scale(1.5) translateX(-3%) translateY(13%);
-      transform-origin: center center;
-      display: block;
-      margin: -12% 0;
-    }
-```
-
-These values are floor-plan-specific. See `guides/mobile_dashboard.md` → Vacuum Pop-up for technique details.
-
-**2. Any Bubble Card CSS gap** — when a Bubble Card global CSS variable doesn't cover a needed style adjustment, use card-mod as a targeted override. Document the reason at the use site.
-
-Do not use card-mod to replicate styling that Bubble Card's global CSS variables already expose.
-
----
-
-## Confirmation Dialogs
-
-**Confirmation dialogs must always include descriptive text.** Never use `confirmation: true` (bare boolean). Always use the object form with a `text` field that tells the user exactly what will happen:
-
-```yaml
-# Wrong
-confirmation: true
-
-# Correct
 confirmation:
-  text: "Close garage door?"
+  text: "Close the garage door?"
 ```
 
-The text should describe the irreversible or consequential action in plain language. Match tense to the action: "Close garage door?", "Reset filter usage counter?", "Mark Car Washed as done today?".
+Required for: lock/unlock, garage open/close, consumable resets, anything that turns off a
+device someone may be using.
 
 ---
 
-## Quick Reference
+## 13. Mirror & Maintenance
 
-| Pattern | Bubble Card type | Notes |
+| Artifact | Repo path | Authority | Deploy |
+|---|---|---|---|
+| Dashboard config | `ha/dashboards/<url_path>.yaml` | HA | Export via `ha_config_get_dashboard` after every change |
+| Jinja macros | `ha/custom_templates/<name>.jinja` | Repo | `scp` to `/config/custom_templates/`, then `homeassistant.reload_custom_templates` |
+| Bubble modules | `ha/bubble_modules/<id>.yaml` | Repo | `scp` to `/config/bubble_card/modules/`, then reload the dashboard |
+
+Don't edit modules in the Bubble module editor — the repo copy is the source.
+
+---
+
+## 14. Quick Reference
+
+| Pattern | Implementation | Section |
 |---|---|---|
-| Room tile | `button` (`button_type: switch`) | tap=popup, hold=toggle; sub-buttons for key devices |
-| Utility tile | `button` (`button_type: name` or `state`) | tap=popup; sub-buttons for status readouts |
-| Chip strip | Bubble Card `sub-buttons` | Single card; visibility/color/content via `styles` CSS-in-JS block |
-| Alert chip | `sub-buttons` chip with explicit icon color in `styles` | Not entity-class color — explicit red/green/orange required |
-| Condition-triggered section | Section with `visibility` on entity state | Auto-appears based on house state; no chip or helper; preferred over inline toggle |
-| Inline toggle | chip + `input_boolean` + section `visibility` | Tap chip → show/hide when user intent (not state) should drive visibility |
-| State-triggered controls | `sub-buttons` card with `visibility` on entity state | Auto-shows when device is active; no chip or helper needed |
-| Footer navigation | `sub-buttons` with `footer_mode: true` | Persistent bottom nav strip; tap → room pop-up via hash |
-| Room pop-up | `pop-up` with `cards` array | Hash slug: `#area-name`; `popup_mode: adaptive-dialog` required; placed in dedicated section at view bottom |
-| Pop-up trigger | button `tap_action: navigate #hash` | Room tile is the trigger; no secondary trigger needed |
-| Light control (popup) | `button` (`button_type: switch`) | No sliders; hold=toggle or sub-button for power |
-| Fan control | `button` with speed sub-buttons | |
-| Climate control | Bubble Card `climate` card | Fallback to native `tile` with hvac-modes feature if climate card lacks needed UX |
-| Media control | Bubble Card `media-player` card | |
-| Vacuum controls | `button` with command sub-buttons | |
-| Reminder card | Bubble Card `button` with `styles` block | Icon color for overdue state via CSS-in-JS |
-| Vacuum consumables | Bubble Card `button` with `styles` block | Icon color for maintenance-due state via CSS-in-JS |
-| Map image crop/zoom | `picture-entity` with `card_mod` | `ha-card {padding:0; overflow:hidden}` + `hui-image {transform:scale/translate; margin:-12% 0}` |
-| Separator heading | `separator` | Within pop-up or between inline sections |
-| Confirmation dialog | `confirmation: {text: "..."}` | Never bare `confirmation: true` |
-| Weather | `button` + Bubble Weather module | |
-| Status badges | Bubble Badges 2 | Overlay indicators on card surfaces |
+| Navigation | Navbar Card template `main`; views `visible: false` | §4 |
+| Hide header | `kiosk_mode: {hide_header: true}`; `?disable_km` to edit | §4 |
+| Chip strip | `sub-buttons`, 2 centred rows, neutral chips, icon colour | §7 |
+| Alert chip | `css_class` + Jinja tint in `styles` | §7, §10 |
+| Room tile | Bubble `button`; tap → pop-up, hold → primary light; ≤ 2 primary sub-buttons | §8 |
+| Room eligibility | Controllable from the dashboard more than occasionally | §8.1 |
+| Light count | Shared macro with `reject('is_hidden_entity')` | §8.2, §9.2 |
+| Pop-up | `pop-up`, `popup_mode: adaptive-dialog`, `popup_style: bubble` | §5 |
+| Dynamic text/icon | Quoted Jinja | §9.1 |
+| Shared logic / look | `custom_templates` macro / Bubble module | §9.2 |
+| No sliders on lights | Adaptive Lighting owns brightness | §2 |
+| Confirmation | `confirmation: {text: ...}` | §12 |
