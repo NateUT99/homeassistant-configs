@@ -1,9 +1,10 @@
 id: "1791211624555"
 alias: "Living Room: Fireplace Auto Off"
 description: >-
-  Turns the gas fireplace off when everyone leaves or goes to sleep, or after
-  4 hours in heat mode or with the relay held closed, so it is never left
-  running unattended. Sends a push when it acts.
+  Keeps the gas fireplace from running unattended. Turns it off when
+  everyone leaves or goes to sleep, or after 4 hours in heat mode or with
+  the relay held closed, and immediately turns it back off if it is switched
+  on while no one is home or everyone is asleep. Sends a push when it acts.
 triggers:
   - trigger: state
     entity_id: climate.living_room_fireplace
@@ -31,6 +32,19 @@ triggers:
     to: "on"
     id: everyone_asleep
     alias: Everyone went to sleep
+  - trigger: state
+    entity_id: climate.living_room_fireplace
+    to: heat
+    id: turned_on
+    alias: Fireplace set to heat mode
+    note: >-
+      Also fires when heat mode is restored after an HA restart, so a
+      restart while away or asleep is caught too.
+  - trigger: state
+    entity_id: switch.living_room_fireplace
+    to: "on"
+    id: turned_on
+    alias: Fireplace relay closed
 conditions:
   - alias: Fireplace is on
     note: >-
@@ -47,28 +61,76 @@ conditions:
         state: "on"
         alias: Relay closed
 actions:
-  - alias: Set the fireplace thermostat to off
-    action: climate.set_hvac_mode
-    target:
-      entity_id: climate.living_room_fireplace
-    data:
-      hvac_mode: "off"
-  - alias: Open the fireplace relay
-    note: >-
-      Turning the thermostat off should already open the relay; this makes
-      sure, and covers the case where the relay was closed directly.
-    action: switch.turn_off
-    target:
-      entity_id: switch.living_room_fireplace
-  - alias: Push that the fireplace was shut off
-    action: notify.mobile_app_nates_iphone
-    data:
-      title: "🔥 Fireplace Turned Off"
-      message: >-
-        {{ {'everyone_left': 'Everyone left, so the fireplace has been turned off.',
-            'everyone_asleep': 'Everyone is asleep, so the fireplace has been turned off.'}
-           .get(trigger.id, 'The fireplace hit its 4-hour limit and has been turned off.') }}
-      data:
-        tag: living_room_fireplace_auto_off
+  - alias: Decide whether to shut the fireplace off
+    choose:
+      - alias: Turned on with no one home or everyone asleep -- block it
+        conditions:
+          - condition: trigger
+            id: turned_on
+          - condition: or
+            alias: No one home or everyone asleep
+            conditions:
+              - condition: state
+                entity_id: zone.home
+                state: "0"
+                alias: No one is home
+              - condition: state
+                entity_id: input_boolean.everyone_sleeping
+                state: "on"
+                alias: Everyone is asleep
+        sequence:
+          - alias: Set the fireplace thermostat to off
+            action: climate.set_hvac_mode
+            target:
+              entity_id: climate.living_room_fireplace
+            data:
+              hvac_mode: "off"
+          - alias: Open the fireplace relay
+            action: switch.turn_off
+            target:
+              entity_id: switch.living_room_fireplace
+          - alias: Push that the fireplace was blocked
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: "🔥 Fireplace Blocked"
+              message: >-
+                {{ 'No one is home' if is_state('zone.home', '0')
+                   else 'Everyone is asleep' }}, so the fireplace was turned
+                back off.
+              data:
+                tag: living_room_fireplace_auto_off
+      - alias: Leave, bedtime, or 4-hour limit -- shut it off
+        conditions:
+          - condition: trigger
+            id:
+              - runtime_limit
+              - everyone_left
+              - everyone_asleep
+        sequence:
+          - alias: Set the fireplace thermostat to off
+            action: climate.set_hvac_mode
+            target:
+              entity_id: climate.living_room_fireplace
+            data:
+              hvac_mode: "off"
+          - alias: Open the fireplace relay
+            note: >-
+              Turning the thermostat off should already open the relay; this
+              makes sure, and covers the case where the relay was closed
+              directly.
+            action: switch.turn_off
+            target:
+              entity_id: switch.living_room_fireplace
+          - alias: Push that the fireplace was shut off
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: "🔥 Fireplace Turned Off"
+              message: >-
+                {{ {'everyone_left': 'Everyone left, so the fireplace has been turned off.',
+                    'everyone_asleep': 'Everyone is asleep, so the fireplace has been turned off.'}
+                   .get(trigger.id, 'The fireplace hit its 4-hour limit and has been turned off.') }}
+              data:
+                tag: living_room_fireplace_auto_off
 mode: single
+max_exceeded: silent
 category: 01M0BFFGNX30MJNVWS58ZKEH3H
