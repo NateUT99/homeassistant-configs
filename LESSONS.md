@@ -172,6 +172,22 @@ Found 2026-10-04: the ceiling-fan wall-control automations called `script.househ
 
 ---
 
+### A helper named with its room and assigned that area at creation gets the room twice in its entity ID
+
+A Generic Thermostat helper created with name `Living Room Fireplace` and area `living_room` in the same create call came out as `climate.living_room_fireplace_living_room_fireplace`. The helper has no device, but the area prefix was still applied on top of a name that already carried it. A template switch helper created without an area got the plain slug of its name (`switch.fireplace_call_for_heat`).
+
+After creating any area-assigned helper, check the generated entity ID and rename it via the entity registry before anything references it. See `guides/fireplace.md`.
+
+---
+
+### An automation can't veto a Generic Thermostat's heater — gate the heater switch instead
+
+When a Generic Thermostat is set to heat below target, it turns its heater switch on right away, inside its own mode-change handling. An automation triggered by that mode change or by the switch turning on always runs after the switch has already closed. So "block it while away" written as an automation turns the heater off again about a second later, rather than stopping it. For a gas fireplace that is a brief call-for-heat, which can begin an ignition sequence.
+
+To actually prevent it, point the thermostat's `heater` at a template switch whose `turn_on` action starts with `condition:` steps. A failed condition ends the sequence before the real switch is touched. Keep any reacting automation for notification and UI state only. See `guides/fireplace.md`.
+
+---
+
 ## Dashboards
 
 ### Bubble Card `state_display` does not evaluate Jinja2 templates reliably
