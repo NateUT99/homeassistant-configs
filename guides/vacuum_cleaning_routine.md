@@ -394,12 +394,38 @@ branch leaves it alone, so that same night's ordinary common-area vacuum pass st
 own schedule. The script does not touch the master-suite follow-up — that stays tied to the pad
 still being on the morning after an actual mop night, not to which path started the mop.
 
+## Consumable Resets
+
+The Roborock integration ships four reset buttons (`button.living_room_vacuum_reset_*_consumable`)
+disabled by default; they are enabled in the entity registry. `script.household_vacuum_reset_consumable`
+takes one field, `consumable` (`air_filter`, `main_brush`, `side_brush`, `sensor`), presses the
+matching button, waits 2 s, and calls `homeassistant.update_entity` on the matching
+`sensor.living_room_vacuum_*_time_left` — the coordinator otherwise reports the reset only on its
+next poll. Holding a Maintenance card in the `home-main` `#vacuum` pop-up calls it, with no
+confirmation (see `guides/home_dashboard.md`).
+
+**Filter cleaning** is tracked between replacements. The filter's 150 h life is split into
+three 50 h intervals — clean at 100 h and 50 h left, replace at 0 h.
+`input_number.living_room_vacuum_filter_left_at_last_clean` stores the filter's hours left at
+the last clean; the `filter_clean` option of the script writes it, and the `air_filter`
+(replace) option writes it after the reset so the clean timer restarts with a new filter.
+Template helper Living Room Vacuum Filter Clean Time Left
+(`sensor.living_room_vacuum_filter_clean_time_left`) reports `50 − (stored − current)`. Once
+replacement is due or comes before the next clean, it reports the filter's hours left (minimum
+0) + 50 instead — the next clean after the replacement — so a replace-due filter never also
+shows a clean due. A filter reset done in the Roborock app does not update the stored reading;
+hold *Filter clean* once afterward to realign it.
+
 ## Related HA Config
 
 | Friendly Name | Entity ID | Type |
 |---|---|---|
 | Household: Vacuum Evening Cleaning | `automation.household_vacuum_evening_cleaning` | Automation (nightly common-area pass + next-morning master-suite follow-up) |
 | Household: Vacuum Mop Now | `script.household_vacuum_mop_now` | Script (ad hoc mop pass over the six common-area rooms) |
+| Household: Vacuum Reset Consumable | `script.household_vacuum_reset_consumable` | Script (reset one consumable counter, or mark the filter cleaned, and refresh its sensor) |
+| Living Room Vacuum Filter Left At Last Clean | `input_number.living_room_vacuum_filter_left_at_last_clean` | Helper (filter hours left recorded at the last clean) |
+| Living Room Vacuum Filter Clean Time Left | `sensor.living_room_vacuum_filter_clean_time_left` | Template helper (hours until the filter's next clean) |
+| Reset air filter / main brush / side brush / sensor consumable | `button.living_room_vacuum_reset_*_consumable` | Button ×4 (enabled; disabled by default by the integration) |
 | Household: Last Leaves Home | `automation.household_last_leaves_home` | Automation (contains the daytime-start block) |
 | Household: First Arrives Home | `automation.household_first_arrives_home` | Automation (contains the arrival dock and vacuum routine-pause clear) |
 | Household: Vacuum Reset | `automation.household_vacuum_reset` | Automation (daily 08:00 flag reset + Monday 12:00 weekly mop reset) |

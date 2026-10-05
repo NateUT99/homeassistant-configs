@@ -26,14 +26,13 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 │   │                                          Row 1  status & alerts
 │   │                                          Row 2  features
 │   ├── Section 2 (span 4) ── Room tiles × 6 (Bubble button; full width on phone, 4-up desktop)
-│   └── Section 3          ── Pop-ups: 6 rooms + #security + #climate
+│   └── Section 3          ── Pop-ups: 6 rooms + #security #climate #weather #vacuum #laundry
 │
 └── Chores view ── Navbar Card ── chore-calendar-card
          │
          └── shared Jinja: /config/custom_templates/dashboard.jinja
                room_summary(area, temp, fan)   tile + pop-up header text
                alert_level()                   red if asleep/away, else orange
-               alert_tint(level)               30% wash for alerting chips
 ```
 
 **Design decisions:**
@@ -66,18 +65,24 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 
 ## Steps
 
-### 1. Deploy the shared templates
+### 1. Deploy the shared templates and modules
 
 ```bash
 ssh ha 'mkdir -p /config/custom_templates'
 scp ha/custom_templates/dashboard.jinja ha:/config/custom_templates/dashboard.jinja
 ```
 
-Then call `homeassistant.reload_custom_templates`. Confirm in **Developer Tools →
+Then call `homeassistant.reload_custom_templates` and confirm in **Developer Tools →
 Template**:
 
 ```jinja
 {% from 'dashboard.jinja' import room_summary %}{{ room_summary('office', 'sensor.office_climate_temperature', 'fan.office_ceiling_fan') }}
+```
+
+Deploy the Bubble modules (Bubble Card Tools reads every YAML file in this folder):
+
+```bash
+scp ha/bubble_modules/*.yaml ha:/config/bubble_card/modules/
 ```
 
 ### 2. Create the dashboard
@@ -91,7 +96,7 @@ To edit in the UI, open `/home-main/home?disable_km`.
 
 ### 3. Chip strip
 
-One Bubble `sub-buttons` card. Chip colours and alert tints are Jinja in the card's
+One Bubble `sub-buttons` card. Chip icon colours are Jinja in the card's
 `styles`, keyed by each chip's `css_class` (`standards/dashboards.md` §7, §10).
 
 **Row 1 — status & alerts**
@@ -99,15 +104,14 @@ One Bubble `sub-buttons` card. Chip colours and alert tints are Jinja in the car
 | Chip | Shows | Colour | Tap | Hold |
 |---|---|---|---|---|
 | Weather | Always; outside temp | Theme | `#weather` | — |
-| AQI | Always; index value | Green ≤ 50, yellow ≤ 100, orange ≤ 150, red | `#weather` | — |
-| Lock | Always; icon only | Green locked; `alert_level()` + tint when unlocked | `#security` | Lock (confirm) |
-| Garage | Always; icon only | Green closed; `alert_level()` + tint when open | `#security` | Close (confirm) |
-| Openings | `binary_sensor.household_exterior_openings` on; "N open" | `alert_level()` + tint | `#security` | — |
-| Leak | Any `water_leak_sensor`-labelled sensor on | Red + tint | `#water-leaks` | — |
+| AQI | AQI > 50 (not Good); index value | Yellow ≤ 100, orange ≤ 150, red | `#weather` | — |
+| Doors | Always; icon only — `home-lock` when secure, otherwise the one problem (lock-open, door-open, garage-open) or `home-alert` for several | Green when the front door is locked and closed and the garage is closed; otherwise `alert_level()` colour | `#security` | `script.household_secure_doors` (confirm) |
+| Openings | Any exterior opening except the front door (owned by Doors) open; "N open" | `alert_level()` colour | `#security` | — |
+| Leak | Any `water_leak_sensor`-labelled sensor on | Red | `#security` | — |
 | HVAC paused | `input_select.household_hvac_mode_before_pause` ≠ `none` | Orange | `#climate` | — |
-| Internet | WAN down or modem power cycle active | Red + tint | — | — |
+| Internet | WAN down or modem power cycle active | Red | — | — |
 | Generator | `sensor.outside_home_generator_status` = `Running` | Orange | — | — |
-| Fridge | Refrigerator plug off or power sensor unavailable | Red + tint | — | — |
+| Fridge | Refrigerator plug off or power sensor unavailable | Red | — | — |
 | Updates | Any `update.*` on; count | Primary | `/config/updates` | — |
 | Guest | Always; icon only | Green when on | — | Toggle |
 | Avery | She's home today **and** (asleep 06:30–09:00 **or** house awake 20:30–22:30) | Green when asleep | — | Toggle `input_boolean.avery_sleeping` |
@@ -118,7 +122,7 @@ One Bubble `sub-buttons` card. Chip colours and alert tints are Jinja in the car
 |---|---|---|---|---|
 | Thermostat | Always; indoor temp | Orange heating, blue cooling | `#climate` | — |
 | Fireplace | Fireplace not `off`; setpoint | Orange | `#climate` | — |
-| Vacuum | Always; icon only | Red error/stuck, orange running or paused, green ran today | `#vacuum` | Toggle routine pause (confirm) |
+| Vacuum | Always; icon only | Red error/stuck, orange running or paused, green ran today; alert icon when an error or overdue consumable | `#vacuum` | Toggle routine pause (confirm) |
 | Chores | Any chore (except trash) due/overdue; "N due" | Amber due, red overdue | Chores view | — |
 | Recycling | Trash chore due/overdue | Amber, red overdue | Chores view | Mark "Take Out Trash" done |
 | Washer / Dryer | Running, done, or faulted; progress % or "Done" | Blue running, green done, red fault | `#laundry` | — |
@@ -160,11 +164,23 @@ header shows the same `room_summary` as the tile.
 | `#office` | 7 lights, fan speed (tile `fan-speed` feature), HomePod |
 | `#master-bedroom` | Ceiling light, nightstand lamp, fan speed, Apple TV, HomePod, bathroom speaker |
 | `#averys-room` | Ceiling light, desk and dresser lamps, fan speed, HomePod |
-| `#security` | Lock, garage door, garage interior door, doors & windows, outside lights, doorbell camera (square crop, last) |
+| `#security` | Doorbell camera (square crop, first); lock, garage door, garage interior door, doors & windows; Water (the 4 leak sensors); outside lights |
 | `#climate` | Thermostat and fireplace (Bubble climate) |
+| `#weather` | 12-hour temperature and rain-chance forecast, daily forecast, outside conditions, AQI and pollutants |
+| `#vacuum` | Commands, routine pause, Mop now (confirm), map (only when out or ran today), status, mop settings (when the pad is on), 4 consumables |
+| `#laundry` | Washer and dryer status, remaining, progress, start/finish; "stop reminders" acknowledge (only while `alerting`); dishwasher; washer stats; utility room light |
 
-Not yet built: `#weather`, `#vacuum`, `#laundry`, `#water-leaks` — their chips render but
-open nothing until they exist.
+`#laundry` is reachable only while a washer, dryer, or dishwasher chip is showing; it is about
+the current cycle.
+
+**Vacuum consumables** (filter clean, filter replace, main brush, side brush, sensors) use the `consumable_status` Bubble module (icon red at ≤ 0 h left, amber
+under 10 h, green otherwise). Tap opens more-info; hold calls
+`script.household_vacuum_reset_consumable` immediately — no confirmation, since a reset is
+only done right after the maintenance itself (see `guides/vacuum_cleaning_routine.md`).
+
+**Laundry acknowledge** sets `input_select.utility_room_<appliance>_status` to `acknowledged`,
+which ends *Utility Room: Laundry Announcement*'s repeat loop (it continues only while a status
+is `alerting` or `fault`). Retrieval or the next cycle returns the status to `idle`.
 
 ### 6. Views
 
@@ -189,6 +205,10 @@ Planned: Climate, Energy, Maintenance (admin-only route).
 | Avery Sleeping | `input_boolean.avery_sleeping` | Helper |
 | Guest Mode | `input_boolean.guest_mode` | Helper |
 | Vacuum Routine Pause | `input_boolean.vacuum_routine_pause` | Helper |
+| Household: Vacuum Reset Consumable | `script.household_vacuum_reset_consumable` | Script |
+| Household: Vacuum Mop Now | `script.household_vacuum_mop_now` | Script |
+| Household: Secure Doors | `script.household_secure_doors` | Script (lock front door if closed, close garage) |
+| Living Room Vacuum Filter Clean Time Left | `sensor.living_room_vacuum_filter_clean_time_left` | Template helper |
 | HVAC Mode Before Pause | `input_select.household_hvac_mode_before_pause` | Helper |
 
 ---
@@ -199,6 +219,7 @@ Planned: Climate, Energy, Maintenance (admin-only route).
 |---|---|---|
 | `ha/custom_templates/dashboard.jinja` | `/config/custom_templates/dashboard.jinja` | Shared macros (repo authoritative) |
 | `ha/dashboards/home-main.yaml` | HA storage (`home-main`) | Dashboard mirror (HA authoritative) |
+| `ha/bubble_modules/consumable_status.yaml` | `/config/bubble_card/modules/consumable_status.yaml` | Consumable icon colour module (repo authoritative) |
 
 ---
 

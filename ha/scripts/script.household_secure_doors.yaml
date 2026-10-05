@@ -1,0 +1,38 @@
+alias: 'Household: Secure Doors'
+description: >-
+  Locks the front door and closes the garage door in one action. Called by holding the Doors chip on the
+  home-main dashboard. The front door is only locked when its contact reads closed, so the deadbolt is
+  never thrown into an open door; the garage is only commanded when it isn't already closed. See guides/home_dashboard.md.
+icon: mdi:home-lock
+mode: single
+sequence:
+- alias: Lock the front door if it is closed
+  if:
+  - alias: Front door is closed
+    condition: state
+    entity_id: binary_sensor.entrance_front_door
+    state: 'off'
+  - alias: Front door is not already locked
+    condition: not
+    conditions:
+    - condition: state
+      entity_id: lock.entrance_front_door
+      state: locked
+  then:
+  - alias: Lock the front door
+    action: lock.lock
+    target:
+      entity_id: lock.entrance_front_door
+- alias: Close the garage if it is not closed
+  if:
+  - alias: Garage is not closed
+    condition: not
+    conditions:
+    - condition: state
+      entity_id: cover.garage_door_opener_door
+      state: closed
+  then:
+  - alias: Close the garage door
+    action: cover.close_cover
+    target:
+      entity_id: cover.garage_door_opener_door

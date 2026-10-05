@@ -1,0 +1,120 @@
+alias: 'Household: Vacuum Reset Consumable'
+description: >-
+  Resets one Roborock consumable counter (filter, main brush, side brush, or sensors) after the maintenance
+  is done, then refreshes that consumable's time-left sensor so the dashboard shows the reset within seconds
+  instead of on the next poll. Also marks the filter cleaned (filter_clean) by storing the filter's current
+  hours left, which restarts the 50 h clean timer; a filter replacement restarts it too. Called by holding
+  a Maintenance card in the home-main #vacuum pop-up. See guides/vacuum_cleaning_routine.md.
+icon: mdi:wrench-cog
+mode: queued
+fields:
+  consumable:
+    name: Consumable
+    description: Which counter to reset.
+    required: true
+    selector:
+      select:
+        options:
+        - label: Filter (replace)
+          value: air_filter
+        - label: Filter (clean)
+          value: filter_clean
+        - label: Main brush
+          value: main_brush
+        - label: Side brush
+          value: side_brush
+        - label: Sensors
+          value: sensor
+sequence:
+- alias: Reset the selected consumable
+  choose:
+  - alias: Filter replace
+    conditions:
+    - alias: Filter selected
+      condition: template
+      value_template: '{{ consumable == ''air_filter'' }}'
+    sequence:
+    - alias: Press filter reset
+      action: button.press
+      target:
+        entity_id: button.living_room_vacuum_reset_air_filter_consumable
+    - alias: Let the reset apply
+      delay:
+        seconds: 2
+    - alias: Refresh filter time left
+      action: homeassistant.update_entity
+      target:
+        entity_id: sensor.living_room_vacuum_filter_time_left
+    - alias: Restart the filter clean timer from the current reading
+      action: input_number.set_value
+      target:
+        entity_id: input_number.living_room_vacuum_filter_left_at_last_clean
+      data:
+        value: '{{ states(''sensor.living_room_vacuum_filter_time_left'') | float(0) }}'
+  - alias: Filter clean
+    conditions:
+    - alias: Filter clean selected
+      condition: template
+      value_template: '{{ consumable == ''filter_clean'' }}'
+    sequence:
+    - alias: Refresh filter time left
+      action: homeassistant.update_entity
+      target:
+        entity_id: sensor.living_room_vacuum_filter_time_left
+    - alias: Restart the filter clean timer from the current reading
+      action: input_number.set_value
+      target:
+        entity_id: input_number.living_room_vacuum_filter_left_at_last_clean
+      data:
+        value: '{{ states(''sensor.living_room_vacuum_filter_time_left'') | float(0) }}'
+  - alias: Main brush
+    conditions:
+    - alias: Main brush selected
+      condition: template
+      value_template: '{{ consumable == ''main_brush'' }}'
+    sequence:
+    - alias: Press main brush reset
+      action: button.press
+      target:
+        entity_id: button.living_room_vacuum_reset_main_brush_consumable
+    - alias: Let the reset apply
+      delay:
+        seconds: 2
+    - alias: Refresh main brush time left
+      action: homeassistant.update_entity
+      target:
+        entity_id: sensor.living_room_vacuum_main_brush_time_left
+  - alias: Side brush
+    conditions:
+    - alias: Side brush selected
+      condition: template
+      value_template: '{{ consumable == ''side_brush'' }}'
+    sequence:
+    - alias: Press side brush reset
+      action: button.press
+      target:
+        entity_id: button.living_room_vacuum_reset_side_brush_consumable
+    - alias: Let the reset apply
+      delay:
+        seconds: 2
+    - alias: Refresh side brush time left
+      action: homeassistant.update_entity
+      target:
+        entity_id: sensor.living_room_vacuum_side_brush_time_left
+  - alias: Sensors
+    conditions:
+    - alias: Sensors selected
+      condition: template
+      value_template: '{{ consumable == ''sensor'' }}'
+    sequence:
+    - alias: Press sensor reset
+      action: button.press
+      target:
+        entity_id: button.living_room_vacuum_reset_sensor_consumable
+    - alias: Let the reset apply
+      delay:
+        seconds: 2
+    - alias: Refresh sensor time left
+      action: homeassistant.update_entity
+      target:
+        entity_id: sensor.living_room_vacuum_sensor_time_left

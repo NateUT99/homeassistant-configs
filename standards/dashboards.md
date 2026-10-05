@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.0.3 — October 2026*
+*Version 1.0.4 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.0.4 | October 2026 | Alerts use icon colour only — no chip background tint |
 | 1.0.3 | October 2026 | Room tiles full width on phone, 4-up on desktop |
 | 1.0.2 | October 2026 | Chip strip height `rows: 1.2` |
 | 1.0.1 | October 2026 | Views stay visible; Kiosk Mode alone hides the tabs |
@@ -137,8 +138,9 @@ The current chip list and each chip's logic live in the guide.
 
 - **Neutral background on every chip:** `state_background: false`,
   `light_background: false`. See `LESSONS.md` → *Bubble sub-buttons tint themselves*.
-- **Colour the icon, not the chip.** Tint the whole chip only for an alert state (§10).
-  Target a chip with `css_class` and style it with Jinja in the card's `styles`.
+- **Colour the icon, never the chip.** Alerts are carried by icon colour alone (§10); a
+  tinted chip background lowers contrast and makes the chip harder to read. Target a chip
+  with `css_class` and style it with Jinja in the card's `styles`.
 - **Conditional chips use `visibility`**, not CSS.
 - **Icon-only chips omit `name`** — never `name: ""`, which reserves an empty text slot.
 - **Contextual gating for openings:** a door, window, garage, or unlocked lock is red when
@@ -195,7 +197,7 @@ include indicator LEDs*.
 | Need | Use |
 |---|---|
 | Dynamic text, icon | Jinja in `name`, `icon`, `state_content` (quoted) |
-| Dynamic colour or alert tint | Jinja inside `styles`, targeting a `css_class` |
+| Dynamic icon colour | Jinja inside `styles`, targeting a `css_class` |
 | Show/hide | `visibility` with native conditions; `condition: template` only when no native one fits |
 | Something Jinja can't reach | JavaScript `${...}` in `styles` — comment why |
 
@@ -208,7 +210,7 @@ so every HA function and every `custom_templates` macro is available.
   in `ha/custom_templates/dashboard.jinja`, imported with
   `{% from 'dashboard.jinja' import <macro> %}`. Pass entity IDs and areas as arguments —
   an imported macro cannot see the card's `entity` variable.
-- **Look** (a tile's styles, an alert chip's tint) used by more than two cards is a Bubble
+- **Look** (a tile's styles, a consumable's icon colour) used by more than two cards is a Bubble
   module in `ha/bubble_modules/<id>.yaml`, applied by ID.
 - When an alert condition already exists as a helper (a group, a threshold, a template
   binary sensor), the chip reads the helper — don't re-derive it in the dashboard.
@@ -220,8 +222,8 @@ so every HA function and every `custom_templates` macro is available.
 | Meaning | Colour | Variable |
 |---|---|---|
 | Normal / secured | Green icon | `--green-color` |
-| Attention — home and awake | Orange icon, orange chip tint | `--orange-color` / `rgba(var(--rgb-orange-color), 0.3)` |
-| Alert — asleep, away, leak, fault | Red icon, red chip tint | `--red-color` / `rgba(var(--rgb-red-color), 0.3)` |
+| Attention — home and awake | Orange icon | `--orange-color` |
+| Alert — asleep, away, leak, fault | Red icon | `--red-color` |
 | Active / running | Theme accent | entity state colour |
 | Neutral / informational | Theme default | — |
 
@@ -276,7 +278,7 @@ Don't edit modules in the Bubble module editor — the repo copy is the source.
 | Navigation | Navbar Card template `main`; views stay visible | §4 |
 | Hide header | `kiosk_mode: {hide_header: true}`; `?disable_km` to edit | §4 |
 | Chip strip | `sub-buttons`, 2 centred rows, neutral chips, icon colour | §7 |
-| Alert chip | `css_class` + Jinja tint in `styles` | §7, §10 |
+| Alert chip | `css_class` + Jinja icon colour in `styles` | §7, §10 |
 | Room tile | Bubble `button`; tap → pop-up, hold → primary light; ≤ 2 primary sub-buttons | §8 |
 | Room eligibility | Controllable from the dashboard more than occasionally | §8.1 |
 | Light count | Shared macro with `reject('is_hidden_entity')` | §8.2, §9.2 |

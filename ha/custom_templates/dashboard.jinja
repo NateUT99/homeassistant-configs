@@ -30,8 +30,3 @@
 {% macro alert_level() -%}
 {{- 'red' if is_state('input_boolean.everyone_sleeping', 'on') or states('zone.home') | int(0) == 0 else 'orange' -}}
 {%- endmacro %}
-
-{#- Chip tint for an alert: a 30% wash of the severity colour. -#}
-{% macro alert_tint(level) -%}
-rgba(var(--rgb-{{ level }}-color), 0.3)
-{%- endmacro %}

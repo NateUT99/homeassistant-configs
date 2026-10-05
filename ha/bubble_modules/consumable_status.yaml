@@ -1,0 +1,15 @@
+# Bubble Card module: colours a consumable's icon by hours of life left.
+# Deployed to /config/bubble_card/modules/consumable_status.yaml (standards/dashboards.md §13).
+# Apply with `modules: [consumable_status]` on a button whose entity reports hours remaining.
+consumable_status:
+  name: Consumable status
+  version: "1.0"
+  creator: home-main
+  description: Icon red when the consumable is due (≤ 0 h), amber under 10 h, green otherwise.
+  supported:
+    - button
+  code: |
+    {% set h = states(entity) | float(0) %}
+    .bubble-icon {
+      color: var(--{{ 'red' if h <= 0 else ('amber' if h < 10 else 'green') }}-color) !important;
+    }

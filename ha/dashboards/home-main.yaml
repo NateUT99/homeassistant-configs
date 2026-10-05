@@ -32,23 +32,16 @@ views:
       card_type: sub-buttons
       hide_main_background: true
       rows: 1.2
-      styles: '{% from ''dashboard.jinja'' import alert_level, alert_tint %}{% set lvl = alert_level() %}
+      styles: '{% from ''dashboard.jinja'' import alert_level %}{% set lvl = alert_level() %}
 
-        .lock ha-icon { color: var(--{{ ''green'' if is_state(''lock.entrance_front_door'',''locked'') else lvl }}-color) !important; }
+        {% set unlocked = not is_state(''lock.entrance_front_door'',''locked'') %}{% set front_open = is_state(''binary_sensor.entrance_front_door'',''on'') %}{% set garage_open = not is_state(''cover.garage_door_opener_door'',''closed'')
+        %}{% set secure = not (unlocked or front_open or garage_open) %}
 
-        {% if not is_state(''lock.entrance_front_door'',''locked'') %}.lock { background-color: {{ alert_tint(lvl) }} !important; }{% endif %}
-
-        .garage ha-icon { color: var(--{{ ''green'' if is_state(''cover.garage_door_opener_door'',''closed'') else lvl }}-color) !important; }
-
-        {% if not is_state(''cover.garage_door_opener_door'',''closed'') %}.garage { background-color: {{ alert_tint(lvl) }} !important; }{% endif %}
+        .doors ha-icon { color: var(--{{ ''green'' if secure else lvl }}-color) !important; }
 
         .openings ha-icon { color: var(--{{ lvl }}-color) !important; }
 
-        .openings { background-color: {{ alert_tint(lvl) }} !important; }
-
         .leak ha-icon, .internet ha-icon, .fridge ha-icon { color: var(--red-color) !important; }
-
-        .leak, .internet, .fridge { background-color: {{ alert_tint(''red'') }} !important; }
 
         .hvac-paused ha-icon { color: var(--orange-color) !important; }
 
@@ -116,38 +109,26 @@ views:
             tap_action:
               action: navigate
               navigation_path: '#weather'
+            visibility:
+            - condition: numeric_state
+              entity: sensor.erie_ohio_usa_air_quality_index
+              above: 50
           - fill_width: false
             state_background: false
             light_background: false
             entity: lock.entrance_front_door
-            css_class: lock
-            icon: '{{ ''mdi:lock'' if is_state(''lock.entrance_front_door'',''locked'') else ''mdi:lock-open-variant'' }}'
+            css_class: doors
+            icon: '{% set unlocked = not is_state(''lock.entrance_front_door'',''locked'') %}{% set front_open = is_state(''binary_sensor.entrance_front_door'',''on'') %}{% set garage_open = not is_state(''cover.garage_door_opener_door'',''closed'')
+              %}{% set issues = [unlocked or front_open, garage_open] | select | list | count %}{{ ''mdi:home-lock'' if issues == 0 else (''mdi:home-alert'' if issues > 1 else (''mdi:garage-open-variant''
+              if garage_open else (''mdi:door-open'' if front_open else ''mdi:lock-open-variant''))) }}'
             tap_action:
               action: navigate
               navigation_path: '#security'
             hold_action:
               action: perform-action
-              perform_action: lock.lock
-              target:
-                entity_id: lock.entrance_front_door
+              perform_action: script.household_secure_doors
               confirmation:
-                text: Lock the front door?
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: cover.garage_door_opener_door
-            css_class: garage
-            icon: '{{ ''mdi:garage-variant'' if is_state(''cover.garage_door_opener_door'',''closed'') else ''mdi:garage-open-variant'' }}'
-            tap_action:
-              action: navigate
-              navigation_path: '#security'
-            hold_action:
-              action: perform-action
-              perform_action: cover.close_cover
-              target:
-                entity_id: cover.garage_door_opener_door
-              confirmation:
-                text: Close the garage door?
+                text: Lock the front door and close the garage?
           - fill_width: false
             state_background: false
             light_background: false
@@ -155,14 +136,15 @@ views:
             css_class: openings
             show_name: true
             icon: mdi:door-open
-            name: '{{ expand(''binary_sensor.household_exterior_openings'') | selectattr(''state'',''eq'',''on'') | list | count }} open'
+            name: '{{ expand(''binary_sensor.household_exterior_openings'') | rejectattr(''entity_id'',''eq'',''binary_sensor.entrance_front_door'') | selectattr(''state'',''eq'',''on'') | list | count
+              }} open'
             tap_action:
               action: navigate
               navigation_path: '#security'
             visibility:
-            - condition: state
-              entity: binary_sensor.household_exterior_openings
-              state: 'on'
+            - condition: template
+              value_template: '{{ expand(''binary_sensor.household_exterior_openings'') | rejectattr(''entity_id'',''eq'',''binary_sensor.entrance_front_door'') | selectattr(''state'',''eq'',''on'') | list
+                | count > 0 }}'
           - fill_width: false
             state_background: false
             light_background: false
@@ -172,7 +154,7 @@ views:
             name: Leak
             tap_action:
               action: navigate
-              navigation_path: '#water-leaks'
+              navigation_path: '#security'
             visibility:
             - condition: template
               value_template: '{{ label_entities(''water_leak_sensor'') | select(''is_state'',''on'') | list | count > 0 }}'
@@ -329,8 +311,10 @@ views:
             light_background: false
             entity: vacuum.living_room_vacuum
             css_class: vacuum
-            icon: '{{ ''mdi:robot-vacuum-off'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') else (''mdi:robot-vacuum-alert'' if (states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable'']
-              or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable''] or is_state(''binary_sensor.vacuum_stuck'',''on'')) else ''mdi:robot-vacuum'') }}'
+            icon: '{% set overdue = [''sensor.living_room_vacuum_filter_time_left'',''sensor.living_room_vacuum_filter_clean_time_left'',''sensor.living_room_vacuum_main_brush_time_left'',''sensor.living_room_vacuum_side_brush_time_left'',''sensor.living_room_vacuum_sensor_time_left'']
+              | map(''states'') | map(''float'', 999) | select(''le'', 0) | list | count > 0 %}{{ ''mdi:robot-vacuum-off'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') else (''mdi:robot-vacuum-alert''
+              if (overdue or states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable''] or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable'']
+              or is_state(''binary_sensor.vacuum_stuck'',''on'')) else ''mdi:robot-vacuum'') }}'
             tap_action:
               action: navigate
               navigation_path: '#vacuum'
@@ -922,6 +906,16 @@ views:
       cards:
       - type: custom:bubble-card
         card_type: separator
+        name: Doorbell
+        icon: mdi:doorbell-video
+      - type: picture-entity
+        entity: camera.entrance_front_doorbell_camera
+        show_state: false
+        show_name: false
+        aspect_ratio: '1:1'
+        fit_mode: cover
+      - type: custom:bubble-card
+        card_type: separator
         name: Doors
         icon: mdi:door
       - type: tile
@@ -947,6 +941,30 @@ views:
         name: Doors & Windows
         grid_options:
           columns: 6
+      - type: custom:bubble-card
+        card_type: separator
+        name: Water
+        icon: mdi:water-alert
+      - type: tile
+        entity: binary_sensor.kitchen_sink_water_leak
+        grid_options:
+          columns: 6
+        name: Kitchen sink
+      - type: tile
+        entity: binary_sensor.bathroom_sink_water_leak
+        grid_options:
+          columns: 6
+        name: Bathroom sink
+      - type: tile
+        entity: binary_sensor.utility_room_washer_water_leak
+        grid_options:
+          columns: 6
+        name: Washer
+      - type: tile
+        entity: binary_sensor.family_room_pump_water_leak
+        grid_options:
+          columns: 6
+        name: Sump pump
       - type: custom:bubble-card
         card_type: separator
         name: Outside Lights
@@ -975,16 +993,6 @@ views:
         entity: light.garage_door_opener_light
         grid_options:
           columns: 6
-      - type: custom:bubble-card
-        card_type: separator
-        name: Doorbell
-        icon: mdi:doorbell-video
-      - type: picture-entity
-        entity: camera.entrance_front_doorbell_camera
-        show_state: false
-        show_name: false
-        aspect_ratio: '1:1'
-        fit_mode: cover
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#climate'
@@ -1000,6 +1008,528 @@ views:
       - type: custom:bubble-card
         card_type: climate
         entity: climate.living_room_fireplace
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#weather'
+      name: Weather
+      icon: mdi:weather-partly-cloudy
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: tile
+        entity: weather.outside_waterville_oh_usa
+        name: Next hours
+        grid_options:
+          columns: 12
+        features:
+        - type: temperature-forecast
+          forecast_type: hourly
+          hours_to_show: 12
+        - type: precipitation-forecast
+          forecast_type: hourly
+          hours_to_show: 12
+          precipitation_type: probability
+      - type: weather-forecast
+        entity: weather.outside_waterville_oh_usa
+        forecast_type: daily
+        show_current: false
+        show_forecast: true
+        grid_options:
+          columns: 12
+      - type: custom:bubble-card
+        card_type: separator
+        name: Outside
+        icon: mdi:home-thermometer-outline
+      - type: tile
+        entity: sensor.outside_temperature
+        grid_options:
+          columns: 6
+        name: Temperature
+      - type: tile
+        entity: sensor.outside_humidity
+        grid_options:
+          columns: 6
+        name: Humidity
+      - type: tile
+        entity: sensor.outside_waterville_oh_usa_pressure_trend
+        grid_options:
+          columns: 6
+        name: Pressure
+      - type: tile
+        entity: sensor.outside_waterville_oh_usa_precipitation_intensity
+        grid_options:
+          columns: 6
+        name: Precipitation
+      - type: custom:bubble-card
+        card_type: separator
+        name: Air Quality
+        icon: mdi:weather-hazy
+      - type: tile
+        entity: sensor.erie_ohio_usa_air_quality_index
+        grid_options:
+          columns: 6
+        name: AQI
+      - type: tile
+        entity: sensor.erie_ohio_usa_dominant_pollutant
+        grid_options:
+          columns: 6
+        name: Dominant
+      - type: tile
+        entity: sensor.erie_ohio_usa_pm2_5
+        grid_options:
+          columns: 4
+        name: PM2.5
+      - type: tile
+        entity: sensor.erie_ohio_usa_pm10
+        grid_options:
+          columns: 4
+        name: PM10
+      - type: tile
+        entity: sensor.erie_ohio_usa_ozone
+        grid_options:
+          columns: 4
+        name: Ozone
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#vacuum'
+      name: Vacuum
+      icon: mdi:robot-vacuum
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: tile
+        entity: vacuum.living_room_vacuum
+        name: Vacuum
+        grid_options:
+          columns: 12
+        state_content:
+        - state
+        - battery_level
+        features:
+        - type: vacuum-commands
+          commands:
+          - start_pause
+          - stop
+          - return_home
+          - locate
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: input_boolean.vacuum_routine_pause
+        name: Pause routine
+        icon: mdi:pause-circle-outline
+        grid_options:
+          columns: 6
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        name: Mop now
+        icon: mdi:water
+        grid_options:
+          columns: 6
+        tap_action:
+          action: perform-action
+          perform_action: script.household_vacuum_mop_now
+          confirmation:
+            text: Start a mop pass now?
+        button_action:
+          tap_action:
+            action: perform-action
+            perform_action: script.household_vacuum_mop_now
+            confirmation:
+              text: Start a mop pass now?
+      - type: picture-entity
+        entity: image.living_room_vacuum_main_floor
+        show_name: false
+        show_state: false
+        grid_options:
+          columns: 12
+        visibility:
+        - condition: or
+          conditions:
+          - condition: state
+            entity: vacuum.living_room_vacuum
+            state_not: docked
+          - condition: state
+            entity: input_boolean.vacuum_ran_daytime
+            state: 'on'
+          - condition: state
+            entity: input_boolean.vacuum_ran_evening
+            state: 'on'
+      - type: custom:bubble-card
+        card_type: separator
+        name: Status
+        icon: mdi:gauge
+      - type: tile
+        entity: sensor.living_room_vacuum_status
+        grid_options:
+          columns: 6
+        name: Status
+      - type: tile
+        entity: sensor.living_room_vacuum_current_room
+        grid_options:
+          columns: 6
+        name: Room
+        visibility:
+        - condition: state
+          entity: binary_sensor.living_room_vacuum_cleaning
+          state: 'on'
+      - type: tile
+        entity: sensor.living_room_vacuum_cleaning_area
+        grid_options:
+          columns: 6
+        name: Area
+      - type: tile
+        entity: sensor.living_room_vacuum_cleaning_time
+        grid_options:
+          columns: 6
+        name: Duration
+      - type: tile
+        entity: sensor.living_room_vacuum_last_clean_end
+        grid_options:
+          columns: 6
+        name: Last clean
+      - type: custom:bubble-card
+        card_type: separator
+        name: Mop
+        icon: mdi:water
+      - type: tile
+        entity: select.living_room_vacuum_mop_intensity
+        grid_options:
+          columns: 6
+        name: Intensity
+        features:
+        - type: select-options
+        visibility:
+        - condition: state
+          entity: binary_sensor.living_room_vacuum_mop_attached
+          state: 'on'
+      - type: tile
+        entity: select.living_room_vacuum_mop_mode
+        grid_options:
+          columns: 6
+        name: Mode
+        features:
+        - type: select-options
+        visibility:
+        - condition: state
+          entity: binary_sensor.living_room_vacuum_mop_attached
+          state: 'on'
+      - type: tile
+        entity: binary_sensor.living_room_vacuum_mop_attached
+        grid_options:
+          columns: 6
+        name: Mop pad
+      - type: tile
+        entity: binary_sensor.living_room_vacuum_water_shortage
+        grid_options:
+          columns: 6
+        name: Water
+      - type: custom:bubble-card
+        card_type: separator
+        name: Maintenance
+        icon: mdi:wrench
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        entity: sensor.living_room_vacuum_filter_clean_time_left
+        name: Filter clean
+        icon: mdi:air-filter
+        modules:
+        - consumable_status
+        grid_options:
+          columns: 6
+        tap_action:
+          action: more-info
+        hold_action:
+          action: perform-action
+          perform_action: script.household_vacuum_reset_consumable
+          data:
+            consumable: filter_clean
+        button_action:
+          tap_action:
+            action: more-info
+          hold_action:
+            action: perform-action
+            perform_action: script.household_vacuum_reset_consumable
+            data:
+              consumable: filter_clean
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        entity: sensor.living_room_vacuum_filter_time_left
+        name: Filter replace
+        icon: mdi:air-filter
+        modules:
+        - consumable_status
+        grid_options:
+          columns: 6
+        tap_action:
+          action: more-info
+        hold_action:
+          action: perform-action
+          perform_action: script.household_vacuum_reset_consumable
+          data:
+            consumable: air_filter
+        button_action:
+          tap_action:
+            action: more-info
+          hold_action:
+            action: perform-action
+            perform_action: script.household_vacuum_reset_consumable
+            data:
+              consumable: air_filter
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        entity: sensor.living_room_vacuum_main_brush_time_left
+        name: Main brush
+        icon: mdi:brush
+        modules:
+        - consumable_status
+        grid_options:
+          columns: 6
+        tap_action:
+          action: more-info
+        hold_action:
+          action: perform-action
+          perform_action: script.household_vacuum_reset_consumable
+          data:
+            consumable: main_brush
+        button_action:
+          tap_action:
+            action: more-info
+          hold_action:
+            action: perform-action
+            perform_action: script.household_vacuum_reset_consumable
+            data:
+              consumable: main_brush
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        entity: sensor.living_room_vacuum_side_brush_time_left
+        name: Side brush
+        icon: mdi:brush-variant
+        modules:
+        - consumable_status
+        grid_options:
+          columns: 6
+        tap_action:
+          action: more-info
+        hold_action:
+          action: perform-action
+          perform_action: script.household_vacuum_reset_consumable
+          data:
+            consumable: side_brush
+        button_action:
+          tap_action:
+            action: more-info
+          hold_action:
+            action: perform-action
+            perform_action: script.household_vacuum_reset_consumable
+            data:
+              consumable: side_brush
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        entity: sensor.living_room_vacuum_sensor_time_left
+        name: Sensors
+        icon: mdi:eye-outline
+        modules:
+        - consumable_status
+        grid_options:
+          columns: 6
+        tap_action:
+          action: more-info
+        hold_action:
+          action: perform-action
+          perform_action: script.household_vacuum_reset_consumable
+          data:
+            consumable: sensor
+        button_action:
+          tap_action:
+            action: more-info
+          hold_action:
+            action: perform-action
+            perform_action: script.household_vacuum_reset_consumable
+            data:
+              consumable: sensor
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#laundry'
+      name: Laundry
+      icon: mdi:washing-machine
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: custom:bubble-card
+        card_type: separator
+        name: Washer
+        icon: mdi:washing-machine
+      - type: tile
+        entity: sensor.utility_room_washer_current_status
+        grid_options:
+          columns: 6
+        name: Status
+      - type: tile
+        entity: sensor.utility_room_washer_minutes_remaining
+        grid_options:
+          columns: 6
+        name: Remaining
+      - type: tile
+        entity: sensor.utility_room_washer_progress
+        grid_options:
+          columns: 12
+        name: Progress
+        features:
+        - type: bar-gauge
+          min: 0
+          max: 100
+      - type: tile
+        entity: input_datetime.utility_room_washer_cycle_started
+        grid_options:
+          columns: 6
+        name: Started
+        state_content: last-changed
+      - type: tile
+        entity: input_datetime.utility_room_washer_cycle_ended
+        grid_options:
+          columns: 6
+        name: Finished
+        state_content: last-changed
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        name: Got the washer — stop reminders
+        icon: mdi:check-circle-outline
+        grid_options:
+          columns: 12
+        tap_action:
+          action: perform-action
+          perform_action: input_select.select_option
+          target:
+            entity_id: input_select.utility_room_washer_status
+          data:
+            option: acknowledged
+        button_action:
+          tap_action:
+            action: perform-action
+            perform_action: input_select.select_option
+            target:
+              entity_id: input_select.utility_room_washer_status
+            data:
+              option: acknowledged
+        visibility:
+        - condition: state
+          entity: input_select.utility_room_washer_status
+          state: alerting
+      - type: custom:bubble-card
+        card_type: separator
+        name: Dryer
+        icon: mdi:tumble-dryer
+      - type: tile
+        entity: sensor.utility_room_dryer_current_status
+        grid_options:
+          columns: 6
+        name: Status
+      - type: tile
+        entity: sensor.utility_room_dryer_minutes_remaining
+        grid_options:
+          columns: 6
+        name: Remaining
+      - type: tile
+        entity: sensor.utility_room_dryer_progress
+        grid_options:
+          columns: 12
+        name: Progress
+        features:
+        - type: bar-gauge
+          min: 0
+          max: 100
+      - type: tile
+        entity: input_datetime.utility_room_dryer_cycle_started
+        grid_options:
+          columns: 6
+        name: Started
+        state_content: last-changed
+      - type: tile
+        entity: input_datetime.utility_room_dryer_cycle_ended
+        grid_options:
+          columns: 6
+        name: Finished
+        state_content: last-changed
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        name: Got the dryer — stop reminders
+        icon: mdi:check-circle-outline
+        grid_options:
+          columns: 12
+        tap_action:
+          action: perform-action
+          perform_action: input_select.select_option
+          target:
+            entity_id: input_select.utility_room_dryer_status
+          data:
+            option: acknowledged
+        button_action:
+          tap_action:
+            action: perform-action
+            perform_action: input_select.select_option
+            target:
+              entity_id: input_select.utility_room_dryer_status
+            data:
+              option: acknowledged
+        visibility:
+        - condition: state
+          entity: input_select.utility_room_dryer_status
+          state: alerting
+      - type: custom:bubble-card
+        card_type: separator
+        name: Dishwasher
+        icon: mdi:dishwasher
+      - type: tile
+        entity: binary_sensor.kitchen_dishwasher_running
+        grid_options:
+          columns: 6
+        name: Dishwasher
+      - type: tile
+        entity: sensor.kitchen_dishwasher_power
+        grid_options:
+          columns: 6
+        name: Power
+      - type: custom:bubble-card
+        card_type: separator
+        name: Washer Stats
+        icon: mdi:chart-box-outline
+      - type: tile
+        entity: sensor.utility_room_washer_cycles
+        grid_options:
+          columns: 4
+        name: Cycles
+      - type: tile
+        entity: sensor.utility_room_washer_energy_this_month
+        grid_options:
+          columns: 4
+        name: This month
+      - type: tile
+        entity: sensor.utility_room_washer_energy_last_month
+        grid_options:
+          columns: 4
+        name: Last month
+      - type: custom:bubble-card
+        card_type: separator
+        name: Utility Room
+        icon: mdi:lightbulb-group
+      - type: custom:bubble-card
+        card_type: button
+        button_type: switch
+        entity: light.utility_room_ceiling_lights
+        grid_options:
+          columns: 6
 - title: Chores
   path: chores
   type: sections
