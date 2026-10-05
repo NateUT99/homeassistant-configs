@@ -190,11 +190,11 @@ To actually prevent it, point the thermostat's `heater` at a template switch who
 
 ## Dashboards
 
-### Bubble Card `state_display` does not evaluate Jinja2 templates reliably
+### Bubble Card Jinja templates are server-rendered and reliable from v3.4 — `state_display` is obsolete
 
-Bubble Card's `state_display` field accepts Jinja2 syntax (`{{ }}`), and basic `states()` calls with simple filters (e.g., `|round|int`) work in some contexts. However, HA-specific functions (`as_timestamp`, `timestamp_custom`, `strptime`) and chained method calls (`strptime(...).strftime(...)`) silently fail — the card falls back to displaying the entity's raw state string. There is no error surfaced anywhere.
+Before v3.4, Bubble Card's `state_display` field half-supported Jinja: simple `states() | int` worked, but HA functions like `as_timestamp`/`strptime` silently fell back to the raw state. Since v3.4, Jinja in `name`, `icon`, `state_content`, sub-button `name`/`icon`, `styles`, and `condition: template` is rendered **by the HA server** (same engine as Developer Tools) and updates live. Confirmed on `home-test` in Oct 2026: temperature, AQI, lock text/icon, a `{{ ... }}`-driven icon colour inside `styles`, and an `area_entities(...)` count all render correctly on iPhone and Mac.
 
-**Do not use `state_display` templates for date formatting.** Instead, have the template sensor return the desired display string directly (e.g., `strftime('%B %-d, %Y')` in the sensor template). Card `state_display` is reliable only for trivial numeric formatting of the card's own entity state.
+Use `state_content` (not `state_display`) for the line under the name. Always quote templates — unquoted `{{ }}` is read by YAML as a mapping and the card rejects it. Prefer templates over the old JavaScript `${...}` / `innerText` injection in `styles`; reserve JS templates for things Jinja can't reach.
 
 ### Native HA cards do not auto-format `device_class: date` template sensors
 
@@ -408,6 +408,24 @@ footer:
 ```
 
 The inner `card` can be a grid, a mushroom-chips-card with action chips, or any other card type. The outer mushroom-chips-card's own `chips` array does not render. Never place a card directly as the footer value, even if it seems like it should work — it won't.
+
+### An area's `light.*` entities include indicator LEDs and group members — filter with `is_hidden_entity`
+
+`area_entities('office') | select('match','light\\.')` returns more than the room's real lights: Inovelli switch LED bars (`light.*_switch_led_bar`), status LEDs, and the individual bulbs that sit inside a light group. A dashboard "N lights on" count built on it changes unexpectedly. On `home-test`, holding the Office tile showed 2 → 3 → 2 in under a second because the fan automation turns the switch's LED locator off when the ceiling light comes on.
+
+All of those non-room entities are hidden in the entity registry, and the real room lights are not, so `| reject('is_hidden_entity')` gives the correct set with nothing to maintain. If a new indicator or group member shows up in a count, hide it in the registry rather than adding an exclusion list to the template.
+
+### Bubble sub-buttons tint themselves when their entity is "active" — disable it for status chips
+
+A Bubble sub-button with an `entity` fills its background with the state colour whenever that entity reads as active (e.g. a locked lock, a sensor with a value, a climate entity that's running). In a status chip strip this makes a few chips look highlighted for no meaningful reason. Set `state_background: false` and `light_background: false` on every chip so they share a neutral background, then colour only the icon, and tint the whole chip only for an alert state, using a `css_class` + Jinja in `styles`.
+
+### Navbar Card + hidden view tabs: the HA toolbar overlaps the top of the view
+
+Hiding views from HA's tab bar (`visible: false`, so Navbar Card is the only navigation) left the desktop toolbar overlapping the first section; the chip strip's top edge was hidden under it. Hiding the header entirely with Kiosk Mode (`kiosk_mode: {hide_header: true}` at the dashboard root, all widths) fixes it and removes a bar that no longer does anything. Append `?disable_km` to the URL to get the toolbar back for editing.
+
+### Bubble Card Tools must be added as an integration, not just installed from HACS
+
+Installing Bubble Card Tools from HACS only drops the files into `custom_components/`. Until it is added under **Settings → Devices & Services**, there is no config entry and no module store: modules have nowhere to save. Once set up, modules are individual YAML files in `/config/bubble_card/modules/`.
 
 ---
 
