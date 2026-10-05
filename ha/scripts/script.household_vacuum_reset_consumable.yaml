@@ -1,10 +1,9 @@
 alias: 'Household: Vacuum Reset Consumable'
-description: >-
-  Resets one Roborock consumable counter (filter, main brush, side brush, or sensors) after the maintenance
-  is done, then refreshes that consumable's time-left sensor so the dashboard shows the reset within seconds
-  instead of on the next poll. Also marks the filter cleaned (filter_clean) by storing the filter's current
-  hours left, which restarts the 50 h clean timer; a filter replacement restarts it too. Called by holding
-  a Maintenance card in the home-main #vacuum pop-up. See guides/vacuum_cleaning_routine.md.
+description: 'Resets one Roborock consumable counter (filter, main brush, side brush, or sensors) after
+  the maintenance is done, then refreshes that consumable''s time-left sensor so the dashboard shows the
+  reset within seconds instead of on the next poll. Also marks the filter cleaned (filter_clean) by storing
+  the filter''s current hours left, which restarts the 50 h clean timer; a filter replacement restarts
+  it too. Called by holding a Maintenance card in the home-main #vacuum pop-up. See guides/vacuum_cleaning_routine.md.'
 icon: mdi:wrench-cog
 mode: queued
 fields:

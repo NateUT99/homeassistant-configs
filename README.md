@@ -37,6 +37,7 @@ See `CLAUDE.md` for full project conventions (working preferences, commit discip
 | [Logitech Litra Glow](guides/litra_glow.md) | Key light exposed as a native, push-updated HA light via a macOS agent and the `litra` custom integration |
 | [iOS Live Activities](guides/live_activities.md) | `script.household_live_activity`, the single dispatch point for Lock Screen / Dynamic Island cards across laundry and vacuum |
 | [Mac Mini Bluetooth Peripheral Battery Monitor](guides/mac_mini_bluetooth_battery.md) | Shell script polling ioreg for Bluetooth peripheral battery levels, posted to HA via webhook (decommissioned) |
+| [AI Insights](guides/ai_insights.md) | Claude-generated daily briefing, on-demand house summary, and weekly digest for the dashboard |
 | [Home Dashboard](guides/home_dashboard.md) | `home-main` responsive Bubble Card dashboard — chip strip, room tiles, pop-ups, Navbar + Kiosk Mode |
 | [Outdoor Air Quality Alerting](guides/outdoor_air_quality_alerting.md) | WAQI-based AQI monitoring with TTS and push notification alerts for poor air quality and clearance announcements |
 | [Presence Tracking](guides/presence_tracking.md) | HomeKit geofence-driven device trackers via Template Helper `device_tracker` entities, no MQTT required |

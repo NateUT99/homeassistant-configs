@@ -25,8 +25,9 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 │   ├── Section 1 (span 4) ── Navbar Card ── Chip strip (Bubble sub-buttons, 2 rows, rows: 1.2)
 │   │                                          Row 1  status & alerts
 │   │                                          Row 2  features
+│   │                         ── Greeting (markdown: "Good <part of day>, <name>!" + briefing)
 │   ├── Section 2 (span 4) ── Room tiles × 6 (Bubble button; full width on phone, 4-up desktop)
-│   └── Section 3          ── Pop-ups: 6 rooms + #security #climate #weather #vacuum #laundry
+│   └── Section 3          ── Pop-ups: 6 rooms + #security #climate #weather #vacuum #laundry #ai
 │
 └── Chores view ── Navbar Card ── chore-calendar-card
          │
@@ -56,7 +57,9 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 
 - Home Assistant 2026.9 or later
 - HACS frontend: Bubble Card ≥ 3.4, Navbar Card, Kiosk Mode, Battery State Card, Expander Card; theme: Frosted Glass
-- HACS integration: Bubble Card Tools, added under **Settings → Devices & Services**
+- HACS integrations: Bubble Card Tools and UIX, each added under **Settings → Devices &
+  Services** (installing from HACS alone isn't enough)
+- AI insights (`guides/ai_insights.md`) for the greeting line, AI chip, and `#ai`
 - Chore Calendar integration (provides `todo.household_chores`, the chore sensors, and
   `chore-calendar-card`) — see `guides/reminders.md`
 - Adaptive Lighting (owns brightness; the dashboard exposes no sliders)
@@ -112,6 +115,7 @@ One Bubble `sub-buttons` card. Chip icon colours are Jinja in the card's
 | Internet | WAN down or modem power cycle active | Red | — | — |
 | Generator | `sensor.outside_home_generator_status` = `Running` | Orange | — | — |
 | Fridge | Refrigerator plug off or power sensor unavailable | Red | — | — |
+| AI | Always; icon only | Orange when the house summary from the last 12 h flagged attention, otherwise grey | `#ai` | — |
 | Updates | Any `update.*` on; count | Primary | `/config/updates` | — |
 | Guest | Always; icon only | Green when on | — | Toggle |
 | Avery | She's home today **and** (asleep 06:30–09:00 **or** house awake 20:30–22:30) | Green when asleep | — | Toggle `input_boolean.avery_sleeping` |
@@ -131,6 +135,11 @@ One Bubble `sub-buttons` card. Chip icon colours are Jinja in the card's
 The Recycling chip appears in practice only on Trash & Recycling weeks: a trash-only week
 auto-completes at its first announcement (see `guides/reminders.md`). Its hold calls
 `todo.update_item` on `todo.household_chores`, the same completion path as the chore card.
+
+**Greeting** sits below the chip strip: a text-only markdown card, "Good morning/afternoon/
+evening, <first name>!" (05:00–11:59 / 12:00–16:59 / otherwise, the logged-in user's first
+name) over the latest briefing headline in italics. Markdown sizes itself to its content, so
+the line never overlaps the chips. A UIX style trims the heading's bottom margin.
 
 ### 4. Room tiles
 
@@ -168,6 +177,7 @@ header shows the same `room_summary` as the tile.
 | `#climate` | Thermostat and fireplace (Bubble climate) |
 | `#weather` | 12-hour temperature and rain-chance forecast, daily forecast, outside conditions, AQI and pollutants |
 | `#vacuum` | Commands, routine pause, Mop now (confirm), map (only when out or ran today), status, mop settings (when the pad is on), 4 consumables |
+| `#ai` | "House Assistant": briefing with Refresh, house summary with "Summarize the house" (shows "Working…" while the script runs), weekly digest — each with its age |
 | `#laundry` | Washer and dryer status, remaining, progress, start/finish; "stop reminders" acknowledge (only while `alerting`); dishwasher; washer stats; utility room light |
 
 `#laundry` is reachable only while a washer, dryer, or dishwasher chip is showing; it is about
@@ -227,6 +237,7 @@ row showing the lowest level. New devices appear automatically.
 | Household: Vacuum Reset Consumable | `script.household_vacuum_reset_consumable` | Script |
 | Household: Vacuum Mop Now | `script.household_vacuum_mop_now` | Script |
 | Household: Secure Doors | `script.household_secure_doors` | Script (lock front door if closed, close garage) |
+| Household AI Briefing / House Summary | `sensor.household_ai_briefing`, `sensor.household_ai_house_summary` | Template sensors (`guides/ai_insights.md`) |
 | Living Room Vacuum Filter Clean Time Left | `sensor.living_room_vacuum_filter_clean_time_left` | Template helper |
 | HVAC Mode Before Pause | `input_select.household_hvac_mode_before_pause` | Helper |
 

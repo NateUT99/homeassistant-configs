@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.1.0 — October 2026*
+*Version 1.2.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.2.0 | October 2026 | Home order: chips, then greeting (markdown) with the AI briefing; AI content lives in `#ai` behind an always-visible AI chip |
 | 1.1.0 | October 2026 | Expander Card approved; collapsible-section pattern for secondary views |
 | 1.0.5 | October 2026 | Battery State Card approved |
 | 1.0.4 | October 2026 | Alerts use icon colour only — no chip background tint |
@@ -63,7 +64,7 @@ and an update to this table.
 | Navbar Card | HACS frontend | Navigation: bottom bar on phone, left rail on desktop |
 | Kiosk Mode | HACS frontend | Hides the HA header on `home-main` |
 | Frosted Glass | HACS theme | Base theme, applied per view |
-| UIX | HACS integration | CSS escape hatch for cases Bubble styles can't reach (e.g. vacuum map crop) |
+| UIX | HACS integration | CSS escape hatch for cases Bubble styles can't reach (e.g. heading margins in a markdown card, vacuum map crop). Must be added as an integration; card key is `uix: style:` |
 | chore-calendar-card | Bundled with Chore Calendar | Chores view |
 | Battery State Card | HACS frontend | Battery list on the Maintenance view (auto-discovered, threshold-filtered) |
 | Expander Card | HACS frontend | Collapsible sections on long secondary views |
@@ -118,8 +119,10 @@ the view's first section. Desktop `position: left`; labels shown on both form fa
 
 Sections, in order:
 
-1. **Briefing** — the AI briefing card (§11), full width.
-2. **Chip strip** — one Bubble `sub-buttons` card, full width (§7).
+1. **Chip strip** — one Bubble `sub-buttons` card, full width (§7).
+2. **Greeting** — a text-only markdown card: time-of-day greeting with the user's first name,
+   then the AI briefing headline in italics (§11). Markdown, not a Bubble card, because it
+   must size itself to multi-line text.
 3. **Condition-triggered sections** — appear only while relevant (vacuum running, laundry
    running, overdue chores), gated by section-level `visibility` on entity state. No
    helper toggles.
@@ -246,9 +249,12 @@ Cards that show Claude-generated text (briefing, house summary, weekly digest):
 
 - Read from the `ai_insights` sensors; never call `ai_task` from a card. Generation is
   owned by scripts (see `guides/ai_insights.md`).
-- Show the content's age (`last-updated` in `state_content` or "Updated 7:00").
-- A Refresh action calls the generating script with a confirmation-free tap. The script
-  enforces its own cooldown.
+- Home shows only the briefing headline (in the greeting); the full briefing, the house
+  summary, and the weekly digest live in the `#ai` pop-up, reached by the always-visible AI
+  chip.
+- Show the content's age ("Updated 5 minutes ago", from the sensor's `generated_at`).
+- Generate buttons call the script with `script.turn_on` (no confirmation) and show
+  "Working…" while the script entity is `on`. The script enforces its own cooldown.
 - When the sensor is `unknown` or unavailable, show a neutral placeholder, never an error.
 
 ---

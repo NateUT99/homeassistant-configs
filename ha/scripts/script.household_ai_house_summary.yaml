@@ -1,0 +1,68 @@
+alias: 'Household: AI House Summary'
+description: 'On-demand summary of the house from Claude (ai_task.claude_haiku_ai_task): 3-6 short bullets,
+  leading with anything that needs attention, plus an attention flag that drives the AI chip on the home-main
+  dashboard. Facts come only from the allowlist macro house_facts in /config/custom_templates/ai_insights.jinja.
+  Skips if a summary was generated in the last 2 minutes, so repeated taps don''t spam the API. Called
+  from the dashboard''s Summarize the house button. See guides/ai_insights.md.'
+icon: mdi:text-box-search-outline
+mode: single
+max_exceeded: silent
+sequence:
+- alias: Skip if a summary was generated in the last 2 minutes
+  condition: template
+  value_template: '{% set last = state_attr(''sensor.household_ai_house_summary'', ''generated_at'') %}{{
+    last is none or (now() - as_datetime(last)) > timedelta(minutes=2) }}'
+- alias: Get the hourly forecast
+  action: weather.get_forecasts
+  target:
+    entity_id: weather.outside_waterville_oh_usa
+  data:
+    type: hourly
+  response_variable: hourly
+- alias: Get the daily forecast
+  action: weather.get_forecasts
+  target:
+    entity_id: weather.outside_waterville_oh_usa
+  data:
+    type: daily
+  response_variable: daily
+- alias: Build the facts
+  variables:
+    facts: '{% from ''ai_insights.jinja'' import house_facts %}{{ house_facts(hourly[''weather.outside_waterville_oh_usa''].forecast,
+      daily[''weather.outside_waterville_oh_usa''].forecast) }}'
+- alias: Ask Claude for the summary
+  action: ai_task.generate_data
+  data:
+    task_name: household_ai_house_summary
+    entity_id: ai_task.claude_haiku_ai_task
+    instructions: |-
+      Summarize the current state of a family's house in Waterville, Ohio for the owner, who just tapped a button on their home dashboard.
+
+      Voice: friendly and a little playful, like a sharp, good-humored house manager giving a quick rundown. Courteous and clear first, with a light touch of wit, or a bit of attitude when something has clearly been ignored. Never snarky about people, never cutesy or saccharine, no emoji. Facts stay precise.
+
+      Rules:
+      - summary: 3 to 6 short lines, each starting with "- ". Lead with anything that needs attention: water leaks, internet down, a door unlocked or open while nobody is home or everyone is asleep, appliances finished and waiting, overdue chores or vacuum maintenance, the generator running, unusual indoor temperatures. Skip routine, nothing-to-see items (normal temperatures, the vacuum doing its usual run) unless there is little else to say; then close with one short all-clear line.
+      - attention: true only if something needs action now or soon; false if everything is routine.
+      - Don't connect unrelated facts. Mention a person only when it changes what to do (e.g. Avery asleep, so keep it quiet).
+      - Use only the facts below. Never invent anything. Use °F and 12-hour times. Plain text, no technical names or entity IDs.
+
+      Facts:
+      {{ facts }}
+    structure:
+      summary:
+        description: 3-6 lines, each starting with '- '
+        required: true
+        selector:
+          text:
+            multiline: true
+      attention:
+        description: True only if something needs action now or soon
+        required: true
+        selector:
+          boolean: {}
+  response_variable: result
+- alias: Store the summary
+  event: household_ai_house_summary_ready
+  event_data:
+    summary: '{{ (result.data.summary | default('''') | string)[:1500] }}'
+    attention: '{{ result.data.attention | default(false) | bool }}'

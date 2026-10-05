@@ -433,6 +433,12 @@ A `card_type: sub-buttons` card keeps its `bottom` sub-button rows pinned to the
 
 `power-total` and `power-sankey`, the cards behind the built-in Energy dashboard's Now tab, rendered as a configuration error when placed in a custom sections view (`home-main`, October 2026), even with the grid source's power sensor set in the Energy settings. The period-based energy cards (`energy-date-selection`, `energy-compare`, `energy-sankey`, `energy-devices-detail-graph`, `energy-sources-table`) work fine in the same view. Leave live power to the built-in dashboard's Now tab.
 
+### Bubble cards have a fixed height — use a markdown card for text that wraps
+
+A Bubble button's height comes from its `rows` setting, not its content. Wrapping text in it (an AI briefing headline plus tip, `white-space: normal`) spilled past the card and over the chip strip, at `rows: 1.6` and again at `rows: 1` with the text clamped. A text-only `markdown` card sizes itself to its content and never overlaps. Use it for variable-length text, and keep Bubble cards for fixed-shape controls. Tighten a markdown heading's margin with UIX (`uix: style:` targeting `ha-markdown$`), not by switching card types.
+
+The same applies to UIX itself as to Bubble Card Tools: installing it from HACS does nothing until it is added under **Settings → Devices & Services**.
+
 ### Bubble Card Tools must be added as an integration, not just installed from HACS
 
 Installing Bubble Card Tools from HACS only drops the files into `custom_components/`. Until it is added under **Settings → Devices & Services**, there is no config entry and no module store: modules have nowhere to save. Once set up, modules are individual YAML files in `/config/bubble_card/modules/`.

@@ -95,6 +95,9 @@ views:
 
         .dishwasher ha-icon { color: var(--blue-color) !important; }
 
+        {% set g = state_attr(''sensor.household_ai_house_summary'',''generated_at'') %}.ai ha-icon { color: {{ ''var(--orange-color)'' if is_state(''sensor.household_ai_house_summary'',''attention'') and
+        g is not none and (now() - as_datetime(g)) < timedelta(hours=12) else ''var(--secondary-text-color)'' }} !important; }
+
         '
       sub_button:
         main: []
@@ -237,6 +240,15 @@ views:
           - fill_width: false
             state_background: false
             light_background: false
+            entity: sensor.household_ai_house_summary
+            css_class: ai
+            icon: mdi:creation
+            tap_action:
+              action: navigate
+              navigation_path: '#ai'
+          - fill_width: false
+            state_background: false
+            light_background: false
             css_class: updates
             show_name: true
             icon: mdi:update
@@ -253,7 +265,7 @@ views:
             entity: input_boolean.guest_mode
             css_class: guest
             icon: mdi:account-star
-            tap_action: &id001
+            tap_action:
               action: none
             hold_action:
               action: toggle
@@ -263,7 +275,8 @@ views:
             entity: input_boolean.avery_sleeping
             css_class: avery
             icon: mdi:teddy-bear
-            tap_action: *id001
+            tap_action:
+              action: none
             hold_action:
               action: toggle
             visibility:
@@ -366,6 +379,12 @@ views:
             tap_action:
               action: navigate
               navigation_path: /home-main/chores
+            visibility:
+            - condition: state
+              entity: sensor.household_chores_take_out_trash
+              state:
+              - due
+              - overdue
             hold_action:
               action: perform-action
               perform_action: todo.update_item
@@ -374,12 +393,6 @@ views:
               data:
                 item: Take Out Trash
                 status: completed
-            visibility:
-            - condition: state
-              entity: sensor.household_chores_take_out_trash
-              state:
-              - due
-              - overdue
           - fill_width: false
             state_background: false
             light_background: false
@@ -401,7 +414,7 @@ views:
                 - fault
               - condition: state
                 entity: sensor.utility_room_washer_current_status
-                state_not: &id002
+                state_not:
                 - power_off
                 - initial
                 - unavailable
@@ -427,7 +440,11 @@ views:
                 - fault
               - condition: state
                 entity: sensor.utility_room_dryer_current_status
-                state_not: *id002
+                state_not:
+                - power_off
+                - initial
+                - unavailable
+                - unknown
           - fill_width: false
             state_background: false
             light_background: false
@@ -441,6 +458,17 @@ views:
             - condition: state
               entity: binary_sensor.kitchen_dishwasher_running
               state: 'on'
+    - type: markdown
+      text_only: true
+      grid_options:
+        columns: 12
+      content: '{% set h = now().hour %}## Good {{ ''morning'' if 5 <= h < 12 else (''afternoon'' if 12 <= h < 17 else ''evening'') }}, {{ user.split('' '')[0] }}!
+
+        {% if has_value(''sensor.household_ai_briefing'') %}*{{ states(''sensor.household_ai_briefing'') }}*{% endif %}'
+      uix:
+        style:
+          ha-markdown$: 'h2 { margin: 0 0 2px 0 !important; } p { margin: 0 !important; }'
+          'ha-markdown $ ha-markdown-element:': 'h2 { margin: 0 0 2px 0 !important; } p { margin: 0 !important; }'
   - type: grid
     column_span: 4
     cards:
@@ -453,12 +481,14 @@ views:
       tap_action:
         action: navigate
         navigation_path: '#living-room'
-      hold_action: *id001
+      hold_action:
+        action: none
       button_action:
         tap_action:
           action: navigate
           navigation_path: '#living-room'
-        hold_action: *id001
+        hold_action:
+          action: none
       grid_options:
         columns: 12
       sub_button:
@@ -480,12 +510,14 @@ views:
       tap_action:
         action: navigate
         navigation_path: '#kitchen'
-      hold_action: *id001
+      hold_action:
+        action: none
       button_action:
         tap_action:
           action: navigate
           navigation_path: '#kitchen'
-        hold_action: *id001
+        hold_action:
+          action: none
       grid_options:
         columns: 12
     - type: custom:bubble-card
@@ -497,12 +529,14 @@ views:
       tap_action:
         action: navigate
         navigation_path: '#family-room'
-      hold_action: *id001
+      hold_action:
+        action: none
       button_action:
         tap_action:
           action: navigate
           navigation_path: '#family-room'
-        hold_action: *id001
+        hold_action:
+          action: none
       grid_options:
         columns: 12
       sub_button:
@@ -520,13 +554,14 @@ views:
       tap_action:
         action: navigate
         navigation_path: '#office'
-      hold_action: &id003
+      hold_action:
         action: toggle
       button_action:
         tap_action:
           action: navigate
           navigation_path: '#office'
-        hold_action: *id003
+        hold_action:
+          action: toggle
       grid_options:
         columns: 12
       entity: light.office_ceiling_fan_light
@@ -545,13 +580,14 @@ views:
       tap_action:
         action: navigate
         navigation_path: '#master-bedroom'
-      hold_action: &id004
+      hold_action:
         action: toggle
       button_action:
         tap_action:
           action: navigate
           navigation_path: '#master-bedroom'
-        hold_action: *id004
+        hold_action:
+          action: toggle
       grid_options:
         columns: 12
       entity: light.master_bedroom_ceiling_fan_light
@@ -570,13 +606,14 @@ views:
       tap_action:
         action: navigate
         navigation_path: '#averys-room'
-      hold_action: &id005
+      hold_action:
         action: toggle
       button_action:
         tap_action:
           action: navigate
           navigation_path: '#averys-room'
-        hold_action: *id005
+        hold_action:
+          action: toggle
       grid_options:
         columns: 12
       entity: light.averys_room_ceiling_fan_light
@@ -1545,6 +1582,88 @@ views:
         entity: light.utility_room_ceiling_lights
         grid_options:
           columns: 6
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#ai'
+      name: House Assistant
+      icon: mdi:creation
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: custom:bubble-card
+        card_type: separator
+        name: Briefing
+        icon: mdi:creation
+      - type: markdown
+        content: '{% if has_value(''sensor.household_ai_briefing'') %}**{{ states(''sensor.household_ai_briefing'') }}**
+
+
+          {{ state_attr(''sensor.household_ai_briefing'',''tip'') }}
+
+
+          {% set g = state_attr(''sensor.household_ai_briefing'',''generated_at'') %}{% if g %}_Updated {{ relative_time(as_datetime(g)) }} ago_{% endif %}{% else %}No briefing yet.{% endif %}'
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        entity: script.household_ai_briefing
+        name: '{{ ''Working…'' if is_state(''script.household_ai_briefing'',''on'') else ''Refresh briefing'' }}'
+        icon: '{{ ''mdi:timer-sand'' if is_state(''script.household_ai_briefing'',''on'') else ''mdi:refresh'' }}'
+        grid_options:
+          columns: 12
+        tap_action:
+          action: perform-action
+          perform_action: script.turn_on
+          target:
+            entity_id: script.household_ai_briefing
+        button_action:
+          tap_action:
+            action: perform-action
+            perform_action: script.turn_on
+            target:
+              entity_id: script.household_ai_briefing
+      - type: custom:bubble-card
+        card_type: separator
+        name: House Summary
+        icon: mdi:text-box-search-outline
+      - type: markdown
+        content: '{% if has_value(''sensor.household_ai_house_summary'') %}{{ state_attr(''sensor.household_ai_house_summary'',''summary'') }}
+
+
+          {% set g = state_attr(''sensor.household_ai_house_summary'',''generated_at'') %}{% if g %}_Updated {{ relative_time(as_datetime(g)) }} ago_{% endif %}{% else %}Tap below for a rundown of the house.{%
+          endif %}'
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        entity: script.household_ai_house_summary
+        name: '{{ ''Working…'' if is_state(''script.household_ai_house_summary'',''on'') else ''Summarize the house'' }}'
+        icon: '{{ ''mdi:timer-sand'' if is_state(''script.household_ai_house_summary'',''on'') else ''mdi:text-box-search-outline'' }}'
+        grid_options:
+          columns: 12
+        tap_action:
+          action: perform-action
+          perform_action: script.turn_on
+          target:
+            entity_id: script.household_ai_house_summary
+        button_action:
+          tap_action:
+            action: perform-action
+            perform_action: script.turn_on
+            target:
+              entity_id: script.household_ai_house_summary
+      - type: custom:bubble-card
+        card_type: separator
+        name: This Week
+        icon: mdi:calendar-week
+      - type: markdown
+        content: '{% if has_value(''sensor.household_ai_weekly_digest'') %}**{{ states(''sensor.household_ai_weekly_digest'') }}**
+
+
+          {{ state_attr(''sensor.household_ai_weekly_digest'',''digest'') }}
+
+
+          {% set g = state_attr(''sensor.household_ai_weekly_digest'',''generated_at'') %}{% if g %}_Updated {{ relative_time(as_datetime(g)) }} ago_{% endif %}{% else %}The first digest arrives Sunday
+          evening.{% endif %}'
 - title: Climate
   path: climate
   type: sections
@@ -1813,11 +1932,6 @@ views:
     - type: custom:navbar-card
       template: main
     - type: custom:expander-card
-      title-card:
-        type: heading
-        heading: Vacuum
-        icon: mdi:robot-vacuum
-      title-card-clickable: true
       icon: mdi:chevron-down
       expanded: false
       storage-id: home-main-maintenance-vacuum
@@ -1946,14 +2060,14 @@ views:
               perform_action: script.household_vacuum_reset_consumable
               data:
                 consumable: sensor
+      title-card:
+        type: heading
+        heading: Vacuum
+        icon: mdi:robot-vacuum
+      title-card-clickable: true
   - type: grid
     cards:
     - type: custom:expander-card
-      title-card:
-        type: heading
-        heading: Updates
-        icon: mdi:update
-      title-card-clickable: true
       icon: mdi:chevron-down
       expanded: false
       storage-id: home-main-maintenance-updates
@@ -1984,14 +2098,14 @@ views:
             tap_action:
               action: navigate
               navigation_path: /config/updates
+      title-card:
+        type: heading
+        heading: Updates
+        icon: mdi:update
+      title-card-clickable: true
   - type: grid
     cards:
     - type: custom:expander-card
-      title-card:
-        type: heading
-        heading: Network
-        icon: mdi:router-network
-      title-card-clickable: true
       icon: mdi:chevron-down
       expanded: false
       storage-id: home-main-maintenance-network
@@ -2035,14 +2149,14 @@ views:
         - type: tile
           entity: binary_sensor.office_litra_agent_connectivity
           name: Litra agent
+      title-card:
+        type: heading
+        heading: Network
+        icon: mdi:router-network
+      title-card-clickable: true
   - type: grid
     cards:
     - type: custom:expander-card
-      title-card:
-        type: heading
-        heading: Batteries
-        icon: mdi:battery
-      title-card-clickable: true
       icon: mdi:chevron-down
       expanded: true
       storage-id: home-main-maintenance-batteries
@@ -2082,3 +2196,8 @@ views:
             icon: mdi:battery-check
             icon_color: var(--green-color)
             min: 30
+      title-card:
+        type: heading
+        heading: Batteries
+        icon: mdi:battery
+      title-card-clickable: true

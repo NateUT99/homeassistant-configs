@@ -1,0 +1,54 @@
+# Stores the Claude-generated text shown on the home-main dashboard: the daily
+# briefing, the on-demand house summary, and the weekly digest. Generation lives
+# in script.household_ai_briefing / _house_summary / _weekly_digest, which call
+# ai_task.generate_data and then fire one of the *_ready events below; these
+# trigger-based sensors only store the result, so the dashboard never calls
+# Claude itself. Trigger-based template sensors restore their last value across
+# restarts, and a failed generation fires no event, so the previous text simply
+# stays (the cards show its age). See guides/ai_insights.md.
+#
+# Deployed to /config/packages/ai_insights.yaml; reload with template.reload.
+
+template:
+  - trigger:
+      - trigger: event
+        event_type: household_ai_briefing_ready
+        alias: A new briefing was generated
+    sensor:
+      - name: Household AI Briefing
+        unique_id: household_ai_briefing
+        # State holds the short headline (state is capped at 255 characters).
+        state: "{{ (trigger.event.data.headline | default('') | string)[:250] }}"
+        icon: "{{ trigger.event.data.icon | default('mdi:creation') }}"
+        attributes:
+          tip: "{{ trigger.event.data.tip | default('') }}"
+          generated_at: "{{ now().isoformat() }}"
+
+  - trigger:
+      - trigger: event
+        event_type: household_ai_house_summary_ready
+        alias: A new house summary was generated
+    sensor:
+      - name: Household AI House Summary
+        unique_id: household_ai_house_summary
+        # State is a short status the dashboard can show and gate on; the bullets
+        # live in an attribute because they can exceed the 255-character state limit.
+        state: "{{ 'attention' if trigger.event.data.attention | default(false) else 'ok' }}"
+        icon: "{{ 'mdi:alert-circle-outline' if trigger.event.data.attention | default(false) else 'mdi:check-circle-outline' }}"
+        attributes:
+          summary: "{{ trigger.event.data.summary | default('') }}"
+          attention: "{{ trigger.event.data.attention | default(false) }}"
+          generated_at: "{{ now().isoformat() }}"
+
+  - trigger:
+      - trigger: event
+        event_type: household_ai_weekly_digest_ready
+        alias: A new weekly digest was generated
+    sensor:
+      - name: Household AI Weekly Digest
+        unique_id: household_ai_weekly_digest
+        state: "Week of {{ (now() - timedelta(days=6)).strftime('%b %-d') }}"
+        icon: mdi:calendar-week
+        attributes:
+          digest: "{{ trigger.event.data.digest | default('') }}"
+          generated_at: "{{ now().isoformat() }}"

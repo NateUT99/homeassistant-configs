@@ -1,0 +1,58 @@
+alias: 'Household: AI Weekly Digest'
+description: 'Sunday-evening week in review from Claude (ai_task.claude_haiku_ai_task): electricity vs
+  the previous week, HVAC runtime, vacuum runs, and chores completed or overdue, from long-term statistics
+  and the chore sensors. The result is fired as household_ai_weekly_digest_ready and stored by sensor.household_ai_weekly_digest.
+  Runs on the AI Insights Schedule. See guides/ai_insights.md.'
+icon: mdi:calendar-week
+mode: single
+max_exceeded: silent
+sequence:
+- alias: Get two weeks of daily statistics
+  action: recorder.get_statistics
+  data:
+    start_time: '{{ (now() - timedelta(days=14)).strftime(''%Y-%m-%d %H:%M:%S'') }}'
+    statistic_ids:
+    - sensor.household_energy_monitor_total_energy_delivered
+    - sensor.household_hvac_heating_runtime_today
+    - sensor.household_hvac_cooling_runtime_today
+    - sensor.living_room_vacuum_total_cleaning_count
+    period: day
+    types:
+    - change
+  response_variable: stats
+- alias: Summarize this week vs the week before
+  variables:
+    facts: |-
+      {% set cutoff = (now() - timedelta(days=7)).isoformat() %}{% set ns = namespace(lines=[]) %}{% for id, label, unit in [('sensor.household_energy_monitor_total_energy_delivered', 'Electricity used', 'kWh'), ('sensor.household_hvac_heating_runtime_today', 'Furnace runtime', 'h'), ('sensor.household_hvac_cooling_runtime_today', 'AC runtime', 'h'), ('sensor.living_room_vacuum_total_cleaning_count', 'Vacuum runs', '')] %}{% set rows = stats.statistics.get(id, []) %}{% set this = rows | selectattr('start', 'ge', cutoff) | map(attribute='change') | map('float', 0) | sum %}{% set prev = rows | selectattr('start', 'lt', cutoff) | map(attribute='change') | map('float', 0) | sum %}{% set ns.lines = ns.lines + [label ~ ': ' ~ (this | round(1)) ~ ' ' ~ unit ~ ' this week, ' ~ (prev | round(1)) ~ ' ' ~ unit ~ ' the week before'] %}{% endfor %}{% set chores = expand(integration_entities('chore_calendar') | select('match', 'sensor\\.') | list) %}{% set done = chores | selectattr('attributes.last_completed', 'defined') | selectattr('attributes.last_completed', 'ne', none) | selectattr('attributes.last_completed', 'ge', cutoff) | map(attribute='name') | map('replace', 'Household Chores ', '') | list %}{% set late = chores | selectattr('state', 'eq', 'overdue') | map(attribute='name') | map('replace', 'Household Chores ', '') | list %}{{ ns.lines | join('\n') }}
+      Chores completed this week: {{ done | join(', ') if done else 'none' }}
+      Chores overdue now: {{ late | join(', ') if late else 'none' }}
+      Electricity price: $0.2033/kWh
+- alias: Ask Claude for the digest
+  action: ai_task.generate_data
+  data:
+    task_name: household_ai_weekly_digest
+    entity_id: ai_task.claude_haiku_ai_task
+    instructions: |-
+      Write a short week-in-review for a family's home dashboard.
+
+      Voice: friendly and a little playful, like a sharp, good-humored house manager doing the Sunday recap. Courteous and clear first, with a light touch of wit, or a bit of attitude when something was clearly ignored. Never snarky about people, never cutesy or saccharine, no emoji. Facts stay precise.
+
+      Rules:
+      - digest: 4 to 6 short lines, each starting with "- ". Cover electricity use (with an approximate cost and whether it went up or down vs the week before), heating or cooling runtime if any, how many times the vacuum ran, and chores done or overdue. Add a closing suggestion for the coming week only if it says something the earlier lines did not.
+      - Don't explain why a number changed (weather, season, habits) unless a fact says so.
+      - Use only the facts below; do arithmetic only on numbers given. Never invent anything. Plain text, no technical names.
+
+      Facts:
+      {{ facts }}
+    structure:
+      digest:
+        description: 4-6 lines, each starting with '- '
+        required: true
+        selector:
+          text:
+            multiline: true
+  response_variable: result
+- alias: Store the digest
+  event: household_ai_weekly_digest_ready
+  event_data:
+    digest: '{{ (result.data.digest | default('''') | string)[:2000] }}'

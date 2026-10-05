@@ -1,0 +1,100 @@
+alias: 'Household: AI Briefing'
+description: 'Asks Claude (ai_task.claude_haiku_ai_task) for the one-line briefing at the top of the home-main
+  dashboard: a headline, one practical tip, and an icon. Facts come only from the allowlist macro house_facts
+  in /config/custom_templates/ai_insights.jinja. The result is fired as household_ai_briefing_ready and
+  stored by sensor.household_ai_briefing; a failed call fires nothing, so the previous briefing stays.
+  Runs on the AI Insights Schedule and from the dashboard''s Refresh button. See guides/ai_insights.md.'
+icon: mdi:creation
+mode: single
+max_exceeded: silent
+sequence:
+- alias: Get the hourly forecast
+  action: weather.get_forecasts
+  target:
+    entity_id: weather.outside_waterville_oh_usa
+  data:
+    type: hourly
+  response_variable: hourly
+- alias: Get the daily forecast
+  action: weather.get_forecasts
+  target:
+    entity_id: weather.outside_waterville_oh_usa
+  data:
+    type: daily
+  response_variable: daily
+- alias: Build the facts and the allowed icon list
+  variables:
+    facts: '{% from ''ai_insights.jinja'' import house_facts %}{{ house_facts(hourly[''weather.outside_waterville_oh_usa''].forecast,
+      daily[''weather.outside_waterville_oh_usa''].forecast) }}'
+    icons:
+    - mdi:weather-sunny
+    - mdi:weather-partly-cloudy
+    - mdi:weather-cloudy
+    - mdi:weather-rainy
+    - mdi:weather-pouring
+    - mdi:weather-lightning
+    - mdi:weather-snowy
+    - mdi:snowflake-thermometer
+    - mdi:thermometer-high
+    - mdi:umbrella
+    - mdi:recycle
+    - mdi:clipboard-check-outline
+    - mdi:robot-vacuum
+    - mdi:washing-machine
+    - mdi:door-open
+    - mdi:lock-open-variant
+    - mdi:water-alert
+    - mdi:home-alert
+    - mdi:check-circle
+    - mdi:weather-night
+- alias: Ask Claude for the briefing
+  action: ai_task.generate_data
+  data:
+    task_name: household_ai_briefing
+    entity_id: ai_task.claude_haiku_ai_task
+    instructions: |-
+      You write the one-line briefing shown at the top of a family's home dashboard in Waterville, Ohio. Someone glances at it on their phone.
+
+      Voice: friendly and a little playful, like a sharp, good-humored house manager. Courteous and clear first, with a light touch of wit, or a bit of attitude when something has clearly been ignored (a chore overdue for days, the vacuum overdue for a filter). Never snarky about people, never cutesy or saccharine, no emoji. Facts stay precise.
+
+      Priority, highest first:
+      1. Anything that needs attention now: a water leak, internet down, a door unlocked or open while nobody is home or everyone is asleep, the generator running.
+      2. Chores due or overdue today, including recycling.
+      3. Weather that changes plans (rain, storms, snow, extreme heat or cold) in the next 12 hours or tomorrow.
+      4. Otherwise, a short, pleasant note about the day's weather.
+
+      Rules:
+      - headline: one sentence, 90 characters or fewer, about the single most useful thing.
+      - tip: one practical suggestion, 160 characters or fewer, drawn from the facts below (timing, weather, what's running, who's home). Never generic how-to advice. Do not repeat the headline. If nothing useful fits, make it a short weather note for the rest of the day.
+      - icon: exactly one value from this list: {{ icons | join(', ') }}.
+      - Don't connect unrelated facts. Mention a person only when it changes what to do (e.g. Avery asleep, so keep it quiet).
+      - Use only the facts below. Never invent anything. Use °F and 12-hour times. Plain text, no technical names or entity IDs.
+      - Match the time of day: morning looks ahead to the day, midday to the afternoon, evening to tonight and tomorrow morning.
+
+      Facts:
+      {{ facts }}
+    structure:
+      headline:
+        description: One sentence, 90 characters or fewer
+        required: true
+        selector:
+          text: {}
+      tip:
+        description: One practical tip, 160 characters or fewer
+        required: true
+        selector:
+          text: {}
+      icon:
+        description: One icon from the allowed list
+        required: true
+        selector:
+          text: {}
+  response_variable: result
+- alias: Store the briefing
+  note: Lengths and the icon are enforced here as well, so a model that ignores the limits can't break
+    the card.
+  event: household_ai_briefing_ready
+  event_data:
+    headline: '{{ (result.data.headline | default('''') | string)[:90] }}'
+    tip: '{{ (result.data.tip | default('''') | string)[:160] }}'
+    icon: '{{ result.data.icon if result.data.icon in icons else ''mdi:creation'' }}'

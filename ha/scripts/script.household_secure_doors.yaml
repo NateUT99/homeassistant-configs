@@ -1,8 +1,8 @@
 alias: 'Household: Secure Doors'
-description: >-
-  Locks the front door and closes the garage door in one action. Called by holding the Doors chip on the
-  home-main dashboard. The front door is only locked when its contact reads closed, so the deadbolt is
-  never thrown into an open door; the garage is only commanded when it isn't already closed. See guides/home_dashboard.md.
+description: Locks the front door and closes the garage door in one action. Called by holding the Doors
+  chip on the home-main dashboard. The front door is only locked when its contact reads closed, so the
+  deadbolt is never thrown into an open door; the garage is only commanded when it isn't already closed.
+  See guides/home_dashboard.md.
 icon: mdi:home-lock
 mode: single
 sequence:

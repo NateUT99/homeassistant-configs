@@ -1,0 +1,49 @@
+id: '1791227473971'
+alias: 'Household: AI Insights Schedule'
+description: 'Refreshes the Claude-generated dashboard text on a schedule: the daily briefing at 06:30,
+  12:00, and 17:00, and the weekly digest on Sundays at 18:00. The scripts are started without waiting
+  so a slow API call never holds the automation. See guides/ai_insights.md.'
+triggers:
+- alias: Morning briefing
+  trigger: time
+  at: 06:30:00
+  id: briefing
+- alias: Midday briefing
+  trigger: time
+  at: '12:00:00'
+  id: briefing
+- alias: Evening briefing
+  trigger: time
+  at: '17:00:00'
+  id: briefing
+- alias: Sunday evening digest
+  trigger: time
+  at: '18:00:00'
+  weekday:
+  - sun
+  id: digest
+conditions: []
+actions:
+- alias: Start the matching generator
+  choose:
+  - alias: Briefing
+    conditions:
+    - alias: Briefing time
+      condition: trigger
+      id: briefing
+    sequence:
+    - alias: Start the briefing script
+      action: script.turn_on
+      target:
+        entity_id: script.household_ai_briefing
+  - alias: Weekly digest
+    conditions:
+    - alias: Digest time
+      condition: trigger
+      id: digest
+    sequence:
+    - alias: Start the weekly digest script
+      action: script.turn_on
+      target:
+        entity_id: script.household_ai_weekly_digest
+mode: queued
