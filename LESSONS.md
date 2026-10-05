@@ -419,9 +419,11 @@ All of those non-room entities are hidden in the entity registry, and the real r
 
 A Bubble sub-button with an `entity` fills its background with the state colour whenever that entity reads as active (e.g. a locked lock, a sensor with a value, a climate entity that's running). In a status chip strip this makes a few chips look highlighted for no meaningful reason. Set `state_background: false` and `light_background: false` on every chip so they share a neutral background, then colour only the icon, and tint the whole chip only for an alert state, using a `css_class` + Jinja in `styles`.
 
-### Navbar Card + hidden view tabs: the HA toolbar overlaps the top of the view
+### Navbar Card dashboards: hide the header with Kiosk Mode, not by hiding views
 
-Hiding views from HA's tab bar (`visible: false`, so Navbar Card is the only navigation) left the desktop toolbar overlapping the first section; the chip strip's top edge was hidden under it. Hiding the header entirely with Kiosk Mode (`kiosk_mode: {hide_header: true}` at the dashboard root, all widths) fixes it and removes a bar that no longer does anything. Append `?disable_km` to the URL to get the toolbar back for editing.
+Hiding every view from HA's tab bar (`visible: false`, so Navbar Card is the only navigation) causes two problems. The desktop toolbar overlaps the first section, hiding the top edge of the chip strip. And the bare dashboard URL (`/home-test`, which is what the sidebar link opens) renders blank, because there is no visible view to default to. Only a full view URL like `/home-test/home` works.
+
+Leave views visible and hide the header with Kiosk Mode instead (`kiosk_mode: {hide_header: true}` at the dashboard root, all widths). That removes the tabs along with the toolbar, and the bare URL opens the first view. Append `?disable_km` to the URL to get the toolbar back for editing.
 
 ### Bubble Card Tools must be added as an integration, not just installed from HACS
 

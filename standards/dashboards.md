@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.0 — October 2026*
+*Version 1.0.1 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.0.1 | October 2026 | Views stay visible; Kiosk Mode alone hides the tabs |
 | 1.0 | October 2026 | Rewrite for the new house: one responsive dashboard; Bubble Card 3.4 Jinja templates replace CSS-in-JS; Navbar Card + Kiosk Mode replace footer nav and the view header; Mushroom removed; room-tile eligibility rule; shared logic in `custom_templates` macros and Bubble modules; dashboard mirror; AI-content conventions |
 | 0.1 | June 2026 | Initial release; Bubble Card primary commitment; inline toggle pattern |
 
@@ -74,7 +75,7 @@ and an update to this table.
 | `icon` | `mdi:home` |
 | Views | `home`, `climate`, `energy`, `chores`, `maintenance` |
 | View type | `sections`, `max_columns: 4`, `theme: Frosted Glass` |
-| View tabs | Every view `visible: false` — Navbar Card is the only navigation |
+| View tabs | Left visible — Kiosk Mode hides the header (tabs included). Never `visible: false`: with every view hidden, the bare dashboard URL renders blank |
 | Header | Hidden at all widths: `kiosk_mode: {hide_header: true}` at the dashboard root |
 
 **Editing:** append `?disable_km` to the URL to restore the header and its edit pencil.
@@ -268,7 +269,7 @@ Don't edit modules in the Bubble module editor — the repo copy is the source.
 
 | Pattern | Implementation | Section |
 |---|---|---|
-| Navigation | Navbar Card template `main`; views `visible: false` | §4 |
+| Navigation | Navbar Card template `main`; views stay visible | §4 |
 | Hide header | `kiosk_mode: {hide_header: true}`; `?disable_km` to edit | §4 |
 | Chip strip | `sub-buttons`, 2 centred rows, neutral chips, icon colour | §7 |
 | Alert chip | `css_class` + Jinja tint in `styles` | §7, §10 |
