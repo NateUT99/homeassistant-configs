@@ -1,9 +1,9 @@
 alias: "Household: Ceiling Fan LED State"
 description: >-
   Shared LED-bar state for any Inovelli ceiling-fan canopy switch's RGB
-  Indicator light (light.<prefix>_ceiling_fan_switch_led_bar). Speed-mapped
-  blue (color_name: homeassistant) while the fan runs, a white locator
-  glow (color_name: white, brightness 8) while the fan is off and the
+  Indicator light (light.<prefix>_ceiling_fan_switch_led_bar). A distinct
+  speed colour while the fan runs (cyan low / blue medium / magenta high,
+  fixed brightness), a white locator glow (color_name: white, brightness 8) while the fan is off and the
   ceiling light is also off with someone home, dark when the fan is off and the
   ceiling light is on (already lit and occupied) or when nobody's home.
   Uses light.turn_on/turn_off directly on the RGB Indicator entity -- does
@@ -17,7 +17,7 @@ description: >-
   delay. Leave sleeping_boolean unset for a switch with no sleep gating
   (e.g. Office). Pass light_just_turned_off (true only from the
   ceiling-light-changed trigger when the light is now off) to skip the
-  blue flash and settle straight to the locator glow when the fan is
+  speed-colour flash and settle straight to the locator glow when the fan is
   already running and the room is asleep -- a real fan-speed change still
   gets its flash regardless of this field.
 mode: restart
@@ -62,8 +62,8 @@ fields:
     name: Light just turned off
     description: >-
       Optional. Pass true only from the ceiling-light-changed trigger when
-      the light is now off, so a real fan-speed change still gets its blue
-      flash but a light-off event while the fan is already running and the
+      the light is now off, so a real fan-speed change still gets its
+      speed-colour flash but a light-off event while the fan is already running and the
       room is asleep skips straight to the locator glow. Leave unset/false
       for every other caller.
     required: false
@@ -80,7 +80,12 @@ sequence:
       sleeping: >-
         {{ (sleeping_boolean | default('')) not in ['', None] and
         is_state(sleeping_boolean, 'on') }}
-      speed_brightness: "{{ 65 if fan_pct < 50 else (130 if fan_pct < 90 else 255) }}"
+      # Speed is encoded as hue, not brightness -- brightness steps on the
+      # bar aren't distinguishable at a glance. Cool hues 60 degrees apart
+      # avoid warning connotations and stay clear of the white locator glow.
+      speed_hs: >-
+        {{ [180, 100] if fan_pct < 50 else ([240, 100] if fan_pct < 90 else
+        [300, 100]) }}
   - alias: Apply the resting state
     choose:
       - alias: Nobody home - dark
@@ -106,7 +111,7 @@ sequence:
             data:
               brightness: 8
               color_name: white
-      - alias: Fan running - speed-mapped blue, settling to locator glow if sleeping
+      - alias: Fan running - speed colour, settling to locator glow if sleeping
         conditions:
           - condition: template
             value_template: "{{ fan_on }}"
@@ -117,8 +122,8 @@ sequence:
             target:
               entity_id: "{{ led_bar_entity }}"
             data:
-              color_name: homeassistant
-              brightness: "{{ speed_brightness }}"
+              hs_color: "{{ speed_hs }}"
+              brightness: 180
           - alias: If this room is asleep, settle to the locator glow after 30s
             note: >-
               mode: restart cancels this wait if any subsequent call

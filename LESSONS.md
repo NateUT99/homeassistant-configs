@@ -898,6 +898,10 @@ Separate from the notification `select.*_led_*` parameters and the RGB Indicator
 
 **Fix:** zero `number.*_led_on/off_intensity_load_control` on every switch as part of commissioning, before relying on the RGB Indicator or notification channel to look consistent across units. `guides/inovelli_switches.md` Step 3 now lists this as an installer setting.
 
+### Inovelli VTM30-SN LED bar — brightness steps don't work as a status level; use hue
+
+Encoding fan speed as three brightness levels of one colour on `light.*_led_bar` (`65`/`130`/`255`, already spaced geometrically because equal steps of `85`/`170`/`255` made medium and high indistinguishable) still couldn't be read at a glance. With a single level showing there's nothing to compare against, and ambient light shifts how bright the bar looks. Distinct saturated hues at a fixed brightness replaced it (`guides/inovelli_switches.md`). Keep brightness for on/dim distinctions (e.g. the dim locator glow), not for picking one of several levels.
+
 ### A `binary_sensor.*_home_today`-style sensor flips at midnight, not at the moment the person leaves
 
 A calendar/schedule-derived "is so-and-so home today" sensor recalculates at the day boundary, not when the person actually leaves the house. Gating any nighttime behavior on it going instantaneously `off` — e.g. neutralizing a stale personal sleep flag once someone's "not home today" — fires hours before they've actually gone, while they may still be asleep in the house.

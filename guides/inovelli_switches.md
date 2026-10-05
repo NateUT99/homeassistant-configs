@@ -1,6 +1,6 @@
 # Inovelli Switches
 
-*Last updated: September 2026*
+*Last updated: October 2026*
 
 ## Overview
 
@@ -54,19 +54,19 @@ any new switch; nothing in this design writes to it afterward.
 ### Presence gates on/off; sleep settles to a dimmer glow; the ceiling light gates the fan-off state
 
 **Every switch shows something whenever someone is home, unless the room is already lit.** The
-bar reflects the fan's actual running speed as brightness while the fan runs. While the fan is
+bar shows the fan's actual running speed as a distinct colour while the fan runs. While the fan is
 off, the bar only shows a locator glow if the room's own ceiling light is also off — a lit room
 is already visibly occupied, so the bar goes dark rather than adding a redundant glow next to
 it:
 
-| Condition | `color_name` | Brightness |
+| Condition | Colour | Brightness |
 |---|---|---|
-| Fan running | `homeassistant` (blue) | Mapped to speed: `65` low / `130` medium / `255` high |
-| Fan off, ceiling light off, someone home | `white` | `8` (locator glow) |
+| Fan running | Mapped to speed: cyan `hs_color: [180, 100]` low / blue `[240, 100]` medium / magenta `[300, 100]` high | `180` |
+| Fan off, ceiling light off, someone home | `color_name: white` | `8` (locator glow) |
 | Fan off, ceiling light on | — | off (`light.turn_off`) |
 | Nobody home | — | off (`light.turn_off`) |
 
-**A bedroom's sleep flag settles the running-fan brightness to the locator glow, 30s after the
+**A bedroom's sleep flag settles the running-fan speed colour to the locator glow, 30s after the
 last change, instead of tracking speed all night.** Office has no sleep gating — it always
 shows accurate speed. Avery's Room settles on `input_boolean.avery_sleeping`; Master Bedroom
 settles on `input_boolean.everyone_sleeping` (there's no personal flag for that room). The
@@ -89,7 +89,7 @@ fields — `fan_entity`, `light_entity`, `led_bar_entity`, an optional `sleeping
 used to decide the fan-off resting state; `light_just_turned_off` is what lets that same trigger
 skip the flash described above without also suppressing it for genuine fan-speed changes. Called
 by every room's wall-control automation with that room's literal entity IDs, rather than one
-script per switch — a single source of truth for the speed→brightness mapping and the
+script per switch — a single source of truth for the speed→colour mapping and the
 sleep-settle logic, instead of three near-identical copies that can silently drift out of sync
 with each other. Every call
 recomputes fully from live state: no snapshot, nothing timing-sensitive to get wrong on an
@@ -111,7 +111,7 @@ all three rooms; each bedroom's own sleep flag recomputes only that room.
 This section deliberately says nothing about *what* makes a switch's "running" state look the
 way it does — that's supplied by whatever the switch controls. The Ceiling Fan Canopy pattern's
 addition is exactly one thing: pass the fan's own entity as `fan_entity` so the script can read
-its `percentage` and map it to brightness. A future canopy-less switch would have no
+its `percentage` and map it to a speed colour. A future canopy-less switch would have no
 "running" state at all — just the locator glow while home, and dark while away.
 
 ### Known hardware quirk
@@ -256,6 +256,14 @@ independent of the HA automation entirely.
   the bar is canopy-specific.** Everything else (the resting-state script pattern,
   the presence/day-night rule, the household dispatch automation) is the
   [Shared: LED Bar](#shared-led-bar) pattern, unmodified.
+
+- **Speed is shown as hue, not brightness.** Three brightness steps on the 7-segment
+  bar can't be told apart at a glance — there's no reference to compare against and
+  ambient light shifts the perceived level — while a hue reads instantly. The three
+  hues are cool and 60° apart (cyan / blue / magenta), deepening with speed: no
+  warning connotation, no red-green pairing, and every one fully saturated so none
+  can be mistaken for the white locator glow. Brightness is fixed at `180` across
+  all three.
 
 - **The LED bar reacts to settled state, not button presses.** With no per-change
   animation to time precisely, dispatching from the button-gesture branches ahead
@@ -574,25 +582,19 @@ The automations use 33 / 66 / 100, with `< 45` / `< 78` band edges to absorb the
 Matter fan's percentage rounding. All three rooms' fans share this same
 `percentage_step` — confirmed before building the shared script.
 
-The LED bar uses a single colour (`color_name: homeassistant`, HA's brand blue) for the
-running state; brightness alone carries the speed, mapped by
-`script.household_ceiling_fan_led_state`:
+The LED bar shows each running speed as a distinct fully-saturated hue at a fixed
+brightness of `180`, mapped by `script.household_ceiling_fan_led_state`:
 
-| Speed | `fan.percentage` | Bar brightness |
+| Speed | `fan.percentage` | Bar colour |
 |---|---|---|
-| low | 33 | 65 |
-| medium | 67 | 130 |
-| high | 100 | 255 |
-
-Steps are geometric (each roughly double the last), not linear, since brightness
-perception is closer to logarithmic than linear — equal-interval steps (the
-original `85`/`170`/`255`) made medium and high look too similar to tell apart
-at a glance.
+| low | 33 | cyan, `hs_color: [180, 100]` |
+| medium | 67 | blue, `hs_color: [240, 100]` |
+| high | 100 | magenta, `hs_color: [300, 100]` |
 
 Locator glow (fan off, ceiling light off, someone home) is `color_name: white` at
 brightness `8`, unchanged by day/night — see
 [Shared: LED Bar](#shared-led-bar) for the sleep-settle behavior that applies
-to the running-speed brightness in a bedroom.
+to the running-speed colour in a bedroom.
 
 ## Replicating for another room
 
