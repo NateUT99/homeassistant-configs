@@ -56,8 +56,12 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   speaker it plays through, so Apple TV cards hide it and add an always-visible slider
   sub-button on the real speaker (Sonos, or the bedroom TV). Every media card — room
   sections, `#media`, `#living-room` — uses the Bubble Media Player Enhanced module
-  (artwork background and colours, compact progress bar; `idle_artwork: none` since the cards
-  hide when idle), so there is one media style and no separate media card dependency.
+  (artwork background and colours; `idle_artwork: none` since the cards hide when idle), so
+  there is one media style and no separate media card dependency. Bubble's own icon is hidden
+  (`show_icon: false`) because the module already draws the cover. HomePod cards use the large
+  music layout (`rows: 3`, full scrubbable progress bar above the controls,
+  `main_buttons_position: bottom`); Apple TV cards keep the compact bar and use
+  `artwork_fit: original` so wide TV artwork is not cropped square.
 - **Room media cards show while playing or paused.** A paused Apple TV is a show you'll
   come back to. A HomePod usually times out from `paused` to `idle` on its own 8 minutes
   after it stops (every time for Avery's Room over 10 days; the Office stayed paused longer

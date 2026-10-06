@@ -852,6 +852,8 @@ views:
             card_layout: default
             progress_bar: compact
             idle_artwork: none
+            artwork_fit: original
+          show_icon: false
       - type: grid
         columns: 2
         square: false
@@ -950,6 +952,8 @@ views:
             card_layout: default
             progress_bar: compact
             idle_artwork: none
+            artwork_fit: original
+          show_icon: false
       - type: conditional
         conditions:
         - condition: state
@@ -969,8 +973,12 @@ views:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
             card_layout: default
-            progress_bar: compact
+            progress_bar: full
             idle_artwork: none
+            progress_position: above
+          show_icon: false
+          rows: 3
+          main_buttons_position: bottom
       - type: grid
         columns: 2
         square: false
@@ -1076,8 +1084,12 @@ views:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
             card_layout: default
-            progress_bar: compact
+            progress_bar: full
             idle_artwork: none
+            progress_position: above
+          show_icon: false
+          rows: 3
+          main_buttons_position: bottom
       - type: grid
         columns: 2
         square: false
@@ -1183,8 +1195,12 @@ views:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
             card_layout: default
-            progress_bar: compact
+            progress_bar: full
             idle_artwork: none
+            progress_position: above
+          rows: 3
+          show_icon: false
+          main_buttons_position: bottom
       - type: grid
         columns: 2
         square: false
@@ -1320,6 +1336,8 @@ views:
             card_layout: default
             progress_bar: compact
             idle_artwork: none
+            artwork_fit: original
+          show_icon: false
       - type: grid
         columns: 2
         square: false
@@ -1425,8 +1443,12 @@ views:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
             card_layout: default
-            progress_bar: compact
+            progress_bar: full
             idle_artwork: none
+            progress_position: above
+          show_icon: false
+          rows: 3
+          main_buttons_position: bottom
       - type: grid
         columns: 2
         square: false
@@ -1813,6 +1835,8 @@ views:
             card_layout: default
             progress_bar: compact
             idle_artwork: none
+            artwork_fit: original
+          show_icon: false
       - type: custom:bubble-card
         card_type: separator
         name: Lights
@@ -1897,8 +1921,12 @@ views:
         cover_background: false
         bubble_media_player_enhanced:
           card_layout: default
-          progress_bar: compact
+          progress_bar: full
           idle_artwork: none
+          progress_position: above
+        show_icon: false
+        rows: 3
+        main_buttons_position: bottom
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#family-room'
@@ -1967,6 +1995,8 @@ views:
           card_layout: default
           progress_bar: compact
           idle_artwork: none
+          artwork_fit: original
+        show_icon: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#office'
@@ -2043,8 +2073,12 @@ views:
         cover_background: false
         bubble_media_player_enhanced:
           card_layout: default
-          progress_bar: compact
+          progress_bar: full
           idle_artwork: none
+          progress_position: above
+        show_icon: false
+        rows: 3
+        main_buttons_position: bottom
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#master-bedroom'
@@ -2093,6 +2127,8 @@ views:
           card_layout: default
           progress_bar: compact
           idle_artwork: none
+          artwork_fit: original
+        show_icon: false
       - type: custom:bubble-card
         card_type: media-player
         entity: media_player.master_bedroom_homepod
@@ -2101,8 +2137,12 @@ views:
         cover_background: false
         bubble_media_player_enhanced:
           card_layout: default
-          progress_bar: compact
+          progress_bar: full
           idle_artwork: none
+          progress_position: above
+        show_icon: false
+        rows: 3
+        main_buttons_position: bottom
       - type: custom:bubble-card
         card_type: media-player
         entity: media_player.master_bedroom_bathroom_speaker
@@ -2113,6 +2153,7 @@ views:
           card_layout: default
           progress_bar: compact
           idle_artwork: none
+        show_icon: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#averys-room'
@@ -2165,8 +2206,12 @@ views:
         cover_background: false
         bubble_media_player_enhanced:
           card_layout: default
-          progress_bar: compact
+          progress_bar: full
           idle_artwork: none
+          progress_position: above
+        show_icon: false
+        rows: 3
+        main_buttons_position: bottom
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#security'
@@ -3503,6 +3548,8 @@ views:
           card_layout: default
           progress_bar: compact
           idle_artwork: none
+          artwork_fit: original
+        show_icon: false
       - type: heading
         heading: Master Bedroom
         heading_style: subtitle
@@ -3529,6 +3576,8 @@ views:
           card_layout: default
           progress_bar: compact
           idle_artwork: none
+          artwork_fit: original
+        show_icon: false
       - type: custom:bubble-card
         card_type: media-player
         entity: media_player.master_bedroom_homepod
@@ -3540,8 +3589,12 @@ views:
         - bubble_media_player_enhanced
         bubble_media_player_enhanced:
           card_layout: default
-          progress_bar: compact
+          progress_bar: full
           idle_artwork: none
+          progress_position: above
+        show_icon: false
+        rows: 3
+        main_buttons_position: bottom
       - type: heading
         heading: Avery's Room
         heading_style: subtitle
@@ -3556,8 +3609,12 @@ views:
         - bubble_media_player_enhanced
         bubble_media_player_enhanced:
           card_layout: default
-          progress_bar: compact
+          progress_bar: full
           idle_artwork: none
+          progress_position: above
+        show_icon: false
+        rows: 3
+        main_buttons_position: bottom
       - type: heading
         heading: Office
         heading_style: subtitle
@@ -3572,8 +3629,12 @@ views:
         - bubble_media_player_enhanced
         bubble_media_player_enhanced:
           card_layout: default
-          progress_bar: compact
+          progress_bar: full
           idle_artwork: none
+          progress_position: above
+        show_icon: false
+        rows: 3
+        main_buttons_position: bottom
       - type: heading
         heading: Family Room
         heading_style: subtitle
@@ -3600,6 +3661,8 @@ views:
           card_layout: default
           progress_bar: compact
           idle_artwork: none
+          artwork_fit: original
+        show_icon: false
       - type: heading
         heading: Kitchen
         heading_style: subtitle
@@ -3614,8 +3677,12 @@ views:
         - bubble_media_player_enhanced
         bubble_media_player_enhanced:
           card_layout: default
-          progress_bar: compact
+          progress_bar: full
           idle_artwork: none
+          progress_position: above
+        show_icon: false
+        rows: 3
+        main_buttons_position: bottom
 - title: Climate
   path: climate
   type: sections
