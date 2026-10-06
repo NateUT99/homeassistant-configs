@@ -8,11 +8,11 @@
 # while everyone is asleep or nobody is home (alert_level() in dashboard.jinja).
 #
 # Everything else tints and glows while "active" for its domain (thermostat heating or
-# cooling, vacuum cleaning or returning, anything else `on`): blue for cooling, amber
-# otherwise; neutral when idle.
+# cooling, vacuum cleaning or returning, anything else `on`): orange for heating, blue for
+# cooling, amber otherwise; neutral when idle.
 apple_tile:
   name: Apple tile
-  version: "3.0"
+  version: "3.1"
   creator: home-main
   description: Apple-style tile; security palette for locks and covers, amber/blue activity tint otherwise.
   supported:
@@ -31,7 +31,7 @@ apple_tile:
       {% set active = (d == 'climate' and action in ['heating', 'cooling'])
          or (d == 'vacuum' and s in ['cleaning', 'returning'])
          or s == 'on' %}
-      {% set c = 'var(--blue-color)' if action == 'cooling' else 'var(--amber-color)' %}
+      {% set c = 'var(--blue-color)' if action == 'cooling' else ('var(--orange-color)' if action == 'heating' else 'var(--amber-color)') %}
     {% endif %}
     .bubble-button-card-container {
       border-radius: 22px !important;

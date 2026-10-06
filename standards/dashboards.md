@@ -246,7 +246,7 @@ so every HA function and every `custom_templates` macro is available.
 | Normal / secured | Green | `--green-color` |
 | Attention — home and awake | Orange | `--orange-color` |
 | Alert — asleep, away, leak, fault | Red | `--red-color` |
-| Active / running | Amber (heating, lights, devices on), blue (cooling) | `--amber-color`, `--blue-color` |
+| Active / running | Orange (heating), blue (cooling), amber (lights and other devices on) | `--orange-color`, `--blue-color`, `--amber-color` |
 | In progress (Happening now) | Cyan (laundry, dishwasher), purple (vacuum) | `--cyan-color`, `--purple-color` |
 | Neutral / informational | Theme default | `--primary-text-color` at low opacity |
 
