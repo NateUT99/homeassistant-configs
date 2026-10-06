@@ -22,7 +22,7 @@ build.
 home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.main)
 │
 ├── Home view (sections, max_columns 4, theme Frosted Glass)
-│   ├── Section 1 (span 4) ── Navbar Card ── Chip strip (Bubble sub-buttons, 2 rows, rows: 1.2)
+│   ├── Section 1 (span 4) ── Navbar Card ── Chip strip + quick-action chip row (Bubble sub-buttons, 2 rows, rows: 1.2)
 │   │                                          Row 1  status & alerts
 │   │                                          Row 2  features
 │   │                         ── Greeting (markdown: "Good <part of day>, <name>!" + briefing)
@@ -147,6 +147,18 @@ tiles — tap toggles, hold opens more-info. **`#media`** lists every Apple TV a
 by room, the same cards the room sections show. Both lists are static: a new light or player
 is added to the pop-up by hand.
 
+**Quick actions** are a second chip row directly under the status row: a separate
+`sub-buttons` card with the same layout styles, for the house modes you switch by hand. Each
+chip's icon turns amber while its mode is on; tap opens more-info, hold toggles
+(`standards/dashboards.md` §12):
+
+| Chip | Entity |
+|---|---|
+| Avery Asleep | `input_boolean.avery_sleeping` |
+| All Asleep | `input_boolean.everyone_sleeping` |
+| Vacuum Paused | `input_boolean.vacuum_routine_pause` |
+| Guest Mode | `input_boolean.guest_mode` |
+
 Chores other than trash are not a chip: the navbar's Chores tab carries a red badge — a dot
 for one due or overdue chore, the count for two or more.
 
@@ -179,19 +191,7 @@ start collapsed.
 
 The navbar's Rooms tab (`#rooms`) stays as the at-a-glance view of every room.
 
-**Quick Actions** sits below Favorites: a heading and one `sub-buttons` card with the Bubble
-Quick Launcher module (`card_layout: regular`, rounded buttons with names). Each button
-highlights while its mode is on; tap opens more-info, hold toggles (`standards/dashboards.md`
-§12):
-
-| Button | Entity |
-|---|---|
-| Avery Asleep | `input_boolean.avery_sleeping` |
-| Everyone Asleep | `input_boolean.everyone_sleeping` |
-| Vacuum Paused | `input_boolean.vacuum_routine_pause` |
-| Guest Mode | `input_boolean.guest_mode` |
-
-**Happening now** sits below Quick Actions: a `Happening now` heading and a 2-column grid,
+**Happening now** sits below Favorites: a `Happening now` heading and a 2-column grid,
 both shown only while at least one card is visible. Each card is a Bubble `button` whose
 `styles` call `progress_fill(pct, rgb)` from `dashboard.jinja`, filling the card left to
 right with progress.

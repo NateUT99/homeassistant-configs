@@ -342,6 +342,86 @@ views:
             custom_height: 40
             show_name: true
             name: Avery {{ 'asleep' if is_state('input_boolean.avery_sleeping','on') else ('here' if is_state('binary_sensor.avery_home_today','on') else 'away') }}
+    - type: custom:bubble-card
+      card_type: sub-buttons
+      hide_main_background: true
+      rows: 0.9
+      sub_button:
+        main: []
+        bottom:
+        - name: Quick actions
+          buttons_layout: inline
+          justify_content: start
+          group:
+          - fill_width: false
+            state_background: false
+            light_background: false
+            show_name: true
+            custom_height: 40
+            entity: input_boolean.avery_sleeping
+            name: Avery Asleep
+            icon: mdi:teddy-bear
+            css_class: qa-avery
+            tap_action:
+              action: more-info
+            hold_action:
+              action: toggle
+          - fill_width: false
+            state_background: false
+            light_background: false
+            show_name: true
+            custom_height: 40
+            entity: input_boolean.everyone_sleeping
+            name: All Asleep
+            icon: mdi:sleep
+            css_class: qa-sleep
+            tap_action:
+              action: more-info
+            hold_action:
+              action: toggle
+          - fill_width: false
+            state_background: false
+            light_background: false
+            show_name: true
+            custom_height: 40
+            entity: input_boolean.vacuum_routine_pause
+            name: Vacuum Paused
+            icon: mdi:robot-vacuum-off
+            css_class: qa-vacuum
+            tap_action:
+              action: more-info
+            hold_action:
+              action: toggle
+          - fill_width: false
+            state_background: false
+            light_background: false
+            show_name: true
+            custom_height: 40
+            entity: input_boolean.guest_mode
+            name: Guest Mode
+            icon: mdi:account-star
+            css_class: qa-guest
+            tap_action:
+              action: more-info
+            hold_action:
+              action: toggle
+      styles: '.bubble-sub-button-bottom-container { overflow-x: auto !important; overflow-y: hidden !important; justify-content: flex-start !important; pointer-events: auto !important; scrollbar-width:
+        none; -webkit-overflow-scrolling: touch; }
+
+        .bubble-sub-button-bottom-container::-webkit-scrollbar { display: none; }
+
+        .bubble-sub-button-group { flex-wrap: nowrap !important; }
+
+        .bubble-sub-button { flex-shrink: 0 !important; border-radius: 16px !important; padding: 0 12px !important; }
+
+
+        .qa-avery ha-icon { color: {{ ''var(--amber-color)'' if is_state(''input_boolean.avery_sleeping'',''on'') else ''var(--secondary-text-color)'' }} !important; }
+
+        .qa-sleep ha-icon { color: {{ ''var(--amber-color)'' if is_state(''input_boolean.everyone_sleeping'',''on'') else ''var(--secondary-text-color)'' }} !important; }
+
+        .qa-vacuum ha-icon { color: {{ ''var(--amber-color)'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') else ''var(--secondary-text-color)'' }} !important; }
+
+        .qa-guest ha-icon { color: {{ ''var(--amber-color)'' if is_state(''input_boolean.guest_mode'',''on'') else ''var(--secondary-text-color)'' }} !important; }'
     - type: markdown
       text_only: true
       grid_options:
@@ -515,66 +595,6 @@ views:
         rows: 1.2
       grid_options:
         columns: 24
-    - type: heading
-      heading: Quick Actions
-      heading_style: title
-      grid_options:
-        columns: 24
-    - type: custom:bubble-card
-      card_type: sub-buttons
-      rows: 2
-      grid_options:
-        columns: 24
-      modules:
-      - bubble_quick_launcher
-      bubble_quick_launcher:
-        card_layout: regular
-        hide_card_background: false
-        hide_button_highlights: false
-        hide_button_names: false
-        button_shape: rounded
-        button_gap: 6
-        card_padding: 6
-        text_space: 28
-        icon_size: 40
-      sub_button:
-        main: []
-        bottom_layout: rows
-        bottom:
-        - name: Quick actions
-          group:
-          - entity: input_boolean.avery_sleeping
-            name: Avery Asleep
-            icon: mdi:teddy-bear
-            show_name: true
-            tap_action:
-              action: more-info
-            hold_action:
-              action: toggle
-          - entity: input_boolean.everyone_sleeping
-            name: Everyone Asleep
-            icon: mdi:sleep
-            show_name: true
-            tap_action:
-              action: more-info
-            hold_action:
-              action: toggle
-          - entity: input_boolean.vacuum_routine_pause
-            name: Vacuum Paused
-            icon: mdi:robot-vacuum-off
-            show_name: true
-            tap_action:
-              action: more-info
-            hold_action:
-              action: toggle
-          - entity: input_boolean.guest_mode
-            name: Guest Mode
-            icon: mdi:account-star
-            show_name: true
-            tap_action:
-              action: more-info
-            hold_action:
-              action: toggle
     - type: heading
       heading: Happening now
       heading_style: title
