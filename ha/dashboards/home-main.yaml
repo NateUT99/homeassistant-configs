@@ -707,7 +707,7 @@ views:
         state_content: '{% set s = states(''vacuum.living_room_vacuum'') %}{{ (states(''sensor.living_room_vacuum_current_room'') ~ '' · '' ~ states(''sensor.living_room_vacuum_cleaning_progress'') | int(0)
           ~ ''%'') if s == ''cleaning'' else (''Returning to dock'' if s == ''returning'' else (''Paused'' if s == ''paused'' else states(''sensor.living_room_vacuum_vacuum_error'') | replace(''_'', ''
           '') | capitalize)) }}'
-        styles: '{% from ''dashboard.jinja'' import progress_fill %}{{ progress_fill(states(''sensor.living_room_vacuum_cleaning_progress'') | int(0), ''201, 184, 240'') }}'
+        styles: '{% from ''dashboard.jinja'' import progress_fill %}{{ progress_fill(states(''sensor.living_room_vacuum_cleaning_progress'') | int(0), ''var(--purple-color)'') }}'
         visibility:
         - condition: state
           entity: vacuum.living_room_vacuum

@@ -42,22 +42,22 @@
 -#}
 {% macro room_glow(area) -%}
 {%- if room_lights_on(area) | int > 0 -%}
-.bubble-button-card-container { background: rgba(245, 158, 59, 0.16) !important; box-shadow: 0 0 22px rgba(245, 158, 59, 0.22), inset 0 0 0 1px rgba(245, 158, 59, 0.45) !important; }
-.bubble-background { background-color: rgba(245, 158, 59, 0.16) !important; opacity: 1 !important; }
-.bubble-icon { color: #f5b452 !important; }
+.bubble-button-card-container { background: color-mix(in srgb, var(--amber-color) 16%, transparent) !important; box-shadow: 0 0 22px color-mix(in srgb, var(--amber-color) 22%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--amber-color) 45%, transparent) !important; }
+.bubble-background { background-color: transparent !important; }
+.bubble-icon { color: var(--amber-color) !important; }
 {%- endif -%}
 {%- endmacro %}
 
 {#-
   Progress-fill background for "Happening now" cards (Bubble `styles`): the card fills
-  left to right to `pct` percent in the given "r, g, b" colour; pct=none gives an even
-  tint for appliances that report no progress.
+  left to right to `pct` percent in the given theme colour (a CSS variable); pct=none
+  gives an even tint for appliances that report no progress.
 -#}
-{% macro progress_fill(pct=none, rgb='79, 195, 217') -%}
+{% macro progress_fill(pct=none, color='var(--cyan-color)') -%}
 {%- set p = pct | int(0) if pct is not none else 100 -%}
-{%- set a = '0.32' if pct is not none else '0.18' -%}
-.bubble-button-card-container { border-radius: 22px !important; background: rgba(255, 255, 255, 0.07) !important; }
-.bubble-background { opacity: 1 !important; background: linear-gradient(90deg, rgba({{ rgb }}, {{ a }}) {{ p }}%, transparent {{ p }}%) !important; }
-.bubble-icon-container { background: rgb({{ rgb }}) !important; }
-.bubble-icon { color: #0d1117 !important; }
+{%- set a = '32%' if pct is not none else '18%' -%}
+.bubble-button-card-container { border-radius: 22px !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }
+.bubble-background { opacity: 1 !important; background: linear-gradient(90deg, color-mix(in srgb, {{ color }} {{ a }}, transparent) {{ p }}%, transparent {{ p }}%) !important; }
+.bubble-icon-container { background: {{ color }} !important; }
+.bubble-icon { color: var(--primary-background-color) !important; }
 {%- endmacro %}

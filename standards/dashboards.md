@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.8.0 — October 2026*
+*Version 1.9.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.9.0 | October 2026 | §10 tints from theme variables via `color-mix()`; §10.1 security palette; §12 consequential actions on hold, confirmation only when an action must be a tap |
 | 1.8.0 | October 2026 | Home gains Apple-style room sections (header opens the room pop-up, pinned tiles below); Rooms tab kept as the overview |
 | 1.7.0 | October 2026 | Chips are attention-only and scroll in one row; Happening now section for running appliances; chore count moves to a navbar badge |
 | 1.6.0 | October 2026 | Favorites grid on Home (`apple_tile` module); room glow; Bubble backgrounds are styled on `.bubble-background` |
@@ -242,13 +243,32 @@ so every HA function and every `custom_templates` macro is available.
 
 | Meaning | Colour | Variable |
 |---|---|---|
-| Normal / secured | Green icon | `--green-color` |
-| Attention — home and awake | Orange icon | `--orange-color` |
-| Alert — asleep, away, leak, fault | Red icon | `--red-color` |
-| Active / running | Theme accent | entity state colour |
-| Neutral / informational | Theme default | — |
+| Normal / secured | Green | `--green-color` |
+| Attention — home and awake | Orange | `--orange-color` |
+| Alert — asleep, away, leak, fault | Red | `--red-color` |
+| Active / running | Amber (heating, lights, devices on), blue (cooling) | `--amber-color`, `--blue-color` |
+| In progress (Happening now) | Cyan (laundry, dishwasher), purple (vacuum) | `--cyan-color`, `--purple-color` |
+| Neutral / informational | Theme default | `--primary-text-color` at low opacity |
 
-Use theme variables, never hex values, so light and dark modes both work.
+Use theme variables, never hex or RGB values, so light and dark modes both work. Tints and
+glows are the variable mixed toward transparent — `color-mix(in srgb, var(--orange-color) 22%,
+transparent)` — not a hard-coded `rgba()`.
+
+**Tint is for attention, not for normal.** A tile or card is tinted and glows only when it is
+active or needs attention; a normal state colours the icon at most.
+
+### 10.1 Security palette
+
+Anything that secures the house — locks, the garage door, the Doors chip — uses one rule,
+computed by `alert_level()` in `dashboard.jinja` so tiles and chips never disagree:
+
+| State | Condition | Look |
+|---|---|---|
+| Secure | Locked / closed | Green icon; no tint |
+| Not secure, attention | Unlocked or open, someone home and awake | Orange tint, glow, and icon badge |
+| Not secure, alert | Unlocked or open while everyone is asleep or nobody is home | Red tint, glow, and icon badge |
+
+The `apple_tile` module applies this automatically to any `lock` or `cover` entity.
 
 ---
 
@@ -274,16 +294,21 @@ Cards that show Claude-generated text (briefing, house summary, weekly digest):
 
 ## 12. Confirmation Dialogs
 
-Every confirmation uses the object form with text describing the consequence — never
-`confirmation: true`:
+Put consequential actions — lock/unlock, garage open/close, guest mode, vacuum pause, anything
+that turns off a device someone may be using — on **hold**, not tap. A hold is deliberate,
+so it runs without a confirmation; tap opens details (more-info or the pop-up).
+
+When a consequential action must live on a **tap** (a chip whose tap already navigates, a
+consumable reset that has no other gesture), it needs a confirmation in the object form, with
+text naming the exact consequence — never `confirmation: true`:
 
 ```yaml
 confirmation:
-  text: "Close the garage door?"
+  text: "Lock the front door and close the garage?"
 ```
 
-Required for: lock/unlock, garage open/close, consumable resets, anything that turns off a
-device someone may be using.
+Confirmation text cannot be templated. When the action depends on state, split the card into
+one copy per state with opposite `visibility` conditions, each calling the explicit service.
 
 ---
 

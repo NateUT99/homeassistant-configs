@@ -1,38 +1,49 @@
 # Bubble Card module: Apple Home-style favourite tile.
 # Deployed to /config/bubble_card/modules/apple_tile.yaml (standards/dashboards.md §13).
-# Apply with `modules: [apple_tile]` on a button card. The tile tints and glows while
-# the entity is "active" for its domain (thermostat heating or cooling, lock not
-# locked, cover not closed, vacuum cleaning or returning, anything else `on`) and stays
-# translucent dark otherwise. Text stays white in both states; cooling tints blue,
-# everything else amber.
+# Apply with `modules: [apple_tile]` on a button card. Colours are theme variables, tinted
+# with color-mix() (standards/dashboards.md §10).
+#
+# Security entities (lock, cover) follow the security palette (§10.1): green icon when
+# secure (locked / closed, no tint); when not secure, tinted and glowing orange, or red
+# while everyone is asleep or nobody is home (alert_level() in dashboard.jinja).
+#
+# Everything else tints and glows while "active" for its domain (thermostat heating or
+# cooling, vacuum cleaning or returning, anything else `on`): blue for cooling, amber
+# otherwise; neutral when idle.
 apple_tile:
   name: Apple tile
-  version: "2.0"
+  version: "3.0"
   creator: home-main
-  description: Tinted, glowing tile while the entity is active; translucent dark otherwise.
+  description: Apple-style tile; security palette for locks and covers, amber/blue activity tint otherwise.
   supported:
     - button
   code: |
+    {% from 'dashboard.jinja' import alert_level %}
     {% set d = entity.split('.')[0] %}
     {% set s = states(entity) %}
     {% set action = state_attr(entity, 'hvac_action') %}
-    {% set active = (d == 'climate' and action in ['heating', 'cooling'])
-       or (d == 'lock' and s != 'locked')
-       or (d == 'cover' and s != 'closed')
-       or (d == 'vacuum' and s in ['cleaning', 'returning'])
-       or s == 'on' %}
-    {% set rgb = '79, 160, 255' if action == 'cooling' else '245, 158, 59' %}
+    {% if d in ['lock', 'cover'] %}
+      {% set secure = (d == 'lock' and s == 'locked') or (d == 'cover' and s == 'closed') %}
+      {% set active = not secure %}
+      {% set c = 'var(--green-color)' if secure else ('var(--red-color)' if alert_level() == 'red' else 'var(--orange-color)') %}
+    {% else %}
+      {% set secure = false %}
+      {% set active = (d == 'climate' and action in ['heating', 'cooling'])
+         or (d == 'vacuum' and s in ['cleaning', 'returning'])
+         or s == 'on' %}
+      {% set c = 'var(--blue-color)' if action == 'cooling' else 'var(--amber-color)' %}
+    {% endif %}
     .bubble-button-card-container {
       border-radius: 22px !important;
-      background: {{ 'rgba(' ~ rgb ~ ', 0.22)' if active else 'rgba(255, 255, 255, 0.09)' }} !important;
-      {% if active %}box-shadow: 0 0 22px rgba({{ rgb }}, 0.25), inset 0 0 0 1px rgba({{ rgb }}, 0.5) !important;{% endif %}
+      background: color-mix(in srgb, {{ c if active else 'var(--primary-text-color)' }} {{ '22%' if active else '9%' }}, transparent) !important;
+      {% if active %}box-shadow: 0 0 22px color-mix(in srgb, {{ c }} 25%, transparent), inset 0 0 0 1px color-mix(in srgb, {{ c }} 50%, transparent) !important;{% endif %}
     }
     .bubble-background {
       background-color: transparent !important;
     }
     .bubble-icon-container {
-      background: {{ 'rgb(' ~ rgb ~ ')' if active else 'rgba(255, 255, 255, 0.10)' }} !important;
+      background: {{ c if active else ('color-mix(in srgb, ' ~ c ~ ' 18%, transparent)' if secure else 'color-mix(in srgb, var(--primary-text-color) 10%, transparent)') }} !important;
     }
     .bubble-icon {
-      color: {{ '#1a1208' if active else '#8fe3e0' }} !important;
+      color: {{ 'var(--primary-background-color)' if active else (c if secure else 'var(--cyan-color)') }} !important;
     }

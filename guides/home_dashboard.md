@@ -198,9 +198,11 @@ visible lights are on.
 ### Favorites
 
 A `Favorites` heading and a 2-column grid under the greeting: the Apple Home favourites plus
-Guest Mode. Every tile is a Bubble `button` with the `apple_tile` module: translucent dark
-when idle; tinted and glowing while active (thermostat heating amber or cooling blue, lock
-unlocked, garage open, vacuum cleaning — all amber). Text stays white in both states.
+Guest Mode. Every tile is a Bubble `button` with the `apple_tile` module. Front Door and Garage Door
+follow the security palette (`standards/dashboards.md` §10.1): green icon when secure, orange
+tint and glow when unlocked or open, red when that happens while everyone is asleep or nobody
+is home. Other tiles are neutral when idle and tint amber while active (blue while the
+thermostat cools).
 
 | Tile | Line under the name | Tap | Hold |
 |---|---|---|---|
