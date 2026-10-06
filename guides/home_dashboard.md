@@ -128,7 +128,6 @@ card's `styles`, keyed by each chip's `css_class` (`standards/dashboards.md` §7
 | Fireplace | Fireplace not `off`; setpoint | Orange | `#climate` | — |
 | Weather | Always; outside temp | Theme | `#weather` | — |
 | AI | Always; "All good" / "Check" | Orange when the house summary flagged attention | `#ai` | — |
-| Guest | Always; "Guest mode" | Green when on | — | Toggle |
 | Avery | She's home today **and** (asleep 06:30–09:00 **or** house awake 20:30–22:30); "Avery asleep" / "Avery awake" | Green when asleep | — | Toggle `input_boolean.avery_sleeping` |
 
 The vacuum has no chip: its state, errors, and "routine paused" show on the Roborock favorite,
@@ -176,8 +175,8 @@ visible lights are on.
 
 ### Favorites
 
-A `Favorites` heading and a 2-column grid under the greeting, mirroring the Apple Home
-favourites. Every tile is a Bubble `button` with the `apple_tile` module: translucent dark
+A `Favorites` heading and a 2-column grid under the greeting: the Apple Home favourites plus
+Guest Mode. Every tile is a Bubble `button` with the `apple_tile` module: translucent dark
 when idle; tinted and glowing while active (thermostat heating amber or cooling blue, lock
 unlocked, garage open, vacuum cleaning — all amber). Text stays white in both states.
 
@@ -187,6 +186,7 @@ unlocked, garage open, vacuum cleaning — all amber). Text stays white in both 
 | Front Door | Locked / Unlocked | Unlock (when locked) or lock, with confirmation | more-info |
 | Garage Door | Open / Closed | Open (when closed) or close, with confirmation | more-info |
 | Roborock | State, or the error / dock error / "Stuck"; "· routine paused" when paused | `#vacuum` | more-info |
+| Guest Mode | On / Off | Toggle | more-info |
 
 Front Door and Garage Door each exist twice with opposite `visibility` conditions, so the
 confirmation can name the exact action ("Unlock the front door?") — an action's

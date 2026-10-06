@@ -357,19 +357,6 @@ views:
           - fill_width: false
             state_background: false
             light_background: false
-            entity: input_boolean.guest_mode
-            css_class: guest
-            icon: mdi:account-star
-            tap_action:
-              action: none
-            hold_action:
-              action: toggle
-            custom_height: 40
-            show_name: true
-            name: Guest mode
-          - fill_width: false
-            state_background: false
-            light_background: false
             entity: input_boolean.avery_sleeping
             css_class: avery
             icon: mdi:teddy-bear
@@ -600,6 +587,25 @@ views:
           tap_action:
             action: navigate
             navigation_path: '#vacuum'
+          hold_action:
+            action: more-info
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        modules:
+        - apple_tile
+        rows: 1.4
+        entity: input_boolean.guest_mode
+        name: Guest Mode
+        icon: mdi:account-star
+        state_content: state
+        tap_action:
+          action: toggle
+        hold_action:
+          action: more-info
+        button_action:
+          tap_action:
+            action: toggle
           hold_action:
             action: more-info
       grid_options:
