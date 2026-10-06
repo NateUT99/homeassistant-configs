@@ -314,7 +314,7 @@ views:
           - fill_width: false
             state_background: false
             light_background: false
-            show_name: false
+            show_name: true
             custom_height: 40
             entity: climate.living_room_thermostat
             css_class: qa-climate
@@ -324,6 +324,8 @@ views:
               navigation_path: '#climate'
             hold_action:
               action: more-info
+            name: '{{ ''Paused'' if not is_state(''input_select.household_hvac_mode_before_pause'',''none'') else (''Heat'' if is_state(''binary_sensor.household_hvac_heating'',''on'') else (''Cool'' if
+              is_state(''binary_sensor.household_hvac_cooling'',''on'') else ''Off'')) }}'
           - fill_width: false
             state_background: false
             light_background: false

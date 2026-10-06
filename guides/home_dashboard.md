@@ -151,7 +151,7 @@ is added to the pop-up by hand.
 
 | Chip | Icon and colour | Hold toggles |
 |---|---|---|
-| Climate (icon only) | `mdi:hvac`: amber heating, blue cooling, grey idle or off; `mdi:hvac-off` in amber while an open door or window has paused it | — (tap `#climate`, hold opens more-info) |
+| Climate | "Heat" / "Cool" / "Off" / "Paused" beside `mdi:hvac` (amber heating, blue cooling, grey otherwise) or `mdi:hvac-off` in amber while an open door or window has paused it; "Off" covers both idle and switched off | — (tap `#climate`, hold opens more-info) |
 | Nate | Sleep (indigo) while `input_boolean.everyone_sleeping` is on; otherwise home (green) or away (grey) from `person.nate` | `input_boolean.everyone_sleeping` |
 | Avery | Sleep (indigo) while `input_boolean.avery_sleeping` is on; otherwise home (green) on her scheduled days (`binary_sensor.avery_home_today`), away (grey) on others | `input_boolean.avery_sleeping` |
 | Pause (icon only) | Amber while the vacuum routine is paused | `input_boolean.vacuum_routine_pause` |
