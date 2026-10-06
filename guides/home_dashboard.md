@@ -186,12 +186,12 @@ unlocked, garage open, vacuum cleaning — all amber). Text stays white in both 
 | Front Door | Locked / Unlocked | Unlock (when locked) or lock, with confirmation | more-info |
 | Garage Door | Open / Closed | Open (when closed) or close, with confirmation | more-info |
 | Roborock | State, or the error / dock error / "Stuck"; "· routine paused" when paused | `#vacuum` | more-info |
-| Guest Mode | On / Off | Toggle | more-info |
+| Guest Mode | On / Off | Turn on (when off) or off, with confirmation | more-info |
 
-Front Door and Garage Door each exist twice with opposite `visibility` conditions, so the
+Front Door, Garage Door, and Guest Mode each exist twice with opposite `visibility` conditions, so the
 confirmation can name the exact action ("Unlock the front door?") — an action's
 confirmation text cannot be templated. Each copy calls the explicit service
-(`lock.unlock`, `cover.open_cover`, …) rather than `toggle`.
+(`lock.unlock`, `cover.open_cover`, `input_boolean.turn_on`, …) rather than `toggle`.
 
 Areas without a tile: Entrance, Garage, and Outside fold into `#security`; Utility Room
 into `#laundry`; the Bathroom lamp is automated and its leak sensor feeds the Leak chip;

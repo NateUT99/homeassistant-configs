@@ -600,14 +600,61 @@ views:
         icon: mdi:account-star
         state_content: state
         tap_action:
-          action: toggle
+          action: perform-action
+          perform_action: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.guest_mode
+          confirmation:
+            text: Turn on guest mode?
         hold_action:
           action: more-info
         button_action:
           tap_action:
-            action: toggle
+            action: perform-action
+            perform_action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.guest_mode
+            confirmation:
+              text: Turn on guest mode?
           hold_action:
             action: more-info
+        visibility:
+        - condition: state
+          entity: input_boolean.guest_mode
+          state: 'off'
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        modules:
+        - apple_tile
+        rows: 1.4
+        entity: input_boolean.guest_mode
+        name: Guest Mode
+        icon: mdi:account-star
+        state_content: state
+        tap_action:
+          action: perform-action
+          perform_action: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.guest_mode
+          confirmation:
+            text: Turn off guest mode?
+        hold_action:
+          action: more-info
+        button_action:
+          tap_action:
+            action: perform-action
+            perform_action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.guest_mode
+            confirmation:
+              text: Turn off guest mode?
+          hold_action:
+            action: more-info
+        visibility:
+        - condition: state
+          entity: input_boolean.guest_mode
+          state: 'on'
       grid_options:
         columns: 24
     - type: heading
