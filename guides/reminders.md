@@ -16,8 +16,10 @@ that reads the chore's own due/status directly; no helper, no separate to-do sur
 escalation is week-type-aware: a **Trash & Recycling** week escalates every 30 minutes until
 marked done by hand, same as any other chore, while a **trash-only** week announces once and
 auto-completes itself — the announcement alone is enough prompting, and the manual mark-done
-step would be pure friction. A `chore-calendar-card` dashboard at `/household-chores` gives
-create/edit/skip/complete dialogs for all 9 chores, trash included.
+step would be pure friction. The `home-main` Chores view (`chore-calendar-card`) gives
+create/edit/skip/complete dialogs for every chore, trash included. Vacuum maintenance also
+lands here as one-off chores created and cleaned up automatically, whose completion resets
+the robot's counter (`guides/vacuum_cleaning_routine.md`).
 
 ---
 
@@ -196,10 +198,10 @@ It starts unscheduled — the sync half of `automation.household_trash_pickup` (
 *before* the matched pickup event (the actionable deadline), not the pickup morning itself —
 see Design Decisions above.
 
-### 5. Add the dashboard
+### 5. Add the chore card
 
-A minimal dashboard (`/household-chores`) with a `chore-calendar-card`, showing all 9 chores
-including trash:
+The Chores view of `home-main` (`guides/home_dashboard.md`) holds a `chore-calendar-card`
+showing every chore, trash included:
 
 ```yaml
 type: custom:chore-calendar-card

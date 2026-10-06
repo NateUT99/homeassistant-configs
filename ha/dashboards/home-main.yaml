@@ -345,65 +345,6 @@ views:
           - fill_width: false
             state_background: false
             light_background: false
-            entity: vacuum.living_room_vacuum
-            css_class: vacuum
-            icon: '{% set overdue = [''sensor.living_room_vacuum_filter_time_left'',''sensor.living_room_vacuum_filter_clean_time_left'',''sensor.living_room_vacuum_main_brush_time_left'',''sensor.living_room_vacuum_side_brush_time_left'',''sensor.living_room_vacuum_sensor_time_left'']
-              | map(''states'') | map(''float'', 999) | select(''le'', 0) | list | count > 0 %}{{ ''mdi:robot-vacuum-off'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') else (''mdi:robot-vacuum-alert''
-              if (overdue or states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable''] or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable'']
-              or is_state(''binary_sensor.vacuum_stuck'',''on'')) else ''mdi:robot-vacuum'') }}'
-            tap_action:
-              action: navigate
-              navigation_path: '#vacuum'
-            hold_action:
-              action: perform-action
-              perform_action: input_boolean.toggle
-              target:
-                entity_id: input_boolean.vacuum_routine_pause
-              confirmation:
-                text: Toggle the vacuum routine pause?
-            custom_height: 40
-            visibility:
-            - condition: or
-              conditions:
-              - condition: state
-                entity: input_boolean.vacuum_routine_pause
-                state: 'on'
-              - condition: state
-                entity: binary_sensor.vacuum_stuck
-                state: 'on'
-              - condition: state
-                entity: sensor.living_room_vacuum_vacuum_error
-                state_not:
-                - none
-                - unknown
-                - unavailable
-              - condition: state
-                entity: sensor.living_room_vacuum_dock_dock_error
-                state_not:
-                - ok
-                - unknown
-                - unavailable
-              - condition: numeric_state
-                entity: sensor.living_room_vacuum_filter_time_left
-                below: 0.01
-              - condition: numeric_state
-                entity: sensor.living_room_vacuum_filter_clean_time_left
-                below: 0.01
-              - condition: numeric_state
-                entity: sensor.living_room_vacuum_main_brush_time_left
-                below: 0.01
-              - condition: numeric_state
-                entity: sensor.living_room_vacuum_side_brush_time_left
-                below: 0.01
-              - condition: numeric_state
-                entity: sensor.living_room_vacuum_sensor_time_left
-                below: 0.01
-            show_name: true
-            name: '{{ ''Paused'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') else (''Stuck'' if is_state(''binary_sensor.vacuum_stuck'',''on'') or states(''sensor.living_room_vacuum_vacuum_error'')
-              not in [''none'',''unknown'',''unavailable''] or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable''] else ''Maintenance'') }}'
-          - fill_width: false
-            state_background: false
-            light_background: false
             entity: sensor.household_ai_house_summary
             css_class: ai
             icon: mdi:creation
@@ -648,7 +589,10 @@ views:
         entity: vacuum.living_room_vacuum
         name: Roborock
         icon: mdi:robot-vacuum
-        state_content: state
+        state_content: '{% set s = states(''vacuum.living_room_vacuum'') %}{% set err = states(''sensor.living_room_vacuum_vacuum_error'') %}{% set dock = states(''sensor.living_room_vacuum_dock_dock_error'')
+          %}{% if err not in [''none'',''unknown'',''unavailable''] %}{{ err | replace(''_'', '' '') | capitalize }}{% elif dock not in [''ok'',''unknown'',''unavailable''] %}Dock: {{ dock | replace(''_'',
+          '' '') }}{% elif is_state(''binary_sensor.vacuum_stuck'',''on'') %}Stuck{% else %}{{ s | replace(''_'', '' '') | capitalize }}{{ '' · routine paused'' if is_state(''input_boolean.vacuum_routine_pause'',''on'')
+          else '''' }}{% endif %}'
         tap_action:
           action: navigate
           navigation_path: '#vacuum'

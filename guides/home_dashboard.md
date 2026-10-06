@@ -127,12 +127,13 @@ card's `styles`, keyed by each chip's `css_class` (`standards/dashboards.md` §7
 | Updates | Any `update.*` on; count | Primary | `/config/updates` | — |
 | Fireplace | Fireplace not `off`; setpoint | Orange | `#climate` | — |
 | Weather | Always; outside temp | Theme | `#weather` | — |
-| Vacuum | Routine paused, stuck/error, dock error, or a consumable overdue; "Paused" / "Stuck" / "Maintenance" | Red error/stuck, orange paused | `#vacuum` | Toggle routine pause (confirm) |
 | AI | Always; "All good" / "Check" | Orange when the house summary flagged attention | `#ai` | — |
 | Guest | Always; "Guest mode" | Green when on | — | Toggle |
 | Avery | She's home today **and** (asleep 06:30–09:00 **or** house awake 20:30–22:30); "Avery asleep" / "Avery awake" | Green when asleep | — | Toggle `input_boolean.avery_sleeping` |
 
-Chores other than trash are not a chip: the navbar's Chores tab carries a red badge — a dot
+The vacuum has no chip: its state, errors, and "routine paused" show on the Roborock favorite,
+due maintenance becomes chores (`guides/vacuum_cleaning_routine.md`), and the routine-pause
+toggle lives in `#vacuum`. Chores other than trash are not a chip: the navbar's Chores tab carries a red badge — a dot
 for one due or overdue chore, the count for two or more.
 
 The Recycling chip appears in practice only on Trash & Recycling weeks: a trash-only week
@@ -185,7 +186,7 @@ unlocked, garage open, vacuum cleaning — all amber). Text stays white in both 
 | Thermostat | `73° · 69°–76°` (current · setpoints) | `#climate` | more-info |
 | Front Door | Locked / Unlocked | Unlock (when locked) or lock, with confirmation | more-info |
 | Garage Door | Open / Closed | Open (when closed) or close, with confirmation | more-info |
-| Roborock | Docked / Cleaning | `#vacuum` | more-info |
+| Roborock | State, or the error / dock error / "Stuck"; "· routine paused" when paused | `#vacuum` | more-info |
 
 Front Door and Garage Door each exist twice with opposite `visibility` conditions, so the
 confirmation can name the exact action ("Unlock the front door?") — an action's

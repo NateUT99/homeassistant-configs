@@ -1,0 +1,138 @@
+id: '1791250865422'
+alias: 'Household: Vacuum Maintenance Chores'
+description: Turns vacuum maintenance into chores on the household chore list. When a Roborock consumable
+  counter (filter replace, filter clean, main brush, side brush, sensors) reaches 0 h left, creates a
+  one-off chore due now; completing that chore runs script.household_vacuum_reset_consumable for the matching
+  counter and deletes the chore. Resetting the counter some other way (dashboard hold, Roborock app) deletes
+  the open chore. Catches up on HA start. See guides/vacuum_cleaning_routine.md.
+triggers:
+- alias: A consumable reached 0 h left
+  trigger: numeric_state
+  entity_id:
+  - sensor.living_room_vacuum_filter_time_left
+  - sensor.living_room_vacuum_filter_clean_time_left
+  - sensor.living_room_vacuum_main_brush_time_left
+  - sensor.living_room_vacuum_side_brush_time_left
+  - sensor.living_room_vacuum_sensor_time_left
+  below: 0.01
+  id: due
+- alias: Home Assistant started
+  trigger: homeassistant
+  event: start
+  id: due
+- alias: A chore was completed
+  trigger: event
+  event_type: chore_calendar_status_changed
+  event_data:
+    to_status: completed
+  id: done
+- alias: A consumable counter was reset
+  trigger: numeric_state
+  entity_id:
+  - sensor.living_room_vacuum_filter_time_left
+  - sensor.living_room_vacuum_filter_clean_time_left
+  - sensor.living_room_vacuum_main_brush_time_left
+  - sensor.living_room_vacuum_side_brush_time_left
+  - sensor.living_room_vacuum_sensor_time_left
+  above: 0.01
+  id: reset
+conditions: []
+actions:
+- alias: Read the open chores
+  action: todo.get_items
+  target:
+    entity_id: todo.household_chores
+  data:
+    status:
+    - needs_action
+  response_variable: open_result
+- alias: Note which chores are open
+  variables:
+    open_names: '{{ open_result.get(''todo.household_chores'', {}).get(''items'', []) | map(attribute=''summary'')
+      | list }}'
+- alias: Handle the trigger
+  choose:
+  - alias: Create chores for counters at 0 h
+    conditions:
+    - alias: A counter came due or HA started
+      condition: trigger
+      id: due
+    sequence:
+    - alias: List the counters at 0 h
+      note: A numeric_state trigger names its one counter; the start trigger checks all five.
+      variables:
+        due_list: '{% if trigger.platform == ''numeric_state'' %}{{ [trigger.entity_id] }}{% else %}{%
+          set ns = namespace(o=[]) %}{% for e in items %}{% if states(e) | float(999) <= 0 %}{% set ns.o
+          = ns.o + [e] %}{% endif %}{% endfor %}{{ ns.o }}{% endif %}'
+    - alias: Create each missing chore
+      repeat:
+        for_each: '{{ due_list }}'
+        sequence:
+        - alias: Skip if the chore is already open
+          condition: template
+          value_template: '{{ items[repeat.item].chore not in open_names }}'
+        - alias: Create the chore
+          action: chore_calendar.create_item
+          data:
+            entity_id: calendar.household_chores
+            chore_name: '{{ items[repeat.item].chore }}'
+            description: Created automatically when the vacuum's counter reached 0 h. Marking it done
+              resets that counter on the robot, so complete it only after the maintenance is done.
+            oneshot:
+              due_datetime: '{{ now().isoformat() }}'
+  - alias: Reset the counter when its chore is completed
+    conditions:
+    - alias: A chore was completed
+      condition: trigger
+      id: done
+    - alias: It is a vacuum maintenance chore
+      condition: template
+      value_template: '{{ trigger.event.data.chore_name in items.values() | map(attribute=''chore'') |
+        list }}'
+    sequence:
+    - alias: Find the matching counter
+      variables:
+        consumable: '{{ (items.values() | selectattr(''chore'', ''eq'', trigger.event.data.chore_name)
+          | first).consumable }}'
+    - alias: Reset the counter on the robot
+      action: script.household_vacuum_reset_consumable
+      data:
+        consumable: '{{ consumable }}'
+    - alias: Remove the completed chore
+      action: chore_calendar.delete_item
+      data:
+        entity_id: calendar.household_chores
+        item: '{{ trigger.event.data.chore_name }}'
+  - alias: Remove the chore when the counter is reset elsewhere
+    conditions:
+    - alias: A counter was reset
+      condition: trigger
+      id: reset
+    - alias: Its chore is still open
+      condition: template
+      value_template: '{{ items[trigger.entity_id].chore in open_names }}'
+    sequence:
+    - alias: Remove the open chore
+      action: chore_calendar.delete_item
+      data:
+        entity_id: calendar.household_chores
+        item: '{{ items[trigger.entity_id].chore }}'
+mode: queued
+max: 10
+variables:
+  items:
+    sensor.living_room_vacuum_filter_time_left:
+      consumable: air_filter
+      chore: Replace Vacuum Filter
+    sensor.living_room_vacuum_filter_clean_time_left:
+      consumable: filter_clean
+      chore: Clean Vacuum Filter
+    sensor.living_room_vacuum_main_brush_time_left:
+      consumable: main_brush
+      chore: Replace Vacuum Main Brush
+    sensor.living_room_vacuum_side_brush_time_left:
+      consumable: side_brush
+      chore: Replace Vacuum Side Brush
+    sensor.living_room_vacuum_sensor_time_left:
+      consumable: sensor
+      chore: Clean Vacuum Sensors

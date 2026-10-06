@@ -416,12 +416,37 @@ replacement is due or comes before the next clean, it reports the filter's hours
 shows a clean due. A filter reset done in the Roborock app does not update the stored reading;
 hold *Filter clean* once afterward to realign it.
 
+**Maintenance chores.** Household: Vacuum Maintenance Chores
+(`automation.household_vacuum_maintenance_chores`) puts due maintenance on the household chore
+list (`guides/reminders.md`) so it rides the existing chore surfaces — the Chores badge, the
+09:00 push with Mark Done, the chore card:
+
+| Counter reaches 0 h | Chore created |
+|---|---|
+| `sensor.living_room_vacuum_filter_time_left` | Replace Vacuum Filter |
+| `sensor.living_room_vacuum_filter_clean_time_left` | Clean Vacuum Filter |
+| `sensor.living_room_vacuum_main_brush_time_left` | Replace Vacuum Main Brush |
+| `sensor.living_room_vacuum_side_brush_time_left` | Replace Vacuum Side Brush |
+| `sensor.living_room_vacuum_sensor_time_left` | Clean Vacuum Sensors |
+
+- **Due:** a counter dropping to 0 h (or any counter at 0 h on HA start) creates a one-off
+  (`oneshot`, not persisted) chore due now, unless that chore is already open.
+- **Completed:** the `chore_calendar_status_changed` event (`to_status: completed`) for one of
+  these names runs the script for the matching counter, then deletes the chore. Completing
+  the chore *is* the reset — mark it done only after the maintenance.
+- **Reset elsewhere:** a counter rising above 0 h (dashboard hold, Roborock app) deletes its
+  open chore, so a chore never outlives the work.
+
+Chores are matched by name, so the names in the automation's `items` map must not be
+reused for other chores.
+
 ## Related HA Config
 
 | Friendly Name | Entity ID | Type |
 |---|---|---|
 | Household: Vacuum Evening Cleaning | `automation.household_vacuum_evening_cleaning` | Automation (nightly common-area pass + next-morning master-suite follow-up) |
 | Household: Vacuum Mop Now | `script.household_vacuum_mop_now` | Script (ad hoc mop pass over the six common-area rooms) |
+| Household: Vacuum Maintenance Chores | `automation.household_vacuum_maintenance_chores` | Automation (maintenance due → chore; chore done → reset) |
 | Household: Vacuum Reset Consumable | `script.household_vacuum_reset_consumable` | Script (reset one consumable counter, or mark the filter cleaned, and refresh its sensor) |
 | Living Room Vacuum Filter Left At Last Clean | `input_number.living_room_vacuum_filter_left_at_last_clean` | Helper (filter hours left recorded at the last clean) |
 | Living Room Vacuum Filter Clean Time Left | `sensor.living_room_vacuum_filter_clean_time_left` | Template helper (hours until the filter's next clean) |
