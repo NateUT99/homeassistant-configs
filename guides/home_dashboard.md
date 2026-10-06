@@ -121,7 +121,8 @@ To edit in the UI, open `/home-main/home?disable_km`.
 
 One Bubble `sub-buttons` card: a single row that scrolls sideways (`rows: 0.9`, chips
 `custom_height: 40`, overflow styles in the card's `styles`). It follows Apple Home's top
-row: always-on **category chips** with a one-line status, plus a few standalone chips. Status
+row: always-on **category chips** with a one-line status, plus a few standalone chips. Conditional
+chips (faults, a leak, recycling due) come first, so an alert is visible without scrolling. Status
 text and icon colours come from macros in `dashboard.jinja` (`weather_status`,
 `security_status`, `lights_on_count`, …), so the strip's own config stays small. Things you
 control are Favorites; running appliances are Happening now.
@@ -131,13 +132,12 @@ control are Favorites; running appliances are Happening now.
 | Internet | WAN down or modem power cycle | "Down" / "Modem reset" | Red | — | — |
 | Generator | Running | "Generator" | Amber | — | — |
 | Fridge | Plug off or power sensor unavailable | "Fridge" | Red | — | — |
+| **Water** | A leak | "Leak: <sensor>" | Red | `#security` | — |
+| Recycling | Trash chore due/overdue | "Recycling" | Amber, red overdue | Chores view | Mark "Take Out Trash & Recycling" done |
 | **Weather** | Always | Outside temp and condition ("58° Sunny"), plus "AQI n" when above 50 | AQI on the EPA scale: yellow > 50, orange > 100, red > 150; neutral otherwise | `#weather` | — |
 | **Lights** | Always | "N on" / "All off" (visible lights in the areas listed in `house_light_areas()`) | Amber when any are on | `#lights` | — |
 | **Security** | Always | "Secure", or the issues: "Unlocked", "Door open", "Garage open", "N open" | Green secure, else `alert_level()` (amber / red) | `#security` | `script.household_secure_doors` |
-| **Water** | A leak | "Leak: <sensor>" | Red | `#security` | — |
 | **Media** | Always | "N on" / "Media off" — players with a room media card showing: Apple TVs playing or paused, HomePods whose activity sensor is on | Purple when any are on | `#media` | — |
-| Recycling | Trash chore due/overdue | "Recycling" | Amber, red overdue | Chores view | Mark "Take Out Trash & Recycling" done |
-| Updates | Any `update.*` on | count | Primary | `/config/updates` | — |
 | AI | Always | "All good" / "Check" | Amber when the house summary flagged attention | `#ai` | — |
 
 **`#lights`** lists every light by room (Living Room through Utility Room) as `apple_tile`
@@ -352,8 +352,10 @@ tracked devices. Small smart plugs are deliberately not tracked devices — they
 "untracked" in the Sankey. The live power cards (`power-total`, `power-sankey`) are not used
 here; they fail outside the built-in Energy dashboard, which keeps its own Now tab.
 
-**Navbar badges and visibility:** More, and Energy inside its menu, show a red badge while
-`binary_sensor.outside_home_generator_warning` or `_maintenance_alert` is on — generator
+**Navbar badges and visibility:** More shows a red badge while any `update.*` entity is on
+(Maintenance inside its menu carries the same badge) or while
+`binary_sensor.outside_home_generator_warning` or `_maintenance_alert` is on (Energy inside the
+menu carries that one) — generator
 problems surface there rather than as a Home chip. The Maintenance item is hidden for
 non-admin users (`hidden: [[[ return !user.is_admin ]]]`).
 

@@ -36,7 +36,8 @@ navbar-templates:
       tap_action:
         action: open-popup
       badge:
-        show: '[[[ return states[''binary_sensor.outside_home_generator_warning'']?.state === ''on'' || states[''binary_sensor.outside_home_generator_maintenance_alert'']?.state === ''on'' ]]]'
+        show: '[[[ return states[''binary_sensor.outside_home_generator_warning'']?.state === ''on'' || states[''binary_sensor.outside_home_generator_maintenance_alert'']?.state === ''on'' || Object.keys(states).some(k
+          => k.startsWith(''update.'') && states[k].state === ''on'') ]]]'
         color: red
       popup:
       - url: /home-main/energy
@@ -49,6 +50,9 @@ navbar-templates:
         icon: mdi:wrench
         label: Maintenance
         hidden: '[[[ return !user.is_admin ]]]'
+        badge:
+          show: '[[[ return Object.keys(states).some(k => k.startsWith(''update.'') && states[k].state === ''on'') ]]]'
+          color: red
 views:
 - title: Home
   path: home
@@ -83,8 +87,6 @@ views:
         {% set aqi = states(''sensor.erie_ohio_usa_air_quality_index'') | int(0) %}
 
         .aqi ha-icon { color: var(--{{ ''green'' if aqi <= 50 else (''yellow'' if aqi <= 100 else (''orange'' if aqi <= 150 else ''red'')) }}-color) !important; }
-
-        .updates ha-icon { color: var(--primary-color) !important; }
 
         .thermo ha-icon { color: {{ ''var(--amber-color)'' if is_state(''binary_sensor.household_hvac_heating'',''on'') else (''var(--blue-color)'' if is_state(''binary_sensor.household_hvac_cooling'',''on'')
         else ''var(--secondary-text-color)'') }} !important; }
@@ -194,6 +196,48 @@ views:
             light_background: false
             show_name: true
             custom_height: 40
+            css_class: cat-water
+            icon: '{% from ''dashboard.jinja'' import water_status %}{{ ''mdi:water-alert'' if water_status() != ''No leaks'' else ''mdi:water-check'' }}'
+            name: '{% from ''dashboard.jinja'' import water_status %}{{ water_status() }}'
+            tap_action:
+              action: navigate
+              navigation_path: '#security'
+            hold_action:
+              action: none
+            visibility:
+            - condition: template
+              value_template: '{{ label_entities(''water_leak_sensor'') | select(''is_state'',''on'') | list | count > 0 }}'
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: sensor.household_chores_take_out_trash
+            css_class: trash
+            show_name: true
+            icon: mdi:recycle
+            name: Recycling
+            tap_action:
+              action: navigate
+              navigation_path: /home-main/chores
+            visibility:
+            - condition: state
+              entity: sensor.household_chores_take_out_trash
+              state:
+              - due
+              - overdue
+            hold_action:
+              action: perform-action
+              perform_action: todo.update_item
+              target:
+                entity_id: todo.household_chores
+              data:
+                item: ab02f24c-f9f8-4def-9085-706634af2ef4
+                status: completed
+            custom_height: 40
+          - fill_width: false
+            state_background: false
+            light_background: false
+            show_name: true
+            custom_height: 40
             css_class: cat-weather
             entity: weather.outside_waterville_oh_usa
             icon: '{% from ''dashboard.jinja'' import weather_icon %}{{ weather_icon() }}'
@@ -236,22 +280,6 @@ views:
             light_background: false
             show_name: true
             custom_height: 40
-            css_class: cat-water
-            icon: '{% from ''dashboard.jinja'' import water_status %}{{ ''mdi:water-alert'' if water_status() != ''No leaks'' else ''mdi:water-check'' }}'
-            name: '{% from ''dashboard.jinja'' import water_status %}{{ water_status() }}'
-            tap_action:
-              action: navigate
-              navigation_path: '#security'
-            hold_action:
-              action: none
-            visibility:
-            - condition: template
-              value_template: '{{ label_entities(''water_leak_sensor'') | select(''is_state'',''on'') | list | count > 0 }}'
-          - fill_width: false
-            state_background: false
-            light_background: false
-            show_name: true
-            custom_height: 40
             css_class: cat-media
             icon: mdi:speaker-multiple
             name: '{% from ''dashboard.jinja'' import media_playing_count %}{% set n = media_playing_count() | int %}{{ (n ~ '' on'') if n else ''Media off'' }}'
@@ -260,46 +288,6 @@ views:
               navigation_path: '#media'
             hold_action:
               action: none
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: sensor.household_chores_take_out_trash
-            css_class: trash
-            show_name: true
-            icon: mdi:recycle
-            name: Recycling
-            tap_action:
-              action: navigate
-              navigation_path: /home-main/chores
-            visibility:
-            - condition: state
-              entity: sensor.household_chores_take_out_trash
-              state:
-              - due
-              - overdue
-            hold_action:
-              action: perform-action
-              perform_action: todo.update_item
-              target:
-                entity_id: todo.household_chores
-              data:
-                item: ab02f24c-f9f8-4def-9085-706634af2ef4
-                status: completed
-            custom_height: 40
-          - fill_width: false
-            state_background: false
-            light_background: false
-            css_class: updates
-            show_name: true
-            icon: mdi:update
-            name: '{{ states.update | selectattr(''state'',''eq'',''on'') | list | count }}'
-            tap_action:
-              action: navigate
-              navigation_path: /config/updates
-            visibility:
-            - condition: template
-              value_template: '{{ states.update | selectattr(''state'',''eq'',''on'') | list | count > 0 }}'
-            custom_height: 40
           - fill_width: false
             state_background: false
             light_background: false
