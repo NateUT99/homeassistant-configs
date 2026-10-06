@@ -318,7 +318,7 @@ views:
             custom_height: 40
             entity: climate.living_room_thermostat
             css_class: qa-climate
-            icon: '{{ ''mdi:thermometer-off'' if not is_state(''input_select.household_hvac_mode_before_pause'',''none'') else ''mdi:thermostat'' }}'
+            icon: '{{ ''mdi:hvac-off'' if not is_state(''input_select.household_hvac_mode_before_pause'',''none'') else ''mdi:hvac'' }}'
             tap_action:
               action: navigate
               navigation_path: '#climate'
