@@ -329,6 +329,14 @@ The correct pattern: set `entity` at the **chip level** (not inside the action),
 
 This applies to every chip type (template, entity, action) and every action field (tap_action, hold_action, double_tap_action). If the chip needs to target an entity for more-info but has no natural `entity` association, add the `entity` key at the chip root — it does not affect non-more-info actions on the same chip.
 
+### Centring a scrolling chip row clips its first chips on iOS
+
+`justify-content: center` (or `safe center`, which iOS Safari ignores here) on a horizontally
+scrolling Bubble `sub-buttons` row centres the content even when it is wider than the row, so
+the first chips overflow off the left edge where scrolling cannot reach them. Left-align the
+container (`justify-content: flex-start`) and give the chip group `margin: 0 auto`: auto
+margins centre the group while it fits and collapse to zero once it overflows.
+
 ### A card's visual editor saves the whole dashboard from its own stale copy
 
 Editing one card in the HA dashboard editor (here, Yet Another Media Player's visual editor)

@@ -321,7 +321,7 @@ views:
         bottom:
         - name: Quick actions
           buttons_layout: inline
-          justify_content: center
+          justify_content: start
           group:
           - fill_width: false
             state_background: false
@@ -401,12 +401,12 @@ views:
               action: more-info
             hold_action:
               action: toggle
-      styles: '.bubble-sub-button-bottom-container { overflow-x: auto !important; overflow-y: hidden !important; justify-content: safe center !important; pointer-events: auto !important; scrollbar-width:
+      styles: '.bubble-sub-button-bottom-container { overflow-x: auto !important; overflow-y: hidden !important; justify-content: flex-start !important; pointer-events: auto !important; scrollbar-width:
         none; -webkit-overflow-scrolling: touch; }
 
         .bubble-sub-button-bottom-container::-webkit-scrollbar { display: none; }
 
-        .bubble-sub-button-group { flex-wrap: nowrap !important; }
+        .bubble-sub-button-group { flex-wrap: nowrap !important; margin: 0 auto !important; }
 
         .bubble-sub-button { flex-shrink: 0 !important; border-radius: 16px !important; padding: 0 12px !important; }
 
