@@ -309,23 +309,23 @@ views:
         bottom:
         - name: Quick actions
           buttons_layout: inline
-          justify_content: start
+          justify_content: center
           group:
           - fill_width: false
             state_background: false
             light_background: false
-            show_name: true
+            show_name: false
             custom_height: 40
             entity: climate.living_room_thermostat
             css_class: qa-climate
-            icon: '{{ ''mdi:hvac-off'' if not is_state(''input_select.household_hvac_mode_before_pause'',''none'') else ''mdi:hvac'' }}'
+            icon: '{{ ''mdi:hvac-off'' if not is_state(''input_select.household_hvac_mode_before_pause'',''none'') else (''mdi:fire'' if is_state(''binary_sensor.household_hvac_heating'',''on'') else (''mdi:snowflake''
+              if is_state(''binary_sensor.household_hvac_cooling'',''on'') else ''mdi:hvac'')) }}'
             tap_action:
               action: navigate
               navigation_path: '#climate'
             hold_action:
               action: more-info
-            name: '{{ ''Paused'' if not is_state(''input_select.household_hvac_mode_before_pause'',''none'') else (''Heat'' if is_state(''binary_sensor.household_hvac_heating'',''on'') else (''Cool'' if
-              is_state(''binary_sensor.household_hvac_cooling'',''on'') else ''Off'')) }}'
+            name: Climate
           - fill_width: false
             state_background: false
             light_background: false
@@ -356,13 +356,11 @@ views:
           - fill_width: false
             state_background: false
             light_background: false
-            show_name: true
+            show_name: false
             custom_height: 40
             entity: vacuum.living_room_vacuum
             css_class: qa-vac
-            name: '{{ ''Stuck'' if is_state(''binary_sensor.vacuum_stuck'',''on'') else (''Error'' if states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable''] or
-              states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable''] else (''Paused'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') else states(''vacuum.living_room_vacuum'')
-              | replace(''_'', '' '') | capitalize)) }}'
+            name: Vacuum
             icon: '{{ ''mdi:robot-vacuum-alert'' if is_state(''binary_sensor.vacuum_stuck'',''on'') or states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable''] or
               states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable''] else (''mdi:robot-vacuum-off'' if is_state(''input_boolean.vacuum_routine_pause'',''on'')
               else ''mdi:robot-vacuum'') }}'
@@ -392,7 +390,7 @@ views:
 
         .bubble-sub-button-bottom-container::-webkit-scrollbar { display: none; }
 
-        .bubble-sub-button-group { flex-wrap: nowrap !important; margin: 0 auto !important; width: max-content !important; flex: 0 0 auto !important; }
+        .bubble-sub-button-group { flex-wrap: nowrap !important; min-width: 100% !important; width: max-content !important; flex: 0 0 auto !important; justify-content: center !important; }
 
         .bubble-sub-button { flex-shrink: 0 !important; border-radius: 16px !important; padding: 0 12px !important; }
 

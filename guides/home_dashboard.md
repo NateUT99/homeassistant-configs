@@ -147,19 +147,19 @@ is added to the pop-up by hand.
 
 **Quick actions** are a second chip row directly under the status row: a separate
 `sub-buttons` card with the same scrolling layout, for the people and house modes you switch by hand. The chip group is
-`width: max-content` with `margin: 0 auto`, so the row centres when it fits and scrolls from
-the first chip when it doesn't (`safe center` clips the first chip on iOS — see LESSONS.md).
+`width: max-content` with `min-width: 100%` and `justify-content: center`, so the row centres
+when it fits and scrolls from the first chip when it doesn't (`safe center` clips the first chip on iOS — see LESSONS.md).
 Tap opens more-info, hold toggles (`standards/dashboards.md` §12):
 
 | Chip | Icon and colour | Hold toggles |
 |---|---|---|
-| Climate | "Heat" / "Cool" / "Off" / "Paused" beside `mdi:hvac` (amber heating, blue cooling, grey otherwise) or `mdi:hvac-off` in amber while an open door or window has paused it; "Off" covers both idle and switched off | — (tap `#climate`, hold opens more-info) |
+| Climate (icon only) | `mdi:fire` amber while heating, `mdi:snowflake` blue while cooling, `mdi:hvac-off` amber while an open door or window has paused it, otherwise grey `mdi:hvac` (idle or switched off) | — (tap `#climate`, hold opens more-info) |
 | Nate | Sleep (indigo) while `input_boolean.everyone_sleeping` is on; otherwise home (green) or away (grey) from `person.nate` | `input_boolean.everyone_sleeping` |
 | Avery | Sleep (indigo) while `input_boolean.avery_sleeping` is on; otherwise home (green) on her scheduled days (`binary_sensor.avery_home_today`), away (grey) on others | `input_boolean.avery_sleeping` |
-| Vacuum | "Stuck" / "Error" / "Paused" / the vacuum state beside `mdi:robot-vacuum-alert` (red, stuck or a vacuum or dock error), `mdi:robot-vacuum-off` (amber, routine paused), or `mdi:robot-vacuum` (purple cleaning or returning, grey otherwise); tap opens `#vacuum` | `input_boolean.vacuum_routine_pause` |
+| Vacuum (icon only) | `mdi:robot-vacuum-alert` (red, stuck or a vacuum or dock error), `mdi:robot-vacuum-off` (amber, routine paused), or `mdi:robot-vacuum` (purple cleaning or returning, grey otherwise); tap opens `#vacuum` | `input_boolean.vacuum_routine_pause` |
 | Guest (icon only) | Amber while guest mode is on | `input_boolean.guest_mode` |
 
-Sleep wins over location, so a stale sleep flag is visible at a glance.
+Sleep wins over location, so a stale sleep flag is visible at a glance. Quick actions are icon-only so the row keeps a fixed width; every state that matters has its own icon, so none relies on colour alone, and tap opens the detail.
 
 Chores other than trash are not a chip: the navbar's Chores tab carries a red badge — a dot
 for one due or overdue chore, the count for two or more.
