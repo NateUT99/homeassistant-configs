@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.7.0 — October 2026*
+*Version 1.8.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.8.0 | October 2026 | Home gains Apple-style room sections (header opens the room pop-up, pinned tiles below); Rooms tab kept as the overview |
 | 1.7.0 | October 2026 | Chips are attention-only and scroll in one row; Happening now section for running appliances; chore count moves to a navbar badge |
 | 1.6.0 | October 2026 | Favorites grid on Home (`apple_tile` module); room glow; Bubble backgrounds are styled on `.bubble-background` |
 | 1.5.0 | October 2026 | Rooms move off Home into a `#rooms` pop-up opened from the navbar; large 2-up room tiles with a bottom row of quick buttons; navbar More menu |
@@ -133,7 +134,7 @@ Sections, in order:
 3. **Condition-triggered sections** — appear only while relevant (vacuum running, laundry
    running, overdue chores), gated by section-level `visibility` on entity state. No
    helper toggles.
-4. **Rooms** — not on Home. The navbar's Rooms tab opens the `#rooms` pop-up (§8).
+4. **Rooms** — one section per room: a heading (name ›, temperature badge) that opens the room pop-up, over that room's pinned `apple_tile` tiles. The navbar's Rooms tab also opens the `#rooms` pop-up overview (§8).
 5. **Pop-ups** — one section holding every pop-up card; renders nothing until a hash opens
    one.
 

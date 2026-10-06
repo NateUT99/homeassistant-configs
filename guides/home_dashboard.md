@@ -141,6 +141,25 @@ The Recycling chip appears in practice only on Trash & Recycling weeks: a trash-
 auto-completes at its first announcement (see `guides/reminders.md`). Its hold calls
 `todo.update_item` on `todo.household_chores`, the same completion path as the chore card.
 
+**Room sections** follow on Home, one HA section each so they sit side by side on desktop, in
+this order: Living Room, Master Bedroom, Avery's Room, Office, Family Room, Kitchen, Outside.
+Each is a heading — the room name with "›" and its temperature as a badge; tapping it opens
+the room's pop-up (`#security` for Outside) — over 2-up `apple_tile` tiles of the room's
+everyday controls (tap toggles, hold opens more-info; the Fireplace tile opens its controls
+on tap instead of toggling):
+
+| Room | Tiles |
+|---|---|
+| Living Room | TV Accent, Fireplace |
+| Master Bedroom | Ceiling Light, Fan, Nightstand |
+| Avery's Room | Ceiling Light, Fan, Desk Lamp |
+| Office | Ceiling Light, Fan, Key Light, Bourbon Lamp |
+| Family Room | Ambient Lamp, Alice Glow, Peanuts Glow |
+| Kitchen | Sink Light |
+| Outside | Porch, Front Door, Garage |
+
+The navbar's Rooms tab (`#rooms`) stays as the at-a-glance view of every room.
+
 **Happening now** sits below Favorites: a `Happening now` heading and a 2-column grid,
 both shown only while at least one card is visible. Each card is a Bubble `button` whose
 `styles` call `progress_fill(pct, rgb)` from `dashboard.jinja`, filling the card left to
@@ -187,10 +206,10 @@ unlocked, garage open, vacuum cleaning — all amber). Text stays white in both 
 | Thermostat | `73° · 69°–76°` (current · setpoints) | `#climate` | more-info |
 | Front Door | Locked / Unlocked | Unlock (when locked) or lock, with confirmation | more-info |
 | Garage Door | Open / Closed | Open (when closed) or close, with confirmation | more-info |
-| Roborock | State, or the error / dock error / "Stuck"; "· routine paused" when paused | `#vacuum` | more-info |
+| Roborock | State, or the error / dock error / "Stuck"; icon turns `robot-vacuum-off` in orange while the routine is paused | `#vacuum` | Pause (when running) or resume the vacuum routine, with confirmation |
 | Guest Mode | On / Off | Turn on (when off) or off, with confirmation | more-info |
 
-Front Door, Garage Door, and Guest Mode each exist twice with opposite `visibility` conditions, so the
+Front Door, Garage Door, Guest Mode, and Roborock each exist twice with opposite `visibility` conditions, so the
 confirmation can name the exact action ("Unlock the front door?") — an action's
 confirmation text cannot be templated. Each copy calls the explicit service
 (`lock.unlock`, `cover.open_cover`, `input_boolean.turn_on`, …) rather than `toggle`.
