@@ -139,8 +139,6 @@ control are Favorites; running appliances are Happening now.
 | Recycling | Trash chore due/overdue | "Recycling" | Amber, red overdue | Chores view | Mark "Take Out Trash" done |
 | Updates | Any `update.*` on | count | Primary | `/config/updates` | — |
 | AI | Always | "All good" / "Check" | Amber when the house summary flagged attention | `#ai` | — |
-| Nate | Always | "Nate home" / "away" / "asleep" | Green when home | more-info | — |
-| Avery | Always | "Avery here" / "away" / "asleep" — schedule plus her sleep switch; she has no person entity | Green when asleep | — | Toggle `input_boolean.avery_sleeping` |
 
 **`#lights`** lists every light by room (Living Room through Utility Room) as `apple_tile`
 tiles — tap toggles, hold opens more-info. **`#media`** lists every Apple TV and HomePod card
@@ -227,8 +225,7 @@ visible lights are on.
 
 ### Favorites
 
-A `Favorites` heading and a 2-column grid under the greeting: the Apple Home favourites plus
-Guest Mode. Every tile is a Bubble `button` with the `apple_tile` module. Front Door and Garage Door
+A `Favorites` heading and a 2-column grid under the greeting: the Apple Home favourites. Every tile is a Bubble `button` with the `apple_tile` module. Front Door and Garage Door
 follow the security palette (`standards/dashboards.md` §10.1): green icon when secure, amber
 tint and glow when unlocked or open, red when that happens while everyone is asleep or nobody
 is home. The Thermostat tints amber while heating and blue while cooling. Other tiles are
@@ -240,9 +237,8 @@ neutral when idle and tint amber while active.
 | Front Door | Locked / Unlocked | more-info | Lock / unlock (toggle) |
 | Garage Door | Open / Closed | more-info | Open / close (toggle) |
 | Roborock | State, or the error / dock error / "Stuck"; lit amber with a `robot-vacuum-off` icon while the routine is paused | `#vacuum` | Pause / resume the vacuum routine |
-| Guest Mode | On / Off | more-info | Toggle |
 
-Actions that change the house (lock, garage, guest mode, vacuum pause) are on **hold**, not
+Actions that change the house (lock, garage, vacuum pause) are on **hold**, not
 tap, so they run without a confirmation dialog; tap opens details. The Roborock tile exists
 twice with opposite `visibility` on `input_boolean.vacuum_routine_pause`: the paused copy uses
 that boolean as its `entity`, so `apple_tile` lights it like any active favourite.

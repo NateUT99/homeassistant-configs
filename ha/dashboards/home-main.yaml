@@ -86,10 +86,6 @@ views:
 
         .updates ha-icon { color: var(--primary-color) !important; }
 
-        .guest ha-icon { color: {{ ''var(--green-color)'' if is_state(''input_boolean.guest_mode'',''on'') else ''var(--secondary-text-color)'' }} !important; }
-
-        .avery ha-icon { color: {{ ''var(--green-color)'' if is_state(''input_boolean.avery_sleeping'',''on'') else ''var(--secondary-text-color)'' }} !important; }
-
         .thermo ha-icon { color: {{ ''var(--amber-color)'' if is_state(''binary_sensor.household_hvac_heating'',''on'') else (''var(--blue-color)'' if is_state(''binary_sensor.household_hvac_cooling'',''on'')
         else ''var(--secondary-text-color)'') }} !important; }
 
@@ -125,8 +121,6 @@ views:
         .bubble-sub-button-group { flex-wrap: nowrap !important; }
 
         .bubble-sub-button { flex-shrink: 0 !important; border-radius: 16px !important; padding: 0 12px !important; }
-
-        .nate ha-icon { color: {{ ''var(--green-color)'' if is_state(''person.nate'',''home'') else ''var(--secondary-text-color)'' }} !important; }
 
         {% from ''dashboard.jinja'' import weather_color, security_color, water_status, lights_on_count, media_playing_count %}
 
@@ -318,30 +312,6 @@ views:
             custom_height: 40
             show_name: true
             name: '{{ ''Check'' if is_state(''sensor.household_ai_house_summary'',''attention'') else ''All good'' }}'
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: person.nate
-            css_class: nate
-            show_name: true
-            icon: mdi:account
-            name: Nate {{ 'asleep' if is_state('person.nate','home') and is_state('input_boolean.everyone_sleeping','on') else ('home' if is_state('person.nate','home') else 'away') }}
-            tap_action:
-              action: more-info
-            custom_height: 40
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: input_boolean.avery_sleeping
-            css_class: avery
-            icon: mdi:teddy-bear
-            tap_action:
-              action: none
-            hold_action:
-              action: toggle
-            custom_height: 40
-            show_name: true
-            name: Avery {{ 'asleep' if is_state('input_boolean.avery_sleeping','on') else ('here' if is_state('binary_sensor.avery_home_today','on') else 'away') }}
     - type: custom:bubble-card
       card_type: sub-buttons
       hide_main_background: true
@@ -574,25 +544,6 @@ views:
         - condition: state
           entity: input_boolean.vacuum_routine_pause
           state: 'on'
-      - type: custom:bubble-card
-        card_type: button
-        button_type: state
-        modules:
-        - apple_tile
-        entity: input_boolean.guest_mode
-        name: Guest Mode
-        icon: mdi:account-star
-        state_content: state
-        tap_action:
-          action: more-info
-        hold_action:
-          action: toggle
-        button_action:
-          tap_action:
-            action: more-info
-          hold_action:
-            action: toggle
-        rows: 1.2
       grid_options:
         columns: 24
     - type: heading
