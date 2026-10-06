@@ -26,6 +26,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 │   │                                          Row 1  status & alerts
 │   │                                          Row 2  features
 │   │                         ── Greeting (markdown: "Good <part of day>, <name>!" + briefing)
+│   │                         ── Now Playing (YAMP; only while an Apple TV or HomePod plays)
 │   ├── Section 2 (span 4) ── Room tiles × 6 (Bubble button; full width on phone, 4-up desktop)
 │   └── Section 3          ── Pop-ups: 6 rooms + #security #climate #weather #vacuum #laundry #ai
 │
@@ -48,6 +49,11 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   `input_select.household_hvac_mode_before_pause`; nothing is re-derived in the dashboard.
 - **Generator chip shows only while running.** Running means a utility outage — worth seeing
   at a glance. Exercising, warnings, and maintenance belong on the Energy view.
+- **Media uses Yet Another Media Player, not the Bubble media card.** YAMP's
+  `volume_entity` sends an Apple TV's volume to the Sonos it plays through, and
+  `hidden_controls` drops buttons that do nothing for TV. One Now Playing card on Home covers
+  all seven players (chips switch between them); it and the room-pop-up player show only
+  while the player is playing or paused.
 - **Areas fold into pop-ups instead of getting tiles** when they have nothing controlled
   from the dashboard more than occasionally (`standards/dashboards.md` §8.1).
 
@@ -167,7 +173,7 @@ header shows the same `room_summary` as the tile.
 
 | Hash | Contents |
 |---|---|
-| `#living-room` | 4 lights, thermostat + fireplace (Bubble climate), Apple TV |
+| `#living-room` | Apple TV player at the top (YAMP, only while playing or paused; volume → Soundbar; Apps, Speech and Night chips), 4 lights, thermostat + fireplace (Bubble climate) |
 | `#kitchen` | Sink light, dishwasher and refrigerator tiles, HomePod |
 | `#family-room` | Ambient lamp, 2 pinball underglows, 3 game power switches, Apple TV |
 | `#office` | 7 lights, fan speed (tile `fan-speed` feature), HomePod |

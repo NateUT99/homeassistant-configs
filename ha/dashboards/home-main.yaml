@@ -469,6 +469,99 @@ views:
         style:
           ha-markdown$: 'h2 { margin: 0 0 2px 0 !important; } p { margin: 0 !important; }'
           'ha-markdown $ ha-markdown-element:': 'h2 { margin: 0 0 2px 0 !important; } p { margin: 0 !important; }'
+    - type: custom:yet-another-media-player
+      entities:
+      - entity_id: media_player.living_room_appletv
+        name: Living Room
+        volume_entity: media_player.living_room_soundbar
+        hidden_controls:
+        - previous
+        - next
+        - power
+        - shuffle
+        - repeat
+        - favorite
+      - entity_id: media_player.family_room_appletv
+        name: Family Room
+        volume_entity: media_player.family_room_theater
+        hidden_controls:
+        - previous
+        - next
+        - power
+        - shuffle
+        - repeat
+        - favorite
+      - entity_id: media_player.master_bedroom_appletv
+        name: Bedroom TV
+        hidden_controls:
+        - previous
+        - next
+        - power
+        - shuffle
+        - repeat
+        - favorite
+      - entity_id: media_player.kitchen_homepod
+        name: Kitchen
+        hidden_controls:
+        - power
+        - favorite
+      - entity_id: media_player.office_homepod
+        name: Office
+        hidden_controls:
+        - power
+        - favorite
+      - entity_id: media_player.master_bedroom_homepod
+        name: Bedroom
+        hidden_controls:
+        - power
+        - favorite
+      - entity_id: media_player.averys_room_homepod
+        name: Avery's Room
+        hidden_controls:
+        - power
+        - favorite
+      control_layout: modern
+      match_theme: true
+      grid_options:
+        columns: 24
+      visibility:
+      - condition: or
+        conditions:
+        - condition: state
+          entity: media_player.living_room_appletv
+          state:
+          - playing
+          - paused
+        - condition: state
+          entity: media_player.family_room_appletv
+          state:
+          - playing
+          - paused
+        - condition: state
+          entity: media_player.master_bedroom_appletv
+          state:
+          - playing
+          - paused
+        - condition: state
+          entity: media_player.kitchen_homepod
+          state:
+          - playing
+          - paused
+        - condition: state
+          entity: media_player.office_homepod
+          state:
+          - playing
+          - paused
+        - condition: state
+          entity: media_player.master_bedroom_homepod
+          state:
+          - playing
+          - paused
+        - condition: state
+          entity: media_player.averys_room_homepod
+          state:
+          - playing
+          - paused
   - type: grid
     column_span: 4
     cards:
@@ -496,7 +589,8 @@ views:
         - entity: media_player.living_room_appletv
           icon: mdi:apple
           tap_action:
-            action: more-info
+            action: navigate
+            navigation_path: '#living-room'
         - entity: climate.living_room_fireplace
           icon: mdi:fireplace
           tap_action:
@@ -635,6 +729,42 @@ views:
       popup_mode: adaptive-dialog
       popup_style: bubble
       cards:
+      - type: conditional
+        conditions:
+        - condition: state
+          entity: media_player.living_room_appletv
+          state:
+          - playing
+          - paused
+        card:
+          type: custom:yet-another-media-player
+          entities:
+          - entity_id: media_player.living_room_appletv
+            name: Living Room
+            volume_entity: media_player.living_room_soundbar
+            hidden_controls:
+            - previous
+            - next
+            - power
+            - shuffle
+            - repeat
+            - favorite
+          control_layout: modern
+          match_theme: true
+          actions:
+          - name: Apps
+            icon: mdi:apps
+            menu_item: source
+          - name: Speech
+            icon: mdi:account-voice
+            service: switch.toggle
+            service_data:
+              entity_id: switch.living_room_soundbar_speech_enhancement
+          - name: Night
+            icon: mdi:weather-night
+            service: switch.toggle
+            service_data:
+              entity_id: switch.living_room_soundbar_night_sound
       - type: custom:bubble-card
         card_type: separator
         name: Lights
@@ -673,13 +803,6 @@ views:
       - type: custom:bubble-card
         card_type: climate
         entity: climate.living_room_fireplace
-      - type: custom:bubble-card
-        card_type: separator
-        name: Media
-        icon: mdi:play-circle-outline
-      - type: custom:bubble-card
-        card_type: media-player
-        entity: media_player.living_room_appletv
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#kitchen'

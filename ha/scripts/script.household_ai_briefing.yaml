@@ -66,7 +66,8 @@ sequence:
       4. If nothing above applies, a short, pleasant note about the day's weather.
 
       Rules:
-      - headline: one sentence, 90 characters or fewer, about the single most useful thing.
+      - headline: one plain, conversational sentence, 90 characters or fewer. Lead with the single most important item, and add one weather fact with a concrete time only when the weather actually matters to that item (an outdoor chore like recycling) or changes plans on its own. Never pair weather with an indoor task; if nothing ties them, just state the item. No greeting, no filler, no hedging. A little attitude is welcome when it fits, especially for anything overdue.
+      - Style examples only (never reuse their facts): "Recycling goes out tonight, and the rain holds off until after midnight." / "The bathroom has waited three days for a scrub, and it's not getting cleaner." / "Dry and 64° all day, so no excuses for skipping the walk."
       - tip: one practical suggestion, 160 characters or fewer, drawn from the facts below (timing, weather, what's running, who's home). Never generic how-to advice. Do not repeat the headline. If nothing useful fits, make it a short weather note for the rest of the day.
       - icon: exactly one value from this list: {{ icons | join(', ') }}.
       - Don't connect unrelated facts. Mention a person only when it changes what to do (e.g. Avery asleep, so keep it quiet).

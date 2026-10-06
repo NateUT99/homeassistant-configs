@@ -219,7 +219,9 @@ courteous and clear first, a touch of wit or attitude when something has clearly
 ignored; never snarky about people, never cutesy, no emoji; facts stay precise. Briefing
 priority: major issues (leak, internet down, generator running, a fault) → chores overdue or
 due today and overdue vacuum maintenance → plan-changing weather → a weather note. Nothing
-that changes minute to minute. The
+that changes minute to minute. The headline is one plain sentence that leads with the top
+item and adds a timed weather fact only when the weather matters to it, modelled on
+"Recycling goes out tonight, and the rain holds off until after midnight." The
 briefing tip must come from the facts, not generic how-to advice. The digest may not
 explain why a number changed unless a fact says so.
 

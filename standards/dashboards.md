@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.3.0 — October 2026*
+*Version 1.4.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.4.0 | October 2026 | Yet Another Media Player approved for media cards |
 | 1.3.0 | October 2026 | §11: AI text in structured markdown (lists, tables); numbers from HA, live where computable |
 | 1.2.0 | October 2026 | Home order: chips, then greeting (markdown) with the AI briefing; AI content lives in `#ai` behind an always-visible AI chip |
 | 1.1.0 | October 2026 | Expander Card approved; collapsible-section pattern for secondary views |
@@ -69,6 +70,7 @@ and an update to this table.
 | chore-calendar-card | Bundled with Chore Calendar | Chores view |
 | Battery State Card | HACS frontend | Battery list on the Maintenance view (auto-discovered, threshold-filtered) |
 | Expander Card | HACS frontend | Collapsible sections on long secondary views |
+| Yet Another Media Player | HACS frontend | Media cards: per-player `volume_entity` (Apple TV → Sonos) and `hidden_controls` |
 
 > Mushroom is not approved. The view-level `badges` row is not used, which removes the only
 > case Mushroom ever covered.
