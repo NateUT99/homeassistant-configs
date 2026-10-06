@@ -146,16 +146,17 @@ by room, the same cards the room sections show. Both lists are static: a new lig
 is added to the pop-up by hand.
 
 **Quick actions** are a second chip row directly under the status row: a separate
-`sub-buttons` card with the same scrolling layout, for the house modes you switch by hand. Each
-chip's icon turns amber while its mode is on; tap opens more-info, hold toggles
+`sub-buttons` card with the same scrolling layout, for the people and house modes you switch by hand. tap opens more-info, hold toggles
 (`standards/dashboards.md` §12):
 
-| Chip | Entity |
-|---|---|
-| Avery Asleep | `input_boolean.avery_sleeping` |
-| All Asleep | `input_boolean.everyone_sleeping` |
-| Vacuum Paused | `input_boolean.vacuum_routine_pause` |
-| Guest Mode | `input_boolean.guest_mode` |
+| Chip | Icon and colour | Hold toggles |
+|---|---|---|
+| Nate | Sleep (indigo) while `input_boolean.everyone_sleeping` is on; otherwise home (green) or away (grey) from `person.nate` | `input_boolean.everyone_sleeping` |
+| Avery | Sleep (indigo) while `input_boolean.avery_sleeping` is on; otherwise home (green) on her scheduled days (`binary_sensor.avery_home_today`), away (grey) on others | `input_boolean.avery_sleeping` |
+| Vacuum Paused | Amber while paused | `input_boolean.vacuum_routine_pause` |
+| Guest Mode | Amber while on | `input_boolean.guest_mode` |
+
+Sleep wins over location, so a stale sleep flag is visible at a glance.
 
 Chores other than trash are not a chip: the navbar's Chores tab carries a red badge — a dot
 for one due or overdue chore, the count for two or more.

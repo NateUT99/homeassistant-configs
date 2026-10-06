@@ -328,10 +328,10 @@ views:
             light_background: false
             show_name: true
             custom_height: 40
-            entity: input_boolean.avery_sleeping
-            name: Avery Asleep
-            icon: mdi:teddy-bear
-            css_class: qa-avery
+            entity: input_boolean.everyone_sleeping
+            name: Nate
+            icon: '{{ ''mdi:sleep'' if is_state(''input_boolean.everyone_sleeping'',''on'') else (''mdi:home-account'' if is_state(''person.nate'',''home'') else ''mdi:account-arrow-right'') }}'
+            css_class: qa-nate
             tap_action:
               action: more-info
             hold_action:
@@ -341,10 +341,11 @@ views:
             light_background: false
             show_name: true
             custom_height: 40
-            entity: input_boolean.everyone_sleeping
-            name: All Asleep
-            icon: mdi:sleep
-            css_class: qa-sleep
+            entity: input_boolean.avery_sleeping
+            name: Avery
+            icon: '{{ ''mdi:sleep'' if is_state(''input_boolean.avery_sleeping'',''on'') else (''mdi:home-account'' if is_state(''binary_sensor.avery_home_today'',''on'') else ''mdi:account-arrow-right'')
+              }}'
+            css_class: qa-avery
             tap_action:
               action: more-info
             hold_action:
@@ -385,13 +386,15 @@ views:
         .bubble-sub-button { flex-shrink: 0 !important; border-radius: 16px !important; padding: 0 12px !important; }
 
 
-        .qa-avery ha-icon { color: {{ ''var(--amber-color)'' if is_state(''input_boolean.avery_sleeping'',''on'') else ''var(--secondary-text-color)'' }} !important; }
-
-        .qa-sleep ha-icon { color: {{ ''var(--amber-color)'' if is_state(''input_boolean.everyone_sleeping'',''on'') else ''var(--secondary-text-color)'' }} !important; }
-
         .qa-vacuum ha-icon { color: {{ ''var(--amber-color)'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') else ''var(--secondary-text-color)'' }} !important; }
 
-        .qa-guest ha-icon { color: {{ ''var(--amber-color)'' if is_state(''input_boolean.guest_mode'',''on'') else ''var(--secondary-text-color)'' }} !important; }'
+        .qa-guest ha-icon { color: {{ ''var(--amber-color)'' if is_state(''input_boolean.guest_mode'',''on'') else ''var(--secondary-text-color)'' }} !important; }
+
+        .qa-nate ha-icon { color: {{ ''var(--indigo-color)'' if is_state(''input_boolean.everyone_sleeping'',''on'') else (''var(--green-color)'' if is_state(''person.nate'',''home'') else ''var(--secondary-text-color)'')
+        }} !important; }
+
+        .qa-avery ha-icon { color: {{ ''var(--indigo-color)'' if is_state(''input_boolean.avery_sleeping'',''on'') else (''var(--green-color)'' if is_state(''binary_sensor.avery_home_today'',''on'') else
+        ''var(--secondary-text-color)'') }} !important; }'
     - type: markdown
       text_only: true
       grid_options:
