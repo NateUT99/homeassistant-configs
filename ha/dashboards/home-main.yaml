@@ -254,7 +254,7 @@ views:
             custom_height: 40
             css_class: cat-media
             icon: mdi:speaker-multiple
-            name: '{% from ''dashboard.jinja'' import media_playing_count %}{% set n = media_playing_count() | int %}{{ (n ~ '' playing'') if n else ''Media off'' }}'
+            name: '{% from ''dashboard.jinja'' import media_playing_count %}{% set n = media_playing_count() | int %}{{ (n ~ '' on'') if n else ''Media off'' }}'
             tap_action:
               action: navigate
               navigation_path: '#media'

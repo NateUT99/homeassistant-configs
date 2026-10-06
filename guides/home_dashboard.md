@@ -135,7 +135,7 @@ control are Favorites; running appliances are Happening now.
 | **Lights** | Always | "N on" / "All off" (visible lights in the areas listed in `house_light_areas()`) | Amber when any are on | `#lights` | — |
 | **Security** | Always | "Secure", or the issues: "Unlocked", "Door open", "Garage open", "N open" | Green secure, else `alert_level()` (amber / red) | `#security` | `script.household_secure_doors` |
 | **Water** | A leak | "Leak: <sensor>" | Red | `#security` | — |
-| **Media** | Always | "N playing" / "Media off" (Apple TVs playing; HomePods playing or paused) | Purple when playing | `#media` | — |
+| **Media** | Always | "N on" / "Media off" — players with a room media card showing (playing or paused) | Purple when any are on | `#media` | — |
 | Recycling | Trash chore due/overdue | "Recycling" | Amber, red overdue | Chores view | Mark "Take Out Trash & Recycling" done |
 | Updates | Any `update.*` on | count | Primary | `/config/updates` | — |
 | AI | Always | "All good" / "Check" | Amber when the house summary flagged attention | `#ai` | — |

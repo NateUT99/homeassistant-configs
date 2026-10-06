@@ -123,7 +123,6 @@ living_room,master_bedroom,averys_room,office,entertainment_room,kitchen,entranc
 {%- endmacro %}
 
 {% macro media_playing_count() -%}
-{%- set tvs = ['media_player.living_room_appletv', 'media_player.family_room_appletv', 'media_player.master_bedroom_appletv'] | select('is_state', 'playing') | list | count -%}
-{%- set pods = ['media_player.kitchen_homepod', 'media_player.office_homepod', 'media_player.master_bedroom_homepod', 'media_player.averys_room_homepod'] | select('is_state', ['playing', 'paused']) | list | count -%}
-{{- tvs + pods -}}
+{#- Players with a room media card showing: playing or paused, same rule as the cards. -#}
+{{- ['media_player.living_room_appletv', 'media_player.family_room_appletv', 'media_player.master_bedroom_appletv', 'media_player.kitchen_homepod', 'media_player.office_homepod', 'media_player.master_bedroom_homepod', 'media_player.averys_room_homepod'] | select('is_state', ['playing', 'paused']) | list | count -}}
 {%- endmacro %}
