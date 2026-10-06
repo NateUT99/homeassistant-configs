@@ -111,8 +111,6 @@ views:
 
         .dishwasher ha-icon { color: var(--blue-color) !important; }
 
-        {% set g = state_attr(''sensor.household_ai_house_summary'',''generated_at'') %}.ai ha-icon { color: {{ ''var(--amber-color)'' if is_state(''sensor.household_ai_house_summary'',''attention'') and
-        g is not none and (now() - as_datetime(g)) < timedelta(hours=12) else ''var(--secondary-text-color)'' }} !important; }
 
 
         .bubble-sub-button-bottom-container { overflow-x: auto !important; overflow-y: hidden !important; justify-content: flex-start !important; pointer-events: auto !important; scrollbar-width: none;
@@ -288,18 +286,6 @@ views:
               navigation_path: '#media'
             hold_action:
               action: none
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: sensor.household_ai_house_summary
-            css_class: ai
-            icon: mdi:creation
-            tap_action:
-              action: navigate
-              navigation_path: '#ai'
-            custom_height: 40
-            show_name: true
-            name: '{{ ''Check'' if is_state(''sensor.household_ai_house_summary'',''attention'') else ''All good'' }}'
     - type: custom:bubble-card
       card_type: sub-buttons
       hide_main_background: true
@@ -311,6 +297,18 @@ views:
           buttons_layout: inline
           justify_content: center
           group:
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: sensor.household_ai_house_summary
+            css_class: ai
+            icon: mdi:creation
+            tap_action:
+              action: navigate
+              navigation_path: '#ai'
+            custom_height: 40
+            show_name: false
+            name: AI
           - fill_width: false
             state_background: false
             light_background: false
@@ -408,7 +406,13 @@ views:
 
         .qa-vac ha-icon { color: {{ ''var(--red-color)'' if is_state(''binary_sensor.vacuum_stuck'',''on'') or states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable'']
         or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable''] else (''var(--amber-color)'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') else
-        (''var(--purple-color)'' if states(''vacuum.living_room_vacuum'') in [''cleaning'',''returning''] else ''var(--secondary-text-color)'')) }} !important; }'
+        (''var(--purple-color)'' if states(''vacuum.living_room_vacuum'') in [''cleaning'',''returning''] else ''var(--secondary-text-color)'')) }} !important; }
+
+
+        {% set g = state_attr(''sensor.household_ai_house_summary'',''generated_at'') %}.ai ha-icon { color: {{ ''var(--amber-color)'' if is_state(''sensor.household_ai_house_summary'',''attention'') and
+        g is not none and (now() - as_datetime(g)) < timedelta(hours=12) else ''var(--secondary-text-color)'' }} !important; }
+
+        '
     - type: markdown
       text_only: true
       grid_options:

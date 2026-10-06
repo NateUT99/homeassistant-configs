@@ -138,7 +138,6 @@ switch by hand are quick actions; running appliances are Happening now.
 | **Lights** | Always | "N on" / "All off" (visible lights in the areas listed in `house_light_areas()`) | Amber when any are on | `#lights` | — |
 | **Security** | Always | Apple Home-style, higher risk first: "N Open" (front door, patio door, or garage physically open), else "N Unlocked" (front door lock), else "Secure". Interior doors and windows are not counted | Green secure, else `alert_level()` (amber / red); icon open door, open lock, or check-shield | `#security` | `script.household_secure_doors` |
 | **Media** | Always | "N on" / "Media off" — players with a room media card showing: Apple TVs playing or paused, HomePods whose activity sensor is on | Purple when any are on | `#media` | — |
-| AI | Always | "All good" / "Check" | Amber when the house summary flagged attention | `#ai` | — |
 
 **`#lights`** lists every light by room (Living Room through Utility Room) as `apple_tile`
 tiles — tap toggles, hold opens more-info. **`#media`** lists every Apple TV and HomePod card
@@ -146,13 +145,14 @@ by room, the same cards the room sections show. Both lists are static: a new lig
 is added to the pop-up by hand.
 
 **Quick actions** are a second chip row directly under the status row: a separate
-`sub-buttons` card with the same scrolling layout, for the people and house modes you switch by hand. The chip group is
+`sub-buttons` card with the same scrolling layout, for the AI check-in and the people and house modes you switch by hand. The chip group is
 `width: max-content` with `min-width: 100%` and `justify-content: center`, so the row centres
 when it fits and scrolls from the first chip when it doesn't (`safe center` clips the first chip on iOS — see LESSONS.md).
 Tap opens more-info, hold toggles (`standards/dashboards.md` §12):
 
 | Chip | Icon and colour | Hold toggles |
 |---|---|---|
+| AI (icon only) | `mdi:creation`, amber while the house summary from the last 12 hours flagged something, grey otherwise | — (tap `#ai`) |
 | Climate (icon only) | `mdi:fire` amber while heating, `mdi:snowflake` blue while cooling, `mdi:hvac-off` amber while an open door or window has paused it, otherwise grey `mdi:hvac` (idle or switched off) | — (tap `#climate`, hold opens more-info) |
 | Nate | Sleep (indigo) while `input_boolean.everyone_sleeping` is on; otherwise home (green) or away (grey) from `person.nate` | `input_boolean.everyone_sleeping` |
 | Avery | Sleep (indigo) while `input_boolean.avery_sleeping` is on; otherwise home (green) on her scheduled days (`binary_sensor.avery_home_today`), away (grey) on others | `input_boolean.avery_sleeping` |
