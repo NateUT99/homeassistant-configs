@@ -533,6 +533,7 @@ views:
       match_theme: true
       grid_options:
         columns: 24
+        rows: auto
       visibility:
       - condition: or
         conditions:
@@ -571,6 +572,11 @@ views:
           state:
           - playing
           - paused
+      actions:
+      - name: Remote
+        icon: mdi:remote
+        action: remote_control
+        placement: replace_power
   - type: grid
     column_span: 4
     cards:
@@ -764,6 +770,10 @@ views:
           control_layout: modern
           match_theme: true
           actions:
+          - name: Remote
+            icon: mdi:remote
+            action: remote_control
+            placement: replace_power
           - name: Apps
             icon: mdi:apps
             menu_item: source
