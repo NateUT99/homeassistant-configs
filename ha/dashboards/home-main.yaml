@@ -768,601 +768,697 @@ views:
           - returning
           - paused
           - error
-    - type: custom:yet-another-media-player
-      entities:
-      - entity_id: media_player.living_room_appletv
-        name: Living Room
-        volume_entity: media_player.living_room_soundbar
-        hidden_controls:
-        - previous
-        - next
-        - shuffle
-        - repeat
-        - favorite
-        remote_entity: remote.living_room_appletv
-        hidden_remote_buttons:
-        - power
-      - entity_id: media_player.family_room_appletv
-        name: Family Room
-        volume_entity: media_player.family_room_theater
-        hidden_controls:
-        - previous
-        - next
-        - power
-        - shuffle
-        - repeat
-        - favorite
-        remote_entity: remote.family_room_appletv
-        hidden_remote_buttons:
-        - power
-      - entity_id: media_player.master_bedroom_appletv
-        name: Bedroom TV
-        hidden_controls:
-        - previous
-        - next
-        - power
-        - shuffle
-        - repeat
-        - favorite
-        remote_entity: remote.master_bedroom_appletv
-        hidden_remote_buttons:
-        - power
-      - entity_id: media_player.kitchen_homepod
-        name: Kitchen
-        hidden_controls:
-        - power
-        - favorite
-      - entity_id: media_player.office_homepod
-        name: Office
-        hidden_controls:
-        - power
-        - favorite
-      - entity_id: media_player.master_bedroom_homepod
-        name: Bedroom
-        hidden_controls:
-        - power
-        - favorite
-      - entity_id: media_player.averys_room_homepod
-        name: Avery's Room
-        hidden_controls:
-        - power
-        - favorite
-      control_layout: modern
-      match_theme: true
-      visibility:
-      - condition: or
+  - type: grid
+    cards:
+    - type: custom:expander-card
+      icon: mdi:chevron-down
+      expanded: true
+      storage-id: home-main-room-living-room
+      clear: true
+      padding: 4px 10px 10px 10px
+      child-margin-top: 0.6em
+      title-card-clickable: false
+      grid_options:
+        columns: 12
+      title-card:
+        type: heading
+        heading: Living Room
+        heading_style: title
+        tap_action:
+          action: navigate
+          navigation_path: '#living-room'
+        badges:
+        - type: entity
+          entity: sensor.living_room_thermostat_temperature
+          show_icon: false
+          show_state: true
+      cards:
+      - type: conditional
         conditions:
         - condition: state
           entity: media_player.living_room_appletv
           state:
           - playing
           - paused
-        - condition: state
-          entity: media_player.family_room_appletv
-          state:
-          - playing
-          - paused
+        card:
+          type: custom:bubble-card
+          card_type: media-player
+          entity: media_player.living_room_appletv
+          name: Apple TV
+          cover_background: true
+          hide:
+            power_button: true
+            volume_button: true
+            previous_button: true
+            next_button: true
+          sub_button:
+            main:
+            - entity: media_player.living_room_soundbar
+              sub_button_type: slider
+              icon: mdi:volume-high
+              always_visible: true
+              width: 130
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.living_room_tv_accent
+          name: TV Accent
+          icon: mdi:television-ambient-light
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: climate.living_room_fireplace
+          name: Fireplace
+          icon: mdi:fireplace
+          state_content: state
+          tap_action:
+            action: more-info
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
+            hold_action:
+              action: more-info
+  - type: grid
+    cards:
+    - type: custom:expander-card
+      icon: mdi:chevron-down
+      expanded: true
+      storage-id: home-main-room-master-bedroom
+      clear: true
+      padding: 4px 10px 10px 10px
+      child-margin-top: 0.6em
+      title-card-clickable: false
+      grid_options:
+        columns: 12
+      title-card:
+        type: heading
+        heading: Master Bedroom
+        heading_style: title
+        tap_action:
+          action: navigate
+          navigation_path: '#master-bedroom'
+        badges:
+        - type: entity
+          entity: sensor.master_bedroom_climate_temperature
+          show_icon: false
+          show_state: true
+      cards:
+      - type: conditional
+        conditions:
         - condition: state
           entity: media_player.master_bedroom_appletv
           state:
           - playing
           - paused
+        card:
+          type: custom:bubble-card
+          card_type: media-player
+          entity: media_player.master_bedroom_appletv
+          name: Apple TV
+          cover_background: true
+          hide:
+            power_button: true
+            volume_button: true
+            previous_button: true
+            next_button: true
+          sub_button:
+            main:
+            - entity: media_player.master_bedroom_tv
+              sub_button_type: slider
+              icon: mdi:volume-high
+              always_visible: true
+              width: 130
+      - type: conditional
+        conditions:
         - condition: state
-          entity: media_player.kitchen_homepod
-          state:
-          - playing
-        - condition: state
-          entity: media_player.office_homepod
-          state:
-          - playing
-        - condition: state
+          entity: binary_sensor.master_bedroom_homepod_active
+          state: 'on'
+        card:
+          type: custom:bubble-card
+          card_type: media-player
           entity: media_player.master_bedroom_homepod
-          state:
-          - playing
+          name: HomePod
+          cover_background: true
+          hide:
+            power_button: true
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.master_bedroom_ceiling_fan_light
+          name: Ceiling Light
+          icon: mdi:ceiling-light
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: fan.master_bedroom_ceiling_fan
+          name: Fan
+          icon: mdi:ceiling-fan
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.master_bedroom_left_nightstand_lamp
+          name: Nightstand
+          icon: mdi:lamp
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+  - type: grid
+    cards:
+    - type: custom:expander-card
+      icon: mdi:chevron-down
+      expanded: true
+      storage-id: home-main-room-averys-room
+      clear: true
+      padding: 4px 10px 10px 10px
+      child-margin-top: 0.6em
+      title-card-clickable: false
+      grid_options:
+        columns: 12
+      title-card:
+        type: heading
+        heading: Avery's Room
+        heading_style: title
+        tap_action:
+          action: navigate
+          navigation_path: '#averys-room'
+        badges:
+        - type: entity
+          entity: sensor.averys_room_climate_temperature
+          show_icon: false
+          show_state: true
+      cards:
+      - type: conditional
+        conditions:
         - condition: state
+          entity: binary_sensor.averys_room_homepod_active
+          state: 'on'
+        card:
+          type: custom:bubble-card
+          card_type: media-player
           entity: media_player.averys_room_homepod
+          name: HomePod
+          cover_background: true
+          hide:
+            power_button: true
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.averys_room_ceiling_fan_light
+          name: Ceiling Light
+          icon: mdi:ceiling-light
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: fan.averys_room_ceiling_fan
+          name: Fan
+          icon: mdi:ceiling-fan
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.averys_room_desk_lamp
+          name: Desk Lamp
+          icon: mdi:desk-lamp
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+  - type: grid
+    cards:
+    - type: custom:expander-card
+      icon: mdi:chevron-down
+      expanded: true
+      storage-id: home-main-room-office
+      clear: true
+      padding: 4px 10px 10px 10px
+      child-margin-top: 0.6em
+      title-card-clickable: false
+      grid_options:
+        columns: 12
+      title-card:
+        type: heading
+        heading: Office
+        heading_style: title
+        tap_action:
+          action: navigate
+          navigation_path: '#office'
+        badges:
+        - type: entity
+          entity: sensor.office_climate_temperature
+          show_icon: false
+          show_state: true
+      cards:
+      - type: conditional
+        conditions:
+        - condition: state
+          entity: binary_sensor.office_homepod_active
+          state: 'on'
+        card:
+          type: custom:bubble-card
+          card_type: media-player
+          entity: media_player.office_homepod
+          name: HomePod
+          cover_background: true
+          hide:
+            power_button: true
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.office_ceiling_fan_light
+          name: Ceiling Light
+          icon: mdi:ceiling-light
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: fan.office_ceiling_fan
+          name: Fan
+          icon: mdi:ceiling-fan
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.office_desk_key_light
+          name: Key Light
+          icon: mdi:spotlight-beam
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.office_bourbon_lamp
+          name: Bourbon Lamp
+          icon: mdi:lamp
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+  - type: grid
+    cards:
+    - type: custom:expander-card
+      icon: mdi:chevron-down
+      expanded: false
+      storage-id: home-main-room-family-room
+      clear: true
+      padding: 4px 10px 10px 10px
+      child-margin-top: 0.6em
+      title-card-clickable: false
+      grid_options:
+        columns: 12
+      title-card:
+        type: heading
+        heading: Family Room
+        heading_style: title
+        tap_action:
+          action: navigate
+          navigation_path: '#family-room'
+        badges:
+        - type: entity
+          entity: sensor.family_room_climate_temperature
+          show_icon: false
+          show_state: true
+      cards:
+      - type: conditional
+        conditions:
+        - condition: state
+          entity: media_player.family_room_appletv
           state:
           - playing
-      actions:
-      - name: Remote
-        icon: mdi:remote
-        action: remote_control
-        placement: replace_power
-      show_volume_overlay: false
-      always_collapsed: true
-      grid_options:
-        columns: 24
-        rows: auto
+          - paused
+        card:
+          type: custom:bubble-card
+          card_type: media-player
+          entity: media_player.family_room_appletv
+          name: Apple TV
+          cover_background: true
+          hide:
+            power_button: true
+            volume_button: true
+            previous_button: true
+            next_button: true
+          sub_button:
+            main:
+            - entity: media_player.family_room_theater
+              sub_button_type: slider
+              icon: mdi:volume-high
+              always_visible: true
+              width: 130
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.family_room_ambient_lamp
+          name: Ambient Lamp
+          icon: mdi:lamp
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.family_room_alice_pinball_underglow
+          name: Alice Glow
+          icon: mdi:led-strip-variant
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.family_room_peanuts_pinball_underglow
+          name: Peanuts Glow
+          icon: mdi:led-strip-variant
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
   - type: grid
     cards:
-    - type: heading
-      heading: Living Room
-      heading_style: title
-      tap_action:
-        action: navigate
-        navigation_path: '#living-room'
-      badges:
-      - type: entity
-        entity: sensor.living_room_thermostat_temperature
-        show_icon: false
-        show_state: true
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
+    - type: custom:expander-card
+      icon: mdi:chevron-down
+      expanded: false
+      storage-id: home-main-room-kitchen
+      clear: true
+      padding: 4px 10px 10px 10px
+      child-margin-top: 0.6em
+      title-card-clickable: false
       grid_options:
-        columns: 6
-      entity: light.living_room_tv_accent
-      name: TV Accent
-      icon: mdi:television-ambient-light
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
+        columns: 12
+      title-card:
+        type: heading
+        heading: Kitchen
+        heading_style: title
         tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: climate.living_room_fireplace
-      name: Fireplace
-      icon: mdi:fireplace
-      state_content: state
-      tap_action:
-        action: more-info
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: more-info
-        hold_action:
-          action: more-info
+          action: navigate
+          navigation_path: '#kitchen'
+        badges:
+        - type: entity
+          entity: sensor.kitchen_climate_temperature
+          show_icon: false
+          show_state: true
+      cards:
+      - type: conditional
+        conditions:
+        - condition: state
+          entity: binary_sensor.kitchen_homepod_active
+          state: 'on'
+        card:
+          type: custom:bubble-card
+          card_type: media-player
+          entity: media_player.kitchen_homepod
+          name: HomePod
+          cover_background: true
+          hide:
+            power_button: true
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.kitchen_overhead_sink
+          name: Sink Light
+          icon: mdi:ceiling-light
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
   - type: grid
     cards:
-    - type: heading
-      heading: Master Bedroom
-      heading_style: title
-      tap_action:
-        action: navigate
-        navigation_path: '#master-bedroom'
-      badges:
-      - type: entity
-        entity: sensor.master_bedroom_climate_temperature
-        show_icon: false
-        show_state: true
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
+    - type: custom:expander-card
+      icon: mdi:chevron-down
+      expanded: false
+      storage-id: home-main-room-outside
+      clear: true
+      padding: 4px 10px 10px 10px
+      child-margin-top: 0.6em
+      title-card-clickable: false
       grid_options:
-        columns: 6
-      entity: light.master_bedroom_ceiling_fan_light
-      name: Ceiling Light
-      icon: mdi:ceiling-light
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
+        columns: 12
+      title-card:
+        type: heading
+        heading: Outside
+        heading_style: title
         tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: fan.master_bedroom_ceiling_fan
-      name: Fan
-      icon: mdi:ceiling-fan
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: light.master_bedroom_left_nightstand_lamp
-      name: Nightstand
-      icon: mdi:lamp
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-  - type: grid
-    cards:
-    - type: heading
-      heading: Avery's Room
-      heading_style: title
-      tap_action:
-        action: navigate
-        navigation_path: '#averys-room'
-      badges:
-      - type: entity
-        entity: sensor.averys_room_climate_temperature
-        show_icon: false
-        show_state: true
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: light.averys_room_ceiling_fan_light
-      name: Ceiling Light
-      icon: mdi:ceiling-light
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: fan.averys_room_ceiling_fan
-      name: Fan
-      icon: mdi:ceiling-fan
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: light.averys_room_desk_lamp
-      name: Desk Lamp
-      icon: mdi:desk-lamp
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-  - type: grid
-    cards:
-    - type: heading
-      heading: Office
-      heading_style: title
-      tap_action:
-        action: navigate
-        navigation_path: '#office'
-      badges:
-      - type: entity
-        entity: sensor.office_climate_temperature
-        show_icon: false
-        show_state: true
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: light.office_ceiling_fan_light
-      name: Ceiling Light
-      icon: mdi:ceiling-light
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: fan.office_ceiling_fan
-      name: Fan
-      icon: mdi:ceiling-fan
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: light.office_desk_key_light
-      name: Key Light
-      icon: mdi:spotlight-beam
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: light.office_bourbon_lamp
-      name: Bourbon Lamp
-      icon: mdi:lamp
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-  - type: grid
-    cards:
-    - type: heading
-      heading: Family Room
-      heading_style: title
-      tap_action:
-        action: navigate
-        navigation_path: '#family-room'
-      badges:
-      - type: entity
-        entity: sensor.family_room_climate_temperature
-        show_icon: false
-        show_state: true
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: light.family_room_ambient_lamp
-      name: Ambient Lamp
-      icon: mdi:lamp
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: light.family_room_alice_pinball_underglow
-      name: Alice Glow
-      icon: mdi:led-strip-variant
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: light.family_room_peanuts_pinball_underglow
-      name: Peanuts Glow
-      icon: mdi:led-strip-variant
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-  - type: grid
-    cards:
-    - type: heading
-      heading: Kitchen
-      heading_style: title
-      tap_action:
-        action: navigate
-        navigation_path: '#kitchen'
-      badges:
-      - type: entity
-        entity: sensor.kitchen_climate_temperature
-        show_icon: false
-        show_state: true
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: light.kitchen_overhead_sink
-      name: Sink Light
-      icon: mdi:ceiling-light
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-  - type: grid
-    cards:
-    - type: heading
-      heading: Outside
-      heading_style: title
-      tap_action:
-        action: navigate
-        navigation_path: '#security'
-      badges:
-      - type: entity
-        entity: sensor.outside_temperature
-        show_icon: false
-        show_state: true
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: light.outside_porch_bulbs
-      name: Porch
-      icon: mdi:outdoor-lamp
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: light.outside_front_door_bulbs
-      name: Front Door
-      icon: mdi:outdoor-lamp
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
-    - type: custom:bubble-card
-      card_type: button
-      button_type: state
-      modules:
-      - apple_tile
-      rows: 1.2
-      grid_options:
-        columns: 6
-      entity: light.outside_garage_bulbs
-      name: Garage
-      icon: mdi:outdoor-lamp
-      state_content: state
-      tap_action:
-        action: toggle
-      hold_action:
-        action: more-info
-      button_action:
-        tap_action:
-          action: toggle
-        hold_action:
-          action: more-info
+          action: navigate
+          navigation_path: '#security'
+        badges:
+        - type: entity
+          entity: sensor.outside_temperature
+          show_icon: false
+          show_state: true
+      cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.outside_porch_bulbs
+          name: Porch
+          icon: mdi:outdoor-lamp
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.outside_front_door_bulbs
+          name: Front Door
+          icon: mdi:outdoor-lamp
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.outside_garage_bulbs
+          name: Garage
+          icon: mdi:outdoor-lamp
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
   - type: grid
     cards:
     - type: custom:bubble-card

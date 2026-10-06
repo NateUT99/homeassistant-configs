@@ -27,8 +27,8 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 │   │                                          Row 2  features
 │   │                         ── Greeting (markdown: "Good <part of day>, <name>!" + briefing)
 │   │                         ── Favorites (heading + 2-up grid of apple_tile buttons)
-│   │                         ── Now Playing (YAMP; only while an Apple TV or HomePod plays)
-│   └── Section 2          ── Pop-ups: #rooms (room tiles by floor, 2-up) + 6 rooms
+│   ├── Sections 2–8       ── Room sections × 7 (Expander: heading + media card + tiles)
+│   └── Section 9          ── Pop-ups: #rooms (room tiles by floor, 2-up) + 6 rooms
 │                             + #security #climate #weather #vacuum #laundry #ai
 │
 └── Chores view ── Navbar Card ── chore-calendar-card
@@ -50,13 +50,16 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   `input_select.household_hvac_mode_before_pause`; nothing is re-derived in the dashboard.
 - **Generator chip shows only while running.** Running means a utility outage — worth seeing
   at a glance. Exercising, warnings, and maintenance belong on the Energy view.
-- **Media uses Yet Another Media Player, not the Bubble media card.** YAMP's
-  `volume_entity` sends an Apple TV's volume to the Sonos it plays through, and
-  `hidden_controls` drops buttons that do nothing for TV. Apple TVs also get `remote_entity`,
-  which adds a button that opens a remote pad over the player. One Now Playing card on Home covers
-  all seven players (chips switch between them) in compact mode (`always_collapsed`). It shows
-  while an Apple TV is playing or paused, or a HomePod is playing — a paused HomePod lingers
-  for hours, so it does not keep the card up. The room-pop-up player shows while playing or paused.
+- **Media lives in the room it plays in.** Each room section on Home carries a Bubble
+  `media-player` card for its Apple TV or HomePod, shown only while that player is in use —
+  no house-wide player card. Bubble's own volume button controls the Apple TV, not the
+  speaker it plays through, so Apple TV cards hide it and add an always-visible slider
+  sub-button on the real speaker (Sonos, or the bedroom TV). The `#living-room` pop-up keeps
+  Yet Another Media Player (`volume_entity` to the Soundbar, `remote_entity` for a remote pad).
+- **HomePods need a grace period, Apple TVs don't.** A HomePod sits `paused` for hours after
+  any AirPlay session, so its card follows a template sensor that stays on for 10 minutes
+  after playback stops (`ha/packages/media_activity.yaml`). An Apple TV's `paused` means a
+  show you'll come back to, so its card shows while playing or paused.
 - **Areas fold into pop-ups instead of getting tiles** when they have nothing controlled
   from the dashboard more than occasionally (`standards/dashboards.md` §8.1).
 
@@ -143,21 +146,58 @@ auto-completes at its first announcement (see `guides/reminders.md`). Its hold c
 
 **Room sections** follow on Home, one HA section each so they sit side by side on desktop, in
 this order: Living Room, Master Bedroom, Avery's Room, Office, Family Room, Kitchen, Outside.
-Each is a heading — the room name (HA adds the arrow for a tappable heading) and its
-temperature as a badge; tapping it opens
-the room's pop-up (`#security` for Outside) — over 2-up `apple_tile` tiles of the room's
-everyday controls (tap toggles, hold opens more-info; the Fireplace tile opens its controls
-on tap instead of toggling):
+Each is an Expander Card (`title-card-clickable: false`, so the heading stays its own card
+and the chevron is a separate button; inner padding `4px 10px 10px`; open state remembered
+per device under `storage-id: home-main-room-<slug>`). The title card is a heading — the room
+name (HA adds the arrow for a tappable heading) and its temperature as a badge; tapping it
+opens the room's pop-up (`#security` for Outside). Inside: the room's media card(s) while in
+use, then 2-up `apple_tile` tiles of the room's everyday controls (tap toggles, hold opens
+more-info; the Fireplace tile opens its controls on tap instead of toggling). Living Room,
+Master Bedroom, Avery's Room, and Office start expanded; Family Room, Kitchen, and Outside
+start collapsed.
 
-| Room | Tiles |
-|---|---|
-| Living Room | TV Accent, Fireplace |
-| Master Bedroom | Ceiling Light, Fan, Nightstand |
-| Avery's Room | Ceiling Light, Fan, Desk Lamp |
-| Office | Ceiling Light, Fan, Key Light, Bourbon Lamp |
-| Family Room | Ambient Lamp, Alice Glow, Peanuts Glow |
-| Kitchen | Sink Light |
-| Outside | Porch, Front Door, Garage |
+| Room | Media card (while in use) | Tiles |
+|---|---|---|
+| Living Room | Apple TV; volume slider → Soundbar | TV Accent, Fireplace |
+| Master Bedroom | Apple TV (slider → TV); HomePod | Ceiling Light, Fan, Nightstand |
+| Avery's Room | HomePod | Ceiling Light, Fan, Desk Lamp |
+| Office | HomePod | Ceiling Light, Fan, Key Light, Bourbon Lamp |
+| Family Room | Apple TV; volume slider → Theater | Ambient Lamp, Alice Glow, Peanuts Glow |
+| Kitchen | HomePod | Sink Light |
+| Outside | — | Porch, Front Door, Garage |
+
+**HomePod activity package** — `ha/packages/media_activity.yaml`, deployed to
+`/config/packages/media_activity.yaml`, reload with `template.reload`:
+
+```yaml
+# "Recently active" flags for the HomePods, used to show a room's media card on the
+# home-main dashboard: on while the HomePod is playing, and held on for 10 minutes after it
+# stops (delay_off). A paused HomePod keeps its card long enough to resume, but one left
+# paused for hours -- which HomePods do after any AirPlay session -- does not. Dashboard
+# visibility conditions have no duration option, which is why this lives in sensors. Apple
+# TVs don't need it: their cards show while playing or paused. See guides/home_dashboard.md.
+#
+# Deployed to /config/packages/media_activity.yaml; reload with template.reload.
+
+template:
+  - binary_sensor:
+      - name: Kitchen HomePod Active
+        unique_id: kitchen_homepod_active
+        state: "{{ is_state('media_player.kitchen_homepod', 'playing') }}"
+        delay_off: "00:10:00"
+      - name: Office HomePod Active
+        unique_id: office_homepod_active
+        state: "{{ is_state('media_player.office_homepod', 'playing') }}"
+        delay_off: "00:10:00"
+      - name: Master Bedroom HomePod Active
+        unique_id: master_bedroom_homepod_active
+        state: "{{ is_state('media_player.master_bedroom_homepod', 'playing') }}"
+        delay_off: "00:10:00"
+      - name: Averys Room HomePod Active
+        unique_id: averys_room_homepod_active
+        state: "{{ is_state('media_player.averys_room_homepod', 'playing') }}"
+        delay_off: "00:10:00"
+```
 
 The navbar's Rooms tab (`#rooms`) stays as the at-a-glance view of every room.
 
@@ -333,6 +373,7 @@ row showing the lowest level. New devices appear automatically.
 | `ha/dashboards/home-main.yaml` | HA storage (`home-main`) | Dashboard mirror (HA authoritative) |
 | `ha/bubble_modules/consumable_status.yaml` | `/config/bubble_card/modules/consumable_status.yaml` | Consumable icon colour module (repo authoritative) |
 | `ha/bubble_modules/apple_tile.yaml` | `/config/bubble_card/modules/apple_tile.yaml` | Apple-style Favorites tile module (repo authoritative) |
+| `ha/packages/media_activity.yaml` | `/config/packages/media_activity.yaml` | HomePod "recently active" sensors for room media cards (repo authoritative) |
 
 ---
 

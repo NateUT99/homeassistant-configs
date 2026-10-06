@@ -1,0 +1,27 @@
+# "Recently active" flags for the HomePods, used to show a room's media card on the
+# home-main dashboard: on while the HomePod is playing, and held on for 10 minutes after it
+# stops (delay_off). A paused HomePod keeps its card long enough to resume, but one left
+# paused for hours -- which HomePods do after any AirPlay session -- does not. Dashboard
+# visibility conditions have no duration option, which is why this lives in sensors. Apple
+# TVs don't need it: their cards show while playing or paused. See guides/home_dashboard.md.
+#
+# Deployed to /config/packages/media_activity.yaml; reload with template.reload.
+
+template:
+  - binary_sensor:
+      - name: Kitchen HomePod Active
+        unique_id: kitchen_homepod_active
+        state: "{{ is_state('media_player.kitchen_homepod', 'playing') }}"
+        delay_off: "00:10:00"
+      - name: Office HomePod Active
+        unique_id: office_homepod_active
+        state: "{{ is_state('media_player.office_homepod', 'playing') }}"
+        delay_off: "00:10:00"
+      - name: Master Bedroom HomePod Active
+        unique_id: master_bedroom_homepod_active
+        state: "{{ is_state('media_player.master_bedroom_homepod', 'playing') }}"
+        delay_off: "00:10:00"
+      - name: Averys Room HomePod Active
+        unique_id: averys_room_homepod_active
+        state: "{{ is_state('media_player.averys_room_homepod', 'playing') }}"
+        delay_off: "00:10:00"

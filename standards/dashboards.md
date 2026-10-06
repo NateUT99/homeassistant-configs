@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.10.0 — October 2026*
+*Version 1.11.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.11.0 | October 2026 | Room sections are Expander Cards with per-room media cards; house-wide Now Playing removed |
 | 1.10.0 | October 2026 | Attention and heating colour is amber; orange retired outside the AQI scale |
 | 1.9.0 | October 2026 | §10 tints from theme variables via `color-mix()`; §10.1 security palette; §12 consequential actions on hold, confirmation only when an action must be a tap |
 | 1.8.0 | October 2026 | Home gains Apple-style room sections (header opens the room pop-up, pinned tiles below); Rooms tab kept as the overview |
@@ -76,7 +77,7 @@ and an update to this table.
 | chore-calendar-card | Bundled with Chore Calendar | Chores view |
 | Battery State Card | HACS frontend | Battery list on the Maintenance view (auto-discovered, threshold-filtered) |
 | Expander Card | HACS frontend | Collapsible sections on long secondary views |
-| Yet Another Media Player | HACS frontend | Media cards: per-player `volume_entity` (Apple TV → Sonos) and `hidden_controls` |
+| Yet Another Media Player | HACS frontend | `#living-room` player: `volume_entity` (Apple TV → Sonos), `hidden_controls`, `remote_entity`. Room media on Home uses Bubble `media-player` |
 
 > Mushroom is not approved. The view-level `badges` row is not used, which removes the only
 > case Mushroom ever covered.
