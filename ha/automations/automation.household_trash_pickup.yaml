@@ -2,7 +2,7 @@ id: "1789947413384"
 alias: "Household: Trash Pickup"
 description: >-
   Trash is a persistent oneshot chore on calendar.household_chores (summary:
-  Take Out Trash), synced from calendar.family. Three jobs, split by trigger
+  Take Out Trash & Recycling; found by its uid, so a rename never breaks this), synced from calendar.family. Three jobs, split by trigger
   id.
 
 
@@ -105,9 +105,12 @@ actions:
         - needs_action
         - completed
     response_variable: all_result
-  - alias: "Isolate it by name"
+  - alias: "Isolate it by uid"
+    note: >-
+      Matched on the chore's uid rather than its summary, so renaming the chore
+      on the card cannot silently orphan this automation.
     variables:
-      trash: "{{ (all_result.get('todo.household_chores', {}).get('items', []) | selectattr('summary', 'eq', 'Take Out Trash') | list | first) | default(none) }}"
+      trash: "{{ (all_result.get('todo.household_chores', {}).get('items', []) | selectattr('uid', 'eq', 'ab02f24c-f9f8-4def-9085-706634af2ef4') | list | first) | default(none) }}"
   - alias: "Classify the week from the chore's description"
     note: >-
       The sync writes the matched calendar event's exact summary here, so

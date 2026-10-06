@@ -136,7 +136,7 @@ control are Favorites; running appliances are Happening now.
 | **Security** | Always | "Secure", or the issues: "Unlocked", "Door open", "Garage open", "N open" | Green secure, else `alert_level()` (amber / red) | `#security` | `script.household_secure_doors` |
 | **Water** | A leak | "Leak: <sensor>" | Red | `#security` | — |
 | **Media** | Always | "N playing" / "Media off" (Apple TVs playing; HomePods playing or paused) | Purple when playing | `#media` | — |
-| Recycling | Trash chore due/overdue | "Recycling" | Amber, red overdue | Chores view | Mark "Take Out Trash" done |
+| Recycling | Trash chore due/overdue | "Recycling" | Amber, red overdue | Chores view | Mark "Take Out Trash & Recycling" done |
 | Updates | Any `update.*` on | count | Primary | `/config/updates` | — |
 | AI | Always | "All good" / "Check" | Amber when the house summary flagged attention | `#ai` | — |
 
@@ -338,7 +338,7 @@ row showing the lowest level. New devices appear automatically.
 | Home dashboard | `home-main` | Lovelace dashboard |
 | Household Exterior Openings | `binary_sensor.household_exterior_openings` | Group helper (Show As: Opening) |
 | Household Chores | `todo.household_chores` | To-do list (Chore Calendar) |
-| Take Out Trash | `sensor.household_chores_take_out_trash` | Chore sensor |
+| Take Out Trash & Recycling | `sensor.household_chores_take_out_trash` | Chore sensor |
 | Avery Home Today | `binary_sensor.avery_home_today` | Template helper |
 | Avery Sleeping | `input_boolean.avery_sleeping` | Helper |
 | Guest Mode | `input_boolean.guest_mode` | Helper |

@@ -283,7 +283,7 @@ views:
               target:
                 entity_id: todo.household_chores
               data:
-                item: Take Out Trash
+                item: ab02f24c-f9f8-4def-9085-706634af2ef4
                 status: completed
             custom_height: 40
           - fill_width: false

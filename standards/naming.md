@@ -354,8 +354,8 @@ completion event:
 | `Wash Accord` | `Accord Washed` |
 | `Clean Dishwasher` | `Dishwasher Cleaned` |
 | `Replace Razor Blade` | `Razor Blade Replacement` |
-| `Take Out Trash` | `Trash Taken Out` |
+| `Take Out Trash & Recycling` | `Trash Taken Out` |
 
 No area prefix — chores are conceptual tasks, not location-bound. This applies equally to
-`Take Out Trash`, a `oneshot` chore synced from a calendar rather than a fixed interval — its
+`Take Out Trash & Recycling`, a `oneshot` chore synced from a calendar rather than a fixed interval — its
 chore type doesn't change the naming rule.

@@ -52,7 +52,7 @@ Household: Task Mark Done
 calendar.family (Remote Calendar, read-only iCloud subscribe)
 └── "Trash Pickup" / "Trash & Recycling Pickup" alternating biweekly all-day events
 
-Household: Trash Pickup — one persistent oneshot chore (Take Out Trash, persist: true)
+Household: Trash Pickup — one persistent oneshot chore (Take Out Trash & Recycling, persist: true)
   Sync (18:00 daily / HA start / manual), only when the chore is unscheduled or completed:
     find the first calendar.family event matching "Trash" past the chore's current due
     (or today, if unscheduled) → chore_calendar.update_item(oneshot.due_datetime, description)
@@ -186,7 +186,7 @@ Create one persistent oneshot chore:
 action: chore_calendar.create_item
 data:
   entity_id: calendar.household_chores
-  chore_name: "Take Out Trash"
+  chore_name: "Take Out Trash & Recycling"
   oneshot:
     persist: true
   pending_period: {hours: 12}
@@ -264,7 +264,7 @@ attribute on its `sensor.household_chores_<chore>` entity to see exactly when it
 
 **Trash reminders fire even though you already took it out**
 
-Confirm the "Take Out Trash" chore actually shows `completed` on the card or via
+Confirm the "Take Out Trash & Recycling" chore actually shows `completed` on the card or via
 `sensor.household_chores_take_out_trash` — that status is the only gate; there is no separate
 helper. If it reads `completed` but a reminder still fired, check
 `automation.household_trash_pickup`'s trace for which branch ran.
