@@ -375,14 +375,7 @@ views:
               action: more-info
             hold_action:
               action: toggle
-      styles: '.bubble-sub-button-bottom-container { overflow-x: auto !important; overflow-y: hidden !important; justify-content: flex-start !important; pointer-events: auto !important; scrollbar-width:
-        none; -webkit-overflow-scrolling: touch; }
-
-        .bubble-sub-button-bottom-container::-webkit-scrollbar { display: none; }
-
-        .bubble-sub-button-group { flex-wrap: nowrap !important; }
-
-        .bubble-sub-button { flex-shrink: 0 !important; border-radius: 16px !important; padding: 0 12px !important; }
+      styles: '.bubble-sub-button { flex-shrink: 0 !important; border-radius: 16px !important; padding: 0 12px !important; }
 
 
         .qa-avery ha-icon { color: {{ ''var(--amber-color)'' if is_state(''input_boolean.avery_sleeping'',''on'') else ''var(--secondary-text-color)'' }} !important; }
@@ -821,10 +814,13 @@ views:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
             card_layout: default
-            progress_bar: compact
+            progress_bar: full
             idle_artwork: none
             artwork_fit: original
+            progress_position: above
           show_icon: false
+          rows: 3
+          main_buttons_position: bottom
       - type: grid
         columns: 2
         square: false
@@ -921,10 +917,13 @@ views:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
             card_layout: default
-            progress_bar: compact
+            progress_bar: full
             idle_artwork: none
             artwork_fit: original
+            progress_position: above
           show_icon: false
+          rows: 3
+          main_buttons_position: bottom
       - type: conditional
         conditions:
         - condition: state
@@ -1305,10 +1304,13 @@ views:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
             card_layout: default
-            progress_bar: compact
+            progress_bar: full
             idle_artwork: none
             artwork_fit: original
+            progress_position: above
           show_icon: false
+          rows: 3
+          main_buttons_position: bottom
       - type: grid
         columns: 2
         square: false
@@ -1804,10 +1806,13 @@ views:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
             card_layout: default
-            progress_bar: compact
+            progress_bar: full
             idle_artwork: none
             artwork_fit: original
+            progress_position: above
           show_icon: false
+          rows: 3
+          main_buttons_position: bottom
       - type: custom:bubble-card
         card_type: separator
         name: Lights
@@ -1964,10 +1969,13 @@ views:
         cover_background: false
         bubble_media_player_enhanced:
           card_layout: default
-          progress_bar: compact
+          progress_bar: full
           idle_artwork: none
           artwork_fit: original
+          progress_position: above
         show_icon: false
+        rows: 3
+        main_buttons_position: bottom
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#office'
@@ -2096,10 +2104,13 @@ views:
         cover_background: false
         bubble_media_player_enhanced:
           card_layout: default
-          progress_bar: compact
+          progress_bar: full
           idle_artwork: none
           artwork_fit: original
+          progress_position: above
         show_icon: false
+        rows: 3
+        main_buttons_position: bottom
       - type: custom:bubble-card
         card_type: media-player
         entity: media_player.master_bedroom_homepod
@@ -3517,10 +3528,13 @@ views:
         - bubble_media_player_enhanced
         bubble_media_player_enhanced:
           card_layout: default
-          progress_bar: compact
+          progress_bar: full
           idle_artwork: none
           artwork_fit: original
+          progress_position: above
         show_icon: false
+        rows: 3
+        main_buttons_position: bottom
       - type: heading
         heading: Master Bedroom
         heading_style: subtitle
@@ -3545,10 +3559,13 @@ views:
         - bubble_media_player_enhanced
         bubble_media_player_enhanced:
           card_layout: default
-          progress_bar: compact
+          progress_bar: full
           idle_artwork: none
           artwork_fit: original
+          progress_position: above
         show_icon: false
+        rows: 3
+        main_buttons_position: bottom
       - type: custom:bubble-card
         card_type: media-player
         entity: media_player.master_bedroom_homepod
@@ -3630,10 +3647,13 @@ views:
         - bubble_media_player_enhanced
         bubble_media_player_enhanced:
           card_layout: default
-          progress_bar: compact
+          progress_bar: full
           idle_artwork: none
           artwork_fit: original
+          progress_position: above
         show_icon: false
+        rows: 3
+        main_buttons_position: bottom
       - type: heading
         heading: Kitchen
         heading_style: subtitle

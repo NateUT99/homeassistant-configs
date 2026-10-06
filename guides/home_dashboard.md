@@ -58,10 +58,10 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   sections, `#media`, `#living-room` — uses the Bubble Media Player Enhanced module
   (artwork background and colours; `idle_artwork: none` since the cards hide when idle), so
   there is one media style and no separate media card dependency. Bubble's own icon is hidden
-  (`show_icon: false`) because the module already draws the cover. HomePod cards use the large
-  music layout (`rows: 3`, full scrubbable progress bar above the controls,
-  `main_buttons_position: bottom`); Apple TV cards keep the compact bar and use
-  `artwork_fit: original` so wide TV artwork is not cropped square.
+  (`show_icon: false`) because the module already draws the cover. All media cards use the large
+  layout (`rows: 3`, full scrubbable progress bar above the controls,
+  `main_buttons_position: bottom`); Apple TV cards also use `artwork_fit: original` so wide
+  TV artwork is not cropped square.
 - **Room media cards show while playing or paused.** A paused Apple TV is a show you'll
   come back to. A HomePod usually times out from `paused` to `idle` on its own 8 minutes
   after it stops (every time for Avery's Room over 10 days; the Office stayed paused longer
@@ -146,7 +146,8 @@ by room, the same cards the room sections show. Both lists are static: a new lig
 is added to the pop-up by hand.
 
 **Quick actions** are a second chip row directly under the status row: a separate
-`sub-buttons` card with the same layout styles, for the house modes you switch by hand. Each
+`sub-buttons` card, for the house modes you switch by hand. It does not scroll: four chips fit,
+and a scrolling row swallows hold actions on iOS (`LESSONS.md`). Each
 chip's icon turns amber while its mode is on; tap opens more-info, hold toggles
 (`standards/dashboards.md` §12):
 
