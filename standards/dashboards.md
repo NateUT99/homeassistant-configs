@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.15.0 — October 2026*
+*Version 1.16.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.16.0 | October 2026 | AI content is the weather briefing and weekly digest; the house summary is removed; AI chip marks an unread digest |
 | 1.15.0 | October 2026 | Quick actions become a second chip row; Quick Launcher module dropped |
 | 1.14.0 | October 2026 | Yet Another Media Player removed; author Bubble modules (Media Player Enhanced, Weather, Quick Launcher) approved; Quick Actions row |
 | 1.13.0 | October 2026 | Climate chip becomes a Weather chip (outdoor + AQI); indoor climate and HVAC paused live on the Thermostat favorite |
@@ -281,13 +282,15 @@ The `apple_tile` module applies this automatically to any `lock` or `cover` enti
 
 ## 11. AI-Generated Content
 
-Cards that show Claude-generated text (briefing, house summary, weekly digest):
+Cards that show Claude-generated text (weather briefing, weekly digest):
 
 - Read from the `ai_insights` sensors; never call `ai_task` from a card. Generation is
   owned by scripts (see `guides/ai_insights.md`).
-- Home shows only the briefing headline (in the greeting); the full briefing, the house
-  summary, and the weekly digest live in the `#ai` pop-up, reached by the always-visible AI
-  chip.
+- Home shows only the briefing headline (in the greeting); the full briefing and the weekly
+  digest live in the `#ai` pop-up, reached by the always-visible AI chip, which is amber
+  while there is a digest you haven't opened.
+- Don't ask a model to restate house status the dashboard already shows exactly; use it to
+  summarize data too large to read at a glance (a forecast, weeks of statistics).
 - Show the content's age (a heading entity badge with `state_content: last_updated`).
 - Render AI text in markdown cards (they auto-size), and structure it: lists and tables
   from typed fields, not paragraphs of prose.

@@ -1,10 +1,11 @@
 alias: 'Household: AI Briefing'
-description: 'Asks Claude (ai_task.claude_haiku_ai_task) for the one-line briefing at the top of the home-main
-  dashboard: a headline, one practical tip, and an icon. Facts come only from the allowlist macro house_facts
-  in /config/custom_templates/ai_insights.jinja. The result is fired as household_ai_briefing_ready and
-  stored by sensor.household_ai_briefing; a failed call fires nothing, so the previous briefing stays.
-  Runs on the AI Insights Schedule and from the dashboard''s Refresh button. See guides/ai_insights.md.'
-icon: mdi:creation
+description: 'Asks Claude (ai_task.claude_sonnet_ai_task) for the weather briefing at the top of the home-main
+  dashboard: a one-sentence headline of what the day or night will be like, a short detail with the practical
+  upshot, and an icon. Facts come only from the allowlist macro weather_facts in /config/custom_templates/ai_insights.jinja.
+  The result is fired as household_ai_briefing_ready and stored by sensor.household_ai_briefing; a failed
+  call fires nothing, so the previous briefing stays. Runs on the AI Insights Schedule and from the dashboard''s
+  Refresh button. See guides/ai_insights.md.'
+icon: mdi:weather-partly-cloudy
 mode: single
 max_exceeded: silent
 sequence:
@@ -22,57 +23,66 @@ sequence:
   data:
     type: daily
   response_variable: daily
+- alias: Get yesterday's high and low
+  action: recorder.get_statistics
+  data:
+    start_time: '{{ (today_at() - timedelta(days=1)).strftime(''%Y-%m-%d %H:%M:%S'') }}'
+    end_time: '{{ today_at().strftime(''%Y-%m-%d %H:%M:%S'') }}'
+    statistic_ids:
+    - sensor.outside_temperature
+    period: day
+    types:
+    - max
+    - min
+  response_variable: yday
 - alias: Build the facts and the allowed icon list
   variables:
-    facts: '{% from ''ai_insights.jinja'' import house_facts %}{{ house_facts(hourly[''weather.outside_waterville_oh_usa''].forecast,
-      daily[''weather.outside_waterville_oh_usa''].forecast) }}'
+    facts: '{% from ''ai_insights.jinja'' import weather_facts %}{{ weather_facts(hourly[''weather.outside_waterville_oh_usa''].forecast,
+      daily[''weather.outside_waterville_oh_usa''].forecast, (yday.statistics.get(''sensor.outside_temperature'')
+      or [none])[0]) }}'
+    focus: '{% set h = now().hour %}{{ ''today, from now until bedtime'' if h < 11 else (''the rest of
+      today and tonight'' if h < 16 else ''tonight and tomorrow'') }}'
     icons:
     - mdi:weather-sunny
     - mdi:weather-partly-cloudy
     - mdi:weather-cloudy
+    - mdi:weather-fog
     - mdi:weather-rainy
     - mdi:weather-pouring
-    - mdi:weather-lightning
+    - mdi:weather-lightning-rainy
     - mdi:weather-snowy
+    - mdi:weather-snowy-rainy
+    - mdi:weather-windy
+    - mdi:weather-night
+    - mdi:weather-night-partly-cloudy
     - mdi:snowflake-thermometer
     - mdi:thermometer-high
     - mdi:umbrella
-    - mdi:recycle
-    - mdi:clipboard-check-outline
-    - mdi:robot-vacuum
-    - mdi:washing-machine
-    - mdi:door-open
-    - mdi:lock-open-variant
-    - mdi:water-alert
-    - mdi:home-alert
-    - mdi:check-circle
-    - mdi:weather-night
+    - mdi:sun-wireless
 - alias: Ask Claude for the briefing
   action: ai_task.generate_data
   data:
     task_name: household_ai_briefing
-    entity_id: ai_task.claude_haiku_ai_task
+    entity_id: ai_task.claude_sonnet_ai_task
     instructions: |-
-      You write the one-line briefing shown at the top of a family's home dashboard in Waterville, Ohio. Someone glances at it on their phone.
+      You write the weather briefing at the top of a family's home dashboard in Waterville, Ohio. Someone glances at it on their phone before heading out, so it has to tell them what {{ focus }} will be like in one breath.
 
-      Voice: friendly and a little playful, like a sharp, good-humored house manager. Courteous and clear first, with a light touch of wit, or a bit of attitude when something has clearly been ignored (a chore overdue for days, the vacuum overdue for a filter). Never snarky about people, never cutesy or saccharine, no emoji. Facts stay precise.
+      Voice: a sharp, good-humored local who actually looked at the forecast. Conversational, a light touch of wit, never cutesy, no emoji. Facts stay precise.
 
-      The briefing stays on screen for hours until the next refresh, so it must still be true then. Never mention anything that changes minute to minute: the vacuum, washer, dryer or dishwasher running, a door or window that is open right now, who is home, the thermostat or fireplace.
-
-      Priority, highest first:
-      1. Major issues: a water leak, internet down, the generator running, a vacuum or appliance fault.
-      2. Chores overdue or due today (including recycling) and overdue vacuum maintenance.
-      3. Weather that changes plans (rain, storms, snow, extreme heat or cold) in the next 12 hours or tomorrow.
-      4. If nothing above applies, a short, pleasant note about the day's weather.
+      What makes it useful:
+      - The shape of the period, not a list of numbers: a cold start that turns warm, when rain arrives and when it clears, a windy afternoon, a frosty night.
+      - Comparison with yesterday when the gap is 8° or more; people feel that more than the number itself.
+      - Only call out what matters: rain chances of 30% or more, gusts of 25 mph or more, UV 6 or higher, air quality over 100, frost (low of 34° or below), heat (feels-like 90° or above). A plain, pleasant day gets a plain, pleasant line.
+      - Times as people say them ("by 3", "after dinner", "around sunset"), 12-hour clock, °F.
 
       Rules:
-      - headline: one plain, conversational sentence, 90 characters or fewer. Lead with the single most important item, and add one weather fact with a concrete time only when the weather actually matters to that item (an outdoor chore like recycling) or changes plans on its own. Never pair weather with an indoor task; if nothing ties them, just state the item. No greeting, no filler, no hedging. A little attitude is welcome when it fits, especially for anything overdue.
-      - Style examples only (never reuse their facts): "Recycling goes out tonight, and the rain holds off until after midnight." / "The bathroom has waited three days for a scrub, and it's not getting cleaner." / "Dry and 64° all day, so no excuses for skipping the walk."
-      - tip: one practical suggestion, 160 characters or fewer, drawn from the facts below (timing, weather, what's running, who's home). Never generic how-to advice. Do not repeat the headline. If nothing useful fits, make it a short weather note for the rest of the day.
+      - headline: one sentence, 90 characters or fewer. The single most useful thing about {{ focus }}.
+      - tip: one or two sentences, 200 characters or fewer, adding what the headline left out and what it means in practice (a jacket for the morning, the dry window for a walk, a good evening to open the windows, bring plants in for frost). Never repeat the headline. Never generic advice.
       - icon: exactly one value from this list: {{ icons | join(', ') }}.
-      - Don't connect unrelated facts. Mention a person only when it changes what to do (e.g. Avery asleep, so keep it quiet).
-      - Use only the facts below. Never invent anything. Use °F and 12-hour times. Plain text, no technical names or entity IDs.
-      - Match the time of day: morning looks ahead to the day, midday to the afternoon, evening to tonight and tomorrow morning.
+      - Use only the facts below. Never invent anything. Plain text.
+
+      Style examples only (never reuse their facts):
+      "Chilly start at 41°, but you'll be at 68° by 3." / "Dry until about 4, then a soggy evening." / "Ten degrees colder than yesterday, and the wind makes it feel worse."
 
       Facts:
       {{ facts }}
@@ -83,7 +93,7 @@ sequence:
         selector:
           text: {}
       tip:
-        description: One practical tip, 160 characters or fewer
+        description: One or two sentences, 200 characters or fewer
         required: true
         selector:
           text: {}
@@ -99,5 +109,5 @@ sequence:
   event: household_ai_briefing_ready
   event_data:
     headline: '{{ (result.data.headline | default('''') | string)[:90] }}'
-    tip: '{{ (result.data.tip | default('''') | string)[:160] }}'
-    icon: '{{ result.data.icon if result.data.icon in icons else ''mdi:creation'' }}'
+    tip: '{{ (result.data.tip | default('''') | string)[:200] }}'
+    icon: '{{ result.data.icon if result.data.icon in icons else ''mdi:weather-partly-cloudy'' }}'

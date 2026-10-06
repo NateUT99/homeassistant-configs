@@ -152,7 +152,7 @@ Tap opens more-info, hold toggles (`standards/dashboards.md` §12):
 
 | Chip | Icon and colour | Hold toggles |
 |---|---|---|
-| AI (icon only) | `mdi:creation`, amber while the house summary from the last 12 hours flagged something, grey otherwise | — (tap `#ai`) |
+| AI (icon only) | `mdi:creation`, amber while there is a weekly digest you haven't opened (`generated_at` newer than `input_button.household_ai_seen`, which `#ai` presses on open and close), grey otherwise | — (tap `#ai`) |
 | Climate (icon only) | `mdi:fire` amber while heating, `mdi:snowflake` blue while cooling, `mdi:hvac-off` amber while an open door or window has paused it, otherwise grey `mdi:hvac` (idle or switched off) | — (tap `#climate`, hold opens more-info) |
 | Nate | Sleep (indigo) while `input_boolean.everyone_sleeping` is on; otherwise home (green) or away (grey) from `person.nate` | `input_boolean.everyone_sleeping` |
 | Avery | Sleep (indigo) while `input_boolean.avery_sleeping` is on; otherwise home (green) on her scheduled days (`binary_sensor.avery_home_today`), away (grey) on others | `input_boolean.avery_sleeping` |
@@ -286,16 +286,14 @@ header shows the same `room_summary` as the tile.
 | `#climate` | Thermostat and fireplace (Bubble climate) |
 | `#weather` | Bubble Weather card (`weather_forecast` module: animated condition background, 5-day forecast), outside conditions, AQI and pollutants |
 | `#vacuum` | Commands, routine pause, Mop now (confirm), map (only when out or ran today), status, mop settings (when the pad is on), 4 consumables |
-| `#ai` | No header bar (`show_header: false`). Three heading cards (Briefing, House Summary, This Week), each with an age badge (`state_content: last_updated`); Briefing and House Summary add a refresh button badge that starts their script. Each heading is followed by a markdown body; see below |
+| `#ai` | No header bar (`show_header: false`). Two heading cards (Weather, This Week), each with an age badge (`state_content: last_updated`); Weather adds a refresh button badge that starts the briefing script. Each heading is followed by a markdown body; see below. `open_action` and `close_action` press `input_button.household_ai_seen` |
 | `#laundry` | Washer and dryer status, remaining, progress, start/finish; "stop reminders" acknowledge (only while `alerting`); dishwasher; washer stats; utility room light |
 
 **`#ai` bodies** are markdown cards, not Bubble cards, because their length varies and Bubble
 cards have a fixed height. Each shows *Working on it…* while its script entity is `on`.
 
-- **Briefing:** the headline in bold, then the tip.
-- **House Summary:** a *Needs attention* list (amber alert icons) when `attention_items` is
-  non-empty, then an *All good* list (green checks).
-- **This Week:** the digest headline in italics, then a borderless table. Electricity (kWh,
+- **Weather:** the briefing headline in bold, then the tip.
+- **This Week:** the digest headline in bold and its story, then a borderless table. Electricity (kWh,
   cost, change vs. the week before) and Climate (heating/cooling hours) come from the Sunday
   digest. The other rows render live, so they are current between digests:
   - Vacuuming: "Done" with a check when both the day and night counters
@@ -365,7 +363,8 @@ row showing the lowest level. New devices appear automatically.
 | Household: Vacuum Reset Consumable | `script.household_vacuum_reset_consumable` | Script |
 | Household: Vacuum Mop Now | `script.household_vacuum_mop_now` | Script |
 | Household: Secure Doors | `script.household_secure_doors` | Script (lock front door if closed, close garage) |
-| Household AI Briefing / House Summary / Weekly Digest | `sensor.household_ai_briefing`, `sensor.household_ai_house_summary`, `sensor.household_ai_weekly_digest` | Template sensors (`guides/ai_insights.md`) |
+| Household AI Briefing / Weekly Digest | `sensor.household_ai_briefing`, `sensor.household_ai_weekly_digest` | Template sensors (`guides/ai_insights.md`) |
+| Household AI Seen | `input_button.household_ai_seen` | Helper (`guides/ai_insights.md`) |
 | Living Room Vacuum Filter Clean Time Left | `sensor.living_room_vacuum_filter_clean_time_left` | Template helper |
 | HVAC Mode Before Pause | `input_select.household_hvac_mode_before_pause` | Helper |
 

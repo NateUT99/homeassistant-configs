@@ -1,34 +1,75 @@
 {#-
-  Facts sent to Claude by script.household_ai_briefing and _house_summary
-  (guides/ai_insights.md). This macro IS the allowlist: anything not listed here
-  is never sent. Never add coordinates, lock codes, network details, camera
+  Facts sent to Claude by script.household_ai_briefing and _weekly_digest
+  (guides/ai_insights.md). These macros ARE the allowlist: anything not listed
+  here is never sent. Never add coordinates, lock codes, network details, camera
   images, or calendars.
 
   Deployed to /config/custom_templates/ai_insights.jinja; reload with
   homeassistant.reload_custom_templates after every change.
 
-  hourly / daily: the `forecast` lists from weather.get_forecasts, passed in
-  because an imported macro cannot see the calling script's variables.
+  Everything the model would otherwise have to work out (highs and lows and
+  their times, rain windows, the gap to yesterday) is computed here, so the
+  model only has to write.
 -#}
-{% macro house_facts(hourly=[], daily=[]) -%}
-{%- set openings = expand('binary_sensor.household_exterior_openings') | selectattr('state','eq','on') | map(attribute='name') | list -%}
-{%- set chores = expand(integration_entities('chore_calendar') | select('match','sensor\\.') | list) | selectattr('state','in',['due','overdue']) | list -%}
-{%- set vac_parts = {'sensor.living_room_vacuum_filter_time_left': 'replace filter', 'sensor.living_room_vacuum_filter_clean_time_left': 'clean filter', 'sensor.living_room_vacuum_main_brush_time_left': 'main brush', 'sensor.living_room_vacuum_side_brush_time_left': 'side brush', 'sensor.living_room_vacuum_sensor_time_left': 'clean sensors'} -%}
-{%- set ns = namespace(due=[]) -%}
-{%- for e, label in vac_parts.items() if states(e) | float(999) <= 0 %}{% set ns.due = ns.due + [label] %}{% endfor -%}
-{%- set leaks = label_entities('water_leak_sensor') | select('is_state','on') | map('state_attr','friendly_name') | list -%}
-Time: {{ now().strftime('%A, %B %-d, %-I:%M %p') }}
-Weather now: {{ states('weather.outside_waterville_oh_usa') }}, {{ states('sensor.outside_temperature') }}°F, humidity {{ states('sensor.outside_humidity') }}%.
-Next 12 hours: {% for h in hourly[:12] %}{{ as_local(as_datetime(h.datetime)).strftime('%-I%p') }} {{ h.condition }} {{ h.temperature | round(0) | int }}° rain {{ h.precipitation_probability | default(0) }}%{{ '; ' if not loop.last }}{% endfor %}.
-Daily: {% for d in daily[:2] %}{{ as_local(as_datetime(d.datetime)).strftime('%A') }} {{ d.condition }} high {{ d.temperature | round(0) | int }}° low {{ d.templow | default('?') }}° rain {{ d.precipitation_probability | default(0) }}%{{ '; ' if not loop.last }}{% endfor %}.
-Outdoor air quality (AQI): {{ states('sensor.erie_ohio_usa_air_quality_index') }}.
-Indoors: {{ state_attr('climate.living_room_thermostat','current_temperature') }}°F; thermostat mode {{ states('climate.living_room_thermostat') }}; fireplace {{ states('climate.living_room_fireplace') }}{{ '; HVAC paused because a door or window is open' if not is_state('input_select.household_hvac_mode_before_pause','none') }}.
-Front door: {{ states('lock.entrance_front_door') }}, {{ 'open' if is_state('binary_sensor.entrance_front_door','on') else 'closed' }}. Garage door: {{ states('cover.garage_door_opener_door') }}.
-Open doors/windows: {{ openings | join(', ') if openings else 'none' }}.
-People physically home right now: {{ states('zone.home') }}; guest mode {{ states('input_boolean.guest_mode') }}; today is one of Avery's scheduled days with us: {{ 'yes' if is_state('binary_sensor.avery_home_today','on') else 'no' }} (schedule only, not presence); Avery asleep: {{ states('input_boolean.avery_sleeping') }}; everyone asleep: {{ states('input_boolean.everyone_sleeping') }}.
-Chores due: {{ chores | map(attribute='name') | map('replace','Household Chores ','') | join(', ') if chores else 'none' }}{% for c in chores if c.state == 'overdue' %}{% if loop.first %} (overdue: {% endif %}{{ c.name | replace('Household Chores ','') }}{{ ', ' if not loop.last else ')' }}{% endfor %}.
-Vacuum: {{ states('vacuum.living_room_vacuum') }}; ran today: {{ 'yes' if is_state('input_boolean.vacuum_ran_daytime','on') or is_state('input_boolean.vacuum_ran_evening','on') else 'no' }}; error: {{ states('sensor.living_room_vacuum_vacuum_error') }}; maintenance overdue: {{ ns.due | join(', ') if ns.due else 'none' }}.
-Laundry: washer {{ states('input_select.utility_room_washer_status') }} ({{ states('sensor.utility_room_washer_current_status') }}), dryer {{ states('input_select.utility_room_dryer_status') }} ({{ states('sensor.utility_room_dryer_current_status') }}); dishwasher {{ 'running' if is_state('binary_sensor.kitchen_dishwasher_running','on') else 'idle' }}.
-Water leaks: {{ leaks | join(', ') if leaks else 'none' }}.
-Generator: {{ states('sensor.outside_home_generator_status') }}. Internet: {{ 'up' if is_state('binary_sensor.utility_room_firewalla_gold_se_wan_buckeye_broadband_status','on') else 'DOWN' }}.
+
+{#- hourly / daily: the `forecast` lists from weather.get_forecasts. yday: the
+    one-day row of recorder.get_statistics for sensor.outside_temperature
+    (max / min), or none. Passed in because an imported macro cannot see the
+    calling script's variables. -#}
+{% macro weather_facts(hourly=[], daily=[], yday=none) -%}
+{%- set hrs = hourly[:24] -%}
+{%- set ns = namespace(windows=[], start=none, end=none, peak=0, hi=none, lo=none, gust=none, uv=none, cold=none) -%}
+{%- for h in hrs -%}
+{%- set p = h.precipitation_probability | default(0) | float(0) | round(0) | int -%}
+{%- if p >= 30 -%}
+{%- if ns.start is none %}{% set ns.start = h.datetime %}{% set ns.peak = 0 %}{% endif -%}
+{%- set ns.end = h.datetime -%}
+{%- set ns.peak = [ns.peak, p] | max -%}
+{%- endif -%}
+{%- if ns.start is not none and (p < 30 or loop.last) -%}
+{%- set ns.windows = ns.windows + [as_local(as_datetime(ns.start)).strftime('%-I %p') ~ ' to ' ~ (as_local(as_datetime(ns.end)) + timedelta(hours=1)).strftime('%-I %p') ~ ' (up to ' ~ ns.peak ~ '%)'] -%}
+{%- set ns.start = none -%}
+{%- endif -%}
+{%- if ns.hi is none or h.temperature > ns.hi.temperature %}{% set ns.hi = h %}{% endif -%}
+{%- if ns.lo is none or h.temperature < ns.lo.temperature %}{% set ns.lo = h %}{% endif -%}
+{%- if ns.cold is none or h.apparent_temperature | default(h.temperature) < ns.cold.apparent_temperature | default(ns.cold.temperature) %}{% set ns.cold = h %}{% endif -%}
+{%- if ns.gust is none or h.wind_gust_speed | default(0) > ns.gust.wind_gust_speed | default(0) %}{% set ns.gust = h %}{% endif -%}
+{%- if ns.uv is none or h.uv_index | default(0) > ns.uv.uv_index | default(0) %}{% set ns.uv = h %}{% endif -%}
+{%- endfor -%}
+{%- macro at(h) %}{{ as_local(as_datetime(h.datetime)).strftime('%-I %p %A') }}{% endmacro -%}
+Time: {{ now().strftime('%A, %B %-d, %-I:%M %p') }}. Next sunset {{ as_local(as_datetime(state_attr('sun.sun','next_setting'))).strftime('%-I:%M %p %A') }}.
+Now: {{ states('weather.outside_waterville_oh_usa') }}, {{ states('sensor.outside_temperature') }}°F, humidity {{ states('sensor.outside_humidity') }}%. Air quality index {{ states('sensor.erie_ohio_usa_air_quality_index') }}.
+{% if ns.hi is not none -%}
+Next 24 hours: high {{ ns.hi.temperature | round(0) | int }}° at {{ at(ns.hi) }}; low {{ ns.lo.temperature | round(0) | int }}° at {{ at(ns.lo) }}; coldest feels-like {{ ns.cold.apparent_temperature | default(ns.cold.temperature) | round(0) | int }}° at {{ at(ns.cold) }}{% if ns.gust.wind_gust_speed | default(0) >= 15 %}; strongest gust {{ ns.gust.wind_gust_speed | round(0) | int }} mph at {{ at(ns.gust) }}{% endif %}{% if ns.uv.uv_index | default(0) >= 3 %}; peak UV {{ ns.uv.uv_index }} at {{ at(ns.uv) }}{% endif %}.
+Rain chance 30% or more: {{ ns.windows | join('; ') if ns.windows else 'none in the next 24 hours' }}.
+Every 3 hours: {% for h in hrs[::3] %}{{ as_local(as_datetime(h.datetime)).strftime('%-I %p') }} {{ h.condition }} {{ h.temperature | round(0) | int }}° (feels {{ h.apparent_temperature | default(h.temperature) | round(0) | int }}°) rain {{ h.precipitation_probability | default(0) | round(0) | int }}%{{ '; ' if not loop.last }}{% endfor %}.
+{% endif -%}
+Daily: {% for d in daily[:3] %}{{ as_local(as_datetime(d.datetime)).strftime('%A') }} {{ d.condition }}, high {{ d.temperature | round(0) | int }}°, low {{ d.templow | default('?') }}°, rain {{ d.precipitation_probability | default(0) | round(0) | int }}%{{ '; ' if not loop.last }}{% endfor %}.
+{% if yday is not none and yday.max is defined and daily | count > 0 -%}
+Yesterday ({{ (now() - timedelta(days=1)).strftime('%A') }}): high {{ yday.max | round(0) | int }}°, low {{ yday.min | round(0) | int }}°. {{ as_local(as_datetime(daily[0].datetime)).strftime('%A') }}'s forecast high is {{ (daily[0].temperature - yday.max) | round(0) | int }}° {{ 'warmer' if daily[0].temperature >= yday.max else 'colder' }} than yesterday's.
+{%- endif %}
+{%- endmacro %}
+
+{#- Sums one recorder.get_statistics series over [start, end): `key` is change
+    for meters, or heat / cool for degree days (base 65°F) from daily means.
+    per_week scales the sum to 7 days by the number of days that have data, so
+    a series younger than the window still gives a fair weekly average. -#}
+{% macro window_total(rows=[], start=none, end=none, key='change', per_week=false) -%}
+{%- set ns = namespace(total=0, days=0) -%}
+{%- for r in rows if start <= as_datetime(r.start) < end -%}
+{%- if key == 'heat' %}{% set v = [65 - r.mean | float(65), 0] | max %}{% elif key == 'cool' %}{% set v = [r.mean | float(65) - 65, 0] | max %}{% else %}{% set v = r[key] | float(0) %}{% endif -%}
+{%- set ns.total = ns.total + v -%}
+{%- set ns.days = ns.days + 1 -%}
+{%- endfor -%}
+{{- ((ns.total / ns.days * 7) if per_week and ns.days > 0 else ns.total) | round(1) -}}
+{%- endmacro %}
+
+{#- Describes `now` against `before` in words ("47% less", "about the same"),
+    so the model states comparisons instead of computing them. -#}
+{% macro vs(now=0, before=0) -%}
+{%- set a = now | float(0) -%}{%- set b = before | float(0) -%}
+{%- if b == 0 -%}{{ 'none either time' if a == 0 else 'up from none' }}
+{%- else -%}{%- set pct = ((a - b) / b * 100) | round(0) | int -%}
+{{- 'about the same' if pct | abs < 10 else (pct | abs ~ '% ' ~ ('more' if pct > 0 else 'less')) -}}
+{%- endif -%}
 {%- endmacro %}

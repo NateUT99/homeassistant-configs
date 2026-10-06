@@ -6,24 +6,25 @@
 
 ## Overview
 
-Claude (Anthropic integration, `ai_task.claude_haiku_ai_task`) writes three pieces of text for
-the `home-main` dashboard: a daily **briefing** shown under the chip strip, an on-demand
-**house summary**, and a Sunday **weekly digest**. Scripts gather an explicit allowlist of
-house facts, call `ai_task.generate_data` with a typed `structure`, and fire a `*_ready` event;
-trigger-based template sensors in a package store the result. The dashboard only reads those
-sensors — it never calls Claude.
+Claude writes two pieces of text for the `home-main` dashboard: a **weather briefing**
+three times a day (the headline shows under the chip strip) and a Sunday **weekly digest**
+on energy and HVAC use. Both run on Claude Sonnet (`ai_task.claude_sonnet_ai_task`).
+Scripts gather an explicit allowlist of facts, call `ai_task.generate_data` with a typed
+`structure`, and fire a `*_ready` event; trigger-based template sensors in a package store
+the result. The dashboard only reads those sensors — it never calls Claude.
 
 ---
 
 ## Architecture
 
 ```
-AI Insights Schedule ──06:30/12:00/17:00──▶ script.household_ai_briefing ─┐
+AI Insights Schedule ──06:30/12:00/17:00──▶ script.household_ai_briefing ──────┐
   (automation)        ──Sun 18:00─────────▶ script.household_ai_weekly_digest ─┤
-#ai pop-up buttons ───────────────────────▶ script.household_ai_house_summary ─┤
+#ai Refresh button ───────────────────────▶ script.household_ai_briefing       │
                                                                               │
-   facts: house_facts() macro (ai_insights.jinja)  ← weather.get_forecasts    │
-          weekly stats (recorder.get_statistics, chore sensors)               │
+   facts: weather_facts()   ← weather.get_forecasts, yesterday's statistics   │
+          window_total() / vs() ← 5 weeks of daily statistics                 │
+          (ha/custom_templates/ai_insights.jinja)                             │
                                                                               ▼
                               ai_task.generate_data (structure: typed fields)
                                                                               │
@@ -31,43 +32,47 @@ AI Insights Schedule ──06:30/12:00/17:00──▶ script.household_ai_briefi
                                                                               │
                      ha/packages/ai_insights.yaml (trigger-based template sensors)
                                                                               │
-          sensor.household_ai_briefing / _house_summary / _weekly_digest ◀────┘
+             sensor.household_ai_briefing / sensor.household_ai_weekly_digest
                                                                               │
                 home-main: greeting line, AI chip, #ai pop-up ◀───────────────┘
 ```
 
 **Design decisions:**
 
+- **Claude only where it adds something.** The model gets jobs that turn a lot of numbers
+  into a short story: 24 hours of hourly forecast, and five weeks of energy and runtime
+  statistics. House status (doors, chores, appliances) is already exact on the chips and
+  badges, and a model restating it adds nothing.
 - **Scripts generate, a package stores.** Each script is traceable and runs on demand; the
   trigger-based sensors survive restarts and keep the last good text when a call fails,
   because a failed call fires no event.
-- **One allowlist macro.** `house_facts()` in `ha/custom_templates/ai_insights.jinja` is the
-  only thing the briefing and summary send. Anything not in it is never sent, and the macro
-  is the single place to review or extend.
-- **Typed output, enforced twice.** `structure:` asks for named fields (the house summary's
-  two lists are `text` selectors with `multiple: true`); the store step also truncates
-  every field and caps list lengths, and checks the icon against an allowed list, so a
-  model that ignores the limits can't break a card.
-- **Claude writes words, not numbers.** The weekly digest's figures come from
-  `recorder.get_statistics`, the vacuum counters, and the mop flags, computed in the
-  script and stored as attributes; Claude writes only the one-line headline. Numbers a
-  model restates can drift; numbers the dashboard renders directly cannot.
-- **The briefing stays true for hours.** It refreshes three times a day, so its prompt
-  forbids anything that changes minute to minute (appliances running, open doors, who is
-  home). Live status belongs to the chips and the house summary.
-- **Facts name what they mean.** "People physically home" is the presence count;
-  "Avery's scheduled days with us" is schedule only. An ambiguous label invites the model to
-  infer something false, so labels say exactly what they measure and the prompts forbid
-  connecting unrelated facts.
+- **The macros are the allowlist.** `weather_facts()`, `window_total()`, and `vs()` in
+  `ha/custom_templates/ai_insights.jinja` build everything sent. Anything not in them is
+  never sent, and the file is the single place to review or extend.
+- **Jinja does the arithmetic, Claude writes.** Highs and lows with their times, rain
+  windows (30% or more), the gap to yesterday, weekly totals, degree days, and every
+  comparison ("47% less", "about the same", within 10%) are computed before the call. A
+  model left to compare raw numbers will sometimes reverse a direction.
+- **Degree days explain HVAC.** Heating and cooling degree days (base 65°F, from the daily
+  mean outdoor temperature) say how much the weather called for, so the digest can tell a
+  colder week from the furnace running more than the weather explains.
+- **Typed output, enforced twice.** `structure:` asks for named fields; the store step
+  also truncates every field and checks the icon against an allowed list, so a model that
+  ignores the limits can't break a card.
+- **Sonnet over Haiku.** Three short calls a day and one a week; the cost difference is
+  cents a month, and Sonnet is markedly better at picking the one thing worth saying.
 
 ---
 
 ## Prerequisites
 
-- Anthropic integration with an AI Task subentry (`ai_task.claude_haiku_ai_task`, Claude Haiku)
+- Anthropic integration with an AI Task subentry on `claude-sonnet-5` (**Claude Sonnet AI
+  Task**, `ai_task.claude_sonnet_ai_task`; web search, web fetch, code execution and user
+  location off)
 - `/config/packages/` included from `configuration.yaml` (see `guides/vacuum_cleaning_routine.md`)
-- `weather.outside_waterville_oh_usa`, the Chore Calendar integration, the Eagle energy sensor,
-  and `sensor.household_hvac_*_runtime_today` (see their guides)
+- `weather.outside_waterville_oh_usa`, `sensor.outside_temperature` (long-term statistics),
+  the Chore Calendar integration, the Eagle energy sensor, the refrigerator plug, and
+  `sensor.household_hvac_*_runtime_today` (see their guides)
 - `home-main` dashboard (see `guides/home_dashboard.md`)
 
 ---
@@ -77,8 +82,8 @@ AI Insights Schedule ──06:30/12:00/17:00──▶ script.household_ai_briefi
 ### 1. Create the label
 
 Create `int_ai_insights` (create with the ID as the name, then rename to **AI Insights**,
-purple, `mdi:creation` — see `standards/automations.md` §3.2). It is applied to the three
-scripts, the automation, and the three sensors.
+purple, `mdi:creation` — see `standards/automations.md` §3.2). It is applied to the two
+scripts, the automation, the two AI sensors, and `input_button.household_ai_seen`.
 
 ### 2. Deploy the facts macro
 
@@ -89,7 +94,7 @@ scp ha/custom_templates/ai_insights.jinja ha:/config/custom_templates/ai_insight
 Then call `homeassistant.reload_custom_templates`. Check it in **Developer Tools → Template**:
 
 ```jinja
-{% from 'ai_insights.jinja' import house_facts %}{{ house_facts([], []) }}
+{% from 'ai_insights.jinja' import weather_facts, vs %}{{ weather_facts([], []) }} / {{ vs(9, 10) }}
 ```
 
 ### 3. Deploy the package
@@ -98,15 +103,15 @@ Then call `homeassistant.reload_custom_templates`. Check it in **Developer Tools
 scp ha/packages/ai_insights.yaml ha:/config/packages/ai_insights.yaml
 ```
 
-Then call `template.reload` and `history_stats.reload`. The three AI sensors read `unknown`
+Then call `template.reload` and `history_stats.reload`. The two AI sensors read `unknown`
 until their first event. The two `history_stats` counters count how many times each daily
 vacuum "ran" flag turned on since Monday 08:05. The flags reset at 08:00, so a start any
 earlier would count Sunday night's still-on flag as a Monday run.
 
 ```yaml
-# Stores the Claude-generated text shown on the home-main dashboard: the daily
-# briefing, the on-demand house summary, and the weekly digest. Generation lives
-# in script.household_ai_briefing / _house_summary / _weekly_digest, which call
+# Stores the Claude-generated text shown on the home-main dashboard: the weather
+# briefing and the weekly digest. Generation lives in
+# script.household_ai_briefing / _weekly_digest, which call
 # ai_task.generate_data and then fire one of the *_ready events below; these
 # trigger-based sensors only store the result, so the dashboard never calls
 # Claude itself. Trigger-based template sensors restore their last value across
@@ -133,22 +138,6 @@ template:
 
   - trigger:
       - trigger: event
-        event_type: household_ai_house_summary_ready
-        alias: A new house summary was generated
-    sensor:
-      - name: Household AI House Summary
-        unique_id: household_ai_house_summary
-        # State is a short status the dashboard gates on; the items live in list
-        # attributes so the pop-up can render them as two lists.
-        state: "{{ 'attention' if trigger.event.data.attention_items | default([]) | count > 0 else 'ok' }}"
-        icon: "{{ 'mdi:alert-circle-outline' if trigger.event.data.attention_items | default([]) | count > 0 else 'mdi:check-circle-outline' }}"
-        attributes:
-          attention_items: "{{ trigger.event.data.attention_items | default([]) }}"
-          ok_items: "{{ trigger.event.data.ok_items | default([]) }}"
-          generated_at: "{{ now().isoformat() }}"
-
-  - trigger:
-      - trigger: event
         event_type: household_ai_weekly_digest_ready
         alias: A new weekly digest was generated
     sensor:
@@ -157,14 +146,24 @@ template:
         state: "Week of {{ (now() - timedelta(days=6)).strftime('%b %-d') }}"
         icon: mdi:calendar-week
         # The numbers are computed by the script from statistics, not written by
-        # Claude, so they are exact; Claude only writes the one-line headline.
+        # Claude, so they are exact; Claude writes only the headline and the story.
         attributes:
           headline: "{{ trigger.event.data.headline | default('') }}"
+          story: "{{ trigger.event.data.story | default('') }}"
           energy_kwh: "{{ trigger.event.data.energy_kwh | default(0) }}"
           energy_prev_kwh: "{{ trigger.event.data.energy_prev_kwh | default(0) }}"
+          energy_avg_kwh: "{{ trigger.event.data.energy_avg_kwh | default(0) }}"
           energy_cost: "{{ trigger.event.data.energy_cost | default(0) }}"
           heating_h: "{{ trigger.event.data.heating_h | default(0) }}"
+          heating_prev_h: "{{ trigger.event.data.heating_prev_h | default(0) }}"
           cooling_h: "{{ trigger.event.data.cooling_h | default(0) }}"
+          cooling_prev_h: "{{ trigger.event.data.cooling_prev_h | default(0) }}"
+          hdd: "{{ trigger.event.data.hdd | default(0) }}"
+          hdd_prev: "{{ trigger.event.data.hdd_prev | default(0) }}"
+          cdd: "{{ trigger.event.data.cdd | default(0) }}"
+          cdd_prev: "{{ trigger.event.data.cdd_prev | default(0) }}"
+          fridge_kwh: "{{ trigger.event.data.fridge_kwh | default(0) }}"
+          fridge_avg_kwh: "{{ trigger.event.data.fridge_avg_kwh | default(0) }}"
           vacuum_day_runs: "{{ trigger.event.data.vacuum_day_runs | default(0) }}"
           vacuum_night_runs: "{{ trigger.event.data.vacuum_night_runs | default(0) }}"
           mop_common_done: "{{ trigger.event.data.mop_common_done | default(false) }}"
@@ -206,30 +205,41 @@ Create from the mirrors in `ha/scripts/` and `ha/automations/`:
 
 | Script / automation | Fields generated | Runs |
 |---|---|---|
-| Household: AI Briefing (`script.household_ai_briefing`) | `headline` (≤ 90), `tip` (≤ 160), `icon` (allowed list) | Schedule; Refresh button |
-| Household: AI House Summary (`script.household_ai_house_summary`) | `attention_items` (0–4), `ok_items` (1–3), each under 60 chars | Refresh button in `#ai`; skipped within 2 min of the last summary |
-| Household: AI Weekly Digest (`script.household_ai_weekly_digest`) | `headline` (≤ 70); the figures are computed by the script | Sundays 18:00 |
+| Household: AI Briefing (`script.household_ai_briefing`) | `headline` (≤ 90), `tip` (≤ 200), `icon` (weather list) | Schedule; Refresh button in `#ai` |
+| Household: AI Weekly Digest (`script.household_ai_weekly_digest`) | `headline` (≤ 70), `story` (≤ 300); the figures are computed by the script | Sundays 18:00 |
 | Household: AI Insights Schedule (`automation.household_ai_insights_schedule`) | — | 06:30, 12:00, 17:00 briefing; Sun 18:00 digest (category Routines) |
 
-All three scripts are `mode: single` with `max_exceeded: silent`. The schedule starts them
-with `script.turn_on` so a slow API call never holds the automation.
+Both scripts are `mode: single` with `max_exceeded: silent`. The schedule starts them with
+`script.turn_on` so a slow API call never holds the automation.
 
-**Voice** (in every prompt): friendly and a little playful, a good-humored house manager —
-courteous and clear first, a touch of wit or attitude when something has clearly been
-ignored; never snarky about people, never cutesy, no emoji; facts stay precise. Briefing
-priority: major issues (leak, internet down, generator running, a fault) → chores overdue or
-due today and overdue vacuum maintenance → plan-changing weather → a weather note. Nothing
-that changes minute to minute. The headline is one plain sentence that leads with the top
-item and adds a timed weather fact only when the weather matters to it, modelled on
-"Recycling goes out tonight, and the rain holds off until after midnight." The
-briefing tip must come from the facts, not generic how-to advice. The digest may not
-explain why a number changed unless a fact says so.
+**Briefing.** The focus follows the time of day: before 11:00 it covers today, before 16:00
+the rest of today and tonight, otherwise tonight and tomorrow. The headline gives the shape
+of that period (a cold start that turns warm, when rain comes and goes); the tip adds what
+the headline left out and what it means in practice. It mentions yesterday only when the gap
+is 8° or more, and calls out only what matters: rain 30%+, gusts 25 mph+, UV 6+, AQI over
+100, frost (34° or below), feels-like 90°+.
 
-### 5. Dashboard
+**Digest.** "This week" is the 7 days ending now, "last week" the 7 before, and the average
+the 28 days before this week, scaled to 7 days by how many days have data (so a sensor
+younger than five weeks still averages fairly). The story leads with the most notable of:
+electricity against last week and the average; heating and cooling hours against degree
+days; the refrigerator, only when 15% off its average; vacuuming and chores only when
+clearly missed.
+
+**Voice** (both prompts): a sharp, good-humored local — conversational, a light touch of wit,
+never cutesy, no emoji; facts stay precise and no cause is invented.
+
+### 5. Seen marker
+
+Create **Household AI Seen** (`input_button.household_ai_seen`, `mdi:eye-check-outline`).
+The `#ai` pop-up presses it on open and on close; the AI chip is amber while the digest's
+`generated_at` is newer than the last press.
+
+### 6. Dashboard
 
 See `guides/home_dashboard.md`: the greeting markdown card shows the briefing headline, the
-AI chip opens `#ai`, and `#ai` holds the briefing, the house summary with its button, and
-the digest.
+AI chip opens `#ai`, and `#ai` holds the weather briefing (with a Refresh button) and the
+digest.
 
 ---
 
@@ -237,15 +247,16 @@ the digest.
 
 | Control | Implementation |
 |---|---|
-| Data minimization | Only the `house_facts()` allowlist and weekly aggregates are sent — never all states |
-| Never sent | Coordinates, lock codes, network/Firewalla details, camera images, calendars |
-| Sent | Weather, AQI, indoor temps, thermostat/fireplace mode, lock and door/garage states, open openings by name, people-home count, guest/sleep flags, Avery's schedule flag, chore names, vacuum/laundry/dishwasher status, leak, generator, internet up/down, weekly energy/HVAC/vacuum totals |
-| Abuse/cost limit | House summary skips if one was generated in the last 2 minutes; all scripts `mode: single` |
+| Data minimization | Only the macro allowlist is sent — never all states |
+| Never sent | Coordinates, lock codes, network/Firewalla details, camera images, calendars, house status |
+| Sent | Briefing: the forecast, current outdoor conditions and AQI, yesterday's outdoor high and low, sunset time. Digest: weekly energy, HVAC runtime, refrigerator and degree-day totals, vacuum counts, chore names |
+| Model tools | The Sonnet AI task has web search, web fetch, code execution and user location turned off |
+| Abuse/cost limit | Both scripts `mode: single`; the only on-demand trigger is the briefing Refresh button |
 | Failure | A failed call fires no event; the sensors keep the last text and the dashboard shows its age |
 | Credential | The Anthropic API key lives in the integration's config entry, not in this repo |
-| Worst case | A leaked key exposes only API spend; the facts sent are household status, not secrets |
+| Worst case | A leaked key exposes only API spend; the facts sent are weather and household totals |
 
-Cost: Claude Haiku, about 4 calls a day plus on-demand summaries — well under $1/month.
+Cost: Claude Sonnet, 3 calls a day plus one a week — around $1/month.
 
 ---
 
@@ -254,15 +265,14 @@ Cost: Claude Haiku, about 4 calls a day plus on-demand summaries — well under 
 | Artifact | Entity / ID | Type |
 |---|---|---|
 | Household AI Briefing | `sensor.household_ai_briefing` | Trigger-based template sensor (package) |
-| Household AI House Summary | `sensor.household_ai_house_summary` | Trigger-based template sensor (package) |
 | Household AI Weekly Digest | `sensor.household_ai_weekly_digest` | Trigger-based template sensor (package) |
 | Household Vacuum Day Runs This Week | `sensor.household_vacuum_day_runs_this_week` | `history_stats` count (package) |
 | Household Vacuum Night Runs This Week | `sensor.household_vacuum_night_runs_this_week` | `history_stats` count (package) |
 | Household: AI Briefing | `script.household_ai_briefing` | Script |
-| Household: AI House Summary | `script.household_ai_house_summary` | Script |
 | Household: AI Weekly Digest | `script.household_ai_weekly_digest` | Script |
 | Household: AI Insights Schedule | `automation.household_ai_insights_schedule` | Automation |
-| Claude Haiku AI Task | `ai_task.claude_haiku_ai_task` | AI Task (Anthropic) |
+| Household AI Seen | `input_button.household_ai_seen` | Helper |
+| Claude Sonnet AI Task | `ai_task.claude_sonnet_ai_task` | AI Task (Anthropic) |
 | AI Insights | `int_ai_insights` | Label |
 
 ---
@@ -272,7 +282,7 @@ Cost: Claude Haiku, about 4 calls a day plus on-demand summaries — well under 
 | Repo path | Deployed location | Purpose |
 |---|---|---|
 | `ha/packages/ai_insights.yaml` | `/config/packages/ai_insights.yaml` | Result-storing sensors, weekly vacuum counters |
-| `ha/custom_templates/ai_insights.jinja` | `/config/custom_templates/ai_insights.jinja` | `house_facts()` allowlist macro |
+| `ha/custom_templates/ai_insights.jinja` | `/config/custom_templates/ai_insights.jinja` | `weather_facts()`, `window_total()`, `vs()` allowlist macros |
 
 ---
 
@@ -290,6 +300,7 @@ Cost: Claude Haiku, about 4 calls a day plus on-demand summaries — well under 
 - **A sensor stays `unknown` or stale:** open the script's trace. A failure at the
   `ai_task.generate_data` step (API error, timeout) stops the run before the event, by
   design. Calls take 10–25 s.
-- **The text states something false:** check the rendered `house_facts()` output in
-  Developer Tools first — wrong output is almost always an ambiguous or missing fact, fixed
-  in the macro rather than the prompt.
+- **The text states something false:** check the rendered facts in the script trace
+  (the `facts` variable, or the digest's instructions) first — wrong output is almost always
+  an ambiguous or missing fact, or a comparison left for the model to work out. Fix it in
+  the macro rather than the prompt.
