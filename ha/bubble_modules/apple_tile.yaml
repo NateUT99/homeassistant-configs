@@ -4,15 +4,15 @@
 # with color-mix() (standards/dashboards.md §10).
 #
 # Security entities (lock, cover) follow the security palette (§10.1): green icon when
-# secure (locked / closed, no tint); when not secure, tinted and glowing orange, or red
+# secure (locked / closed, no tint); when not secure, tinted and glowing amber, or red
 # while everyone is asleep or nobody is home (alert_level() in dashboard.jinja).
 #
 # Everything else tints and glows while "active" for its domain (thermostat heating or
-# cooling, vacuum cleaning or returning, anything else `on`): orange for heating, blue for
-# cooling, amber otherwise; neutral when idle.
+# cooling, vacuum cleaning or returning, anything else `on`): blue for cooling, amber
+# otherwise (heating included); neutral when idle.
 apple_tile:
   name: Apple tile
-  version: "3.1"
+  version: "3.2"
   creator: home-main
   description: Apple-style tile; security palette for locks and covers, amber/blue activity tint otherwise.
   supported:
@@ -25,13 +25,13 @@ apple_tile:
     {% if d in ['lock', 'cover'] %}
       {% set secure = (d == 'lock' and s == 'locked') or (d == 'cover' and s == 'closed') %}
       {% set active = not secure %}
-      {% set c = 'var(--green-color)' if secure else ('var(--red-color)' if alert_level() == 'red' else 'var(--orange-color)') %}
+      {% set c = 'var(--green-color)' if secure else ('var(--red-color)' if alert_level() == 'red' else 'var(--amber-color)') %}
     {% else %}
       {% set secure = false %}
       {% set active = (d == 'climate' and action in ['heating', 'cooling'])
          or (d == 'vacuum' and s in ['cleaning', 'returning'])
          or s == 'on' %}
-      {% set c = 'var(--blue-color)' if action == 'cooling' else ('var(--orange-color)' if action == 'heating' else 'var(--amber-color)') %}
+      {% set c = 'var(--blue-color)' if action == 'cooling' else 'var(--amber-color)' %}
     {% endif %}
     .bubble-button-card-container {
       border-radius: 22px !important;

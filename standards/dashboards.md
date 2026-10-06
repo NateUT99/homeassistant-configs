@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.9.0 — October 2026*
+*Version 1.10.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.10.0 | October 2026 | Attention and heating colour is amber; orange retired outside the AQI scale |
 | 1.9.0 | October 2026 | §10 tints from theme variables via `color-mix()`; §10.1 security palette; §12 consequential actions on hold, confirmation only when an action must be a tap |
 | 1.8.0 | October 2026 | Home gains Apple-style room sections (header opens the room pop-up, pinned tiles below); Rooms tab kept as the overview |
 | 1.7.0 | October 2026 | Chips are attention-only and scroll in one row; Happening now section for running appliances; chore count moves to a navbar badge |
@@ -165,7 +166,7 @@ The current chip list and each chip's logic live in the guide.
 - **Conditional chips use `visibility`**, not CSS.
 - **Icon-only chips omit `name`** — never `name: ""`, which reserves an empty text slot.
 - **Contextual gating for openings:** a door, window, garage, or unlocked lock is red when
-  the household is asleep or away, orange when someone is home and awake. Leaks are always
+  the household is asleep or away, amber when someone is home and awake. Leaks are always
   red, ungated.
 - **Sensitive toggles are hold-only:** `tap_action: none`, `hold_action: toggle` (guest
   mode, presence booleans). A hold that changes a security device (lock, garage) also
@@ -244,14 +245,15 @@ so every HA function and every `custom_templates` macro is available.
 | Meaning | Colour | Variable |
 |---|---|---|
 | Normal / secured | Green | `--green-color` |
-| Attention — home and awake | Orange | `--orange-color` |
+| Attention — home and awake | Amber | `--amber-color` |
 | Alert — asleep, away, leak, fault | Red | `--red-color` |
-| Active / running | Orange (heating), blue (cooling), amber (lights and other devices on) | `--orange-color`, `--blue-color`, `--amber-color` |
+| Active / running | Amber (heating, lights, other devices on), blue (cooling) | `--amber-color`, `--blue-color` |
 | In progress (Happening now) | Cyan (laundry, dishwasher), purple (vacuum) | `--cyan-color`, `--purple-color` |
 | Neutral / informational | Theme default | `--primary-text-color` at low opacity |
 
-Use theme variables, never hex or RGB values, so light and dark modes both work. Tints and
-glows are the variable mixed toward transparent — `color-mix(in srgb, var(--orange-color) 22%,
+Amber is the attention colour; `--orange-color` is not used, except where an external scale
+defines it (the EPA AQI scale on the AQI chip). Use theme variables, never hex or RGB values, so light and dark modes both work. Tints and
+glows are the variable mixed toward transparent — `color-mix(in srgb, var(--amber-color) 22%,
 transparent)` — not a hard-coded `rgba()`.
 
 **Tint is for attention, not for normal.** A tile or card is tinted and glows only when it is
@@ -265,7 +267,7 @@ computed by `alert_level()` in `dashboard.jinja` so tiles and chips never disagr
 | State | Condition | Look |
 |---|---|---|
 | Secure | Locked / closed | Green icon; no tint |
-| Not secure, attention | Unlocked or open, someone home and awake | Orange tint, glow, and icon badge |
+| Not secure, attention | Unlocked or open, someone home and awake | Amber tint, glow, and icon badge |
 | Not secure, alert | Unlocked or open while everyone is asleep or nobody is home | Red tint, glow, and icon badge |
 
 The `apple_tile` module applies this automatically to any `lock` or `cover` entity.

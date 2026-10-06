@@ -35,7 +35,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
          │
          └── shared Jinja: /config/custom_templates/dashboard.jinja
                room_summary(area, temp, fan)   tile + pop-up header text
-               alert_level()                   red if asleep/away, else orange
+               alert_level()                   red if asleep/away, else amber
 ```
 
 **Design decisions:**
@@ -118,17 +118,17 @@ card's `styles`, keyed by each chip's `css_class` (`standards/dashboards.md` §7
 |---|---|---|---|---|
 | Leak | Any `water_leak_sensor`-labelled sensor on | Red | `#security` | — |
 | Internet | WAN down or modem power cycle active | Red | — | — |
-| Generator | `sensor.outside_home_generator_status` = `Running` | Orange | — | — |
+| Generator | `sensor.outside_home_generator_status` = `Running` | Amber | — | — |
 | Fridge | Refrigerator plug off or power sensor unavailable | Red | — | — |
 | Openings | Any exterior opening except the front door (owned by Doors) open; "N open" | `alert_level()` colour | `#security` | — |
-| HVAC paused | `input_select.household_hvac_mode_before_pause` ≠ `none` | Orange | `#climate` | — |
+| HVAC paused | `input_select.household_hvac_mode_before_pause` ≠ `none` | Amber | `#climate` | — |
 | Doors | Front door unlocked or open, or garage not closed; "Unlocked" / "Door open" / "Garage open" / "Door & garage" | `alert_level()` colour | `#security` | `script.household_secure_doors` (confirm) |
 | Recycling | Trash chore due/overdue | Amber, red overdue | Chores view | Mark "Take Out Trash" done |
 | AQI | AQI > 50 (not Good); index value | Yellow ≤ 100, orange ≤ 150, red | `#weather` | — |
 | Updates | Any `update.*` on; count | Primary | `/config/updates` | — |
-| Fireplace | Fireplace not `off`; setpoint | Orange | `#climate` | — |
+| Fireplace | Fireplace not `off`; setpoint | Amber | `#climate` | — |
 | Weather | Always; outside temp | Theme | `#weather` | — |
-| AI | Always; "All good" / "Check" | Orange when the house summary flagged attention | `#ai` | — |
+| AI | Always; "All good" / "Check" | Amber when the house summary flagged attention | `#ai` | — |
 | Nate | Always; "Nate home" / "Nate away" / "Nate asleep" (home while `input_boolean.everyone_sleeping` is on) | Green when home | more-info | — |
 | Avery | Always; "Avery here" / "Avery away" / "Avery asleep" — schedule (`binary_sensor.avery_home_today`) plus her sleep switch; she has no person entity | Green when asleep | — | Toggle `input_boolean.avery_sleeping` |
 
@@ -199,9 +199,9 @@ visible lights are on.
 
 A `Favorites` heading and a 2-column grid under the greeting: the Apple Home favourites plus
 Guest Mode. Every tile is a Bubble `button` with the `apple_tile` module. Front Door and Garage Door
-follow the security palette (`standards/dashboards.md` §10.1): green icon when secure, orange
+follow the security palette (`standards/dashboards.md` §10.1): green icon when secure, amber
 tint and glow when unlocked or open, red when that happens while everyone is asleep or nobody
-is home. The Thermostat tints orange while heating and blue while cooling. Other tiles are
+is home. The Thermostat tints amber while heating and blue while cooling. Other tiles are
 neutral when idle and tint amber while active.
 
 | Tile | Line under the name | Tap | Hold |
@@ -249,7 +249,7 @@ header shows the same `room_summary` as the tile.
 cards have a fixed height. Each shows *Working on it…* while its script entity is `on`.
 
 - **Briefing:** the headline in bold, then the tip.
-- **House Summary:** a *Needs attention* list (orange alert icons) when `attention_items` is
+- **House Summary:** a *Needs attention* list (amber alert icons) when `attention_items` is
   non-empty, then an *All good* list (green checks).
 - **This Week:** the digest headline in italics, then a borderless table. Electricity (kWh,
   cost, change vs. the week before) and Climate (heating/cooling hours) come from the Sunday
@@ -299,7 +299,7 @@ non-admin users (`hidden: [[[ return !user.is_admin ]]]`).
 
 **Batteries** use Battery State Card (HACS): every `device_class: battery` sensor except the
 Companion App devices (`sensor.nates_*`), lowest first. Batteries under 30 % are listed
-individually (orange under 30 %, red under 20 %); the rest collapse into one "N others OK"
+individually (amber under 30 %, red under 20 %); the rest collapse into one "N others OK"
 row showing the lowest level. New devices appear automatically.
 
 ---

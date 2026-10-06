@@ -76,9 +76,9 @@ views:
 
         .leak ha-icon, .internet ha-icon, .fridge ha-icon { color: var(--red-color) !important; }
 
-        .hvac-paused ha-icon { color: var(--orange-color) !important; }
+        .hvac-paused ha-icon { color: var(--amber-color) !important; }
 
-        .generator ha-icon { color: var(--orange-color) !important; }
+        .generator ha-icon { color: var(--amber-color) !important; }
 
         {% set aqi = states(''sensor.erie_ohio_usa_air_quality_index'') | int(0) %}
 
@@ -90,14 +90,14 @@ views:
 
         .avery ha-icon { color: {{ ''var(--green-color)'' if is_state(''input_boolean.avery_sleeping'',''on'') else ''var(--secondary-text-color)'' }} !important; }
 
-        .thermo ha-icon { color: {{ ''var(--orange-color)'' if is_state(''binary_sensor.household_hvac_heating'',''on'') else (''var(--blue-color)'' if is_state(''binary_sensor.household_hvac_cooling'',''on'')
+        .thermo ha-icon { color: {{ ''var(--amber-color)'' if is_state(''binary_sensor.household_hvac_heating'',''on'') else (''var(--blue-color)'' if is_state(''binary_sensor.household_hvac_cooling'',''on'')
         else ''var(--secondary-text-color)'') }} !important; }
 
-        .fireplace ha-icon { color: var(--orange-color) !important; }
+        .fireplace ha-icon { color: var(--amber-color) !important; }
 
         .vacuum ha-icon { color: {% if states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable''] or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable'']
         or is_state(''binary_sensor.vacuum_stuck'',''on'') %}var(--red-color){% elif is_state(''input_boolean.vacuum_routine_pause'',''on'') or states(''vacuum.living_room_vacuum'') in [''cleaning'',''returning'',''paused'']
-        %}var(--orange-color){% elif is_state(''input_boolean.vacuum_ran_daytime'',''on'') or is_state(''input_boolean.vacuum_ran_evening'',''on'') %}var(--green-color){% else %}var(--secondary-text-color){%
+        %}var(--amber-color){% elif is_state(''input_boolean.vacuum_ran_daytime'',''on'') or is_state(''input_boolean.vacuum_ran_evening'',''on'') %}var(--green-color){% else %}var(--secondary-text-color){%
         endif %} !important; }
 
         .chores ha-icon { color: var(--{{ ''red'' if expand(integration_entities(''chore_calendar'') | select(''match'',''sensor\\.'') | list) | selectattr(''state'',''eq'',''overdue'') | list | count >
@@ -113,7 +113,7 @@ views:
 
         .dishwasher ha-icon { color: var(--blue-color) !important; }
 
-        {% set g = state_attr(''sensor.household_ai_house_summary'',''generated_at'') %}.ai ha-icon { color: {{ ''var(--orange-color)'' if is_state(''sensor.household_ai_house_summary'',''attention'') and
+        {% set g = state_attr(''sensor.household_ai_house_summary'',''generated_at'') %}.ai ha-icon { color: {{ ''var(--amber-color)'' if is_state(''sensor.household_ai_house_summary'',''attention'') and
         g is not none and (now() - as_datetime(g)) < timedelta(hours=12) else ''var(--secondary-text-color)'' }} !important; }
 
 
@@ -2601,11 +2601,11 @@ views:
           state_attr(''sensor.household_ai_briefing'',''tip'') }}{% else %}No briefing yet.{% endif %}'
         uix:
           style:
-            ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--orange-color); } ha-icon[icon=''mdi:check-circle'']
+            ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
               { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
               none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
               0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
-            'ha-markdown $ ha-markdown-element:': 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--orange-color); } ha-icon[icon=''mdi:check-circle'']
+            'ha-markdown $ ha-markdown-element:': 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
               { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
               none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
               0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
@@ -2632,11 +2632,11 @@ views:
           i }}<br>{% endfor %}<br>{% endif %}<b>ALL GOOD</b><br>{% for i in ok %}<ha-icon icon="mdi:check-circle"></ha-icon>{{ i }}<br>{% endfor %}{% endif %}'
         uix:
           style:
-            ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--orange-color); } ha-icon[icon=''mdi:check-circle'']
+            ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
               { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
               none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
               0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
-            'ha-markdown $ ha-markdown-element:': 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--orange-color); } ha-icon[icon=''mdi:check-circle'']
+            'ha-markdown $ ha-markdown-element:': 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
               { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
               none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
               0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
@@ -2678,11 +2678,11 @@ views:
           </table>{% else %}The first digest arrives Sunday evening.{% endif %}'
         uix:
           style:
-            ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--orange-color); } ha-icon[icon=''mdi:check-circle'']
+            ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
               { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
               none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
               0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
-            'ha-markdown $ ha-markdown-element:': 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--orange-color); } ha-icon[icon=''mdi:check-circle'']
+            'ha-markdown $ ha-markdown-element:': 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
               { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
               none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
               0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
@@ -3210,7 +3210,7 @@ views:
             - value: 20
               color: var(--red-color)
             - value: 30
-              color: var(--orange-color)
+              color: var(--amber-color)
             - value: 100
               color: var(--green-color)
           collapse:

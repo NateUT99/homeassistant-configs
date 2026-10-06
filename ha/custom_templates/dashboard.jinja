@@ -29,11 +29,11 @@
 
 {#-
   Severity for an open door/window/garage or an unlocked lock: 'red' when the
-  household is asleep or nobody is home, otherwise 'orange'. Leaks are always
+  household is asleep or nobody is home, otherwise 'amber'. Leaks are always
   red and do not use this.
 -#}
 {% macro alert_level() -%}
-{{- 'red' if is_state('input_boolean.everyone_sleeping', 'on') or states('zone.home') | int(0) == 0 else 'orange' -}}
+{{- 'red' if is_state('input_boolean.everyone_sleeping', 'on') or states('zone.home') | int(0) == 0 else 'amber' -}}
 {%- endmacro %}
 
 {#-
