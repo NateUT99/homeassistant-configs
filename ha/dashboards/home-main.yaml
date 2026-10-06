@@ -126,7 +126,19 @@ views:
 
         .bubble-sub-button { flex-shrink: 0 !important; border-radius: 16px !important; padding: 0 12px !important; }
 
-        .nate ha-icon { color: {{ ''var(--green-color)'' if is_state(''person.nate'',''home'') else ''var(--secondary-text-color)'' }} !important; }'
+        .nate ha-icon { color: {{ ''var(--green-color)'' if is_state(''person.nate'',''home'') else ''var(--secondary-text-color)'' }} !important; }
+
+        {% from ''dashboard.jinja'' import climate_color, security_color, water_status, lights_on_count, media_playing_count %}
+
+        .cat-climate ha-icon { color: {{ climate_color() }} !important; }
+
+        .cat-lights ha-icon { color: {{ ''var(--amber-color)'' if lights_on_count() | int > 0 else ''var(--secondary-text-color)'' }} !important; }
+
+        .cat-security ha-icon { color: {{ security_color() }} !important; }
+
+        .cat-water ha-icon { color: {{ ''var(--green-color)'' if water_status() == ''No leaks'' else ''var(--red-color)'' }} !important; }
+
+        .cat-media ha-icon { color: {{ ''var(--purple-color)'' if media_playing_count() | int > 0 else ''var(--secondary-text-color)'' }} !important; }'
       sub_button:
         main: []
         bottom:
@@ -134,20 +146,6 @@ views:
           buttons_layout: inline
           justify_content: start
           group:
-          - fill_width: false
-            state_background: false
-            light_background: false
-            css_class: leak
-            show_name: true
-            icon: mdi:water-alert
-            name: Leak
-            tap_action:
-              action: navigate
-              navigation_path: '#security'
-            visibility:
-            - condition: template
-              value_template: '{{ label_entities(''water_leak_sensor'') | select(''is_state'',''on'') | list | count > 0 }}'
-            custom_height: 40
           - fill_width: false
             state_background: false
             light_background: false
@@ -200,68 +198,75 @@ views:
           - fill_width: false
             state_background: false
             light_background: false
-            entity: binary_sensor.household_exterior_openings
-            css_class: openings
             show_name: true
-            icon: mdi:door-open
-            name: '{{ expand(''binary_sensor.household_exterior_openings'') | rejectattr(''entity_id'',''eq'',''binary_sensor.entrance_front_door'') | selectattr(''state'',''eq'',''on'') | list | count
-              }} open'
-            tap_action:
-              action: navigate
-              navigation_path: '#security'
-            visibility:
-            - condition: template
-              value_template: '{{ expand(''binary_sensor.household_exterior_openings'') | rejectattr(''entity_id'',''eq'',''binary_sensor.entrance_front_door'') | selectattr(''state'',''eq'',''on'') | list
-                | count > 0 }}'
             custom_height: 40
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: input_select.household_hvac_mode_before_pause
-            css_class: hvac-paused
-            show_name: true
-            icon: mdi:hvac-off
-            name: HVAC paused
+            css_class: cat-climate
+            entity: climate.living_room_thermostat
+            icon: mdi:thermostat
+            name: '{% from ''dashboard.jinja'' import climate_status %}{{ climate_status() }}'
             tap_action:
               action: navigate
               navigation_path: '#climate'
-            visibility:
-            - condition: state
-              entity: input_select.household_hvac_mode_before_pause
-              state_not: none
-            custom_height: 40
+            hold_action:
+              action: navigate
+              navigation_path: '#weather'
           - fill_width: false
             state_background: false
             light_background: false
+            show_name: true
+            custom_height: 40
+            css_class: cat-lights
+            icon: mdi:lightbulb-group
+            name: '{% from ''dashboard.jinja'' import lights_on_count %}{% set n = lights_on_count() | int %}{{ (n ~ '' on'') if n else ''All off'' }}'
+            tap_action:
+              action: navigate
+              navigation_path: '#lights'
+            hold_action:
+              action: none
+          - fill_width: false
+            state_background: false
+            light_background: false
+            show_name: true
+            custom_height: 40
+            css_class: cat-security
             entity: lock.entrance_front_door
-            css_class: doors
-            icon: '{% set unlocked = not is_state(''lock.entrance_front_door'',''locked'') %}{% set front_open = is_state(''binary_sensor.entrance_front_door'',''on'') %}{% set garage_open = not is_state(''cover.garage_door_opener_door'',''closed'')
-              %}{% set issues = [unlocked or front_open, garage_open] | select | list | count %}{{ ''mdi:home-lock'' if issues == 0 else (''mdi:home-alert'' if issues > 1 else (''mdi:garage-open-variant''
-              if garage_open else (''mdi:door-open'' if front_open else ''mdi:lock-open-variant''))) }}'
+            icon: '{% from ''dashboard.jinja'' import security_issues %}{{ ''mdi:shield-alert'' if security_issues() else ''mdi:shield-check'' }}'
+            name: '{% from ''dashboard.jinja'' import security_status %}{{ security_status() }}'
             tap_action:
               action: navigate
               navigation_path: '#security'
             hold_action:
               action: perform-action
               perform_action: script.household_secure_doors
-              confirmation:
-                text: Lock the front door and close the garage?
-            custom_height: 40
-            visibility:
-            - condition: or
-              conditions:
-              - condition: state
-                entity: lock.entrance_front_door
-                state_not: locked
-              - condition: state
-                entity: binary_sensor.entrance_front_door
-                state: 'on'
-              - condition: state
-                entity: cover.garage_door_opener_door
-                state_not: closed
+          - fill_width: false
+            state_background: false
+            light_background: false
             show_name: true
-            name: '{% set u = not is_state(''lock.entrance_front_door'',''locked'') %}{% set f = is_state(''binary_sensor.entrance_front_door'',''on'') %}{% set g = not is_state(''cover.garage_door_opener_door'',''closed'')
-              %}{{ ''Door & garage'' if (u or f) and g else (''Garage open'' if g else (''Door open'' if f else ''Unlocked'')) }}'
+            custom_height: 40
+            css_class: cat-water
+            icon: '{% from ''dashboard.jinja'' import water_status %}{{ ''mdi:water-alert'' if water_status() != ''No leaks'' else ''mdi:water-check'' }}'
+            name: '{% from ''dashboard.jinja'' import water_status %}{{ water_status() }}'
+            tap_action:
+              action: navigate
+              navigation_path: '#security'
+            hold_action:
+              action: none
+            visibility:
+            - condition: template
+              value_template: '{{ label_entities(''water_leak_sensor'') | select(''is_state'',''on'') | list | count > 0 }}'
+          - fill_width: false
+            state_background: false
+            light_background: false
+            show_name: true
+            custom_height: 40
+            css_class: cat-media
+            icon: mdi:speaker-multiple
+            name: '{% from ''dashboard.jinja'' import media_playing_count %}{% set n = media_playing_count() | int %}{{ (n ~ '' playing'') if n else ''Media off'' }}'
+            tap_action:
+              action: navigate
+              navigation_path: '#media'
+            hold_action:
+              action: none
           - fill_width: false
             state_background: false
             light_background: false
@@ -291,22 +296,6 @@ views:
           - fill_width: false
             state_background: false
             light_background: false
-            entity: sensor.erie_ohio_usa_air_quality_index
-            css_class: aqi
-            show_name: true
-            icon: mdi:weather-hazy
-            name: AQI {{ states('sensor.erie_ohio_usa_air_quality_index') }}
-            tap_action:
-              action: navigate
-              navigation_path: '#weather'
-            visibility:
-            - condition: numeric_state
-              entity: sensor.erie_ohio_usa_air_quality_index
-              above: 50
-            custom_height: 40
-          - fill_width: false
-            state_background: false
-            light_background: false
             css_class: updates
             show_name: true
             icon: mdi:update
@@ -317,32 +306,6 @@ views:
             visibility:
             - condition: template
               value_template: '{{ states.update | selectattr(''state'',''eq'',''on'') | list | count > 0 }}'
-            custom_height: 40
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: climate.living_room_fireplace
-            css_class: fireplace
-            show_name: true
-            icon: mdi:fireplace
-            name: '{{ state_attr(''climate.living_room_fireplace'',''temperature'') | int(0) }}°'
-            tap_action:
-              action: navigate
-              navigation_path: '#climate'
-            visibility:
-            - condition: state
-              entity: climate.living_room_fireplace
-              state_not: 'off'
-            custom_height: 40
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: weather.outside_waterville_oh_usa
-            show_name: true
-            name: '{{ states(''sensor.outside_temperature'') | float(0) | round(0) | int }}°'
-            tap_action:
-              action: navigate
-              navigation_path: '#weather'
             custom_height: 40
           - fill_width: false
             state_background: false
@@ -913,8 +876,10 @@ views:
       - type: conditional
         conditions:
         - condition: state
-          entity: binary_sensor.master_bedroom_homepod_active
-          state: 'on'
+          entity: media_player.master_bedroom_homepod
+          state:
+          - playing
+          - paused
         card:
           type: custom:bubble-card
           card_type: media-player
@@ -1012,8 +977,10 @@ views:
       - type: conditional
         conditions:
         - condition: state
-          entity: binary_sensor.averys_room_homepod_active
-          state: 'on'
+          entity: media_player.averys_room_homepod
+          state:
+          - playing
+          - paused
         card:
           type: custom:bubble-card
           card_type: media-player
@@ -1111,8 +1078,10 @@ views:
       - type: conditional
         conditions:
         - condition: state
-          entity: binary_sensor.office_homepod_active
-          state: 'on'
+          entity: media_player.office_homepod
+          state:
+          - playing
+          - paused
         card:
           type: custom:bubble-card
           card_type: media-player
@@ -1340,8 +1309,10 @@ views:
       - type: conditional
         conditions:
         - condition: state
-          entity: binary_sensor.kitchen_homepod_active
-          state: 'on'
+          entity: media_player.kitchen_homepod
+          state:
+          - playing
+          - paused
         card:
           type: custom:bubble-card
           card_type: media-player
@@ -2783,6 +2754,657 @@ views:
               none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
               0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
       show_header: false
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#lights'
+      name: Lights
+      icon: mdi:lightbulb-group
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: heading
+        heading: Living Room
+        heading_style: subtitle
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.living_room_tv_accent
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.living_room_status_lamp
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.living_room_mantle_status_light
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.living_room_turntable_platter
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+      - type: heading
+        heading: Master Bedroom
+        heading_style: subtitle
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.master_bedroom_ceiling_fan_light
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.master_bedroom_left_nightstand_lamp
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+      - type: heading
+        heading: Avery's Room
+        heading_style: subtitle
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.averys_room_ceiling_fan_light
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.averys_room_desk_lamp
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.averys_room_dresser_lamp
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+      - type: heading
+        heading: Office
+        heading_style: subtitle
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.office_ceiling_fan_light
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.office_desk_key_light
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.office_bourbon_lamp
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.office_wall_wash
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.office_monitor_light_bar
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.record_cabinets
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.office_coke_machine
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+      - type: heading
+        heading: Family Room
+        heading_style: subtitle
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.family_room_ambient_lamp
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.family_room_alice_pinball_underglow
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.family_room_peanuts_pinball_underglow
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+      - type: heading
+        heading: Kitchen
+        heading_style: subtitle
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.kitchen_overhead_sink
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+      - type: heading
+        heading: Entrance
+        heading_style: subtitle
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.entrance_status_lamp
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+      - type: heading
+        heading: Garage
+        heading_style: subtitle
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.garage_door_opener_light
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+      - type: heading
+        heading: Outside
+        heading_style: subtitle
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.outside_porch_bulbs
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.outside_front_door_bulbs
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.outside_garage_bulbs
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+      - type: heading
+        heading: Bathroom
+        heading_style: subtitle
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.bathroom_ambient_lamp
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+      - type: heading
+        heading: Utility Room
+        heading_style: subtitle
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: light.utility_room_ceiling_lights
+          state_content: state
+          tap_action:
+            action: toggle
+          hold_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#media'
+      name: Media
+      icon: mdi:speaker-multiple
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: heading
+        heading: Living Room
+        heading_style: subtitle
+      - type: custom:bubble-card
+        card_type: media-player
+        entity: media_player.living_room_appletv
+        name: Apple TV
+        cover_background: true
+        hide:
+          power_button: true
+          volume_button: true
+          previous_button: true
+          next_button: true
+        sub_button:
+          main:
+          - entity: media_player.living_room_soundbar
+            sub_button_type: slider
+            icon: mdi:volume-high
+            always_visible: true
+            width: 130
+      - type: heading
+        heading: Master Bedroom
+        heading_style: subtitle
+      - type: custom:bubble-card
+        card_type: media-player
+        entity: media_player.master_bedroom_appletv
+        name: Apple TV
+        cover_background: true
+        hide:
+          power_button: true
+          volume_button: true
+          previous_button: true
+          next_button: true
+        sub_button:
+          main:
+          - entity: media_player.master_bedroom_tv
+            sub_button_type: slider
+            icon: mdi:volume-high
+            always_visible: true
+            width: 130
+      - type: custom:bubble-card
+        card_type: media-player
+        entity: media_player.master_bedroom_homepod
+        name: HomePod
+        cover_background: true
+        hide:
+          power_button: true
+      - type: heading
+        heading: Avery's Room
+        heading_style: subtitle
+      - type: custom:bubble-card
+        card_type: media-player
+        entity: media_player.averys_room_homepod
+        name: HomePod
+        cover_background: true
+        hide:
+          power_button: true
+      - type: heading
+        heading: Office
+        heading_style: subtitle
+      - type: custom:bubble-card
+        card_type: media-player
+        entity: media_player.office_homepod
+        name: HomePod
+        cover_background: true
+        hide:
+          power_button: true
+      - type: heading
+        heading: Family Room
+        heading_style: subtitle
+      - type: custom:bubble-card
+        card_type: media-player
+        entity: media_player.family_room_appletv
+        name: Apple TV
+        cover_background: true
+        hide:
+          power_button: true
+          volume_button: true
+          previous_button: true
+          next_button: true
+        sub_button:
+          main:
+          - entity: media_player.family_room_theater
+            sub_button_type: slider
+            icon: mdi:volume-high
+            always_visible: true
+            width: 130
+      - type: heading
+        heading: Kitchen
+        heading_style: subtitle
+      - type: custom:bubble-card
+        card_type: media-player
+        entity: media_player.kitchen_homepod
+        name: HomePod
+        cover_background: true
+        hide:
+          power_button: true
 - title: Climate
   path: climate
   type: sections

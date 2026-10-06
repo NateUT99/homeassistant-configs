@@ -56,10 +56,12 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   speaker it plays through, so Apple TV cards hide it and add an always-visible slider
   sub-button on the real speaker (Sonos, or the bedroom TV). The `#living-room` pop-up keeps
   Yet Another Media Player (`volume_entity` to the Soundbar, `remote_entity` for a remote pad).
-- **HomePods need a grace period, Apple TVs don't.** A HomePod sits `paused` for hours after
-  any AirPlay session, so its card follows a template sensor that stays on for 10 minutes
-  after playback stops (`ha/packages/media_activity.yaml`). An Apple TV's `paused` means a
-  show you'll come back to, so its card shows while playing or paused.
+- **Room media cards show while playing or paused.** A paused Apple TV is a show you'll
+  come back to. A HomePod usually times out from `paused` to `idle` on its own 8 minutes
+  after it stops (every time for Avery's Room over 10 days; the Office stayed paused longer
+  once after rapid play/pause toggling), which is the grace period a resumable card needs,
+  so no helper is involved. If HomePod cards linger in practice, the fix is a per-HomePod
+  `delay_off` template sensor.
 - **Areas fold into pop-ups instead of getting tiles** when they have nothing controlled
   from the dashboard more than occasionally (`standards/dashboards.md` §8.1).
 
@@ -112,32 +114,34 @@ To edit in the UI, open `/home-main/home?disable_km`.
 ### 3. Chip strip
 
 One Bubble `sub-buttons` card: a single row that scrolls sideways (`rows: 0.9`, chips
-`custom_height: 40`, overflow styles in the card's `styles`). Chips are for what needs
-attention; things you control are Favorites, and running appliances are Happening now.
-Order is alerts first, then things due, then status. Chip icon colours are Jinja in the
-card's `styles`, keyed by each chip's `css_class` (`standards/dashboards.md` §7, §10).
+`custom_height: 40`, overflow styles in the card's `styles`). It follows Apple Home's top
+row: always-on **category chips** with a one-line status, plus a few standalone chips. Status
+text and icon colours come from macros in `dashboard.jinja` (`climate_status`,
+`security_status`, `lights_on_count`, …), so the strip's own config stays small. Things you
+control are Favorites; running appliances are Happening now.
 
-| Chip | Shows | Colour | Tap | Hold |
-|---|---|---|---|---|
-| Leak | Any `water_leak_sensor`-labelled sensor on | Red | `#security` | — |
-| Internet | WAN down or modem power cycle active | Red | — | — |
-| Generator | `sensor.outside_home_generator_status` = `Running` | Amber | — | — |
-| Fridge | Refrigerator plug off or power sensor unavailable | Red | — | — |
-| Openings | Any exterior opening except the front door (owned by Doors) open; "N open" | `alert_level()` colour | `#security` | — |
-| HVAC paused | `input_select.household_hvac_mode_before_pause` ≠ `none` | Amber | `#climate` | — |
-| Doors | Front door unlocked or open, or garage not closed; "Unlocked" / "Door open" / "Garage open" / "Door & garage" | `alert_level()` colour | `#security` | `script.household_secure_doors` (confirm) |
-| Recycling | Trash chore due/overdue | Amber, red overdue | Chores view | Mark "Take Out Trash" done |
-| AQI | AQI > 50 (not Good); index value | Yellow ≤ 100, orange ≤ 150, red | `#weather` | — |
-| Updates | Any `update.*` on; count | Primary | `/config/updates` | — |
-| Fireplace | Fireplace not `off`; setpoint | Amber | `#climate` | — |
-| Weather | Always; outside temp | Theme | `#weather` | — |
-| AI | Always; "All good" / "Check" | Amber when the house summary flagged attention | `#ai` | — |
-| Nate | Always; "Nate home" / "Nate away" / "Nate asleep" (home while `input_boolean.everyone_sleeping` is on) | Green when home | more-info | — |
-| Avery | Always; "Avery here" / "Avery away" / "Avery asleep" — schedule (`binary_sensor.avery_home_today`) plus her sleep switch; she has no person entity | Green when asleep | — | Toggle `input_boolean.avery_sleeping` |
+| Chip | Shows | Status line | Icon colour | Tap | Hold |
+|---|---|---|---|---|---|
+| Internet | WAN down or modem power cycle | "Down" / "Modem reset" | Red | — | — |
+| Generator | Running | "Generator" | Amber | — | — |
+| Fridge | Plug off or power sensor unavailable | "Fridge" | Red | — | — |
+| **Climate** | Always | Indoor temp, then any of "Heating" / "Cooling" / "HVAC paused", "Fireplace", "AQI n" (> 50) | Red AQI > 150; amber heating, paused, fireplace, or AQI > 100; blue cooling | `#climate` | `#weather` |
+| **Lights** | Always | "N on" / "All off" (visible lights in the areas listed in `house_light_areas()`) | Amber when any are on | `#lights` | — |
+| **Security** | Always | "Secure", or the issues: "Unlocked", "Door open", "Garage open", "N open" | Green secure, else `alert_level()` (amber / red) | `#security` | `script.household_secure_doors` |
+| **Water** | A leak | "Leak: <sensor>" | Red | `#security` | — |
+| **Media** | Always | "N playing" / "Media off" (Apple TVs playing; HomePods playing or paused) | Purple when playing | `#media` | — |
+| Recycling | Trash chore due/overdue | "Recycling" | Amber, red overdue | Chores view | Mark "Take Out Trash" done |
+| Updates | Any `update.*` on | count | Primary | `/config/updates` | — |
+| AI | Always | "All good" / "Check" | Amber when the house summary flagged attention | `#ai` | — |
+| Nate | Always | "Nate home" / "away" / "asleep" | Green when home | more-info | — |
+| Avery | Always | "Avery here" / "away" / "asleep" — schedule plus her sleep switch; she has no person entity | Green when asleep | — | Toggle `input_boolean.avery_sleeping` |
 
-The vacuum has no chip: its state, errors, and "routine paused" show on the Roborock favorite,
-due maintenance becomes chores (`guides/vacuum_cleaning_routine.md`), and the routine-pause
-toggle lives in `#vacuum`. Chores other than trash are not a chip: the navbar's Chores tab carries a red badge — a dot
+**`#lights`** lists every light by room (Living Room through Utility Room) as `apple_tile`
+tiles — tap toggles, hold opens more-info. **`#media`** lists every Apple TV and HomePod card
+by room, the same cards the room sections show. Both lists are static: a new light or player
+is added to the pop-up by hand.
+
+Chores other than trash are not a chip: the navbar's Chores tab carries a red badge — a dot
 for one due or overdue chore, the count for two or more.
 
 The Recycling chip appears in practice only on Trash & Recycling weeks: a trash-only week
@@ -166,38 +170,6 @@ start collapsed.
 | Kitchen | HomePod | Sink Light |
 | Outside | — | Porch, Front Door, Garage |
 
-**HomePod activity package** — `ha/packages/media_activity.yaml`, deployed to
-`/config/packages/media_activity.yaml`, reload with `template.reload`:
-
-```yaml
-# "Recently active" flags for the HomePods, used to show a room's media card on the
-# home-main dashboard: on while the HomePod is playing, and held on for 10 minutes after it
-# stops (delay_off). A paused HomePod keeps its card long enough to resume, but one left
-# paused for hours -- which HomePods do after any AirPlay session -- does not. Dashboard
-# visibility conditions have no duration option, which is why this lives in sensors. Apple
-# TVs don't need it: their cards show while playing or paused. See guides/home_dashboard.md.
-#
-# Deployed to /config/packages/media_activity.yaml; reload with template.reload.
-
-template:
-  - binary_sensor:
-      - name: Kitchen HomePod Active
-        unique_id: kitchen_homepod_active
-        state: "{{ is_state('media_player.kitchen_homepod', 'playing') }}"
-        delay_off: "00:10:00"
-      - name: Office HomePod Active
-        unique_id: office_homepod_active
-        state: "{{ is_state('media_player.office_homepod', 'playing') }}"
-        delay_off: "00:10:00"
-      - name: Master Bedroom HomePod Active
-        unique_id: master_bedroom_homepod_active
-        state: "{{ is_state('media_player.master_bedroom_homepod', 'playing') }}"
-        delay_off: "00:10:00"
-      - name: Averys Room HomePod Active
-        unique_id: averys_room_homepod_active
-        state: "{{ is_state('media_player.averys_room_homepod', 'playing') }}"
-        delay_off: "00:10:00"
-```
 
 The navbar's Rooms tab (`#rooms`) stays as the at-a-glance view of every room.
 
@@ -373,7 +345,6 @@ row showing the lowest level. New devices appear automatically.
 | `ha/dashboards/home-main.yaml` | HA storage (`home-main`) | Dashboard mirror (HA authoritative) |
 | `ha/bubble_modules/consumable_status.yaml` | `/config/bubble_card/modules/consumable_status.yaml` | Consumable icon colour module (repo authoritative) |
 | `ha/bubble_modules/apple_tile.yaml` | `/config/bubble_card/modules/apple_tile.yaml` | Apple-style Favorites tile module (repo authoritative) |
-| `ha/packages/media_activity.yaml` | `/config/packages/media_activity.yaml` | HomePod "recently active" sensors for room media cards (repo authoritative) |
 
 ---
 

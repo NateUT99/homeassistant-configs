@@ -61,3 +61,68 @@
 .bubble-icon-container { background: {{ color }} !important; }
 .bubble-icon { color: var(--primary-background-color) !important; }
 {%- endmacro %}
+
+{#-
+  Category chips (Apple Home-style status row). Each *_status() returns the chip's one-line
+  status; each *_color() returns the CSS colour for its icon (standards/dashboards.md §10).
+  Areas whose lights count toward the house total live in house_light_areas().
+-#}
+{% macro house_light_areas() -%}
+living_room,master_bedroom,averys_room,office,entertainment_room,kitchen,entrance,garage,outside,bathroom,utility_room
+{%- endmacro %}
+
+{% macro lights_on_count() -%}
+{%- set ns = namespace(n=0) -%}
+{%- for a in house_light_areas().split(',') %}{% set ns.n = ns.n + room_lights_on(a) | int %}{% endfor -%}
+{{- ns.n -}}
+{%- endmacro %}
+
+{% macro climate_status() -%}
+{%- set t = state_attr('climate.living_room_thermostat', 'current_temperature') | float(0) | round(0) | int -%}
+{%- set parts = [t ~ '°'] -%}
+{%- if not is_state('input_select.household_hvac_mode_before_pause', 'none') %}{% set parts = parts + ['HVAC paused'] %}
+{%- elif is_state('binary_sensor.household_hvac_heating', 'on') %}{% set parts = parts + ['Heating'] %}
+{%- elif is_state('binary_sensor.household_hvac_cooling', 'on') %}{% set parts = parts + ['Cooling'] %}{% endif -%}
+{%- if not is_state('climate.living_room_fireplace', 'off') %}{% set parts = parts + ['Fireplace'] %}{% endif -%}
+{%- set aqi = states('sensor.erie_ohio_usa_air_quality_index') | int(0) -%}
+{%- if aqi > 50 %}{% set parts = parts + ['AQI ' ~ aqi] %}{% endif -%}
+{{- parts | join(' · ') -}}
+{%- endmacro %}
+
+{% macro climate_color() -%}
+{%- set aqi = states('sensor.erie_ohio_usa_air_quality_index') | int(0) -%}
+{%- if aqi > 150 %}var(--red-color)
+{%- elif not is_state('input_select.household_hvac_mode_before_pause', 'none') or aqi > 100 or is_state('binary_sensor.household_hvac_heating', 'on') or not is_state('climate.living_room_fireplace', 'off') %}var(--amber-color)
+{%- elif is_state('binary_sensor.household_hvac_cooling', 'on') %}var(--blue-color)
+{%- else %}var(--secondary-text-color){% endif -%}
+{%- endmacro %}
+
+{% macro security_issues() -%}
+{%- set ns = namespace(o=[]) -%}
+{%- if not is_state('lock.entrance_front_door', 'locked') %}{% set ns.o = ns.o + ['Unlocked'] %}{% endif -%}
+{%- if is_state('binary_sensor.entrance_front_door', 'on') %}{% set ns.o = ns.o + ['Door open'] %}{% endif -%}
+{%- if not is_state('cover.garage_door_opener_door', 'closed') %}{% set ns.o = ns.o + ['Garage open'] %}{% endif -%}
+{%- set n = expand('binary_sensor.household_exterior_openings') | rejectattr('entity_id', 'eq', 'binary_sensor.entrance_front_door') | selectattr('state', 'eq', 'on') | list | count -%}
+{%- if n > 0 %}{% set ns.o = ns.o + [n ~ ' open'] %}{% endif -%}
+{{- ns.o | join(' · ') -}}
+{%- endmacro %}
+
+{% macro security_status() -%}
+{%- set i = security_issues() -%}
+{{- i if i else 'Secure' -}}
+{%- endmacro %}
+
+{% macro security_color() -%}
+{{- 'var(--' ~ alert_level() ~ '-color)' if security_issues() else 'var(--green-color)' -}}
+{%- endmacro %}
+
+{% macro water_status() -%}
+{%- set wet = label_entities('water_leak_sensor') | select('is_state', 'on') | map('state_attr', 'friendly_name') | list -%}
+{{- ('Leak: ' ~ wet | join(', ')) if wet else 'No leaks' -}}
+{%- endmacro %}
+
+{% macro media_playing_count() -%}
+{%- set tvs = ['media_player.living_room_appletv', 'media_player.family_room_appletv', 'media_player.master_bedroom_appletv'] | select('is_state', 'playing') | list | count -%}
+{%- set pods = ['media_player.kitchen_homepod', 'media_player.office_homepod', 'media_player.master_bedroom_homepod', 'media_player.averys_room_homepod'] | select('is_state', ['playing', 'paused']) | list | count -%}
+{{- tvs + pods -}}
+{%- endmacro %}
