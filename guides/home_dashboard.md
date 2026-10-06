@@ -151,8 +151,7 @@ is added to the pop-up by hand.
 
 | Chip | Icon and colour | Hold toggles |
 |---|---|---|
-| Front Door (icon only) | Lock when locked, open lock when unlocked, open door when the door is open; green when locked and closed, otherwise `alert_level()` (amber, or red while asleep or away) | `lock.entrance_front_door` (lock / unlock) |
-| Garage (icon only) | Closed or open garage; same colour rule | `cover.garage_door_opener_door` (open / close) |
+| Climate (icon only) | Thermostat icon: amber heating, blue cooling, grey idle or off; HVAC-off icon in amber while an open door or window has paused it | — (tap `#climate`, hold opens more-info) |
 | Nate | Sleep (indigo) while `input_boolean.everyone_sleeping` is on; otherwise home (green) or away (grey) from `person.nate` | `input_boolean.everyone_sleeping` |
 | Avery | Sleep (indigo) while `input_boolean.avery_sleeping` is on; otherwise home (green) on her scheduled days (`binary_sensor.avery_home_today`), away (grey) on others | `input_boolean.avery_sleeping` |
 | Pause (icon only) | Amber while the vacuum routine is paused | `input_boolean.vacuum_routine_pause` |
@@ -262,9 +261,8 @@ visible lights are on.
 
 ### Favorites
 
-A `Favorites` heading and a 2-column grid under the greeting: the Apple Home favourites. Every tile is a Bubble `button` with the `apple_tile` module. The front door and garage moved
-to the quick-action row as icon-only chips that follow the security palette
-(`standards/dashboards.md` §10.1). The Thermostat tints amber while heating and blue while cooling. Other tiles are
+A `Favorites` heading and a 2-column grid under the greeting: the Apple Home favourites. Every tile is a Bubble `button` with the `apple_tile` module. Door and lock status lives in the
+Security chip. The Thermostat tints amber while heating and blue while cooling. Other tiles are
 neutral when idle and tint amber while active.
 
 | Tile | Line under the name | Tap | Hold |

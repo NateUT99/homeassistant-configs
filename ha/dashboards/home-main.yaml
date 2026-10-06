@@ -316,26 +316,14 @@ views:
             light_background: false
             show_name: false
             custom_height: 40
+            entity: climate.living_room_thermostat
+            css_class: qa-climate
+            icon: '{{ ''mdi:hvac-off'' if not is_state(''input_select.household_hvac_mode_before_pause'',''none'') else ''mdi:thermostat'' }}'
             tap_action:
-              action: more-info
+              action: navigate
+              navigation_path: '#climate'
             hold_action:
-              action: toggle
-            entity: lock.entrance_front_door
-            icon: '{{ ''mdi:door-open'' if is_state(''binary_sensor.entrance_front_door'',''on'') else (''mdi:lock'' if is_state(''lock.entrance_front_door'',''locked'') else ''mdi:lock-open-variant'')
-              }}'
-            css_class: qa-door
-          - fill_width: false
-            state_background: false
-            light_background: false
-            show_name: false
-            custom_height: 40
-            tap_action:
               action: more-info
-            hold_action:
-              action: toggle
-            entity: cover.garage_door_opener_door
-            icon: '{{ ''mdi:garage'' if is_state(''cover.garage_door_opener_door'',''closed'') else ''mdi:garage-open'' }}'
-            css_class: qa-garage
           - fill_width: false
             state_background: false
             light_background: false
@@ -409,11 +397,8 @@ views:
         .qa-avery ha-icon { color: {{ ''var(--indigo-color)'' if is_state(''input_boolean.avery_sleeping'',''on'') else (''var(--green-color)'' if is_state(''binary_sensor.avery_home_today'',''on'') else
         ''var(--secondary-text-color)'') }} !important; }
 
-        {% from ''dashboard.jinja'' import alert_level %}{% set lvl = alert_level() %}
-
-        .qa-door ha-icon { color: var(--{{ ''green'' if is_state(''lock.entrance_front_door'',''locked'') and not is_state(''binary_sensor.entrance_front_door'',''on'') else lvl }}-color) !important; }
-
-        .qa-garage ha-icon { color: var(--{{ ''green'' if is_state(''cover.garage_door_opener_door'',''closed'') else lvl }}-color) !important; }'
+        .qa-climate ha-icon { color: {{ ''var(--amber-color)'' if not is_state(''input_select.household_hvac_mode_before_pause'',''none'') or is_state(''binary_sensor.household_hvac_heating'',''on'') else
+        (''var(--blue-color)'' if is_state(''binary_sensor.household_hvac_cooling'',''on'') else ''var(--secondary-text-color)'') }} !important; }'
     - type: markdown
       text_only: true
       grid_options:
