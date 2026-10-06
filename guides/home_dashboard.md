@@ -27,8 +27,8 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 │   │                                          Row 2  features
 │   │                         ── Greeting (markdown: "Good <part of day>, <name>!" + briefing)
 │   │                         ── Now Playing (YAMP; only while an Apple TV or HomePod plays)
-│   ├── Section 2 (span 4) ── Room tiles × 6 (Bubble button; full width on phone, 4-up desktop)
-│   └── Section 3          ── Pop-ups: 6 rooms + #security #climate #weather #vacuum #laundry #ai
+│   └── Section 2          ── Pop-ups: #rooms (room tiles × 6, 2-up) + 6 rooms
+│                             + #security #climate #weather #vacuum #laundry #ai
 │
 └── Chores view ── Navbar Card ── chore-calendar-card
          │
@@ -155,9 +155,13 @@ the line never overlaps the chips. A UIX style trims the heading's bottom margin
 | Living Room | — | Apple TV, Fireplace (more-info) | lights · temp |
 | Kitchen | — | — | lights · temp |
 | Family Room | — | Apple TV (more-info) | lights · temp |
-| Office | Ceiling light | Fan (toggle) | lights · fan · temp |
-| Master Bedroom | Ceiling light | Fan (toggle) | lights · fan · temp |
-| Avery's Room | Ceiling light | Fan (toggle) | lights · fan · temp |
+| Office | Ceiling light | Ceiling light, Fan | lights · fan · temp |
+| Master Bedroom | Ceiling light | Ceiling light, Fan | lights · fan · temp |
+| Avery's Room | Ceiling light | Ceiling light, Fan | lights · fan · temp |
+
+The tiles live in the `#rooms` pop-up (no header), opened from the navbar's Rooms tab: a
+2-column grid of Bubble buttons, `rows: 3`, with the tile buttons in the `bottom` sub-button
+row at 44 px. Light and fan buttons toggle on tap and open more-info on hold.
 
 Areas without a tile: Entrance, Garage, and Outside fold into `#security`; Utility Room
 into `#laundry`; the Bathroom lamp is automated and its leak sensor feeds the Leak chip;
@@ -218,7 +222,7 @@ is `alerting` or `fault`). Retrieval or the next cycle returns the status to `id
 
 ### 6. Views
 
-Navbar order: Home · Climate · Energy · Chores · Maintenance.
+Navbar order: Home · Rooms · Climate · Chores · More. Rooms opens `/home-main/home#rooms`; More opens a menu with Energy and Maintenance.
 
 | View | Path | Contents |
 |---|---|---|
@@ -234,9 +238,9 @@ tracked devices. Small smart plugs are deliberately not tracked devices — they
 "untracked" in the Sankey. The live power cards (`power-total`, `power-sankey`) are not used
 here; they fail outside the built-in Energy dashboard, which keeps its own Now tab.
 
-**Navbar badges and visibility:** the Energy route shows a red badge while
+**Navbar badges and visibility:** More, and Energy inside its menu, show a red badge while
 `binary_sensor.outside_home_generator_warning` or `_maintenance_alert` is on — generator
-problems surface there rather than as a Home chip. The Maintenance route is hidden for
+problems surface there rather than as a Home chip. The Maintenance item is hidden for
 non-admin users (`hidden: [[[ return !user.is_admin ]]]`).
 
 **Batteries** use Battery State Card (HACS): every `device_class: battery` sensor except the

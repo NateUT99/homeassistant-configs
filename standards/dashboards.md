@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.4.0 — October 2026*
+*Version 1.5.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.5.0 | October 2026 | Rooms move off Home into a `#rooms` pop-up opened from the navbar; large 2-up room tiles with a bottom row of quick buttons; navbar More menu |
 | 1.4.0 | October 2026 | Yet Another Media Player approved for media cards |
 | 1.3.0 | October 2026 | §11: AI text in structured markdown (lists, tables); numbers from HA, live where computable |
 | 1.2.0 | October 2026 | Home order: chips, then greeting (markdown) with the AI briefing; AI content lives in `#ai` behind an always-visible AI chip |
@@ -104,8 +105,9 @@ the view's first section. Desktop `position: left`; labels shown on both form fa
   desktop. Size cards with `grid_options` (`columns` on the 12-column section grid); never
   `layout_options`.
 - Full-width bands (briefing, chip strip) are a section with `column_span: 4`.
-- Room tiles sit in one `column_span: 4` section with `grid_options: {columns: 12}` — full
-  width on a phone (one tile per row), four per row on desktop.
+- Room tiles live in the `#rooms` pop-up (header hidden), opened from the navbar's Rooms tab:
+  a 2-column `grid` card of tiles with `rows: 3`, so the layout is the same on every form
+  factor.
 - Use the `screen` visibility condition only when a card genuinely differs by form factor.
   The default is the same content everywhere.
 - Pop-ups use `popup_mode: adaptive-dialog`: fit-content sheet on a phone, centred dialog
@@ -129,7 +131,7 @@ Sections, in order:
 3. **Condition-triggered sections** — appear only while relevant (vacuum running, laundry
    running, overdue chores), gated by section-level `visibility` on entity state. No
    helper toggles.
-4. **Rooms** — one section of room tiles (§8).
+4. **Rooms** — not on Home. The navbar's Rooms tab opens the `#rooms` pop-up (§8).
 5. **Pop-ups** — one section holding every pop-up card; renders nothing until a hash opens
    one.
 
@@ -193,7 +195,7 @@ One Bubble `button` card per area:
 | `state_content` | Live summary from the shared macro (§9.2), e.g. `3 lights on · 69°` |
 | Tap (`button_action.tap_action` and `tap_action`) | `navigate` to `#<area-slug>` |
 | Hold (`button_action.hold_action` and `hold_action`) | `toggle` the primary light; `none` when there is no primary light in HA |
-| Sub-buttons | **Primary room controls only**: ceiling fan, primary TV/Apple TV, fireplace. Zero to two. Lamps, accents, key lights, and indicators belong in the pop-up |
+| Sub-buttons | **Primary room controls only**, in the `bottom` row with `custom_height: 44`: ceiling light and ceiling fan where both exist (tap toggles, hold opens more-info), primary TV/Apple TV, fireplace. Lamps, accents, key lights, and indicators belong in the pop-up |
 
 Bind actions on both the icon (`tap_action`/`hold_action`) and the body
 (`button_action.*`) — see `LESSONS.md` → *Bubble Card icon vs. button action areas*.

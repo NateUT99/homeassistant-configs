@@ -12,25 +12,37 @@ navbar-templates:
       icon: mdi:home-outline
       icon_selected: mdi:home
       label: Home
+    - icon: mdi:view-grid-outline
+      icon_selected: mdi:view-grid
+      label: Rooms
+      tap_action:
+        action: navigate
+        navigation_path: /home-main/home#rooms
     - url: /home-main/climate
       icon: mdi:thermometer
       label: Climate
-    - url: /home-main/energy
-      icon: mdi:lightning-bolt-outline
-      icon_selected: mdi:lightning-bolt
-      label: Energy
-      badge:
-        show: '[[[ return states[''binary_sensor.outside_home_generator_warning'']?.state === ''on'' || states[''binary_sensor.outside_home_generator_maintenance_alert'']?.state === ''on'' ]]]'
-        color: red
     - url: /home-main/chores
       icon: mdi:clipboard-check-outline
       icon_selected: mdi:clipboard-check
       label: Chores
-    - url: /home-main/maintenance
-      icon: mdi:wrench-outline
-      icon_selected: mdi:wrench
-      label: Maintenance
-      hidden: '[[[ return !user.is_admin ]]]'
+    - icon: mdi:dots-horizontal
+      label: More
+      tap_action:
+        action: open-popup
+      badge:
+        show: '[[[ return states[''binary_sensor.outside_home_generator_warning'']?.state === ''on'' || states[''binary_sensor.outside_home_generator_maintenance_alert'']?.state === ''on'' ]]]'
+        color: red
+      popup:
+      - url: /home-main/energy
+        icon: mdi:lightning-bolt
+        label: Energy
+        badge:
+          show: '[[[ return states[''binary_sensor.outside_home_generator_warning'']?.state === ''on'' || states[''binary_sensor.outside_home_generator_maintenance_alert'']?.state === ''on'' ]]]'
+          color: red
+      - url: /home-main/maintenance
+        icon: mdi:wrench
+        label: Maintenance
+        hidden: '[[[ return !user.is_admin ]]]'
 views:
 - title: Home
   path: home
@@ -578,162 +590,201 @@ views:
         action: remote_control
         placement: replace_power
   - type: grid
-    column_span: 4
     cards:
     - type: custom:bubble-card
-      card_type: button
+      card_type: pop-up
+      hash: '#rooms'
+      name: Rooms
+      icon: mdi:view-grid
       button_type: name
-      name: Living Room
-      icon: mdi:sofa
-      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''living_room'', ''sensor.living_room_thermostat_temperature'') }}'
-      tap_action:
-        action: navigate
-        navigation_path: '#living-room'
-      hold_action:
-        action: none
-      button_action:
-        tap_action:
-          action: navigate
-          navigation_path: '#living-room'
-        hold_action:
-          action: none
-      grid_options:
-        columns: 12
-      sub_button:
-        main:
-        - entity: media_player.living_room_appletv
-          icon: mdi:apple
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: name
+          name: Living Room
+          icon: mdi:sofa
+          state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''living_room'', ''sensor.living_room_thermostat_temperature'') }}'
           tap_action:
             action: navigate
             navigation_path: '#living-room'
-        - entity: climate.living_room_fireplace
-          icon: mdi:fireplace
+          hold_action:
+            action: none
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#living-room'
+            hold_action:
+              action: none
+          sub_button:
+            bottom:
+            - entity: media_player.living_room_appletv
+              icon: mdi:apple
+              tap_action:
+                action: navigate
+                navigation_path: '#living-room'
+              custom_height: 44
+            - entity: climate.living_room_fireplace
+              icon: mdi:fireplace
+              tap_action:
+                action: more-info
+              custom_height: 44
+          rows: 3
+        - type: custom:bubble-card
+          card_type: button
+          button_type: name
+          name: Kitchen
+          icon: mdi:stove
+          state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''kitchen'', ''sensor.kitchen_climate_temperature'') }}'
           tap_action:
-            action: more-info
-    - type: custom:bubble-card
-      card_type: button
-      button_type: name
-      name: Kitchen
-      icon: mdi:stove
-      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''kitchen'', ''sensor.kitchen_climate_temperature'') }}'
-      tap_action:
-        action: navigate
-        navigation_path: '#kitchen'
-      hold_action:
-        action: none
-      button_action:
-        tap_action:
-          action: navigate
-          navigation_path: '#kitchen'
-        hold_action:
-          action: none
-      grid_options:
-        columns: 12
-    - type: custom:bubble-card
-      card_type: button
-      button_type: name
-      name: Family Room
-      icon: mdi:pac-man
-      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''entertainment_room'', ''sensor.family_room_climate_temperature'') }}'
-      tap_action:
-        action: navigate
-        navigation_path: '#family-room'
-      hold_action:
-        action: none
-      button_action:
-        tap_action:
-          action: navigate
-          navigation_path: '#family-room'
-        hold_action:
-          action: none
-      grid_options:
-        columns: 12
-      sub_button:
-        main:
-        - entity: media_player.family_room_appletv
-          icon: mdi:apple
+            action: navigate
+            navigation_path: '#kitchen'
+          hold_action:
+            action: none
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#kitchen'
+            hold_action:
+              action: none
+          sub_button: {}
+          rows: 3
+        - type: custom:bubble-card
+          card_type: button
+          button_type: name
+          name: Family Room
+          icon: mdi:pac-man
+          state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''entertainment_room'', ''sensor.family_room_climate_temperature'') }}'
           tap_action:
-            action: more-info
-    - type: custom:bubble-card
-      card_type: button
-      button_type: switch
-      name: Office
-      icon: mdi:desktop-classic
-      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''office'', ''sensor.office_climate_temperature'', ''fan.office_ceiling_fan'') }}'
-      tap_action:
-        action: navigate
-        navigation_path: '#office'
-      hold_action:
-        action: toggle
-      button_action:
-        tap_action:
-          action: navigate
-          navigation_path: '#office'
-        hold_action:
-          action: toggle
-      grid_options:
-        columns: 12
-      entity: light.office_ceiling_fan_light
-      sub_button:
-        main:
-        - entity: fan.office_ceiling_fan
-          icon: mdi:ceiling-fan
+            action: navigate
+            navigation_path: '#family-room'
+          hold_action:
+            action: none
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#family-room'
+            hold_action:
+              action: none
+          sub_button:
+            bottom:
+            - entity: media_player.family_room_appletv
+              icon: mdi:apple
+              tap_action:
+                action: more-info
+              custom_height: 44
+          rows: 3
+        - type: custom:bubble-card
+          card_type: button
+          button_type: switch
+          name: Office
+          icon: mdi:desktop-classic
+          state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''office'', ''sensor.office_climate_temperature'', ''fan.office_ceiling_fan'') }}'
           tap_action:
+            action: navigate
+            navigation_path: '#office'
+          hold_action:
             action: toggle
-    - type: custom:bubble-card
-      card_type: button
-      button_type: switch
-      name: Master Bedroom
-      icon: mdi:bed-king
-      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''master_bedroom'', ''sensor.master_bedroom_climate_temperature'', ''fan.master_bedroom_ceiling_fan'') }}'
-      tap_action:
-        action: navigate
-        navigation_path: '#master-bedroom'
-      hold_action:
-        action: toggle
-      button_action:
-        tap_action:
-          action: navigate
-          navigation_path: '#master-bedroom'
-        hold_action:
-          action: toggle
-      grid_options:
-        columns: 12
-      entity: light.master_bedroom_ceiling_fan_light
-      sub_button:
-        main:
-        - entity: fan.master_bedroom_ceiling_fan
-          icon: mdi:ceiling-fan
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#office'
+            hold_action:
+              action: toggle
+          entity: light.office_ceiling_fan_light
+          sub_button:
+            bottom:
+            - entity: light.office_ceiling_fan_light
+              icon: mdi:ceiling-light
+              tap_action:
+                action: toggle
+              custom_height: 44
+              hold_action:
+                action: more-info
+            - entity: fan.office_ceiling_fan
+              icon: mdi:ceiling-fan
+              tap_action:
+                action: toggle
+              custom_height: 44
+              hold_action:
+                action: more-info
+          rows: 3
+        - type: custom:bubble-card
+          card_type: button
+          button_type: switch
+          name: Master Bedroom
+          icon: mdi:bed-king
+          state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''master_bedroom'', ''sensor.master_bedroom_climate_temperature'', ''fan.master_bedroom_ceiling_fan'') }}'
           tap_action:
+            action: navigate
+            navigation_path: '#master-bedroom'
+          hold_action:
             action: toggle
-    - type: custom:bubble-card
-      card_type: button
-      button_type: switch
-      name: Avery's Room
-      icon: mdi:teddy-bear
-      state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''averys_room'', ''sensor.averys_room_climate_temperature'', ''fan.averys_room_ceiling_fan'') }}'
-      tap_action:
-        action: navigate
-        navigation_path: '#averys-room'
-      hold_action:
-        action: toggle
-      button_action:
-        tap_action:
-          action: navigate
-          navigation_path: '#averys-room'
-        hold_action:
-          action: toggle
-      grid_options:
-        columns: 12
-      entity: light.averys_room_ceiling_fan_light
-      sub_button:
-        main:
-        - entity: fan.averys_room_ceiling_fan
-          icon: mdi:ceiling-fan
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#master-bedroom'
+            hold_action:
+              action: toggle
+          entity: light.master_bedroom_ceiling_fan_light
+          sub_button:
+            bottom:
+            - entity: light.master_bedroom_ceiling_fan_light
+              icon: mdi:ceiling-light
+              tap_action:
+                action: toggle
+              custom_height: 44
+              hold_action:
+                action: more-info
+            - entity: fan.master_bedroom_ceiling_fan
+              icon: mdi:ceiling-fan
+              tap_action:
+                action: toggle
+              custom_height: 44
+              hold_action:
+                action: more-info
+          rows: 3
+        - type: custom:bubble-card
+          card_type: button
+          button_type: switch
+          name: Avery's Room
+          icon: mdi:teddy-bear
+          state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''averys_room'', ''sensor.averys_room_climate_temperature'', ''fan.averys_room_ceiling_fan'') }}'
           tap_action:
+            action: navigate
+            navigation_path: '#averys-room'
+          hold_action:
             action: toggle
-  - type: grid
-    cards:
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#averys-room'
+            hold_action:
+              action: toggle
+          entity: light.averys_room_ceiling_fan_light
+          sub_button:
+            bottom:
+            - entity: light.averys_room_ceiling_fan_light
+              icon: mdi:ceiling-light
+              tap_action:
+                action: toggle
+              custom_height: 44
+              hold_action:
+                action: more-info
+            - entity: fan.averys_room_ceiling_fan
+              icon: mdi:ceiling-fan
+              tap_action:
+                action: toggle
+              custom_height: 44
+              hold_action:
+                action: more-info
+          rows: 3
+      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#living-room'
