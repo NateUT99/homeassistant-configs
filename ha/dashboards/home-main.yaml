@@ -326,6 +326,31 @@ views:
           - fill_width: false
             state_background: false
             light_background: false
+            show_name: false
+            custom_height: 40
+            tap_action:
+              action: more-info
+            hold_action:
+              action: toggle
+            entity: lock.entrance_front_door
+            icon: '{{ ''mdi:door-open'' if is_state(''binary_sensor.entrance_front_door'',''on'') else (''mdi:lock'' if is_state(''lock.entrance_front_door'',''locked'') else ''mdi:lock-open-variant'')
+              }}'
+            css_class: qa-door
+          - fill_width: false
+            state_background: false
+            light_background: false
+            show_name: false
+            custom_height: 40
+            tap_action:
+              action: more-info
+            hold_action:
+              action: toggle
+            entity: cover.garage_door_opener_door
+            icon: '{{ ''mdi:garage'' if is_state(''cover.garage_door_opener_door'',''closed'') else ''mdi:garage-open'' }}'
+            css_class: qa-garage
+          - fill_width: false
+            state_background: false
+            light_background: false
             show_name: true
             custom_height: 40
             entity: input_boolean.everyone_sleeping
@@ -394,7 +419,13 @@ views:
         }} !important; }
 
         .qa-avery ha-icon { color: {{ ''var(--indigo-color)'' if is_state(''input_boolean.avery_sleeping'',''on'') else (''var(--green-color)'' if is_state(''binary_sensor.avery_home_today'',''on'') else
-        ''var(--secondary-text-color)'') }} !important; }'
+        ''var(--secondary-text-color)'') }} !important; }
+
+        {% from ''dashboard.jinja'' import alert_level %}{% set lvl = alert_level() %}
+
+        .qa-door ha-icon { color: var(--{{ ''green'' if is_state(''lock.entrance_front_door'',''locked'') and not is_state(''binary_sensor.entrance_front_door'',''on'') else lvl }}-color) !important; }
+
+        .qa-garage ha-icon { color: var(--{{ ''green'' if is_state(''cover.garage_door_opener_door'',''closed'') else lvl }}-color) !important; }'
     - type: markdown
       text_only: true
       grid_options:
@@ -444,43 +475,6 @@ views:
           .bubble-icon-container { background: var(--amber-color) !important; }
 
           .bubble-icon { color: var(--primary-background-color) !important; }{% endif %}'
-      - type: custom:bubble-card
-        card_type: button
-        button_type: state
-        modules:
-        - apple_tile
-        rows: 1.2
-        hold_action:
-          action: toggle
-        entity: lock.entrance_front_door
-        name: Front Door
-        state_content: state
-        tap_action:
-          action: more-info
-        button_action:
-          tap_action:
-            action: more-info
-          hold_action:
-            action: toggle
-      - type: custom:bubble-card
-        card_type: button
-        button_type: state
-        modules:
-        - apple_tile
-        rows: 1.2
-        hold_action:
-          action: toggle
-        entity: cover.garage_door_opener_door
-        name: Garage Door
-        icon: mdi:garage
-        state_content: state
-        tap_action:
-          action: more-info
-        button_action:
-          tap_action:
-            action: more-info
-          hold_action:
-            action: toggle
       - type: custom:bubble-card
         card_type: button
         button_type: state
