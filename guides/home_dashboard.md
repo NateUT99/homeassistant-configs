@@ -116,7 +116,7 @@ To edit in the UI, open `/home-main/home?disable_km`.
 One Bubble `sub-buttons` card: a single row that scrolls sideways (`rows: 0.9`, chips
 `custom_height: 40`, overflow styles in the card's `styles`). It follows Apple Home's top
 row: always-on **category chips** with a one-line status, plus a few standalone chips. Status
-text and icon colours come from macros in `dashboard.jinja` (`climate_status`,
+text and icon colours come from macros in `dashboard.jinja` (`weather_status`,
 `security_status`, `lights_on_count`, …), so the strip's own config stays small. Things you
 control are Favorites; running appliances are Happening now.
 
@@ -125,7 +125,7 @@ control are Favorites; running appliances are Happening now.
 | Internet | WAN down or modem power cycle | "Down" / "Modem reset" | Red | — | — |
 | Generator | Running | "Generator" | Amber | — | — |
 | Fridge | Plug off or power sensor unavailable | "Fridge" | Red | — | — |
-| **Climate** | Always | Indoor temp, then any of "Heating" / "Cooling" / "HVAC paused", "Fireplace", "AQI n" (> 50) | Red AQI > 150; amber heating, paused, fireplace, or AQI > 100; blue cooling | `#climate` | `#weather` |
+| **Weather** | Always | Outside temp and condition ("58° Sunny"), plus "AQI n" when above 50 | AQI on the EPA scale: yellow > 50, orange > 100, red > 150; neutral otherwise | `#weather` | — |
 | **Lights** | Always | "N on" / "All off" (visible lights in the areas listed in `house_light_areas()`) | Amber when any are on | `#lights` | — |
 | **Security** | Always | "Secure", or the issues: "Unlocked", "Door open", "Garage open", "N open" | Green secure, else `alert_level()` (amber / red) | `#security` | `script.household_secure_doors` |
 | **Water** | A leak | "Leak: <sensor>" | Red | `#security` | — |
@@ -218,7 +218,7 @@ neutral when idle and tint amber while active.
 
 | Tile | Line under the name | Tap | Hold |
 |---|---|---|---|
-| Thermostat | `73° · 69°–76°` (current · setpoints) | `#climate` | more-info |
+| Thermostat | `73° · 69°–76°` (current · setpoints), or `73° · HVAC paused` with an amber tint while an opening has paused it | `#climate` | more-info |
 | Front Door | Locked / Unlocked | more-info | Lock / unlock (toggle) |
 | Garage Door | Open / Closed | more-info | Open / close (toggle) |
 | Roborock | State, or the error / dock error / "Stuck"; lit amber with a `robot-vacuum-off` icon while the routine is paused | `#vacuum` | Pause / resume the vacuum routine |

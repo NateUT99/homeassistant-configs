@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.12.0 — October 2026*
+*Version 1.13.0 — October 2026*
 
 ---
 
@@ -8,7 +8,8 @@
 
 | Version | Date | Changes |
 |---|---|---|
-| 1.12.0 | October 2026 | Chip strip becomes Apple-style category chips (Climate, Lights, Security, Media; Water on leak) with status from shared macros |
+| 1.13.0 | October 2026 | Climate chip becomes a Weather chip (outdoor + AQI); indoor climate and HVAC paused live on the Thermostat favorite |
+| 1.12.0 | October 2026 | Chip strip becomes Apple-style category chips (Weather, Lights, Security, Media; Water on leak) with status from shared macros |
 | 1.11.0 | October 2026 | Room sections are Expander Cards with per-room media cards; house-wide Now Playing removed |
 | 1.10.0 | October 2026 | Attention and heating colour is amber; orange retired outside the AQI scale |
 | 1.9.0 | October 2026 | §10 tints from theme variables via `color-mix()`; §10.1 security palette; §12 consequential actions on hold, confirmation only when an action must be a tap |

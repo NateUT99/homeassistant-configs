@@ -128,9 +128,9 @@ views:
 
         .nate ha-icon { color: {{ ''var(--green-color)'' if is_state(''person.nate'',''home'') else ''var(--secondary-text-color)'' }} !important; }
 
-        {% from ''dashboard.jinja'' import climate_color, security_color, water_status, lights_on_count, media_playing_count %}
+        {% from ''dashboard.jinja'' import weather_color, security_color, water_status, lights_on_count, media_playing_count %}
 
-        .cat-climate ha-icon { color: {{ climate_color() }} !important; }
+        .cat-weather ha-icon { color: {{ weather_color() }} !important; }
 
         .cat-lights ha-icon { color: {{ ''var(--amber-color)'' if lights_on_count() | int > 0 else ''var(--secondary-text-color)'' }} !important; }
 
@@ -200,16 +200,15 @@ views:
             light_background: false
             show_name: true
             custom_height: 40
-            css_class: cat-climate
-            entity: climate.living_room_thermostat
-            icon: mdi:thermostat
-            name: '{% from ''dashboard.jinja'' import climate_status %}{{ climate_status() }}'
+            css_class: cat-weather
+            entity: weather.outside_waterville_oh_usa
+            icon: '{% from ''dashboard.jinja'' import weather_icon %}{{ weather_icon() }}'
+            name: '{% from ''dashboard.jinja'' import weather_status %}{{ weather_status() }}'
             tap_action:
               action: navigate
-              navigation_path: '#climate'
-            hold_action:
-              action: navigate
               navigation_path: '#weather'
+            hold_action:
+              action: none
           - fill_width: false
             state_background: false
             light_background: false
@@ -375,8 +374,8 @@ views:
         name: Thermostat
         icon: mdi:thermostat
         state_content: '{% set lo = state_attr(''climate.living_room_thermostat'',''target_temp_low'') %}{% set hi = state_attr(''climate.living_room_thermostat'',''target_temp_high'') %}{{ state_attr(''climate.living_room_thermostat'',''current_temperature'')
-          | round(0) | int }}° · {% if is_state(''climate.living_room_thermostat'',''off'') %}Off{% elif lo and hi %}{{ lo | int }}°–{{ hi | int }}°{% else %}{{ state_attr(''climate.living_room_thermostat'',''temperature'')
-          | int(0) }}°{% endif %}'
+          | round(0) | int }}° · {% if not is_state(''input_select.household_hvac_mode_before_pause'',''none'') %}HVAC paused{% elif is_state(''climate.living_room_thermostat'',''off'') %}Off{% elif lo
+          and hi %}{{ lo | int }}°–{{ hi | int }}°{% else %}{{ state_attr(''climate.living_room_thermostat'',''temperature'') | int(0) }}°{% endif %}'
         tap_action:
           action: navigate
           navigation_path: '#climate'
@@ -386,6 +385,12 @@ views:
             navigation_path: '#climate'
           hold_action:
             action: more-info
+        styles: '{% if not is_state(''input_select.household_hvac_mode_before_pause'',''none'') %}.bubble-button-card-container { background: color-mix(in srgb, var(--amber-color) 22%, transparent) !important;
+          box-shadow: 0 0 22px color-mix(in srgb, var(--amber-color) 25%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--amber-color) 50%, transparent) !important; }
+
+          .bubble-icon-container { background: var(--amber-color) !important; }
+
+          .bubble-icon { color: var(--primary-background-color) !important; }{% endif %}'
       - type: custom:bubble-card
         card_type: button
         button_type: state

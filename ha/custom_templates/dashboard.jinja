@@ -77,24 +77,25 @@ living_room,master_bedroom,averys_room,office,entertainment_room,kitchen,entranc
 {{- ns.n -}}
 {%- endmacro %}
 
-{% macro climate_status() -%}
-{%- set t = state_attr('climate.living_room_thermostat', 'current_temperature') | float(0) | round(0) | int -%}
-{%- set parts = [t ~ '°'] -%}
-{%- if not is_state('input_select.household_hvac_mode_before_pause', 'none') %}{% set parts = parts + ['HVAC paused'] %}
-{%- elif is_state('binary_sensor.household_hvac_heating', 'on') %}{% set parts = parts + ['Heating'] %}
-{%- elif is_state('binary_sensor.household_hvac_cooling', 'on') %}{% set parts = parts + ['Cooling'] %}{% endif -%}
-{%- if not is_state('climate.living_room_fireplace', 'off') %}{% set parts = parts + ['Fireplace'] %}{% endif -%}
+{% macro weather_status() -%}
+{%- set labels = {'clear-night': 'Clear', 'cloudy': 'Cloudy', 'exceptional': 'Alert', 'fog': 'Fog', 'hail': 'Hail', 'lightning': 'Storms', 'lightning-rainy': 'Storms', 'partlycloudy': 'Partly cloudy', 'pouring': 'Heavy rain', 'rainy': 'Rain', 'snowy': 'Snow', 'snowy-rainy': 'Sleet', 'sunny': 'Sunny', 'windy': 'Windy', 'windy-variant': 'Windy'} -%}
+{%- set w = states('weather.outside_waterville_oh_usa') -%}
+{%- set parts = [states('sensor.outside_temperature') | float(0) | round(0) | int ~ '° ' ~ labels.get(w, w | replace('-', ' ') | capitalize)] -%}
 {%- set aqi = states('sensor.erie_ohio_usa_air_quality_index') | int(0) -%}
 {%- if aqi > 50 %}{% set parts = parts + ['AQI ' ~ aqi] %}{% endif -%}
 {{- parts | join(' · ') -}}
 {%- endmacro %}
 
-{% macro climate_color() -%}
+{% macro weather_icon() -%}
+{%- set w = states('weather.outside_waterville_oh_usa') -%}
+{%- set icons = {'clear-night': 'mdi:weather-night', 'partlycloudy': 'mdi:weather-partly-cloudy', 'exceptional': 'mdi:alert-circle-outline'} -%}
+{{- icons.get(w, 'mdi:weather-' ~ w) -}}
+{%- endmacro %}
+
+{#- AQI uses the EPA scale's own colours, the one place orange stays (§10). -#}
+{% macro weather_color() -%}
 {%- set aqi = states('sensor.erie_ohio_usa_air_quality_index') | int(0) -%}
-{%- if aqi > 150 %}var(--red-color)
-{%- elif not is_state('input_select.household_hvac_mode_before_pause', 'none') or aqi > 100 or is_state('binary_sensor.household_hvac_heating', 'on') or not is_state('climate.living_room_fireplace', 'off') %}var(--amber-color)
-{%- elif is_state('binary_sensor.household_hvac_cooling', 'on') %}var(--blue-color)
-{%- else %}var(--secondary-text-color){% endif -%}
+{{- 'var(--red-color)' if aqi > 150 else ('var(--orange-color)' if aqi > 100 else ('var(--yellow-color)' if aqi > 50 else 'var(--secondary-text-color)')) -}}
 {%- endmacro %}
 
 {% macro security_issues() -%}
