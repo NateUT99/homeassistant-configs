@@ -62,12 +62,12 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   layout (`rows: 3`, full scrubbable progress bar above the controls,
   `main_buttons_position: bottom`); Apple TV cards also use `artwork_fit: original` so wide
   TV artwork is not cropped square.
-- **Room media cards show while playing or paused.** A paused Apple TV is a show you'll
-  come back to. A HomePod usually times out from `paused` to `idle` on its own 8 minutes
-  after it stops (every time for Avery's Room over 10 days; the Office stayed paused longer
-  once after rapid play/pause toggling), which is the grace period a resumable card needs,
-  so no helper is involved. If HomePod cards linger in practice, the fix is a per-HomePod
-  `delay_off` template sensor.
+- **Apple TV cards show while playing or paused; HomePod cards while playing plus 10
+  minutes.** A paused Apple TV is a show you'll come back to. A HomePod usually drops from
+  `paused` to `idle` on its own 8 minutes after playing, but an app that parks a track on it
+  without playing (`idle` → `paused`, seen with AirMusic in Avery's room) leaves it paused
+  indefinitely. So HomePod cards — and the Media chip's count — follow a template sensor
+  that is on while playing and for 10 minutes after (`ha/packages/media_activity.yaml`).
 - **Areas fold into pop-ups instead of getting tiles** when they have nothing controlled
   from the dashboard more than occasionally (`standards/dashboards.md` §8.1).
 
@@ -135,7 +135,7 @@ control are Favorites; running appliances are Happening now.
 | **Lights** | Always | "N on" / "All off" (visible lights in the areas listed in `house_light_areas()`) | Amber when any are on | `#lights` | — |
 | **Security** | Always | "Secure", or the issues: "Unlocked", "Door open", "Garage open", "N open" | Green secure, else `alert_level()` (amber / red) | `#security` | `script.household_secure_doors` |
 | **Water** | A leak | "Leak: <sensor>" | Red | `#security` | — |
-| **Media** | Always | "N on" / "Media off" — players with a room media card showing (playing or paused) | Purple when any are on | `#media` | — |
+| **Media** | Always | "N on" / "Media off" — players with a room media card showing: Apple TVs playing or paused, HomePods whose activity sensor is on | Purple when any are on | `#media` | — |
 | Recycling | Trash chore due/overdue | "Recycling" | Amber, red overdue | Chores view | Mark "Take Out Trash & Recycling" done |
 | Updates | Any `update.*` on | count | Primary | `/config/updates` | — |
 | AI | Always | "All good" / "Check" | Amber when the house summary flagged attention | `#ai` | — |
@@ -189,6 +189,40 @@ start collapsed.
 
 
 The navbar's Rooms tab (`#rooms`) stays as the at-a-glance view of every room.
+
+**HomePod activity package** — `ha/packages/media_activity.yaml`, deployed to
+`/config/packages/media_activity.yaml`, reload with `template.reload`:
+
+```yaml
+# "Recently active" flags for the HomePods, used to show a room's media card on the
+# home-main dashboard and to count it in the Media chip: on while the HomePod is playing,
+# and held on for 10 minutes after it stops (delay_off). A HomePod usually drops from
+# paused to idle by itself after 8 minutes, but not when an app parks a track on it
+# without playing (idle -> paused directly), which can sit paused indefinitely -- so the
+# card can't rely on "paused". Apple TVs don't need this: their cards show while playing
+# or paused. See guides/home_dashboard.md.
+#
+# Deployed to /config/packages/media_activity.yaml; reload with template.reload.
+
+template:
+  - binary_sensor:
+      - name: Kitchen HomePod Active
+        unique_id: kitchen_homepod_active
+        state: "{{ is_state('media_player.kitchen_homepod', 'playing') }}"
+        delay_off: "00:10:00"
+      - name: Office HomePod Active
+        unique_id: office_homepod_active
+        state: "{{ is_state('media_player.office_homepod', 'playing') }}"
+        delay_off: "00:10:00"
+      - name: Master Bedroom HomePod Active
+        unique_id: master_bedroom_homepod_active
+        state: "{{ is_state('media_player.master_bedroom_homepod', 'playing') }}"
+        delay_off: "00:10:00"
+      - name: Averys Room HomePod Active
+        unique_id: averys_room_homepod_active
+        state: "{{ is_state('media_player.averys_room_homepod', 'playing') }}"
+        delay_off: "00:10:00"
+```
 
 **Happening now** sits below Favorites: a `Happening now` heading and a 2-column grid,
 both shown only while at least one card is visible. Each card is a Bubble `button` whose
@@ -360,6 +394,7 @@ row showing the lowest level. New devices appear automatically.
 | `ha/dashboards/home-main.yaml` | HA storage (`home-main`) | Dashboard mirror (HA authoritative) |
 | `ha/bubble_modules/consumable_status.yaml` | `/config/bubble_card/modules/consumable_status.yaml` | Consumable icon colour module (repo authoritative) |
 | `ha/bubble_modules/apple_tile.yaml` | `/config/bubble_card/modules/apple_tile.yaml` | Apple-style Favorites tile module (repo authoritative) |
+| `ha/packages/media_activity.yaml` | `/config/packages/media_activity.yaml` | HomePod "recently active" sensors for room media cards and the Media chip (repo authoritative) |
 
 ---
 
