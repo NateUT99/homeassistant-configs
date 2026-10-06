@@ -267,7 +267,7 @@ views:
             custom_height: 40
             css_class: cat-security
             entity: lock.entrance_front_door
-            icon: '{% from ''dashboard.jinja'' import security_issues %}{{ ''mdi:shield-alert'' if security_issues() else ''mdi:shield-check'' }}'
+            icon: '{% from ''dashboard.jinja'' import security_icon %}{{ security_icon() }}'
             name: '{% from ''dashboard.jinja'' import security_status %}{{ security_status() }}'
             tap_action:
               action: navigate

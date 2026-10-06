@@ -98,23 +98,37 @@ living_room,master_bedroom,averys_room,office,entertainment_room,kitchen,entranc
 {{- 'var(--red-color)' if aqi > 150 else ('var(--orange-color)' if aqi > 100 else ('var(--yellow-color)' if aqi > 50 else 'var(--secondary-text-color)')) -}}
 {%- endmacro %}
 
-{% macro security_issues() -%}
-{%- set ns = namespace(o=[]) -%}
-{%- if not is_state('lock.entrance_front_door', 'locked') %}{% set ns.o = ns.o + ['Unlocked'] %}{% endif -%}
-{%- if is_state('binary_sensor.entrance_front_door', 'on') %}{% set ns.o = ns.o + ['Door open'] %}{% endif -%}
-{%- if not is_state('cover.garage_door_opener_door', 'closed') %}{% set ns.o = ns.o + ['Garage open'] %}{% endif -%}
-{%- set n = expand('binary_sensor.household_exterior_openings') | rejectattr('entity_id', 'eq', 'binary_sensor.entrance_front_door') | selectattr('state', 'eq', 'on') | list | count -%}
-{%- if n > 0 %}{% set ns.o = ns.o + [n ~ ' open'] %}{% endif -%}
-{{- ns.o | join(' · ') -}}
+{#-
+  Security chip, Apple Home-style: counts exterior doors that are open (higher risk) and
+  locks that are unlocked (lower risk), and reports only the higher-risk group — "2 Open"
+  outranks "1 Unlocked". Interior doors and windows are not counted (windows pause the HVAC
+  and feed the AI facts instead). Add a door or lock to the lists below.
+-#}
+{% macro security_open_count() -%}
+{%- set contacts = ['binary_sensor.entrance_front_door', 'binary_sensor.kitchen_patio_door'] | select('is_state', 'on') | list | count -%}
+{%- set covers = ['cover.garage_door_opener_door'] | reject('is_state', 'closed') | list | count -%}
+{{- contacts + covers -}}
+{%- endmacro %}
+
+{% macro security_unlocked_count() -%}
+{{- ['lock.entrance_front_door'] | reject('is_state', 'locked') | list | count -}}
 {%- endmacro %}
 
 {% macro security_status() -%}
-{%- set i = security_issues() -%}
-{{- i if i else 'Secure' -}}
+{%- set o = security_open_count() | int -%}
+{%- set u = security_unlocked_count() | int -%}
+{{- (o ~ ' Open') if o > 0 else ((u ~ ' Unlocked') if u > 0 else 'Secure') -}}
+{%- endmacro %}
+
+{% macro security_icon() -%}
+{%- set o = security_open_count() | int -%}
+{%- set u = security_unlocked_count() | int -%}
+{{- 'mdi:door-open' if o > 0 else ('mdi:lock-open-variant' if u > 0 else 'mdi:shield-check') -}}
 {%- endmacro %}
 
 {% macro security_color() -%}
-{{- 'var(--' ~ alert_level() ~ '-color)' if security_issues() else 'var(--green-color)' -}}
+{%- set issues = security_open_count() | int + security_unlocked_count() | int -%}
+{{- ('var(--' ~ alert_level() ~ '-color)') if issues > 0 else 'var(--green-color)' -}}
 {%- endmacro %}
 
 {% macro water_status() -%}
