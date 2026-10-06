@@ -378,7 +378,7 @@ views:
           - fill_width: false
             state_background: false
             light_background: false
-            show_name: true
+            show_name: false
             custom_height: 40
             entity: input_boolean.vacuum_routine_pause
             name: Pause
@@ -391,7 +391,7 @@ views:
           - fill_width: false
             state_background: false
             light_background: false
-            show_name: true
+            show_name: false
             custom_height: 40
             entity: input_boolean.guest_mode
             name: Guest
