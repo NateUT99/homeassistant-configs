@@ -927,9 +927,6 @@ views:
         - favorite
       control_layout: modern
       match_theme: true
-      grid_options:
-        columns: 24
-        rows: auto
       visibility:
       - condition: or
         conditions:
@@ -952,28 +949,28 @@ views:
           entity: media_player.kitchen_homepod
           state:
           - playing
-          - paused
         - condition: state
           entity: media_player.office_homepod
           state:
           - playing
-          - paused
         - condition: state
           entity: media_player.master_bedroom_homepod
           state:
           - playing
-          - paused
         - condition: state
           entity: media_player.averys_room_homepod
           state:
           - playing
-          - paused
       actions:
       - name: Remote
         icon: mdi:remote
         action: remote_control
         placement: replace_power
       show_volume_overlay: false
+      always_collapsed: true
+      grid_options:
+        columns: 24
+        rows: auto
   - type: grid
     cards:
     - type: custom:bubble-card

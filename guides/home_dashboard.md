@@ -54,8 +54,9 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   `volume_entity` sends an Apple TV's volume to the Sonos it plays through, and
   `hidden_controls` drops buttons that do nothing for TV. Apple TVs also get `remote_entity`,
   which adds a button that opens a remote pad over the player. One Now Playing card on Home covers
-  all seven players (chips switch between them); it and the room-pop-up player show only
-  while the player is playing or paused.
+  all seven players (chips switch between them) in compact mode (`always_collapsed`). It shows
+  while an Apple TV is playing or paused, or a HomePod is playing — a paused HomePod lingers
+  for hours, so it does not keep the card up. The room-pop-up player shows while playing or paused.
 - **Areas fold into pop-ups instead of getting tiles** when they have nothing controlled
   from the dashboard more than occasionally (`standards/dashboards.md` §8.1).
 
