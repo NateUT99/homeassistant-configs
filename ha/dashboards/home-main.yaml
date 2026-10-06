@@ -430,31 +430,17 @@ views:
         - apple_tile
         rows: 1.2
         hold_action:
-          action: more-info
+          action: toggle
         entity: lock.entrance_front_door
         name: Front Door
         state_content: state
         tap_action:
-          action: perform-action
-          perform_action: lock.unlock
-          target:
-            entity_id: lock.entrance_front_door
-          confirmation:
-            text: Unlock the front door?
+          action: more-info
         button_action:
           tap_action:
-            action: perform-action
-            perform_action: lock.unlock
-            target:
-              entity_id: lock.entrance_front_door
-            confirmation:
-              text: Unlock the front door?
-          hold_action:
             action: more-info
-        visibility:
-        - condition: state
-          entity: lock.entrance_front_door
-          state: locked
+          hold_action:
+            action: toggle
       - type: custom:bubble-card
         card_type: button
         button_type: state
@@ -462,97 +448,18 @@ views:
         - apple_tile
         rows: 1.2
         hold_action:
-          action: more-info
-        entity: lock.entrance_front_door
-        name: Front Door
-        state_content: state
-        tap_action:
-          action: perform-action
-          perform_action: lock.lock
-          target:
-            entity_id: lock.entrance_front_door
-          confirmation:
-            text: Lock the front door?
-        button_action:
-          tap_action:
-            action: perform-action
-            perform_action: lock.lock
-            target:
-              entity_id: lock.entrance_front_door
-            confirmation:
-              text: Lock the front door?
-          hold_action:
-            action: more-info
-        visibility:
-        - condition: state
-          entity: lock.entrance_front_door
-          state_not: locked
-      - type: custom:bubble-card
-        card_type: button
-        button_type: state
-        modules:
-        - apple_tile
-        rows: 1.2
-        hold_action:
-          action: more-info
+          action: toggle
         entity: cover.garage_door_opener_door
         name: Garage Door
         icon: mdi:garage
         state_content: state
         tap_action:
-          action: perform-action
-          perform_action: cover.open_cover
-          target:
-            entity_id: cover.garage_door_opener_door
-          confirmation:
-            text: Open the garage door?
-        button_action:
-          tap_action:
-            action: perform-action
-            perform_action: cover.open_cover
-            target:
-              entity_id: cover.garage_door_opener_door
-            confirmation:
-              text: Open the garage door?
-          hold_action:
-            action: more-info
-        visibility:
-        - condition: state
-          entity: cover.garage_door_opener_door
-          state: closed
-      - type: custom:bubble-card
-        card_type: button
-        button_type: state
-        modules:
-        - apple_tile
-        rows: 1.2
-        hold_action:
           action: more-info
-        entity: cover.garage_door_opener_door
-        name: Garage Door
-        icon: mdi:garage
-        state_content: state
-        tap_action:
-          action: perform-action
-          perform_action: cover.close_cover
-          target:
-            entity_id: cover.garage_door_opener_door
-          confirmation:
-            text: Close the garage door?
         button_action:
           tap_action:
-            action: perform-action
-            perform_action: cover.close_cover
-            target:
-              entity_id: cover.garage_door_opener_door
-            confirmation:
-              text: Close the garage door?
-          hold_action:
             action: more-info
-        visibility:
-        - condition: state
-          entity: cover.garage_door_opener_door
-          state_not: closed
+          hold_action:
+            action: toggle
       - type: custom:bubble-card
         card_type: button
         button_type: state
@@ -561,11 +468,9 @@ views:
         rows: 1.2
         hold_action:
           action: perform-action
-          perform_action: input_boolean.turn_on
+          perform_action: input_boolean.toggle
           target:
             entity_id: input_boolean.vacuum_routine_pause
-          confirmation:
-            text: Pause the vacuum routine?
         entity: vacuum.living_room_vacuum
         name: Roborock
         icon: mdi:robot-vacuum
@@ -581,11 +486,9 @@ views:
             navigation_path: '#vacuum'
           hold_action:
             action: perform-action
-            perform_action: input_boolean.turn_on
+            perform_action: input_boolean.toggle
             target:
               entity_id: input_boolean.vacuum_routine_pause
-            confirmation:
-              text: Pause the vacuum routine?
         visibility:
         - condition: state
           entity: input_boolean.vacuum_routine_pause
@@ -598,12 +501,10 @@ views:
         rows: 1.2
         hold_action:
           action: perform-action
-          perform_action: input_boolean.turn_off
+          perform_action: input_boolean.toggle
           target:
             entity_id: input_boolean.vacuum_routine_pause
-          confirmation:
-            text: Resume the vacuum routine?
-        entity: vacuum.living_room_vacuum
+        entity: input_boolean.vacuum_routine_pause
         name: Roborock
         icon: mdi:robot-vacuum-off
         state_content: '{% set s = states(''vacuum.living_room_vacuum'') %}{% set err = states(''sensor.living_room_vacuum_vacuum_error'') %}{% set dock = states(''sensor.living_room_vacuum_dock_dock_error'')
@@ -618,18 +519,13 @@ views:
             navigation_path: '#vacuum'
           hold_action:
             action: perform-action
-            perform_action: input_boolean.turn_off
+            perform_action: input_boolean.toggle
             target:
               entity_id: input_boolean.vacuum_routine_pause
-            confirmation:
-              text: Resume the vacuum routine?
         visibility:
         - condition: state
           entity: input_boolean.vacuum_routine_pause
           state: 'on'
-        styles: '.bubble-icon-container .bubble-icon { color: var(--orange-color) !important; }
-
-          .bubble-icon-container { background: rgba(255, 152, 0, 0.18) !important; }'
       - type: custom:bubble-card
         card_type: button
         button_type: state
@@ -640,61 +536,14 @@ views:
         icon: mdi:account-star
         state_content: state
         tap_action:
-          action: perform-action
-          perform_action: input_boolean.turn_on
-          target:
-            entity_id: input_boolean.guest_mode
-          confirmation:
-            text: Turn on guest mode?
-        hold_action:
           action: more-info
+        hold_action:
+          action: toggle
         button_action:
           tap_action:
-            action: perform-action
-            perform_action: input_boolean.turn_on
-            target:
-              entity_id: input_boolean.guest_mode
-            confirmation:
-              text: Turn on guest mode?
-          hold_action:
             action: more-info
-        visibility:
-        - condition: state
-          entity: input_boolean.guest_mode
-          state: 'off'
-        rows: 1.2
-      - type: custom:bubble-card
-        card_type: button
-        button_type: state
-        modules:
-        - apple_tile
-        entity: input_boolean.guest_mode
-        name: Guest Mode
-        icon: mdi:account-star
-        state_content: state
-        tap_action:
-          action: perform-action
-          perform_action: input_boolean.turn_off
-          target:
-            entity_id: input_boolean.guest_mode
-          confirmation:
-            text: Turn off guest mode?
-        hold_action:
-          action: more-info
-        button_action:
-          tap_action:
-            action: perform-action
-            perform_action: input_boolean.turn_off
-            target:
-              entity_id: input_boolean.guest_mode
-            confirmation:
-              text: Turn off guest mode?
           hold_action:
-            action: more-info
-        visibility:
-        - condition: state
-          entity: input_boolean.guest_mode
-          state: 'on'
+            action: toggle
         rows: 1.2
       grid_options:
         columns: 24
@@ -1027,7 +876,7 @@ views:
   - type: grid
     cards:
     - type: heading
-      heading: Living Room ›
+      heading: Living Room
       heading_style: title
       tap_action:
         action: navigate
@@ -1082,7 +931,7 @@ views:
   - type: grid
     cards:
     - type: heading
-      heading: Master Bedroom ›
+      heading: Master Bedroom
       heading_style: title
       tap_action:
         action: navigate
@@ -1158,7 +1007,7 @@ views:
   - type: grid
     cards:
     - type: heading
-      heading: Avery's Room ›
+      heading: Avery's Room
       heading_style: title
       tap_action:
         action: navigate
@@ -1234,7 +1083,7 @@ views:
   - type: grid
     cards:
     - type: heading
-      heading: Office ›
+      heading: Office
       heading_style: title
       tap_action:
         action: navigate
@@ -1331,7 +1180,7 @@ views:
   - type: grid
     cards:
     - type: heading
-      heading: Family Room ›
+      heading: Family Room
       heading_style: title
       tap_action:
         action: navigate
@@ -1407,7 +1256,7 @@ views:
   - type: grid
     cards:
     - type: heading
-      heading: Kitchen ›
+      heading: Kitchen
       heading_style: title
       tap_action:
         action: navigate
@@ -1441,7 +1290,7 @@ views:
   - type: grid
     cards:
     - type: heading
-      heading: Outside ›
+      heading: Outside
       heading_style: title
       tap_action:
         action: navigate
