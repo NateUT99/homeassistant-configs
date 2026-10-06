@@ -356,16 +356,24 @@ views:
           - fill_width: false
             state_background: false
             light_background: false
-            show_name: false
+            show_name: true
             custom_height: 40
-            entity: input_boolean.vacuum_routine_pause
-            name: Pause
-            icon: mdi:robot-vacuum-off
-            css_class: qa-vacuum
+            entity: vacuum.living_room_vacuum
+            css_class: qa-vac
+            name: '{{ ''Stuck'' if is_state(''binary_sensor.vacuum_stuck'',''on'') else (''Error'' if states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable''] or
+              states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable''] else (''Paused'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') else states(''vacuum.living_room_vacuum'')
+              | replace(''_'', '' '') | capitalize)) }}'
+            icon: '{{ ''mdi:robot-vacuum-alert'' if is_state(''binary_sensor.vacuum_stuck'',''on'') or states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable''] or
+              states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable''] else (''mdi:robot-vacuum-off'' if is_state(''input_boolean.vacuum_routine_pause'',''on'')
+              else ''mdi:robot-vacuum'') }}'
             tap_action:
-              action: more-info
+              action: navigate
+              navigation_path: '#vacuum'
             hold_action:
-              action: toggle
+              action: perform-action
+              perform_action: input_boolean.toggle
+              target:
+                entity_id: input_boolean.vacuum_routine_pause
           - fill_width: false
             state_background: false
             light_background: false
@@ -384,12 +392,10 @@ views:
 
         .bubble-sub-button-bottom-container::-webkit-scrollbar { display: none; }
 
-        .bubble-sub-button-group { flex-wrap: nowrap !important; margin: 0 auto !important; }
+        .bubble-sub-button-group { flex-wrap: nowrap !important; margin: 0 auto !important; width: max-content !important; flex: 0 0 auto !important; }
 
         .bubble-sub-button { flex-shrink: 0 !important; border-radius: 16px !important; padding: 0 12px !important; }
 
-
-        .qa-vacuum ha-icon { color: {{ ''var(--amber-color)'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') else ''var(--secondary-text-color)'' }} !important; }
 
         .qa-guest ha-icon { color: {{ ''var(--amber-color)'' if is_state(''input_boolean.guest_mode'',''on'') else ''var(--secondary-text-color)'' }} !important; }
 
@@ -400,7 +406,11 @@ views:
         ''var(--secondary-text-color)'') }} !important; }
 
         .qa-climate ha-icon { color: {{ ''var(--amber-color)'' if not is_state(''input_select.household_hvac_mode_before_pause'',''none'') or is_state(''binary_sensor.household_hvac_heating'',''on'') else
-        (''var(--blue-color)'' if is_state(''binary_sensor.household_hvac_cooling'',''on'') else ''var(--secondary-text-color)'') }} !important; }'
+        (''var(--blue-color)'' if is_state(''binary_sensor.household_hvac_cooling'',''on'') else ''var(--secondary-text-color)'') }} !important; }
+
+        .qa-vac ha-icon { color: {{ ''var(--red-color)'' if is_state(''binary_sensor.vacuum_stuck'',''on'') or states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable'']
+        or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable''] else (''var(--amber-color)'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') else
+        (''var(--purple-color)'' if states(''vacuum.living_room_vacuum'') in [''cleaning'',''returning''] else ''var(--secondary-text-color)'')) }} !important; }'
     - type: markdown
       text_only: true
       grid_options:
@@ -412,112 +422,6 @@ views:
         style:
           ha-markdown$: 'h2 { margin: 0 0 2px 0 !important; } p { margin: 0 !important; }'
           'ha-markdown $ ha-markdown-element:': 'h2 { margin: 0 0 2px 0 !important; } p { margin: 0 !important; }'
-    - type: heading
-      heading: Favorites
-      heading_style: title
-      grid_options:
-        columns: 24
-    - type: grid
-      columns: 2
-      square: false
-      cards:
-      - type: custom:bubble-card
-        card_type: button
-        button_type: state
-        modules:
-        - apple_tile
-        rows: 1.2
-        hold_action:
-          action: more-info
-        entity: climate.living_room_thermostat
-        name: Thermostat
-        icon: mdi:thermostat
-        state_content: '{% set lo = state_attr(''climate.living_room_thermostat'',''target_temp_low'') %}{% set hi = state_attr(''climate.living_room_thermostat'',''target_temp_high'') %}{{ state_attr(''climate.living_room_thermostat'',''current_temperature'')
-          | round(0) | int }}° · {% if not is_state(''input_select.household_hvac_mode_before_pause'',''none'') %}HVAC paused{% elif is_state(''climate.living_room_thermostat'',''off'') %}Off{% elif lo
-          and hi %}{{ lo | int }}°–{{ hi | int }}°{% else %}{{ state_attr(''climate.living_room_thermostat'',''temperature'') | int(0) }}°{% endif %}'
-        tap_action:
-          action: navigate
-          navigation_path: '#climate'
-        button_action:
-          tap_action:
-            action: navigate
-            navigation_path: '#climate'
-          hold_action:
-            action: more-info
-        styles: '{% if not is_state(''input_select.household_hvac_mode_before_pause'',''none'') %}.bubble-button-card-container { background: color-mix(in srgb, var(--amber-color) 22%, transparent) !important;
-          box-shadow: 0 0 22px color-mix(in srgb, var(--amber-color) 25%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--amber-color) 50%, transparent) !important; }
-
-          .bubble-icon-container { background: var(--amber-color) !important; }
-
-          .bubble-icon { color: var(--primary-background-color) !important; }{% endif %}'
-      - type: custom:bubble-card
-        card_type: button
-        button_type: state
-        modules:
-        - apple_tile
-        rows: 1.2
-        hold_action:
-          action: perform-action
-          perform_action: input_boolean.toggle
-          target:
-            entity_id: input_boolean.vacuum_routine_pause
-        entity: vacuum.living_room_vacuum
-        name: Roborock
-        icon: mdi:robot-vacuum
-        state_content: '{% set s = states(''vacuum.living_room_vacuum'') %}{% set err = states(''sensor.living_room_vacuum_vacuum_error'') %}{% set dock = states(''sensor.living_room_vacuum_dock_dock_error'')
-          %}{% if err not in [''none'',''unknown'',''unavailable''] %}{{ err | replace(''_'', '' '') | capitalize }}{% elif dock not in [''ok'',''unknown'',''unavailable''] %}Dock: {{ dock | replace(''_'',
-          '' '') }}{% elif is_state(''binary_sensor.vacuum_stuck'',''on'') %}Stuck{% else %}{{ s | replace(''_'', '' '') | capitalize }}{% endif %}'
-        tap_action:
-          action: navigate
-          navigation_path: '#vacuum'
-        button_action:
-          tap_action:
-            action: navigate
-            navigation_path: '#vacuum'
-          hold_action:
-            action: perform-action
-            perform_action: input_boolean.toggle
-            target:
-              entity_id: input_boolean.vacuum_routine_pause
-        visibility:
-        - condition: state
-          entity: input_boolean.vacuum_routine_pause
-          state: 'off'
-      - type: custom:bubble-card
-        card_type: button
-        button_type: state
-        modules:
-        - apple_tile
-        rows: 1.2
-        hold_action:
-          action: perform-action
-          perform_action: input_boolean.toggle
-          target:
-            entity_id: input_boolean.vacuum_routine_pause
-        entity: input_boolean.vacuum_routine_pause
-        name: Roborock
-        icon: mdi:robot-vacuum-off
-        state_content: '{% set s = states(''vacuum.living_room_vacuum'') %}{% set err = states(''sensor.living_room_vacuum_vacuum_error'') %}{% set dock = states(''sensor.living_room_vacuum_dock_dock_error'')
-          %}{% if err not in [''none'',''unknown'',''unavailable''] %}{{ err | replace(''_'', '' '') | capitalize }}{% elif dock not in [''ok'',''unknown'',''unavailable''] %}Dock: {{ dock | replace(''_'',
-          '' '') }}{% elif is_state(''binary_sensor.vacuum_stuck'',''on'') %}Stuck{% else %}{{ s | replace(''_'', '' '') | capitalize }}{% endif %}'
-        tap_action:
-          action: navigate
-          navigation_path: '#vacuum'
-        button_action:
-          tap_action:
-            action: navigate
-            navigation_path: '#vacuum'
-          hold_action:
-            action: perform-action
-            perform_action: input_boolean.toggle
-            target:
-              entity_id: input_boolean.vacuum_routine_pause
-        visibility:
-        - condition: state
-          entity: input_boolean.vacuum_routine_pause
-          state: 'on'
-      grid_options:
-        columns: 24
     - type: heading
       heading: Happening now
       heading_style: title

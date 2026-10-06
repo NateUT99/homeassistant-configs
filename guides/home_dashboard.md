@@ -26,7 +26,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 │   │                                          Row 1  status & alerts
 │   │                                          Row 2  features
 │   │                         ── Greeting (markdown: "Good <part of day>, <name>!" + briefing)
-│   │                         ── Favorites (heading + 2-up grid of apple_tile buttons)
+│   │                         ── Happening now (heading + 2-up grid, shown while an appliance runs)
 │   ├── Sections 2–8       ── Room sections × 7 (Expander: heading + media card + tiles)
 │   └── Section 9          ── Pop-ups: #rooms (room tiles by floor, 2-up) + 6 rooms
 │                             + #security #climate #weather #vacuum #laundry #ai
@@ -125,7 +125,7 @@ row: always-on **category chips** with a one-line status, plus a few standalone 
 chips (faults, a leak, recycling due) come first, so an alert is visible without scrolling. Status
 text and icon colours come from macros in `dashboard.jinja` (`weather_status`,
 `security_status`, `lights_on_count`, …), so the strip's own config stays small. Things you
-control are Favorites; running appliances are Happening now.
+switch by hand are quick actions; running appliances are Happening now.
 
 | Chip | Shows | Status line | Icon colour | Tap | Hold |
 |---|---|---|---|---|---|
@@ -146,15 +146,17 @@ by room, the same cards the room sections show. Both lists are static: a new lig
 is added to the pop-up by hand.
 
 **Quick actions** are a second chip row directly under the status row: a separate
-`sub-buttons` card with the same scrolling layout, for the people and house modes you switch by hand. Tap opens more-info, hold toggles
-(`standards/dashboards.md` §12):
+`sub-buttons` card with the same scrolling layout, for the people and house modes you switch by hand. The chip group is
+`width: max-content` with `margin: 0 auto`, so the row centres when it fits and scrolls from
+the first chip when it doesn't (`safe center` clips the first chip on iOS — see LESSONS.md).
+Tap opens more-info, hold toggles (`standards/dashboards.md` §12):
 
 | Chip | Icon and colour | Hold toggles |
 |---|---|---|
 | Climate | "Heat" / "Cool" / "Off" / "Paused" beside `mdi:hvac` (amber heating, blue cooling, grey otherwise) or `mdi:hvac-off` in amber while an open door or window has paused it; "Off" covers both idle and switched off | — (tap `#climate`, hold opens more-info) |
 | Nate | Sleep (indigo) while `input_boolean.everyone_sleeping` is on; otherwise home (green) or away (grey) from `person.nate` | `input_boolean.everyone_sleeping` |
 | Avery | Sleep (indigo) while `input_boolean.avery_sleeping` is on; otherwise home (green) on her scheduled days (`binary_sensor.avery_home_today`), away (grey) on others | `input_boolean.avery_sleeping` |
-| Pause (icon only) | Amber while the vacuum routine is paused | `input_boolean.vacuum_routine_pause` |
+| Vacuum | "Stuck" / "Error" / "Paused" / the vacuum state beside `mdi:robot-vacuum-alert` (red, stuck or a vacuum or dock error), `mdi:robot-vacuum-off` (amber, routine paused), or `mdi:robot-vacuum` (purple cleaning or returning, grey otherwise); tap opens `#vacuum` | `input_boolean.vacuum_routine_pause` |
 | Guest (icon only) | Amber while guest mode is on | `input_boolean.guest_mode` |
 
 Sleep wins over location, so a stale sleep flag is visible at a glance.
@@ -225,7 +227,7 @@ template:
         delay_off: "00:10:00"
 ```
 
-**Happening now** sits below Favorites: a `Happening now` heading and a 2-column grid,
+**Happening now** sits below the greeting: a `Happening now` heading and a 2-column grid,
 both shown only while at least one card is visible. Each card is a Bubble `button` whose
 `styles` call `progress_fill(pct, rgb)` from `dashboard.jinja`, filling the card left to
 right with progress.
@@ -258,22 +260,6 @@ buttons, `rows: 3`, with the tile buttons in the `bottom` sub-button row at 44 p
 fan buttons toggle on tap and open more-info on hold. Each tile's `styles` calls
 `room_glow(area)` from `dashboard.jinja`: a warm amber tint and halo while any of the area's
 visible lights are on.
-
-### Favorites
-
-A `Favorites` heading and a 2-column grid under the greeting: the Apple Home favourites. Every tile is a Bubble `button` with the `apple_tile` module. Door and lock status lives in the
-Security chip. The Thermostat tints amber while heating and blue while cooling. Other tiles are
-neutral when idle and tint amber while active.
-
-| Tile | Line under the name | Tap | Hold |
-|---|---|---|---|
-| Thermostat | `73° · 69°–76°` (current · setpoints), or `73° · HVAC paused` with an amber tint while an opening has paused it | `#climate` | more-info |
-| Roborock | State, or the error / dock error / "Stuck"; lit amber with a `robot-vacuum-off` icon while the routine is paused | `#vacuum` | Pause / resume the vacuum routine |
-
-Actions that change the house (vacuum pause) are on **hold**, not
-tap, so they run without a confirmation dialog; tap opens details. The Roborock tile exists
-twice with opposite `visibility` on `input_boolean.vacuum_routine_pause`: the paused copy uses
-that boolean as its `entity`, so `apple_tile` lights it like any active favourite.
 
 Areas without a tile: Entrance, Garage, and Outside fold into `#security`; Utility Room
 into `#laundry`; the Bathroom lamp is automated and its leak sensor feeds the Leak chip;
@@ -392,7 +378,7 @@ row showing the lowest level. New devices appear automatically.
 | `ha/custom_templates/dashboard.jinja` | `/config/custom_templates/dashboard.jinja` | Shared macros (repo authoritative) |
 | `ha/dashboards/home-main.yaml` | HA storage (`home-main`) | Dashboard mirror (HA authoritative) |
 | `ha/bubble_modules/consumable_status.yaml` | `/config/bubble_card/modules/consumable_status.yaml` | Consumable icon colour module (repo authoritative) |
-| `ha/bubble_modules/apple_tile.yaml` | `/config/bubble_card/modules/apple_tile.yaml` | Apple-style Favorites tile module (repo authoritative) |
+| `ha/bubble_modules/apple_tile.yaml` | `/config/bubble_card/modules/apple_tile.yaml` | Apple-style tile module for `#lights` and room tiles (repo authoritative) |
 | `ha/packages/media_activity.yaml` | `/config/packages/media_activity.yaml` | HomePod "recently active" sensors for room media cards and the Media chip (repo authoritative) |
 
 ---
