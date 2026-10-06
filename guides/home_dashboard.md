@@ -51,7 +51,8 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   at a glance. Exercising, warnings, and maintenance belong on the Energy view.
 - **Media uses Yet Another Media Player, not the Bubble media card.** YAMP's
   `volume_entity` sends an Apple TV's volume to the Sonos it plays through, and
-  `hidden_controls` drops buttons that do nothing for TV. One Now Playing card on Home covers
+  `hidden_controls` drops buttons that do nothing for TV. Apple TVs also get `remote_entity`,
+  which adds a button that opens a remote pad over the player. One Now Playing card on Home covers
   all seven players (chips switch between them); it and the room-pop-up player show only
   while the player is playing or paused.
 - **Areas fold into pop-ups instead of getting tiles** when they have nothing controlled

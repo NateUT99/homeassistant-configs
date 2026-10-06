@@ -481,6 +481,9 @@ views:
         - shuffle
         - repeat
         - favorite
+        remote_entity: remote.living_room_appletv
+        hidden_remote_buttons:
+        - power
       - entity_id: media_player.family_room_appletv
         name: Family Room
         volume_entity: media_player.family_room_theater
@@ -491,6 +494,9 @@ views:
         - shuffle
         - repeat
         - favorite
+        remote_entity: remote.family_room_appletv
+        hidden_remote_buttons:
+        - power
       - entity_id: media_player.master_bedroom_appletv
         name: Bedroom TV
         hidden_controls:
@@ -500,6 +506,9 @@ views:
         - shuffle
         - repeat
         - favorite
+        remote_entity: remote.master_bedroom_appletv
+        hidden_remote_buttons:
+        - power
       - entity_id: media_player.kitchen_homepod
         name: Kitchen
         hidden_controls:
@@ -749,6 +758,9 @@ views:
             - shuffle
             - repeat
             - favorite
+            remote_entity: remote.living_room_appletv
+            hidden_remote_buttons:
+            - power
           control_layout: modern
           match_theme: true
           actions:
