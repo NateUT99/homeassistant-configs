@@ -1,0 +1,38 @@
+# Bubble Card module: Apple Home-style favourite tile.
+# Deployed to /config/bubble_card/modules/apple_tile.yaml (standards/dashboards.md §13).
+# Apply with `modules: [apple_tile]` on a button card. The tile tints and glows while
+# the entity is "active" for its domain (thermostat heating or cooling, lock not
+# locked, cover not closed, vacuum cleaning or returning, anything else `on`) and stays
+# translucent dark otherwise. Text stays white in both states; cooling tints blue,
+# everything else amber.
+apple_tile:
+  name: Apple tile
+  version: "2.0"
+  creator: home-main
+  description: Tinted, glowing tile while the entity is active; translucent dark otherwise.
+  supported:
+    - button
+  code: |
+    {% set d = entity.split('.')[0] %}
+    {% set s = states(entity) %}
+    {% set action = state_attr(entity, 'hvac_action') %}
+    {% set active = (d == 'climate' and action in ['heating', 'cooling'])
+       or (d == 'lock' and s != 'locked')
+       or (d == 'cover' and s != 'closed')
+       or (d == 'vacuum' and s in ['cleaning', 'returning'])
+       or s == 'on' %}
+    {% set rgb = '79, 160, 255' if action == 'cooling' else '245, 158, 59' %}
+    .bubble-button-card-container {
+      border-radius: 22px !important;
+      background: {{ 'rgba(' ~ rgb ~ ', 0.22)' if active else 'rgba(255, 255, 255, 0.09)' }} !important;
+      {% if active %}box-shadow: 0 0 22px rgba({{ rgb }}, 0.25), inset 0 0 0 1px rgba({{ rgb }}, 0.5) !important;{% endif %}
+    }
+    .bubble-background {
+      background-color: transparent !important;
+    }
+    .bubble-icon-container {
+      background: {{ 'rgb(' ~ rgb ~ ')' if active else 'rgba(255, 255, 255, 0.10)' }} !important;
+    }
+    .bubble-icon {
+      color: {{ '#1a1208' if active else '#8fe3e0' }} !important;
+    }

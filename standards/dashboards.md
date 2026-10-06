@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.5.0 — October 2026*
+*Version 1.6.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.6.0 | October 2026 | Favorites grid on Home (`apple_tile` module); room glow; Bubble backgrounds are styled on `.bubble-background` |
 | 1.5.0 | October 2026 | Rooms move off Home into a `#rooms` pop-up opened from the navbar; large 2-up room tiles with a bottom row of quick buttons; navbar More menu |
 | 1.4.0 | October 2026 | Yet Another Media Player approved for media cards |
 | 1.3.0 | October 2026 | §11: AI text in structured markdown (lists, tables); numbers from HA, live where computable |
@@ -215,6 +216,7 @@ include indicator LEDs*.
 |---|---|
 | Dynamic text, icon | Jinja in `name`, `icon`, `state_content` (quoted) |
 | Dynamic icon colour | Jinja inside `styles`, targeting a `css_class` |
+| Card background tint | Jinja inside `styles` on `.bubble-background` as well as `.bubble-button-card-container` — the inner layer paints over the container (`LESSONS.md`) |
 | Show/hide | `visibility` with native conditions; `condition: template` only when no native one fits |
 | Something Jinja can't reach | JavaScript `${...}` in `styles` — comment why |
 

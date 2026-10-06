@@ -13,8 +13,13 @@
   members don't count as room lights (LESSONS.md: an area's light.* entities
   include indicator LEDs and group members).
 -#}
+{#- Count of the area's visible lights that are on (shared by summary and glow). -#}
+{% macro room_lights_on(area) -%}
+{{- area_entities(area) | select('match', 'light\\.') | reject('is_hidden_entity') | select('is_state', 'on') | list | count -}}
+{%- endmacro %}
+
 {% macro room_summary(area, temp_sensor=none, fan=none) -%}
-{%- set n = area_entities(area) | select('match', 'light\\.') | reject('is_hidden_entity') | select('is_state', 'on') | list | count -%}
+{%- set n = room_lights_on(area) | int -%}
 {%- set parts = [] -%}
 {%- if n > 0 %}{% set parts = parts + [n ~ (' light on' if n == 1 else ' lights on')] %}{% endif -%}
 {%- if fan and is_state(fan, 'on') %}{% set parts = parts + ['Fan on'] %}{% endif -%}
@@ -29,4 +34,16 @@
 -#}
 {% macro alert_level() -%}
 {{- 'red' if is_state('input_boolean.everyone_sleeping', 'on') or states('zone.home') | int(0) == 0 else 'orange' -}}
+{%- endmacro %}
+
+{#-
+  Room tile glow (Bubble `styles`): a warm amber tint and halo while any of the
+  area's lights are on, so lit rooms stand out in the #rooms pop-up.
+-#}
+{% macro room_glow(area) -%}
+{%- if room_lights_on(area) | int > 0 -%}
+.bubble-button-card-container { background: rgba(245, 158, 59, 0.16) !important; box-shadow: 0 0 22px rgba(245, 158, 59, 0.22), inset 0 0 0 1px rgba(245, 158, 59, 0.45) !important; }
+.bubble-background { background-color: rgba(245, 158, 59, 0.16) !important; opacity: 1 !important; }
+.bubble-icon { color: #f5b452 !important; }
+{%- endif -%}
 {%- endmacro %}

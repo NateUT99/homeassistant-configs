@@ -481,6 +481,191 @@ views:
         style:
           ha-markdown$: 'h2 { margin: 0 0 2px 0 !important; } p { margin: 0 !important; }'
           'ha-markdown $ ha-markdown-element:': 'h2 { margin: 0 0 2px 0 !important; } p { margin: 0 !important; }'
+    - type: heading
+      heading: Favorites
+      heading_style: title
+      grid_options:
+        columns: 24
+    - type: grid
+      columns: 2
+      square: false
+      cards:
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        modules:
+        - apple_tile
+        rows: 1.4
+        hold_action:
+          action: more-info
+        entity: climate.living_room_thermostat
+        name: Thermostat
+        icon: mdi:thermostat
+        state_content: '{% set lo = state_attr(''climate.living_room_thermostat'',''target_temp_low'') %}{% set hi = state_attr(''climate.living_room_thermostat'',''target_temp_high'') %}{{ state_attr(''climate.living_room_thermostat'',''current_temperature'')
+          | round(0) | int }}° · {% if is_state(''climate.living_room_thermostat'',''off'') %}Off{% elif lo and hi %}{{ lo | int }}°–{{ hi | int }}°{% else %}{{ state_attr(''climate.living_room_thermostat'',''temperature'')
+          | int(0) }}°{% endif %}'
+        tap_action:
+          action: navigate
+          navigation_path: '#climate'
+        button_action:
+          tap_action:
+            action: navigate
+            navigation_path: '#climate'
+          hold_action:
+            action: more-info
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        modules:
+        - apple_tile
+        rows: 1.4
+        hold_action:
+          action: more-info
+        entity: lock.entrance_front_door
+        name: Front Door
+        state_content: state
+        tap_action:
+          action: perform-action
+          perform_action: lock.unlock
+          target:
+            entity_id: lock.entrance_front_door
+          confirmation:
+            text: Unlock the front door?
+        button_action:
+          tap_action:
+            action: perform-action
+            perform_action: lock.unlock
+            target:
+              entity_id: lock.entrance_front_door
+            confirmation:
+              text: Unlock the front door?
+          hold_action:
+            action: more-info
+        visibility:
+        - condition: state
+          entity: lock.entrance_front_door
+          state: locked
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        modules:
+        - apple_tile
+        rows: 1.4
+        hold_action:
+          action: more-info
+        entity: lock.entrance_front_door
+        name: Front Door
+        state_content: state
+        tap_action:
+          action: perform-action
+          perform_action: lock.lock
+          target:
+            entity_id: lock.entrance_front_door
+          confirmation:
+            text: Lock the front door?
+        button_action:
+          tap_action:
+            action: perform-action
+            perform_action: lock.lock
+            target:
+              entity_id: lock.entrance_front_door
+            confirmation:
+              text: Lock the front door?
+          hold_action:
+            action: more-info
+        visibility:
+        - condition: state
+          entity: lock.entrance_front_door
+          state_not: locked
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        modules:
+        - apple_tile
+        rows: 1.4
+        hold_action:
+          action: more-info
+        entity: cover.garage_door_opener_door
+        name: Garage Door
+        icon: mdi:garage
+        state_content: state
+        tap_action:
+          action: perform-action
+          perform_action: cover.open_cover
+          target:
+            entity_id: cover.garage_door_opener_door
+          confirmation:
+            text: Open the garage door?
+        button_action:
+          tap_action:
+            action: perform-action
+            perform_action: cover.open_cover
+            target:
+              entity_id: cover.garage_door_opener_door
+            confirmation:
+              text: Open the garage door?
+          hold_action:
+            action: more-info
+        visibility:
+        - condition: state
+          entity: cover.garage_door_opener_door
+          state: closed
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        modules:
+        - apple_tile
+        rows: 1.4
+        hold_action:
+          action: more-info
+        entity: cover.garage_door_opener_door
+        name: Garage Door
+        icon: mdi:garage
+        state_content: state
+        tap_action:
+          action: perform-action
+          perform_action: cover.close_cover
+          target:
+            entity_id: cover.garage_door_opener_door
+          confirmation:
+            text: Close the garage door?
+        button_action:
+          tap_action:
+            action: perform-action
+            perform_action: cover.close_cover
+            target:
+              entity_id: cover.garage_door_opener_door
+            confirmation:
+              text: Close the garage door?
+          hold_action:
+            action: more-info
+        visibility:
+        - condition: state
+          entity: cover.garage_door_opener_door
+          state_not: closed
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        modules:
+        - apple_tile
+        rows: 1.4
+        hold_action:
+          action: more-info
+        entity: vacuum.living_room_vacuum
+        name: Roborock
+        icon: mdi:robot-vacuum
+        state_content: state
+        tap_action:
+          action: navigate
+          navigation_path: '#vacuum'
+        button_action:
+          tap_action:
+            action: navigate
+            navigation_path: '#vacuum'
+          hold_action:
+            action: more-info
+      grid_options:
+        columns: 24
     - type: custom:yet-another-media-player
       entities:
       - entity_id: media_player.living_room_appletv
@@ -600,6 +785,10 @@ views:
       popup_mode: adaptive-dialog
       popup_style: bubble
       cards:
+      - type: custom:bubble-card
+        card_type: separator
+        name: Main Floor
+        icon: mdi:home-floor-1
       - type: grid
         columns: 2
         square: false
@@ -635,6 +824,7 @@ views:
                 action: more-info
               custom_height: 44
           rows: 3
+          styles: '{% from ''dashboard.jinja'' import room_glow %}{{ room_glow(''living_room'') }}'
         - type: custom:bubble-card
           card_type: button
           button_type: name
@@ -654,31 +844,7 @@ views:
               action: none
           sub_button: {}
           rows: 3
-        - type: custom:bubble-card
-          card_type: button
-          button_type: name
-          name: Family Room
-          icon: mdi:pac-man
-          state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''entertainment_room'', ''sensor.family_room_climate_temperature'') }}'
-          tap_action:
-            action: navigate
-            navigation_path: '#family-room'
-          hold_action:
-            action: none
-          button_action:
-            tap_action:
-              action: navigate
-              navigation_path: '#family-room'
-            hold_action:
-              action: none
-          sub_button:
-            bottom:
-            - entity: media_player.family_room_appletv
-              icon: mdi:apple
-              tap_action:
-                action: more-info
-              custom_height: 44
-          rows: 3
+          styles: '{% from ''dashboard.jinja'' import room_glow %}{{ room_glow(''kitchen'') }}'
         - type: custom:bubble-card
           card_type: button
           button_type: switch
@@ -714,6 +880,7 @@ views:
               hold_action:
                 action: more-info
           rows: 3
+          styles: '{% from ''dashboard.jinja'' import room_glow %}{{ room_glow(''office'') }}'
         - type: custom:bubble-card
           card_type: button
           button_type: switch
@@ -749,6 +916,7 @@ views:
               hold_action:
                 action: more-info
           rows: 3
+          styles: '{% from ''dashboard.jinja'' import room_glow %}{{ room_glow(''master_bedroom'') }}'
         - type: custom:bubble-card
           card_type: button
           button_type: switch
@@ -784,6 +952,41 @@ views:
               hold_action:
                 action: more-info
           rows: 3
+          styles: '{% from ''dashboard.jinja'' import room_glow %}{{ room_glow(''averys_room'') }}'
+      - type: custom:bubble-card
+        card_type: separator
+        name: Basement
+        icon: mdi:home-floor-b
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: name
+          name: Family Room
+          icon: mdi:pac-man
+          state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''entertainment_room'', ''sensor.family_room_climate_temperature'') }}'
+          tap_action:
+            action: navigate
+            navigation_path: '#family-room'
+          hold_action:
+            action: none
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#family-room'
+            hold_action:
+              action: none
+          sub_button:
+            bottom:
+            - entity: media_player.family_room_appletv
+              icon: mdi:apple
+              tap_action:
+                action: more-info
+              custom_height: 44
+          rows: 3
+          styles: '{% from ''dashboard.jinja'' import room_glow %}{{ room_glow(''entertainment_room'') }}'
       show_header: false
     - type: custom:bubble-card
       card_type: pop-up

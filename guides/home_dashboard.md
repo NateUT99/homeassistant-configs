@@ -26,8 +26,9 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 │   │                                          Row 1  status & alerts
 │   │                                          Row 2  features
 │   │                         ── Greeting (markdown: "Good <part of day>, <name>!" + briefing)
+│   │                         ── Favorites (heading + 2-up grid of apple_tile buttons)
 │   │                         ── Now Playing (YAMP; only while an Apple TV or HomePod plays)
-│   └── Section 2          ── Pop-ups: #rooms (room tiles × 6, 2-up) + 6 rooms
+│   └── Section 2          ── Pop-ups: #rooms (room tiles by floor, 2-up) + 6 rooms
 │                             + #security #climate #weather #vacuum #laundry #ai
 │
 └── Chores view ── Navbar Card ── chore-calendar-card
@@ -160,8 +161,30 @@ the line never overlaps the chips. A UIX style trims the heading's bottom margin
 | Avery's Room | Ceiling light | Ceiling light, Fan | lights · fan · temp |
 
 The tiles live in the `#rooms` pop-up (no header), opened from the navbar's Rooms tab: a
-2-column grid of Bubble buttons, `rows: 3`, with the tile buttons in the `bottom` sub-button
-row at 44 px. Light and fan buttons toggle on tap and open more-info on hold.
+Bubble separator per floor (Main Floor, Basement), each followed by a 2-column grid of Bubble
+buttons, `rows: 3`, with the tile buttons in the `bottom` sub-button row at 44 px. Light and
+fan buttons toggle on tap and open more-info on hold. Each tile's `styles` calls
+`room_glow(area)` from `dashboard.jinja`: a warm amber tint and halo while any of the area's
+visible lights are on.
+
+### Favorites
+
+A `Favorites` heading and a 2-column grid under the greeting, mirroring the Apple Home
+favourites. Every tile is a Bubble `button` with the `apple_tile` module: translucent dark
+when idle; tinted and glowing while active (thermostat heating amber or cooling blue, lock
+unlocked, garage open, vacuum cleaning — all amber). Text stays white in both states.
+
+| Tile | Line under the name | Tap | Hold |
+|---|---|---|---|
+| Thermostat | `73° · 69°–76°` (current · setpoints) | `#climate` | more-info |
+| Front Door | Locked / Unlocked | Unlock (when locked) or lock, with confirmation | more-info |
+| Garage Door | Open / Closed | Open (when closed) or close, with confirmation | more-info |
+| Roborock | Docked / Cleaning | `#vacuum` | more-info |
+
+Front Door and Garage Door each exist twice with opposite `visibility` conditions, so the
+confirmation can name the exact action ("Unlock the front door?") — an action's
+confirmation text cannot be templated. Each copy calls the explicit service
+(`lock.unlock`, `cover.open_cover`, …) rather than `toggle`.
 
 Areas without a tile: Entrance, Garage, and Outside fold into `#security`; Utility Room
 into `#laundry`; the Bathroom lamp is automated and its leak sensor feeds the Leak chip;
@@ -278,6 +301,7 @@ row showing the lowest level. New devices appear automatically.
 | `ha/custom_templates/dashboard.jinja` | `/config/custom_templates/dashboard.jinja` | Shared macros (repo authoritative) |
 | `ha/dashboards/home-main.yaml` | HA storage (`home-main`) | Dashboard mirror (HA authoritative) |
 | `ha/bubble_modules/consumable_status.yaml` | `/config/bubble_card/modules/consumable_status.yaml` | Consumable icon colour module (repo authoritative) |
+| `ha/bubble_modules/apple_tile.yaml` | `/config/bubble_card/modules/apple_tile.yaml` | Apple-style Favorites tile module (repo authoritative) |
 
 ---
 

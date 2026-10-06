@@ -329,6 +329,16 @@ The correct pattern: set `entity` at the **chip level** (not inside the action),
 
 This applies to every chip type (template, entity, action) and every action field (tap_action, hold_action, double_tap_action). If the chip needs to target an entity for more-info but has no natural `entity` association, add the `entity` key at the chip root — it does not affect non-more-info actions on the same chip.
 
+### Bubble button backgrounds are painted by `.bubble-background`, not the container
+
+Setting `background` on `.bubble-button-card-container` in a button card's `styles` (the
+README's own example) did not change the visible tile colour on Bubble 3.4: an inner
+absolutely-positioned `.bubble-background` layer, coloured by `--bubble-button-background-color`
+and the entity state, paints over it. Text and icon rules in the same `styles` did apply, so
+a "light tile with dark text" rendered as dark text on a dark tile. Style
+`.bubble-background { background-color: …; opacity: 1 }` (or make it transparent and style
+the container) whenever a tile's fill must change.
+
 ### Orphaned CSS selectors in Bubble Card `styles` strings poison the next CSS rule
 
 In Bubble Card's `styles` property (evaluated as a JavaScript template literal), a CSS selector line with no `{}` block is not ignored — the parser treats everything from the end of the previous `}` to the next `{` as a single selector. If the next actual CSS rule is `display: none !important`, that declaration is silently applied to every element matched by the orphaned selectors as well.
