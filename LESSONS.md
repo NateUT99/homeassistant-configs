@@ -813,6 +813,15 @@ The clean separation (Hue on channel 20, Z2M on channel 11) prevents interferenc
 
 ---
 
+### A group helper's "Hide members" hides standalone sensors too
+
+The group helper's **Hide members** option sets `hidden_by: integration` on every direct
+member. That suits a group that *is* the device (two bulbs in one fixture, left and right
+windows rolled into "Bedroom Windows"), but a roll-up group of independent sensors — the
+Household Exterior Openings group — hid the front door, patio door, and window sensors
+themselves, dropping them from area pages, auto-generated dashboards, and entity pickers.
+Leave Hide members off for roll-up groups; turning it off un-hides the members it hid.
+
 ## Presence & Device Trackers
 
 ### Template `device_tracker`'s `in_zones` requires full zone entity_id, not the bare slug — fails silently
