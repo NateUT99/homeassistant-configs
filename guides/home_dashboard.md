@@ -146,8 +146,7 @@ by room, the same cards the room sections show. Both lists are static: a new lig
 is added to the pop-up by hand.
 
 **Quick actions** are a second chip row directly under the status row: a separate
-`sub-buttons` card, for the house modes you switch by hand. It does not scroll: four chips fit,
-and a scrolling row swallows hold actions on iOS (`LESSONS.md`). Each
+`sub-buttons` card with the same scrolling layout, for the house modes you switch by hand. Each
 chip's icon turns amber while its mode is on; tap opens more-info, hold toggles
 (`standards/dashboards.md` §12):
 

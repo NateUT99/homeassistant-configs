@@ -329,15 +329,6 @@ The correct pattern: set `entity` at the **chip level** (not inside the action),
 
 This applies to every chip type (template, entity, action) and every action field (tap_action, hold_action, double_tap_action). If the chip needs to target an entity for more-info but has no natural `entity` association, add the `entity` key at the chip root — it does not affect non-more-info actions on the same chip.
 
-### Hold actions don't fire inside a horizontally scrolling chip row on iOS
-
-A Bubble `sub-buttons` row made scrollable with `overflow-x: auto` on
-`.bubble-sub-button-bottom-container` (plus `-webkit-overflow-scrolling: touch`) swallows
-`hold_action` in the iOS Companion app: the long press is taken as the start of a scroll and
-never reaches Bubble, so nothing happens and nothing is logged. The same chips held fine once
-the scroll styles were removed. Keep hold actions out of scrolling rows — use tap (with a
-confirmation where §12 requires one) or put the action on a non-scrolling card.
-
 ### A card's visual editor saves the whole dashboard from its own stale copy
 
 Editing one card in the HA dashboard editor (here, Yet Another Media Player's visual editor)
