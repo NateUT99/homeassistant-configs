@@ -516,6 +516,66 @@ views:
       grid_options:
         columns: 24
     - type: heading
+      heading: Quick Actions
+      heading_style: title
+      grid_options:
+        columns: 24
+    - type: custom:bubble-card
+      card_type: sub-buttons
+      rows: 2
+      grid_options:
+        columns: 24
+      modules:
+      - bubble_quick_launcher
+      bubble_quick_launcher:
+        card_layout: regular
+        hide_card_background: false
+        hide_button_highlights: false
+        hide_button_names: false
+        button_shape: rounded
+        button_gap: 6
+        card_padding: 6
+        text_space: 28
+        icon_size: 40
+      sub_button:
+        main: []
+        bottom_layout: rows
+        bottom:
+        - name: Quick actions
+          group:
+          - entity: input_boolean.avery_sleeping
+            name: Avery Asleep
+            icon: mdi:teddy-bear
+            show_name: true
+            tap_action:
+              action: more-info
+            hold_action:
+              action: toggle
+          - entity: input_boolean.everyone_sleeping
+            name: Everyone Asleep
+            icon: mdi:sleep
+            show_name: true
+            tap_action:
+              action: more-info
+            hold_action:
+              action: toggle
+          - entity: input_boolean.vacuum_routine_pause
+            name: Vacuum Paused
+            icon: mdi:robot-vacuum-off
+            show_name: true
+            tap_action:
+              action: more-info
+            hold_action:
+              action: toggle
+          - entity: input_boolean.guest_mode
+            name: Guest Mode
+            icon: mdi:account-star
+            show_name: true
+            tap_action:
+              action: more-info
+            hold_action:
+              action: toggle
+    - type: heading
       heading: Happening now
       heading_style: title
       grid_options:
@@ -773,7 +833,7 @@ views:
           card_type: media-player
           entity: media_player.living_room_appletv
           name: Apple TV
-          cover_background: true
+          cover_background: false
           hide:
             power_button: true
             volume_button: true
@@ -786,6 +846,12 @@ views:
               icon: mdi:volume-high
               always_visible: true
               width: 130
+          modules:
+          - bubble_media_player_enhanced
+          bubble_media_player_enhanced:
+            card_layout: default
+            progress_bar: compact
+            idle_artwork: none
       - type: grid
         columns: 2
         square: false
@@ -865,7 +931,7 @@ views:
           card_type: media-player
           entity: media_player.master_bedroom_appletv
           name: Apple TV
-          cover_background: true
+          cover_background: false
           hide:
             power_button: true
             volume_button: true
@@ -878,6 +944,12 @@ views:
               icon: mdi:volume-high
               always_visible: true
               width: 130
+          modules:
+          - bubble_media_player_enhanced
+          bubble_media_player_enhanced:
+            card_layout: default
+            progress_bar: compact
+            idle_artwork: none
       - type: conditional
         conditions:
         - condition: state
@@ -890,9 +962,15 @@ views:
           card_type: media-player
           entity: media_player.master_bedroom_homepod
           name: HomePod
-          cover_background: true
+          cover_background: false
           hide:
             power_button: true
+          modules:
+          - bubble_media_player_enhanced
+          bubble_media_player_enhanced:
+            card_layout: default
+            progress_bar: compact
+            idle_artwork: none
       - type: grid
         columns: 2
         square: false
@@ -991,9 +1069,15 @@ views:
           card_type: media-player
           entity: media_player.averys_room_homepod
           name: HomePod
-          cover_background: true
+          cover_background: false
           hide:
             power_button: true
+          modules:
+          - bubble_media_player_enhanced
+          bubble_media_player_enhanced:
+            card_layout: default
+            progress_bar: compact
+            idle_artwork: none
       - type: grid
         columns: 2
         square: false
@@ -1092,9 +1176,15 @@ views:
           card_type: media-player
           entity: media_player.office_homepod
           name: HomePod
-          cover_background: true
+          cover_background: false
           hide:
             power_button: true
+          modules:
+          - bubble_media_player_enhanced
+          bubble_media_player_enhanced:
+            card_layout: default
+            progress_bar: compact
+            idle_artwork: none
       - type: grid
         columns: 2
         square: false
@@ -1104,7 +1194,6 @@ views:
           button_type: state
           modules:
           - apple_tile
-          rows: 1.2
           entity: light.office_ceiling_fan_light
           name: Ceiling Light
           icon: mdi:ceiling-light
@@ -1212,7 +1301,7 @@ views:
           card_type: media-player
           entity: media_player.family_room_appletv
           name: Apple TV
-          cover_background: true
+          cover_background: false
           hide:
             power_button: true
             volume_button: true
@@ -1225,6 +1314,12 @@ views:
               icon: mdi:volume-high
               always_visible: true
               width: 130
+          modules:
+          - bubble_media_player_enhanced
+          bubble_media_player_enhanced:
+            card_layout: default
+            progress_bar: compact
+            idle_artwork: none
       - type: grid
         columns: 2
         square: false
@@ -1323,9 +1418,15 @@ views:
           card_type: media-player
           entity: media_player.kitchen_homepod
           name: HomePod
-          cover_background: true
+          cover_background: false
           hide:
             power_button: true
+          modules:
+          - bubble_media_player_enhanced
+          bubble_media_player_enhanced:
+            card_layout: default
+            progress_bar: compact
+            idle_artwork: none
       - type: grid
         columns: 2
         square: false
@@ -1667,41 +1768,51 @@ views:
           - playing
           - paused
         card:
-          type: custom:yet-another-media-player
-          entities:
-          - entity_id: media_player.living_room_appletv
-            name: Living Room
-            volume_entity: media_player.living_room_soundbar
-            hidden_controls:
-            - previous
-            - next
-            - power
-            - shuffle
-            - repeat
-            - favorite
-            remote_entity: remote.living_room_appletv
-            hidden_remote_buttons:
-            - power
-          control_layout: modern
-          match_theme: true
-          actions:
-          - name: Remote
-            icon: mdi:remote
-            action: remote_control
-            placement: replace_power
-          - name: Apps
-            icon: mdi:apps
-            menu_item: source
-          - name: Speech
-            icon: mdi:account-voice
-            service: switch.toggle
-            service_data:
-              entity_id: switch.living_room_soundbar_speech_enhancement
-          - name: Night
-            icon: mdi:weather-night
-            service: switch.toggle
-            service_data:
-              entity_id: switch.living_room_soundbar_night_sound
+          type: custom:bubble-card
+          card_type: media-player
+          entity: media_player.living_room_appletv
+          name: Apple TV
+          cover_background: false
+          hide:
+            power_button: true
+            volume_button: true
+            previous_button: true
+            next_button: true
+          sub_button:
+            main:
+            - entity: media_player.living_room_soundbar
+              sub_button_type: slider
+              icon: mdi:volume-high
+              always_visible: true
+              width: 130
+            bottom:
+            - name: Controls
+              buttons_layout: inline
+              group:
+              - entity: media_player.living_room_appletv
+                sub_button_type: select
+                select_attribute: source_list
+                icon: mdi:apps
+                name: Apps
+                show_name: true
+              - entity: switch.living_room_soundbar_speech_enhancement
+                icon: mdi:account-voice
+                name: Speech
+                show_name: true
+                tap_action:
+                  action: toggle
+              - entity: switch.living_room_soundbar_night_sound
+                icon: mdi:weather-night
+                name: Night
+                show_name: true
+                tap_action:
+                  action: toggle
+          modules:
+          - bubble_media_player_enhanced
+          bubble_media_player_enhanced:
+            card_layout: default
+            progress_bar: compact
+            idle_artwork: none
       - type: custom:bubble-card
         card_type: separator
         name: Lights
@@ -1781,6 +1892,13 @@ views:
       - type: custom:bubble-card
         card_type: media-player
         entity: media_player.kitchen_homepod
+        modules:
+        - bubble_media_player_enhanced
+        cover_background: false
+        bubble_media_player_enhanced:
+          card_layout: default
+          progress_bar: compact
+          idle_artwork: none
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#family-room'
@@ -1842,6 +1960,13 @@ views:
       - type: custom:bubble-card
         card_type: media-player
         entity: media_player.family_room_appletv
+        modules:
+        - bubble_media_player_enhanced
+        cover_background: false
+        bubble_media_player_enhanced:
+          card_layout: default
+          progress_bar: compact
+          idle_artwork: none
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#office'
@@ -1913,6 +2038,13 @@ views:
       - type: custom:bubble-card
         card_type: media-player
         entity: media_player.office_homepod
+        modules:
+        - bubble_media_player_enhanced
+        cover_background: false
+        bubble_media_player_enhanced:
+          card_layout: default
+          progress_bar: compact
+          idle_artwork: none
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#master-bedroom'
@@ -1954,12 +2086,33 @@ views:
       - type: custom:bubble-card
         card_type: media-player
         entity: media_player.master_bedroom_appletv
+        modules:
+        - bubble_media_player_enhanced
+        cover_background: false
+        bubble_media_player_enhanced:
+          card_layout: default
+          progress_bar: compact
+          idle_artwork: none
       - type: custom:bubble-card
         card_type: media-player
         entity: media_player.master_bedroom_homepod
+        modules:
+        - bubble_media_player_enhanced
+        cover_background: false
+        bubble_media_player_enhanced:
+          card_layout: default
+          progress_bar: compact
+          idle_artwork: none
       - type: custom:bubble-card
         card_type: media-player
         entity: media_player.master_bedroom_bathroom_speaker
+        modules:
+        - bubble_media_player_enhanced
+        cover_background: false
+        bubble_media_player_enhanced:
+          card_layout: default
+          progress_bar: compact
+          idle_artwork: none
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#averys-room'
@@ -2007,6 +2160,13 @@ views:
       - type: custom:bubble-card
         card_type: media-player
         entity: media_player.averys_room_homepod
+        modules:
+        - bubble_media_player_enhanced
+        cover_background: false
+        bubble_media_player_enhanced:
+          card_layout: default
+          progress_bar: compact
+          idle_artwork: none
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#security'
@@ -2129,26 +2289,30 @@ views:
       popup_mode: adaptive-dialog
       popup_style: bubble
       cards:
-      - type: tile
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
         entity: weather.outside_waterville_oh_usa
-        name: Next hours
-        grid_options:
-          columns: 12
-        features:
-        - type: temperature-forecast
-          forecast_type: hourly
-          hours_to_show: 12
-        - type: precipitation-forecast
-          forecast_type: hourly
-          hours_to_show: 12
-          precipitation_type: probability
-      - type: weather-forecast
-        entity: weather.outside_waterville_oh_usa
-        forecast_type: daily
-        show_current: false
-        show_forecast: true
-        grid_options:
-          columns: 12
+        show_state: true
+        show_last_changed: false
+        modules:
+        - weather_forecast
+        weather_forecast:
+          card_layout: default
+          type: daily
+          max_days: 5
+        sub_button:
+          main:
+          - name: Temperature
+            css_class: highlight
+            attribute: temperature
+            show_attribute: true
+            show_icon: false
+            show_background: false
+            fill_width: false
+            hide_when_parent_unavailable: true
+        styles: ".highlight .bubble-sub-button-name-container,\n.highlight .scrolling-container,\n.highlight .scrolling-container span {\n  font-size: var(--bubble-sub-button-highlight-font-size, 20px)\
+          \ !important;\n  font-weight: var(--bubble-sub-button-highlight-font-weight, 300) !important;\n  white-space: nowrap !important;\n  overflow: hidden !important;\n}"
       - type: custom:bubble-card
         card_type: separator
         name: Outside
@@ -3320,7 +3484,7 @@ views:
         card_type: media-player
         entity: media_player.living_room_appletv
         name: Apple TV
-        cover_background: true
+        cover_background: false
         hide:
           power_button: true
           volume_button: true
@@ -3333,6 +3497,12 @@ views:
             icon: mdi:volume-high
             always_visible: true
             width: 130
+        modules:
+        - bubble_media_player_enhanced
+        bubble_media_player_enhanced:
+          card_layout: default
+          progress_bar: compact
+          idle_artwork: none
       - type: heading
         heading: Master Bedroom
         heading_style: subtitle
@@ -3340,7 +3510,7 @@ views:
         card_type: media-player
         entity: media_player.master_bedroom_appletv
         name: Apple TV
-        cover_background: true
+        cover_background: false
         hide:
           power_button: true
           volume_button: true
@@ -3353,13 +3523,25 @@ views:
             icon: mdi:volume-high
             always_visible: true
             width: 130
+        modules:
+        - bubble_media_player_enhanced
+        bubble_media_player_enhanced:
+          card_layout: default
+          progress_bar: compact
+          idle_artwork: none
       - type: custom:bubble-card
         card_type: media-player
         entity: media_player.master_bedroom_homepod
         name: HomePod
-        cover_background: true
+        cover_background: false
         hide:
           power_button: true
+        modules:
+        - bubble_media_player_enhanced
+        bubble_media_player_enhanced:
+          card_layout: default
+          progress_bar: compact
+          idle_artwork: none
       - type: heading
         heading: Avery's Room
         heading_style: subtitle
@@ -3367,9 +3549,15 @@ views:
         card_type: media-player
         entity: media_player.averys_room_homepod
         name: HomePod
-        cover_background: true
+        cover_background: false
         hide:
           power_button: true
+        modules:
+        - bubble_media_player_enhanced
+        bubble_media_player_enhanced:
+          card_layout: default
+          progress_bar: compact
+          idle_artwork: none
       - type: heading
         heading: Office
         heading_style: subtitle
@@ -3377,9 +3565,15 @@ views:
         card_type: media-player
         entity: media_player.office_homepod
         name: HomePod
-        cover_background: true
+        cover_background: false
         hide:
           power_button: true
+        modules:
+        - bubble_media_player_enhanced
+        bubble_media_player_enhanced:
+          card_layout: default
+          progress_bar: compact
+          idle_artwork: none
       - type: heading
         heading: Family Room
         heading_style: subtitle
@@ -3387,7 +3581,7 @@ views:
         card_type: media-player
         entity: media_player.family_room_appletv
         name: Apple TV
-        cover_background: true
+        cover_background: false
         hide:
           power_button: true
           volume_button: true
@@ -3400,6 +3594,12 @@ views:
             icon: mdi:volume-high
             always_visible: true
             width: 130
+        modules:
+        - bubble_media_player_enhanced
+        bubble_media_player_enhanced:
+          card_layout: default
+          progress_bar: compact
+          idle_artwork: none
       - type: heading
         heading: Kitchen
         heading_style: subtitle
@@ -3407,9 +3607,15 @@ views:
         card_type: media-player
         entity: media_player.kitchen_homepod
         name: HomePod
-        cover_background: true
+        cover_background: false
         hide:
           power_button: true
+        modules:
+        - bubble_media_player_enhanced
+        bubble_media_player_enhanced:
+          card_layout: default
+          progress_bar: compact
+          idle_artwork: none
 - title: Climate
   path: climate
   type: sections

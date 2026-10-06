@@ -54,8 +54,10 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   `media-player` card for its Apple TV or HomePod, shown only while that player is in use —
   no house-wide player card. Bubble's own volume button controls the Apple TV, not the
   speaker it plays through, so Apple TV cards hide it and add an always-visible slider
-  sub-button on the real speaker (Sonos, or the bedroom TV). The `#living-room` pop-up keeps
-  Yet Another Media Player (`volume_entity` to the Soundbar, `remote_entity` for a remote pad).
+  sub-button on the real speaker (Sonos, or the bedroom TV). Every media card — room
+  sections, `#media`, `#living-room` — uses the Bubble Media Player Enhanced module
+  (artwork background and colours, compact progress bar; `idle_artwork: none` since the cards
+  hide when idle), so there is one media style and no separate media card dependency.
 - **Room media cards show while playing or paused.** A paused Apple TV is a show you'll
   come back to. A HomePod usually times out from `paused` to `idle` on its own 8 minutes
   after it stops (every time for Avery's Room over 10 days; the Office stayed paused longer
@@ -173,7 +175,19 @@ start collapsed.
 
 The navbar's Rooms tab (`#rooms`) stays as the at-a-glance view of every room.
 
-**Happening now** sits below Favorites: a `Happening now` heading and a 2-column grid,
+**Quick Actions** sits below Favorites: a heading and one `sub-buttons` card with the Bubble
+Quick Launcher module (`card_layout: regular`, rounded buttons with names). Each button
+highlights while its mode is on; tap opens more-info, hold toggles (`standards/dashboards.md`
+§12):
+
+| Button | Entity |
+|---|---|
+| Avery Asleep | `input_boolean.avery_sleeping` |
+| Everyone Asleep | `input_boolean.everyone_sleeping` |
+| Vacuum Paused | `input_boolean.vacuum_routine_pause` |
+| Guest Mode | `input_boolean.guest_mode` |
+
+**Happening now** sits below Quick Actions: a `Happening now` heading and a 2-column grid,
 both shown only while at least one card is visible. Each card is a Bubble `button` whose
 `styles` call `progress_fill(pct, rgb)` from `dashboard.jinja`, filling the card left to
 right with progress.
@@ -244,7 +258,7 @@ header shows the same `room_summary` as the tile.
 
 | Hash | Contents |
 |---|---|
-| `#living-room` | Apple TV player at the top (YAMP, only while playing or paused; volume → Soundbar; Apps, Speech and Night chips), 4 lights, thermostat + fireplace (Bubble climate) |
+| `#living-room` | Apple TV player at the top (only while playing or paused; Soundbar volume slider; Apps, Speech and Night sub-buttons), 4 lights, thermostat + fireplace (Bubble climate) |
 | `#kitchen` | Sink light, dishwasher and refrigerator tiles, HomePod |
 | `#family-room` | Ambient lamp, 2 pinball underglows, 3 game power switches, Apple TV |
 | `#office` | 7 lights, fan speed (tile `fan-speed` feature), HomePod |
@@ -252,7 +266,7 @@ header shows the same `room_summary` as the tile.
 | `#averys-room` | Ceiling light, desk and dresser lamps, fan speed, HomePod |
 | `#security` | Doorbell camera (square crop, first); lock, garage door, garage interior door, doors & windows; Water (the 4 leak sensors); outside lights |
 | `#climate` | Thermostat and fireplace (Bubble climate) |
-| `#weather` | 12-hour temperature and rain-chance forecast, daily forecast, outside conditions, AQI and pollutants |
+| `#weather` | Bubble Weather card (`weather_forecast` module: animated condition background, 5-day forecast), outside conditions, AQI and pollutants |
 | `#vacuum` | Commands, routine pause, Mop now (confirm), map (only when out or ran today), status, mop settings (when the pad is on), 4 consumables |
 | `#ai` | No header bar (`show_header: false`). Three heading cards (Briefing, House Summary, This Week), each with an age badge (`state_content: last_updated`); Briefing and House Summary add a refresh button badge that starts their script. Each heading is followed by a markdown body; see below |
 | `#laundry` | Washer and dryer status, remaining, progress, start/finish; "stop reminders" acknowledge (only while `alerting`); dishwasher; washer stats; utility room light |

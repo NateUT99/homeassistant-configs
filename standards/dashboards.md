@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.13.0 — October 2026*
+*Version 1.14.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.14.0 | October 2026 | Yet Another Media Player removed; author Bubble modules (Media Player Enhanced, Weather, Quick Launcher) approved; Quick Actions row |
 | 1.13.0 | October 2026 | Climate chip becomes a Weather chip (outdoor + AQI); indoor climate and HVAC paused live on the Thermostat favorite |
 | 1.12.0 | October 2026 | Chip strip becomes Apple-style category chips (Weather, Lights, Security, Media; Water on leak) with status from shared macros |
 | 1.11.0 | October 2026 | Room sections are Expander Cards with per-room media cards; house-wide Now Playing removed |
@@ -79,7 +80,7 @@ and an update to this table.
 | chore-calendar-card | Bundled with Chore Calendar | Chores view |
 | Battery State Card | HACS frontend | Battery list on the Maintenance view (auto-discovered, threshold-filtered) |
 | Expander Card | HACS frontend | Collapsible sections on long secondary views |
-| Yet Another Media Player | HACS frontend | `#living-room` player: `volume_entity` (Apple TV → Sonos), `hidden_controls`, `remote_entity`. Room media on Home uses Bubble `media-player` |
+| Bubble Media Player Enhanced, Bubble Weather, Bubble Quick Launcher | Bubble Module Store (author: Clooos) | Media cards, the `#weather` card, Quick Actions. Store-installed third-party modules: not mirrored in `ha/bubble_modules/` (§13); update them from the Module Store |
 
 > Mushroom is not approved. The view-level `badges` row is not used, which removes the only
 > case Mushroom ever covered.
@@ -325,7 +326,9 @@ one copy per state with opposite `visibility` conditions, each calling the expli
 | Jinja macros | `ha/custom_templates/<name>.jinja` | Repo | `scp` to `/config/custom_templates/`, then `homeassistant.reload_custom_templates` |
 | Bubble modules | `ha/bubble_modules/<id>.yaml` | Repo | `scp` to `/config/bubble_card/modules/`, then reload the dashboard |
 
-Don't edit modules in the Bubble module editor — the repo copy is the source.
+Don't edit modules in the Bubble module editor — the repo copy is the source. This applies to
+modules written for this dashboard; third-party modules installed from the Module Store are
+dependencies (§3), updated from the store and not copied into the repo.
 
 ---
 
