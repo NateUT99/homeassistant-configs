@@ -356,7 +356,7 @@ views:
             show_name: true
             custom_height: 40
             entity: input_boolean.vacuum_routine_pause
-            name: Vacuum Paused
+            name: Pause
             icon: mdi:robot-vacuum-off
             css_class: qa-vacuum
             tap_action:
@@ -369,7 +369,7 @@ views:
             show_name: true
             custom_height: 40
             entity: input_boolean.guest_mode
-            name: Guest Mode
+            name: Guest
             icon: mdi:account-star
             css_class: qa-guest
             tap_action:

@@ -153,8 +153,8 @@ is added to the pop-up by hand.
 |---|---|---|
 | Nate | Sleep (indigo) while `input_boolean.everyone_sleeping` is on; otherwise home (green) or away (grey) from `person.nate` | `input_boolean.everyone_sleeping` |
 | Avery | Sleep (indigo) while `input_boolean.avery_sleeping` is on; otherwise home (green) on her scheduled days (`binary_sensor.avery_home_today`), away (grey) on others | `input_boolean.avery_sleeping` |
-| Vacuum Paused | Amber while paused | `input_boolean.vacuum_routine_pause` |
-| Guest Mode | Amber while on | `input_boolean.guest_mode` |
+| Pause | Amber while the vacuum routine is paused | `input_boolean.vacuum_routine_pause` |
+| Guest | Amber while guest mode is on | `input_boolean.guest_mode` |
 
 Sleep wins over location, so a stale sleep flag is visible at a glance.
 
