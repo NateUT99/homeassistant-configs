@@ -329,6 +329,15 @@ The correct pattern: set `entity` at the **chip level** (not inside the action),
 
 This applies to every chip type (template, entity, action) and every action field (tap_action, hold_action, double_tap_action). If the chip needs to target an entity for more-info but has no natural `entity` association, add the `entity` key at the chip root — it does not affect non-more-info actions on the same chip.
 
+### A card's visual editor saves the whole dashboard from its own stale copy
+
+Editing one card in the HA dashboard editor (here, Yet Another Media Player's visual editor)
+saves the entire storage-mode dashboard as the editor loaded it. A change written through the
+API after the editor opened — a new Favorites tile, a removed chip — is silently reverted by
+that save, while the card edit itself lands. Before an API edit, compare the live config with
+the `ha/dashboards/` mirror; a `config_hash` conflict on write is the usual first sign. Keep
+the person's editor change and reapply the lost ones on top.
+
 ### Bubble button backgrounds are painted by `.bubble-background`, not the container
 
 Setting `background` on `.bubble-button-card-container` in a button card's `styles` (the

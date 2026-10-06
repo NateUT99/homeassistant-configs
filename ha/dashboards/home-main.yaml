@@ -124,7 +124,9 @@ views:
 
         .bubble-sub-button-group { flex-wrap: nowrap !important; }
 
-        .bubble-sub-button { flex-shrink: 0 !important; border-radius: 16px !important; padding: 0 12px !important; }'
+        .bubble-sub-button { flex-shrink: 0 !important; border-radius: 16px !important; padding: 0 12px !important; }
+
+        .nate ha-icon { color: {{ ''var(--green-color)'' if is_state(''person.nate'',''home'') else ''var(--secondary-text-color)'' }} !important; }'
       sub_button:
         main: []
         bottom:
@@ -357,6 +359,17 @@ views:
           - fill_width: false
             state_background: false
             light_background: false
+            entity: person.nate
+            css_class: nate
+            show_name: true
+            icon: mdi:account
+            name: Nate {{ 'asleep' if is_state('person.nate','home') and is_state('input_boolean.everyone_sleeping','on') else ('home' if is_state('person.nate','home') else 'away') }}
+            tap_action:
+              action: more-info
+            custom_height: 40
+          - fill_width: false
+            state_background: false
+            light_background: false
             entity: input_boolean.avery_sleeping
             css_class: avery
             icon: mdi:teddy-bear
@@ -364,34 +377,9 @@ views:
               action: none
             hold_action:
               action: toggle
-            visibility:
-            - condition: or
-              conditions:
-              - condition: and
-                conditions:
-                - condition: state
-                  entity: binary_sensor.avery_home_today
-                  state: 'on'
-                - condition: state
-                  entity: input_boolean.avery_sleeping
-                  state: 'on'
-                - condition: time
-                  after: 06:30
-                  before: 09:00
-              - condition: and
-                conditions:
-                - condition: state
-                  entity: binary_sensor.avery_home_today
-                  state: 'on'
-                - condition: state
-                  entity: input_boolean.everyone_sleeping
-                  state: 'off'
-                - condition: time
-                  after: '20:30'
-                  before: '22:30'
             custom_height: 40
             show_name: true
-            name: '{{ ''Avery asleep'' if is_state(''input_boolean.avery_sleeping'',''on'') else ''Avery awake'' }}'
+            name: Avery {{ 'asleep' if is_state('input_boolean.avery_sleeping','on') else ('here' if is_state('binary_sensor.avery_home_today','on') else 'away') }}
     - type: markdown
       text_only: true
       grid_options:
@@ -417,7 +405,7 @@ views:
         button_type: state
         modules:
         - apple_tile
-        rows: 1.4
+        rows: 1.2
         hold_action:
           action: more-info
         entity: climate.living_room_thermostat
@@ -440,7 +428,7 @@ views:
         button_type: state
         modules:
         - apple_tile
-        rows: 1.4
+        rows: 1.2
         hold_action:
           action: more-info
         entity: lock.entrance_front_door
@@ -472,7 +460,7 @@ views:
         button_type: state
         modules:
         - apple_tile
-        rows: 1.4
+        rows: 1.2
         hold_action:
           action: more-info
         entity: lock.entrance_front_door
@@ -504,7 +492,7 @@ views:
         button_type: state
         modules:
         - apple_tile
-        rows: 1.4
+        rows: 1.2
         hold_action:
           action: more-info
         entity: cover.garage_door_opener_door
@@ -537,7 +525,7 @@ views:
         button_type: state
         modules:
         - apple_tile
-        rows: 1.4
+        rows: 1.2
         hold_action:
           action: more-info
         entity: cover.garage_door_opener_door
@@ -570,7 +558,7 @@ views:
         button_type: state
         modules:
         - apple_tile
-        rows: 1.4
+        rows: 1.2
         hold_action:
           action: more-info
         entity: vacuum.living_room_vacuum
@@ -594,7 +582,6 @@ views:
         button_type: state
         modules:
         - apple_tile
-        rows: 1.4
         entity: input_boolean.guest_mode
         name: Guest Mode
         icon: mdi:account-star
@@ -622,12 +609,12 @@ views:
         - condition: state
           entity: input_boolean.guest_mode
           state: 'off'
+        rows: 1.2
       - type: custom:bubble-card
         card_type: button
         button_type: state
         modules:
         - apple_tile
-        rows: 1.4
         entity: input_boolean.guest_mode
         name: Guest Mode
         icon: mdi:account-star
@@ -655,6 +642,7 @@ views:
         - condition: state
           entity: input_boolean.guest_mode
           state: 'on'
+        rows: 1.2
       grid_options:
         columns: 24
     - type: heading
@@ -886,7 +874,6 @@ views:
         hidden_controls:
         - previous
         - next
-        - power
         - shuffle
         - repeat
         - favorite
@@ -986,6 +973,7 @@ views:
         icon: mdi:remote
         action: remote_control
         placement: replace_power
+      show_volume_overlay: false
   - type: grid
     cards:
     - type: custom:bubble-card

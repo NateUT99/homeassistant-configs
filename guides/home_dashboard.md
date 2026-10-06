@@ -128,7 +128,8 @@ card's `styles`, keyed by each chip's `css_class` (`standards/dashboards.md` §7
 | Fireplace | Fireplace not `off`; setpoint | Orange | `#climate` | — |
 | Weather | Always; outside temp | Theme | `#weather` | — |
 | AI | Always; "All good" / "Check" | Orange when the house summary flagged attention | `#ai` | — |
-| Avery | She's home today **and** (asleep 06:30–09:00 **or** house awake 20:30–22:30); "Avery asleep" / "Avery awake" | Green when asleep | — | Toggle `input_boolean.avery_sleeping` |
+| Nate | Always; "Nate home" / "Nate away" / "Nate asleep" (home while `input_boolean.everyone_sleeping` is on) | Green when home | more-info | — |
+| Avery | Always; "Avery here" / "Avery away" / "Avery asleep" — schedule (`binary_sensor.avery_home_today`) plus her sleep switch; she has no person entity | Green when asleep | — | Toggle `input_boolean.avery_sleeping` |
 
 The vacuum has no chip: its state, errors, and "routine paused" show on the Roborock favorite,
 due maintenance becomes chores (`guides/vacuum_cleaning_routine.md`), and the routine-pause
