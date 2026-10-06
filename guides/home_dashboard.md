@@ -107,42 +107,48 @@ To edit in the UI, open `/home-main/home?disable_km`.
 
 ### 3. Chip strip
 
-One Bubble `sub-buttons` card. Chip icon colours are Jinja in the card's
-`styles`, keyed by each chip's `css_class` (`standards/dashboards.md` §7, §10).
-
-**Row 1 — status & alerts**
+One Bubble `sub-buttons` card: a single row that scrolls sideways (`rows: 0.9`, chips
+`custom_height: 40`, overflow styles in the card's `styles`). Chips are for what needs
+attention; things you control are Favorites, and running appliances are Happening now.
+Order is alerts first, then things due, then status. Chip icon colours are Jinja in the
+card's `styles`, keyed by each chip's `css_class` (`standards/dashboards.md` §7, §10).
 
 | Chip | Shows | Colour | Tap | Hold |
 |---|---|---|---|---|
-| Weather | Always; outside temp | Theme | `#weather` | — |
-| AQI | AQI > 50 (not Good); index value | Yellow ≤ 100, orange ≤ 150, red | `#weather` | — |
-| Doors | Always; icon only — `home-lock` when secure, otherwise the one problem (lock-open, door-open, garage-open) or `home-alert` for several | Green when the front door is locked and closed and the garage is closed; otherwise `alert_level()` colour | `#security` | `script.household_secure_doors` (confirm) |
-| Openings | Any exterior opening except the front door (owned by Doors) open; "N open" | `alert_level()` colour | `#security` | — |
 | Leak | Any `water_leak_sensor`-labelled sensor on | Red | `#security` | — |
-| HVAC paused | `input_select.household_hvac_mode_before_pause` ≠ `none` | Orange | `#climate` | — |
 | Internet | WAN down or modem power cycle active | Red | — | — |
 | Generator | `sensor.outside_home_generator_status` = `Running` | Orange | — | — |
 | Fridge | Refrigerator plug off or power sensor unavailable | Red | — | — |
-| AI | Always; icon only | Orange when the house summary from the last 12 h flagged attention, otherwise grey | `#ai` | — |
-| Updates | Any `update.*` on; count | Primary | `/config/updates` | — |
-| Guest | Always; icon only | Green when on | — | Toggle |
-| Avery | She's home today **and** (asleep 06:30–09:00 **or** house awake 20:30–22:30) | Green when asleep | — | Toggle `input_boolean.avery_sleeping` |
-
-**Row 2 — features**
-
-| Chip | Shows | Colour | Tap | Hold |
-|---|---|---|---|---|
-| Thermostat | Always; indoor temp | Orange heating, blue cooling | `#climate` | — |
-| Fireplace | Fireplace not `off`; setpoint | Orange | `#climate` | — |
-| Vacuum | Always; icon only | Red error/stuck, orange running or paused, green ran today; alert icon when an error or overdue consumable | `#vacuum` | Toggle routine pause (confirm) |
-| Chores | Any chore (except trash) due/overdue; "N due" | Amber due, red overdue | Chores view | — |
+| Openings | Any exterior opening except the front door (owned by Doors) open; "N open" | `alert_level()` colour | `#security` | — |
+| HVAC paused | `input_select.household_hvac_mode_before_pause` ≠ `none` | Orange | `#climate` | — |
+| Doors | Front door unlocked or open, or garage not closed; "Unlocked" / "Door open" / "Garage open" / "Door & garage" | `alert_level()` colour | `#security` | `script.household_secure_doors` (confirm) |
 | Recycling | Trash chore due/overdue | Amber, red overdue | Chores view | Mark "Take Out Trash" done |
-| Washer / Dryer | Running, done, or faulted; progress % or "Done" | Blue running, green done, red fault | `#laundry` | — |
-| Dishwasher | Running | Blue | `#laundry` | — |
+| AQI | AQI > 50 (not Good); index value | Yellow ≤ 100, orange ≤ 150, red | `#weather` | — |
+| Updates | Any `update.*` on; count | Primary | `/config/updates` | — |
+| Fireplace | Fireplace not `off`; setpoint | Orange | `#climate` | — |
+| Weather | Always; outside temp | Theme | `#weather` | — |
+| Vacuum | Routine paused, stuck/error, dock error, or a consumable overdue; "Paused" / "Stuck" / "Maintenance" | Red error/stuck, orange paused | `#vacuum` | Toggle routine pause (confirm) |
+| AI | Always; "All good" / "Check" | Orange when the house summary flagged attention | `#ai` | — |
+| Guest | Always; "Guest mode" | Green when on | — | Toggle |
+| Avery | She's home today **and** (asleep 06:30–09:00 **or** house awake 20:30–22:30); "Avery asleep" / "Avery awake" | Green when asleep | — | Toggle `input_boolean.avery_sleeping` |
+
+Chores other than trash are not a chip: the navbar's Chores tab carries a red badge — a dot
+for one due or overdue chore, the count for two or more.
 
 The Recycling chip appears in practice only on Trash & Recycling weeks: a trash-only week
 auto-completes at its first announcement (see `guides/reminders.md`). Its hold calls
 `todo.update_item` on `todo.household_chores`, the same completion path as the chore card.
+
+**Happening now** sits below Favorites: a `Happening now` heading and a 2-column grid,
+both shown only while at least one card is visible. Each card is a Bubble `button` whose
+`styles` call `progress_fill(pct, rgb)` from `dashboard.jinja`, filling the card left to
+right with progress.
+
+| Card | Visible while | Line under the name | Fill | Tap |
+|---|---|---|---|---|
+| Washer / Dryer | Running, done (`alerting`), or faulted | "23 min left" / "Done · unload" / "Fault" | Teal, cycle progress (full when done) | `#laundry` |
+| Dishwasher | `binary_sensor.kitchen_dishwasher_running` on | "Running · N min" | Even tint (no progress reported) | `#laundry` |
+| Vacuum | Cleaning, returning, paused, or error | "Room · 60%" / "Returning to dock" / "Paused" / the error | Lavender, cleaning progress | `#vacuum` |
 
 **Greeting** sits below the chip strip: a text-only markdown card, "Good morning/afternoon/
 evening, <first name>!" (05:00–11:59 / 12:00–16:59 / otherwise, the logged-in user's first

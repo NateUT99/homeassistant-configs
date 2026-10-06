@@ -25,6 +25,12 @@ navbar-templates:
       icon: mdi:clipboard-check-outline
       icon_selected: mdi:clipboard-check
       label: Chores
+      badge:
+        show: '[[[ return Object.keys(states).filter(k => k.startsWith(''sensor.household_chores_'') && k !== ''sensor.household_chores_take_out_trash'' && [''due'', ''overdue''].includes(states[k].state)).length
+          > 0 ]]]'
+        count: '[[[ const n = Object.keys(states).filter(k => k.startsWith(''sensor.household_chores_'') && k !== ''sensor.household_chores_take_out_trash'' && [''due'', ''overdue''].includes(states[k].state)).length;
+          return n > 1 ? String(n) : null ]]]'
+        color: red
     - icon: mdi:dots-horizontal
       label: More
       tap_action:
@@ -58,7 +64,7 @@ views:
     - type: custom:bubble-card
       card_type: sub-buttons
       hide_main_background: true
-      rows: 1.2
+      rows: 0.9
       styles: '{% from ''dashboard.jinja'' import alert_level %}{% set lvl = alert_level() %}
 
         {% set unlocked = not is_state(''lock.entrance_front_door'',''locked'') %}{% set front_open = is_state(''binary_sensor.entrance_front_door'',''on'') %}{% set garage_open = not is_state(''cover.garage_door_opener_door'',''closed'')
@@ -110,71 +116,22 @@ views:
         {% set g = state_attr(''sensor.household_ai_house_summary'',''generated_at'') %}.ai ha-icon { color: {{ ''var(--orange-color)'' if is_state(''sensor.household_ai_house_summary'',''attention'') and
         g is not none and (now() - as_datetime(g)) < timedelta(hours=12) else ''var(--secondary-text-color)'' }} !important; }
 
-        '
+
+        .bubble-sub-button-bottom-container { overflow-x: auto !important; overflow-y: hidden !important; justify-content: flex-start !important; pointer-events: auto !important; scrollbar-width: none;
+        -webkit-overflow-scrolling: touch; }
+
+        .bubble-sub-button-bottom-container::-webkit-scrollbar { display: none; }
+
+        .bubble-sub-button-group { flex-wrap: nowrap !important; }
+
+        .bubble-sub-button { flex-shrink: 0 !important; border-radius: 16px !important; padding: 0 12px !important; }'
       sub_button:
         main: []
-        bottom_layout: rows
         bottom:
-        - name: Status
+        - name: Chips
           buttons_layout: inline
-          justify_content: center
+          justify_content: start
           group:
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: weather.outside_waterville_oh_usa
-            show_name: true
-            name: '{{ states(''sensor.outside_temperature'') | float(0) | round(0) | int }}°'
-            tap_action:
-              action: navigate
-              navigation_path: '#weather'
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: sensor.erie_ohio_usa_air_quality_index
-            css_class: aqi
-            show_name: true
-            icon: mdi:weather-hazy
-            name: AQI {{ states('sensor.erie_ohio_usa_air_quality_index') }}
-            tap_action:
-              action: navigate
-              navigation_path: '#weather'
-            visibility:
-            - condition: numeric_state
-              entity: sensor.erie_ohio_usa_air_quality_index
-              above: 50
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: lock.entrance_front_door
-            css_class: doors
-            icon: '{% set unlocked = not is_state(''lock.entrance_front_door'',''locked'') %}{% set front_open = is_state(''binary_sensor.entrance_front_door'',''on'') %}{% set garage_open = not is_state(''cover.garage_door_opener_door'',''closed'')
-              %}{% set issues = [unlocked or front_open, garage_open] | select | list | count %}{{ ''mdi:home-lock'' if issues == 0 else (''mdi:home-alert'' if issues > 1 else (''mdi:garage-open-variant''
-              if garage_open else (''mdi:door-open'' if front_open else ''mdi:lock-open-variant''))) }}'
-            tap_action:
-              action: navigate
-              navigation_path: '#security'
-            hold_action:
-              action: perform-action
-              perform_action: script.household_secure_doors
-              confirmation:
-                text: Lock the front door and close the garage?
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: binary_sensor.household_exterior_openings
-            css_class: openings
-            show_name: true
-            icon: mdi:door-open
-            name: '{{ expand(''binary_sensor.household_exterior_openings'') | rejectattr(''entity_id'',''eq'',''binary_sensor.entrance_front_door'') | selectattr(''state'',''eq'',''on'') | list | count
-              }} open'
-            tap_action:
-              action: navigate
-              navigation_path: '#security'
-            visibility:
-            - condition: template
-              value_template: '{{ expand(''binary_sensor.household_exterior_openings'') | rejectattr(''entity_id'',''eq'',''binary_sensor.entrance_front_door'') | selectattr(''state'',''eq'',''on'') | list
-                | count > 0 }}'
           - fill_width: false
             state_background: false
             light_background: false
@@ -188,21 +145,7 @@ views:
             visibility:
             - condition: template
               value_template: '{{ label_entities(''water_leak_sensor'') | select(''is_state'',''on'') | list | count > 0 }}'
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: input_select.household_hvac_mode_before_pause
-            css_class: hvac-paused
-            show_name: true
-            icon: mdi:hvac-off
-            name: HVAC paused
-            tap_action:
-              action: navigate
-              navigation_path: '#climate'
-            visibility:
-            - condition: state
-              entity: input_select.household_hvac_mode_before_pause
-              state_not: none
+            custom_height: 40
           - fill_width: false
             state_background: false
             light_background: false
@@ -220,6 +163,7 @@ views:
               - condition: state
                 entity: input_boolean.utility_room_cable_modem_power_cycle_active
                 state: 'on'
+            custom_height: 40
           - fill_width: false
             state_background: false
             light_background: false
@@ -232,6 +176,7 @@ views:
             - condition: state
               entity: sensor.outside_home_generator_status
               state: Running
+            custom_height: 40
           - fill_width: false
             state_background: false
             light_background: false
@@ -249,15 +194,114 @@ views:
               - condition: state
                 entity: sensor.kitchen_refrigerator_power
                 state: unavailable
+            custom_height: 40
           - fill_width: false
             state_background: false
             light_background: false
-            entity: sensor.household_ai_house_summary
-            css_class: ai
-            icon: mdi:creation
+            entity: binary_sensor.household_exterior_openings
+            css_class: openings
+            show_name: true
+            icon: mdi:door-open
+            name: '{{ expand(''binary_sensor.household_exterior_openings'') | rejectattr(''entity_id'',''eq'',''binary_sensor.entrance_front_door'') | selectattr(''state'',''eq'',''on'') | list | count
+              }} open'
             tap_action:
               action: navigate
-              navigation_path: '#ai'
+              navigation_path: '#security'
+            visibility:
+            - condition: template
+              value_template: '{{ expand(''binary_sensor.household_exterior_openings'') | rejectattr(''entity_id'',''eq'',''binary_sensor.entrance_front_door'') | selectattr(''state'',''eq'',''on'') | list
+                | count > 0 }}'
+            custom_height: 40
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: input_select.household_hvac_mode_before_pause
+            css_class: hvac-paused
+            show_name: true
+            icon: mdi:hvac-off
+            name: HVAC paused
+            tap_action:
+              action: navigate
+              navigation_path: '#climate'
+            visibility:
+            - condition: state
+              entity: input_select.household_hvac_mode_before_pause
+              state_not: none
+            custom_height: 40
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: lock.entrance_front_door
+            css_class: doors
+            icon: '{% set unlocked = not is_state(''lock.entrance_front_door'',''locked'') %}{% set front_open = is_state(''binary_sensor.entrance_front_door'',''on'') %}{% set garage_open = not is_state(''cover.garage_door_opener_door'',''closed'')
+              %}{% set issues = [unlocked or front_open, garage_open] | select | list | count %}{{ ''mdi:home-lock'' if issues == 0 else (''mdi:home-alert'' if issues > 1 else (''mdi:garage-open-variant''
+              if garage_open else (''mdi:door-open'' if front_open else ''mdi:lock-open-variant''))) }}'
+            tap_action:
+              action: navigate
+              navigation_path: '#security'
+            hold_action:
+              action: perform-action
+              perform_action: script.household_secure_doors
+              confirmation:
+                text: Lock the front door and close the garage?
+            custom_height: 40
+            visibility:
+            - condition: or
+              conditions:
+              - condition: state
+                entity: lock.entrance_front_door
+                state_not: locked
+              - condition: state
+                entity: binary_sensor.entrance_front_door
+                state: 'on'
+              - condition: state
+                entity: cover.garage_door_opener_door
+                state_not: closed
+            show_name: true
+            name: '{% set u = not is_state(''lock.entrance_front_door'',''locked'') %}{% set f = is_state(''binary_sensor.entrance_front_door'',''on'') %}{% set g = not is_state(''cover.garage_door_opener_door'',''closed'')
+              %}{{ ''Door & garage'' if (u or f) and g else (''Garage open'' if g else (''Door open'' if f else ''Unlocked'')) }}'
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: sensor.household_chores_take_out_trash
+            css_class: trash
+            show_name: true
+            icon: mdi:recycle
+            name: Recycling
+            tap_action:
+              action: navigate
+              navigation_path: /home-main/chores
+            visibility:
+            - condition: state
+              entity: sensor.household_chores_take_out_trash
+              state:
+              - due
+              - overdue
+            hold_action:
+              action: perform-action
+              perform_action: todo.update_item
+              target:
+                entity_id: todo.household_chores
+              data:
+                item: Take Out Trash
+                status: completed
+            custom_height: 40
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: sensor.erie_ohio_usa_air_quality_index
+            css_class: aqi
+            show_name: true
+            icon: mdi:weather-hazy
+            name: AQI {{ states('sensor.erie_ohio_usa_air_quality_index') }}
+            tap_action:
+              action: navigate
+              navigation_path: '#weather'
+            visibility:
+            - condition: numeric_state
+              entity: sensor.erie_ohio_usa_air_quality_index
+              above: 50
+            custom_height: 40
           - fill_width: false
             state_background: false
             light_background: false
@@ -271,6 +315,104 @@ views:
             visibility:
             - condition: template
               value_template: '{{ states.update | selectattr(''state'',''eq'',''on'') | list | count > 0 }}'
+            custom_height: 40
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: climate.living_room_fireplace
+            css_class: fireplace
+            show_name: true
+            icon: mdi:fireplace
+            name: '{{ state_attr(''climate.living_room_fireplace'',''temperature'') | int(0) }}°'
+            tap_action:
+              action: navigate
+              navigation_path: '#climate'
+            visibility:
+            - condition: state
+              entity: climate.living_room_fireplace
+              state_not: 'off'
+            custom_height: 40
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: weather.outside_waterville_oh_usa
+            show_name: true
+            name: '{{ states(''sensor.outside_temperature'') | float(0) | round(0) | int }}°'
+            tap_action:
+              action: navigate
+              navigation_path: '#weather'
+            custom_height: 40
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: vacuum.living_room_vacuum
+            css_class: vacuum
+            icon: '{% set overdue = [''sensor.living_room_vacuum_filter_time_left'',''sensor.living_room_vacuum_filter_clean_time_left'',''sensor.living_room_vacuum_main_brush_time_left'',''sensor.living_room_vacuum_side_brush_time_left'',''sensor.living_room_vacuum_sensor_time_left'']
+              | map(''states'') | map(''float'', 999) | select(''le'', 0) | list | count > 0 %}{{ ''mdi:robot-vacuum-off'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') else (''mdi:robot-vacuum-alert''
+              if (overdue or states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable''] or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable'']
+              or is_state(''binary_sensor.vacuum_stuck'',''on'')) else ''mdi:robot-vacuum'') }}'
+            tap_action:
+              action: navigate
+              navigation_path: '#vacuum'
+            hold_action:
+              action: perform-action
+              perform_action: input_boolean.toggle
+              target:
+                entity_id: input_boolean.vacuum_routine_pause
+              confirmation:
+                text: Toggle the vacuum routine pause?
+            custom_height: 40
+            visibility:
+            - condition: or
+              conditions:
+              - condition: state
+                entity: input_boolean.vacuum_routine_pause
+                state: 'on'
+              - condition: state
+                entity: binary_sensor.vacuum_stuck
+                state: 'on'
+              - condition: state
+                entity: sensor.living_room_vacuum_vacuum_error
+                state_not:
+                - none
+                - unknown
+                - unavailable
+              - condition: state
+                entity: sensor.living_room_vacuum_dock_dock_error
+                state_not:
+                - ok
+                - unknown
+                - unavailable
+              - condition: numeric_state
+                entity: sensor.living_room_vacuum_filter_time_left
+                below: 0.01
+              - condition: numeric_state
+                entity: sensor.living_room_vacuum_filter_clean_time_left
+                below: 0.01
+              - condition: numeric_state
+                entity: sensor.living_room_vacuum_main_brush_time_left
+                below: 0.01
+              - condition: numeric_state
+                entity: sensor.living_room_vacuum_side_brush_time_left
+                below: 0.01
+              - condition: numeric_state
+                entity: sensor.living_room_vacuum_sensor_time_left
+                below: 0.01
+            show_name: true
+            name: '{{ ''Paused'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') else (''Stuck'' if is_state(''binary_sensor.vacuum_stuck'',''on'') or states(''sensor.living_room_vacuum_vacuum_error'')
+              not in [''none'',''unknown'',''unavailable''] or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable''] else ''Maintenance'') }}'
+          - fill_width: false
+            state_background: false
+            light_background: false
+            entity: sensor.household_ai_house_summary
+            css_class: ai
+            icon: mdi:creation
+            tap_action:
+              action: navigate
+              navigation_path: '#ai'
+            custom_height: 40
+            show_name: true
+            name: '{{ ''Check'' if is_state(''sensor.household_ai_house_summary'',''attention'') else ''All good'' }}'
           - fill_width: false
             state_background: false
             light_background: false
@@ -281,6 +423,9 @@ views:
               action: none
             hold_action:
               action: toggle
+            custom_height: 40
+            show_name: true
+            name: Guest mode
           - fill_width: false
             state_background: false
             light_background: false
@@ -316,160 +461,9 @@ views:
                 - condition: time
                   after: '20:30'
                   before: '22:30'
-        - name: Features
-          buttons_layout: inline
-          justify_content: center
-          group:
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: climate.living_room_thermostat
-            css_class: thermo
+            custom_height: 40
             show_name: true
-            icon: mdi:home-thermometer
-            name: '{{ state_attr(''climate.living_room_thermostat'',''current_temperature'') | float(0) | round(0) | int }}°'
-            tap_action:
-              action: navigate
-              navigation_path: '#climate'
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: climate.living_room_fireplace
-            css_class: fireplace
-            show_name: true
-            icon: mdi:fireplace
-            name: '{{ state_attr(''climate.living_room_fireplace'',''temperature'') | int(0) }}°'
-            tap_action:
-              action: navigate
-              navigation_path: '#climate'
-            visibility:
-            - condition: state
-              entity: climate.living_room_fireplace
-              state_not: 'off'
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: vacuum.living_room_vacuum
-            css_class: vacuum
-            icon: '{% set overdue = [''sensor.living_room_vacuum_filter_time_left'',''sensor.living_room_vacuum_filter_clean_time_left'',''sensor.living_room_vacuum_main_brush_time_left'',''sensor.living_room_vacuum_side_brush_time_left'',''sensor.living_room_vacuum_sensor_time_left'']
-              | map(''states'') | map(''float'', 999) | select(''le'', 0) | list | count > 0 %}{{ ''mdi:robot-vacuum-off'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') else (''mdi:robot-vacuum-alert''
-              if (overdue or states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable''] or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable'']
-              or is_state(''binary_sensor.vacuum_stuck'',''on'')) else ''mdi:robot-vacuum'') }}'
-            tap_action:
-              action: navigate
-              navigation_path: '#vacuum'
-            hold_action:
-              action: perform-action
-              perform_action: input_boolean.toggle
-              target:
-                entity_id: input_boolean.vacuum_routine_pause
-              confirmation:
-                text: Toggle the vacuum routine pause?
-          - fill_width: false
-            state_background: false
-            light_background: false
-            css_class: chores
-            show_name: true
-            icon: mdi:clipboard-check-outline
-            name: '{{ expand(integration_entities(''chore_calendar'') | select(''match'',''sensor\\.'') | list) | rejectattr(''entity_id'',''eq'',''sensor.household_chores_take_out_trash'') | selectattr(''state'',''in'',[''due'',''overdue''])
-              | list | count }} due'
-            tap_action:
-              action: navigate
-              navigation_path: /home-main/chores
-            visibility:
-            - condition: template
-              value_template: '{{ expand(integration_entities(''chore_calendar'') | select(''match'',''sensor\\.'') | list) | rejectattr(''entity_id'',''eq'',''sensor.household_chores_take_out_trash'')
-                | selectattr(''state'',''in'',[''due'',''overdue'']) | list | count > 0 }}'
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: sensor.household_chores_take_out_trash
-            css_class: trash
-            show_name: true
-            icon: mdi:recycle
-            name: Recycling
-            tap_action:
-              action: navigate
-              navigation_path: /home-main/chores
-            visibility:
-            - condition: state
-              entity: sensor.household_chores_take_out_trash
-              state:
-              - due
-              - overdue
-            hold_action:
-              action: perform-action
-              perform_action: todo.update_item
-              target:
-                entity_id: todo.household_chores
-              data:
-                item: Take Out Trash
-                status: completed
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: input_select.utility_room_washer_status
-            css_class: washer
-            show_name: true
-            icon: mdi:washing-machine
-            name: '{{ ''Done'' if is_state(''input_select.utility_room_washer_status'',''alerting'') else (states(''sensor.utility_room_washer_progress'') | int(0) ~ ''%'') }}'
-            tap_action:
-              action: navigate
-              navigation_path: '#laundry'
-            visibility:
-            - condition: or
-              conditions:
-              - condition: state
-                entity: input_select.utility_room_washer_status
-                state:
-                - alerting
-                - fault
-              - condition: state
-                entity: sensor.utility_room_washer_current_status
-                state_not:
-                - power_off
-                - initial
-                - unavailable
-                - unknown
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: input_select.utility_room_dryer_status
-            css_class: dryer
-            show_name: true
-            icon: mdi:tumble-dryer
-            name: '{{ ''Done'' if is_state(''input_select.utility_room_dryer_status'',''alerting'') else (states(''sensor.utility_room_dryer_progress'') | int(0) ~ ''%'') }}'
-            tap_action:
-              action: navigate
-              navigation_path: '#laundry'
-            visibility:
-            - condition: or
-              conditions:
-              - condition: state
-                entity: input_select.utility_room_dryer_status
-                state:
-                - alerting
-                - fault
-              - condition: state
-                entity: sensor.utility_room_dryer_current_status
-                state_not:
-                - power_off
-                - initial
-                - unavailable
-                - unknown
-          - fill_width: false
-            state_background: false
-            light_background: false
-            entity: binary_sensor.kitchen_dishwasher_running
-            css_class: dishwasher
-            icon: mdi:dishwasher
-            tap_action:
-              action: navigate
-              navigation_path: '#laundry'
-            visibility:
-            - condition: state
-              entity: binary_sensor.kitchen_dishwasher_running
-              state: 'on'
+            name: '{{ ''Avery asleep'' if is_state(''input_boolean.avery_sleeping'',''on'') else ''Avery awake'' }}'
     - type: markdown
       text_only: true
       grid_options:
@@ -666,6 +660,227 @@ views:
             action: more-info
       grid_options:
         columns: 24
+    - type: heading
+      heading: Happening now
+      heading_style: title
+      grid_options:
+        columns: 24
+      visibility:
+      - condition: or
+        conditions:
+        - condition: or
+          conditions:
+          - condition: state
+            entity: input_select.utility_room_washer_status
+            state:
+            - alerting
+            - fault
+          - condition: state
+            entity: sensor.utility_room_washer_current_status
+            state_not:
+            - power_off
+            - initial
+            - unavailable
+            - unknown
+        - condition: or
+          conditions:
+          - condition: state
+            entity: input_select.utility_room_dryer_status
+            state:
+            - alerting
+            - fault
+          - condition: state
+            entity: sensor.utility_room_dryer_current_status
+            state_not:
+            - power_off
+            - initial
+            - unavailable
+            - unknown
+        - condition: state
+          entity: binary_sensor.kitchen_dishwasher_running
+          state: 'on'
+        - condition: state
+          entity: vacuum.living_room_vacuum
+          state:
+          - cleaning
+          - returning
+          - paused
+          - error
+    - type: grid
+      columns: 2
+      square: false
+      cards:
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        rows: 1.4
+        hold_action:
+          action: more-info
+        entity: input_select.utility_room_washer_status
+        name: Washer
+        icon: mdi:washing-machine
+        state_content: '{% set st = states(''input_select.utility_room_washer_status'') %}{{ ''Done · unload'' if st == ''alerting'' else (''Fault'' if st == ''fault'' else (states(''sensor.utility_room_washer_minutes_remaining'')
+          | int(0) ~ '' min left'')) }}'
+        styles: '{% from ''dashboard.jinja'' import progress_fill %}{{ progress_fill(100 if is_state(''input_select.utility_room_washer_status'',''alerting'') else states(''sensor.utility_room_washer_progress'')
+          | int(0)) }}'
+        visibility:
+        - condition: or
+          conditions:
+          - condition: state
+            entity: input_select.utility_room_washer_status
+            state:
+            - alerting
+            - fault
+          - condition: state
+            entity: sensor.utility_room_washer_current_status
+            state_not:
+            - power_off
+            - initial
+            - unavailable
+            - unknown
+        tap_action:
+          action: navigate
+          navigation_path: '#laundry'
+        button_action:
+          tap_action:
+            action: navigate
+            navigation_path: '#laundry'
+          hold_action:
+            action: more-info
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        rows: 1.4
+        hold_action:
+          action: more-info
+        entity: input_select.utility_room_dryer_status
+        name: Dryer
+        icon: mdi:tumble-dryer
+        state_content: '{% set st = states(''input_select.utility_room_dryer_status'') %}{{ ''Done · unload'' if st == ''alerting'' else (''Fault'' if st == ''fault'' else (states(''sensor.utility_room_dryer_minutes_remaining'')
+          | int(0) ~ '' min left'')) }}'
+        styles: '{% from ''dashboard.jinja'' import progress_fill %}{{ progress_fill(100 if is_state(''input_select.utility_room_dryer_status'',''alerting'') else states(''sensor.utility_room_dryer_progress'')
+          | int(0)) }}'
+        visibility:
+        - condition: or
+          conditions:
+          - condition: state
+            entity: input_select.utility_room_dryer_status
+            state:
+            - alerting
+            - fault
+          - condition: state
+            entity: sensor.utility_room_dryer_current_status
+            state_not:
+            - power_off
+            - initial
+            - unavailable
+            - unknown
+        tap_action:
+          action: navigate
+          navigation_path: '#laundry'
+        button_action:
+          tap_action:
+            action: navigate
+            navigation_path: '#laundry'
+          hold_action:
+            action: more-info
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        rows: 1.4
+        hold_action:
+          action: more-info
+        entity: binary_sensor.kitchen_dishwasher_running
+        name: Dishwasher
+        icon: mdi:dishwasher
+        state_content: Running · {{ ((now() - states.binary_sensor.kitchen_dishwasher_running.last_changed).total_seconds() / 60) | int }} min
+        styles: '{% from ''dashboard.jinja'' import progress_fill %}{{ progress_fill(none) }}'
+        visibility:
+        - condition: state
+          entity: binary_sensor.kitchen_dishwasher_running
+          state: 'on'
+        tap_action:
+          action: navigate
+          navigation_path: '#laundry'
+        button_action:
+          tap_action:
+            action: navigate
+            navigation_path: '#laundry'
+          hold_action:
+            action: more-info
+      - type: custom:bubble-card
+        card_type: button
+        button_type: state
+        rows: 1.4
+        hold_action:
+          action: more-info
+        entity: vacuum.living_room_vacuum
+        name: Vacuum
+        icon: mdi:robot-vacuum
+        state_content: '{% set s = states(''vacuum.living_room_vacuum'') %}{{ (states(''sensor.living_room_vacuum_current_room'') ~ '' · '' ~ states(''sensor.living_room_vacuum_cleaning_progress'') | int(0)
+          ~ ''%'') if s == ''cleaning'' else (''Returning to dock'' if s == ''returning'' else (''Paused'' if s == ''paused'' else states(''sensor.living_room_vacuum_vacuum_error'') | replace(''_'', ''
+          '') | capitalize)) }}'
+        styles: '{% from ''dashboard.jinja'' import progress_fill %}{{ progress_fill(states(''sensor.living_room_vacuum_cleaning_progress'') | int(0), ''201, 184, 240'') }}'
+        visibility:
+        - condition: state
+          entity: vacuum.living_room_vacuum
+          state:
+          - cleaning
+          - returning
+          - paused
+          - error
+        tap_action:
+          action: navigate
+          navigation_path: '#vacuum'
+        button_action:
+          tap_action:
+            action: navigate
+            navigation_path: '#vacuum'
+          hold_action:
+            action: more-info
+      grid_options:
+        columns: 24
+      visibility:
+      - condition: or
+        conditions:
+        - condition: or
+          conditions:
+          - condition: state
+            entity: input_select.utility_room_washer_status
+            state:
+            - alerting
+            - fault
+          - condition: state
+            entity: sensor.utility_room_washer_current_status
+            state_not:
+            - power_off
+            - initial
+            - unavailable
+            - unknown
+        - condition: or
+          conditions:
+          - condition: state
+            entity: input_select.utility_room_dryer_status
+            state:
+            - alerting
+            - fault
+          - condition: state
+            entity: sensor.utility_room_dryer_current_status
+            state_not:
+            - power_off
+            - initial
+            - unavailable
+            - unknown
+        - condition: state
+          entity: binary_sensor.kitchen_dishwasher_running
+          state: 'on'
+        - condition: state
+          entity: vacuum.living_room_vacuum
+          state:
+          - cleaning
+          - returning
+          - paused
+          - error
     - type: custom:yet-another-media-player
       entities:
       - entity_id: media_player.living_room_appletv

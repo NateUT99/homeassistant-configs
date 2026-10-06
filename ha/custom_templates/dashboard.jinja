@@ -47,3 +47,17 @@
 .bubble-icon { color: #f5b452 !important; }
 {%- endif -%}
 {%- endmacro %}
+
+{#-
+  Progress-fill background for "Happening now" cards (Bubble `styles`): the card fills
+  left to right to `pct` percent in the given "r, g, b" colour; pct=none gives an even
+  tint for appliances that report no progress.
+-#}
+{% macro progress_fill(pct=none, rgb='79, 195, 217') -%}
+{%- set p = pct | int(0) if pct is not none else 100 -%}
+{%- set a = '0.32' if pct is not none else '0.18' -%}
+.bubble-button-card-container { border-radius: 22px !important; background: rgba(255, 255, 255, 0.07) !important; }
+.bubble-background { opacity: 1 !important; background: linear-gradient(90deg, rgba({{ rgb }}, {{ a }}) {{ p }}%, transparent {{ p }}%) !important; }
+.bubble-icon-container { background: rgb({{ rgb }}) !important; }
+.bubble-icon { color: #0d1117 !important; }
+{%- endmacro %}

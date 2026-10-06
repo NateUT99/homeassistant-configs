@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.6.0 — October 2026*
+*Version 1.7.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.7.0 | October 2026 | Chips are attention-only and scroll in one row; Happening now section for running appliances; chore count moves to a navbar badge |
 | 1.6.0 | October 2026 | Favorites grid on Home (`apple_tile` module); room glow; Bubble backgrounds are styled on `.bubble-background` |
 | 1.5.0 | October 2026 | Rooms move off Home into a `#rooms` pop-up opened from the navbar; large 2-up room tiles with a bottom row of quick buttons; navbar More menu |
 | 1.4.0 | October 2026 | Yet Another Media Player approved for media cards |
