@@ -146,7 +146,7 @@ by room, the same cards the room sections show. Both lists are static: a new lig
 is added to the pop-up by hand.
 
 **Quick actions** are a second chip row directly under the status row: a separate
-`sub-buttons` card with the same scrolling layout, for the people and house modes you switch by hand. tap opens more-info, hold toggles
+`sub-buttons` card with the same scrolling layout, for the people and house modes you switch by hand. Tap opens more-info, hold toggles
 (`standards/dashboards.md` §12):
 
 | Chip | Icon and colour | Hold toggles |
