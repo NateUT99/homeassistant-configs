@@ -255,10 +255,14 @@ beside it. Detail and maintenance go behind a "settings" row that opens a second
 A choice among two to five options (a `select`, a vacuum's fan speed, a thermostat preset)
 is a **`segmented` row**: a `sub-buttons` card with `modules: [segmented]`, its `entity` set
 to the thing being chosen, and one sub-button per option with `css_class: seg-<option>` and a
-tap action that selects it. The module fills the pill matching the current value. Don't set
-`entity` on the sub-buttons: a sub-button bound to a `select` renders as a dropdown. A solid
-pill's fill goes on `.bubble-button-card-container`, with `.bubble-background` transparent
-(the `apple_tile` approach). Leave out
+tap action that selects it. The module fills the pill matching the current value. Set
+`sub_button_type: default` on every option — a sub-button whose entity (its own or the card's)
+is a `select` otherwise renders as a dropdown. Rows of four or more options stack the icon
+above the label so they fit a phone.
+
+A solid pill inside a pop-up fills `.bubble-container.bubble-button-card-container`, with
+`.bubble-background` transparent: pop-ups set `.bubble-container { background: none
+!important }`, which beats a single-class selector. Leave out
 options nobody picks rather than wrapping the row.
 
 ---
