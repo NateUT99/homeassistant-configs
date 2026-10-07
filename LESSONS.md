@@ -333,9 +333,12 @@ This applies to every chip type (template, entity, action) and every action fiel
 
 `justify-content: center` (or `safe center`, which iOS Safari ignores here) on a horizontally
 scrolling Bubble `sub-buttons` row centres the content even when it is wider than the row, so
-the first chips overflow off the left edge where scrolling cannot reach them. Left-align the
-container (`justify-content: flex-start`) and give the chip group `margin: 0 auto`: auto
-margins centre the group while it fits and collapse to zero once it overflows.
+the first chips overflow off the left edge where scrolling cannot reach them. Auto margins on
+the chip group (`margin: 0 auto`) don't fix it either: the row stayed left-aligned. What works
+is to left-align the container (`justify-content: flex-start`) and size the chip group as
+`min-width: 100%; width: max-content; flex: 0 0 auto; justify-content: center`. While the chips
+fit, the group fills the row and centres them; once they overflow, the group grows past the
+row from its left edge, so scrolling starts at the first chip.
 
 ### A card's visual editor saves the whole dashboard from its own stale copy
 
