@@ -58,7 +58,7 @@ views:
   path: home
   type: sections
   max_columns: 4
-  theme: Frosted Glass
+  theme: Home Flat
   sections:
   - type: grid
     column_span: 4
@@ -652,7 +652,7 @@ views:
       expanded: true
       storage-id: home-main-room-living-room
       clear: true
-      padding: 4px 10px 10px 10px
+      padding: 0px 6px 2px 6px
       child-margin-top: 0.6em
       title-card-clickable: false
       grid_options:
@@ -753,6 +753,7 @@ views:
               action: more-info
             hold_action:
               action: more-info
+    background: true
   - type: grid
     cards:
     - type: custom:expander-card
@@ -760,7 +761,7 @@ views:
       expanded: true
       storage-id: home-main-room-master-bedroom
       clear: true
-      padding: 4px 10px 10px 10px
+      padding: 0px 6px 2px 6px
       child-margin-top: 0.6em
       title-card-clickable: false
       grid_options:
@@ -904,6 +905,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
+    background: true
   - type: grid
     cards:
     - type: custom:expander-card
@@ -911,7 +913,7 @@ views:
       expanded: true
       storage-id: home-main-room-averys-room
       clear: true
-      padding: 4px 10px 10px 10px
+      padding: 0px 6px 2px 6px
       child-margin-top: 0.6em
       title-card-clickable: false
       grid_options:
@@ -1014,6 +1016,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
+    background: true
   - type: grid
     cards:
     - type: custom:expander-card
@@ -1021,7 +1024,7 @@ views:
       expanded: true
       storage-id: home-main-room-office
       clear: true
-      padding: 4px 10px 10px 10px
+      padding: 0px 6px 2px 6px
       child-margin-top: 0.6em
       title-card-clickable: false
       grid_options:
@@ -1142,6 +1145,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
+    background: true
   - type: grid
     cards:
     - type: custom:expander-card
@@ -1149,7 +1153,7 @@ views:
       expanded: false
       storage-id: home-main-room-family-room
       clear: true
-      padding: 4px 10px 10px 10px
+      padding: 0px 6px 2px 6px
       child-margin-top: 0.6em
       title-card-clickable: false
       grid_options:
@@ -1269,6 +1273,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
+    background: true
   - type: grid
     cards:
     - type: custom:expander-card
@@ -1276,7 +1281,7 @@ views:
       expanded: false
       storage-id: home-main-room-kitchen
       clear: true
-      padding: 4px 10px 10px 10px
+      padding: 0px 6px 2px 6px
       child-margin-top: 0.6em
       title-card-clickable: false
       grid_options:
@@ -1341,6 +1346,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
+    background: true
   - type: grid
     cards:
     - type: custom:expander-card
@@ -1348,7 +1354,7 @@ views:
       expanded: false
       storage-id: home-main-room-outside
       clear: true
-      padding: 4px 10px 10px 10px
+      padding: 0px 6px 2px 6px
       child-margin-top: 0.6em
       title-card-clickable: false
       grid_options:
@@ -1427,6 +1433,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
+    background: true
   - type: grid
     cards:
     - type: custom:bubble-card
@@ -4360,7 +4367,7 @@ views:
   path: climate
   type: sections
   max_columns: 4
-  theme: Frosted Glass
+  theme: Home Flat
   sections:
   - type: grid
     cards:
@@ -4524,7 +4531,7 @@ views:
   path: energy
   type: sections
   max_columns: 4
-  theme: Frosted Glass
+  theme: Home Flat
   sections:
   - type: grid
     column_span: 2
@@ -4603,7 +4610,7 @@ views:
   path: chores
   type: sections
   max_columns: 4
-  theme: Frosted Glass
+  theme: Home Flat
   sections:
   - type: grid
     column_span: 2
@@ -4617,7 +4624,7 @@ views:
   path: maintenance
   type: sections
   max_columns: 4
-  theme: Frosted Glass
+  theme: Home Flat
   sections:
   - type: grid
     cards:

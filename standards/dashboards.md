@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.18.0 — October 2026*
+*Version 1.19.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.19.0 | October 2026 | Home Flat theme replaces Frosted Glass; Home room sections use native section panels |
 | 1.18.0 | October 2026 | apexcharts-card approved for pop-up charts |
 | 1.17.0 | October 2026 | §9.3 pop-up controls: status hero, one primary action, `segmented` module for choices among a few options |
 | 1.16.0 | October 2026 | AI content is the weather briefing and weekly digest; the house summary is removed; AI chip marks an unread digest |
@@ -79,7 +80,7 @@ and an update to this table.
 | Bubble Card Tools | HACS integration | Module storage backend (`/config/bubble_card/modules/`) — must be added as an integration, not only installed |
 | Navbar Card | HACS frontend | Navigation: bottom bar on phone, left rail on desktop |
 | Kiosk Mode | HACS frontend | Hides the HA header on `home-main` |
-| Frosted Glass | HACS theme | Base theme, applied per view |
+| Home Flat | Repo theme (`ha/themes/home_flat.yaml`) | Base theme, applied per view: flat dark cards, faint section panels, 12px section gap. Frosted Glass stays installed but unused |
 | UIX | HACS integration | CSS escape hatch for cases Bubble styles can't reach (e.g. heading margins in a markdown card, vacuum map crop). Must be added as an integration; card key is `uix: style:` |
 | chore-calendar-card | Bundled with Chore Calendar | Chores view |
 | Battery State Card | HACS frontend | Battery list on the Maintenance view (auto-discovered, threshold-filtered) |
@@ -100,7 +101,7 @@ and an update to this table.
 | `title` | `Home` |
 | `icon` | `mdi:home` |
 | Views | `home`, `climate`, `energy`, `chores`, `maintenance` |
-| View type | `sections`, `max_columns: 4`, `theme: Frosted Glass` |
+| View type | `sections`, `max_columns: 4`, `theme: Home Flat` |
 | View tabs | Left visible — Kiosk Mode hides the header (tabs included). Never `visible: false`: with every view hidden, the bare dashboard URL renders blank |
 | Header | Hidden at all widths: `kiosk_mode: {hide_header: true}` at the dashboard root |
 

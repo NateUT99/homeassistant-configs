@@ -21,7 +21,7 @@ build.
 ```
 home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.main)
 │
-├── Home view (sections, max_columns 4, theme Frosted Glass)
+├── Home view (sections, max_columns 4, theme Home Flat)
 │   ├── Section 1 (span 4) ── Navbar Card ── Chip strip + quick-action chip row (Bubble sub-buttons, 2 rows, rows: 1.2)
 │   │                                          Row 1  status & alerts
 │   │                                          Row 2  features
@@ -81,7 +81,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 ## Prerequisites
 
 - Home Assistant 2026.9 or later
-- HACS frontend: Bubble Card ≥ 3.4, Navbar Card, Kiosk Mode, Battery State Card, Expander Card; theme: Frosted Glass
+- HACS frontend: Bubble Card ≥ 3.4, Navbar Card, Kiosk Mode, Battery State Card, Expander Card, apexcharts-card; theme: Home Flat (repo, `ha/themes/home_flat.yaml`)
 - HACS integrations: Bubble Card Tools and UIX, each added under **Settings → Devices &
   Services** (installing from HACS alone isn't enough)
 - AI insights (`guides/ai_insights.md`) for the greeting line, AI chip, and `#ai`
@@ -397,6 +397,7 @@ row showing the lowest level. New devices appear automatically.
 | `ha/bubble_modules/consumable_status.yaml` | `/config/bubble_card/modules/consumable_status.yaml` | Consumable icon colour module (repo authoritative) |
 | `ha/bubble_modules/apple_tile.yaml` | `/config/bubble_card/modules/apple_tile.yaml` | Apple-style tile module for `#lights` and room tiles (repo authoritative) |
 | `ha/bubble_modules/segmented.yaml` | `/config/bubble_card/modules/segmented.yaml` | Segmented pill control for pop-up choices (repo authoritative) |
+| `ha/themes/home_flat.yaml` | `/config/themes/home_flat.yaml` | Dashboard theme; `frontend.reload_themes` after a change (repo authoritative) |
 | `ha/packages/media_activity.yaml` | `/config/packages/media_activity.yaml` | HomePod and Apple TV "recently active" sensors for room media cards and the Media chip (repo authoritative) |
 
 ---

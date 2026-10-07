@@ -1,0 +1,37 @@
+# Home Flat — dashboard theme for home-main.
+# Repo authoritative; deployed to /config/themes/home_flat.yaml (loaded by
+# `frontend: themes: !include_dir_merge_named themes`), then `frontend.reload_themes`.
+# Flat dark cards with a soft fill, no glass edge or blur: the pop-up style pass (#13)
+# fought Frosted Glass's per-card ::before rim on every Bubble container.
+Home Flat:
+  modes:
+    dark:
+      lovelace-background: "radial-gradient(ellipse at 50% 0%, #1c2027 0%, #0c0e11 65%) fixed"
+      primary-background-color: "#0c0e11"
+      secondary-background-color: "#15181d"
+      card-background-color: "#181b20"
+      primary-text-color: "#eceef1"
+      secondary-text-color: "#979ca5"
+      divider-color: "rgba(255, 255, 255, 0.08)"
+      ha-card-background: "rgba(255, 255, 255, 0.05)"
+      ha-card-border-radius: "22px"
+      ha-card-border-width: "0px"
+      ha-card-box-shadow: "none"
+      # Rooms on Home are one section each; a faint section panel groups a room's tiles,
+      # and a 12px gap keeps rooms close (HA's default is 24px).
+      ha-section-background-color: "rgba(255, 255, 255, 0.035)"
+      ha-view-sections-row-gap: "12px"
+      bubble-main-background-color: "rgba(255, 255, 255, 0.05)"
+      bubble-secondary-background-color: "rgba(255, 255, 255, 0.07)"
+      bubble-icon-background-color: "rgba(255, 255, 255, 0.08)"
+      bubble-border-radius: "22px"
+      bubble-pop-up-background-color: "rgba(18, 20, 24, 0.97)"
+      bubble-box-shadow: "none"
+      navbar-background-color: "rgba(18, 20, 24, 0.92)"
+    light:
+      primary-background-color: "#f2f3f5"
+      ha-card-border-radius: "22px"
+      ha-card-border-width: "0px"
+      ha-section-background-color: "rgba(0, 0, 0, 0.03)"
+      ha-view-sections-row-gap: "12px"
+      bubble-border-radius: "22px"
