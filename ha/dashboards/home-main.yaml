@@ -695,6 +695,8 @@ views:
               icon: mdi:volume-high
               always_visible: true
               width: 130
+              show_button_info: true
+              slider_live_update: true
           modules:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
@@ -707,6 +709,10 @@ views:
           show_icon: false
           rows: 3
           main_buttons_position: bottom
+          styles: '.bmpe-accent .bubble-sub-button-slider .bubble-range-fill { background-color: var(--bmpe-accent) !important; }
+
+            .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo),
+            0 0 3px var(--bmpe-ink-halo); }'
       - type: grid
         columns: 2
         square: false
@@ -799,6 +805,8 @@ views:
               icon: mdi:volume-high
               always_visible: true
               width: 130
+              show_button_info: true
+              slider_live_update: true
           modules:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
@@ -811,6 +819,10 @@ views:
           show_icon: false
           rows: 3
           main_buttons_position: bottom
+          styles: '.bmpe-accent .bubble-sub-button-slider .bubble-range-fill { background-color: var(--bmpe-accent) !important; }
+
+            .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo),
+            0 0 3px var(--bmpe-ink-halo); }'
       - type: conditional
         conditions:
         - condition: state
@@ -1184,6 +1196,8 @@ views:
               icon: mdi:volume-high
               always_visible: true
               width: 130
+              show_button_info: true
+              slider_live_update: true
           modules:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
@@ -1196,6 +1210,10 @@ views:
           show_icon: false
           rows: 3
           main_buttons_position: bottom
+          styles: '.bmpe-accent .bubble-sub-button-slider .bubble-range-fill { background-color: var(--bmpe-accent) !important; }
+
+            .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo),
+            0 0 3px var(--bmpe-ink-halo); }'
       - type: grid
         columns: 2
         square: false
@@ -1664,6 +1682,8 @@ views:
               icon: mdi:volume-high
               always_visible: true
               width: 130
+              show_button_info: true
+              slider_live_update: true
             bottom:
             - name: Controls
               buttons_layout: inline
@@ -1698,6 +1718,10 @@ views:
           show_icon: false
           rows: 3
           main_buttons_position: bottom
+          styles: '.bmpe-accent .bubble-sub-button-slider .bubble-range-fill { background-color: var(--bmpe-accent) !important; }
+
+            .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo),
+            0 0 3px var(--bmpe-ink-halo); }'
       - type: custom:bubble-card
         card_type: separator
         name: Lights
@@ -3388,6 +3412,8 @@ views:
             icon: mdi:volume-high
             always_visible: true
             width: 130
+            show_button_info: true
+            slider_live_update: true
         modules:
         - bubble_media_player_enhanced
         bubble_media_player_enhanced:
@@ -3400,6 +3426,10 @@ views:
         show_icon: false
         rows: 3
         main_buttons_position: bottom
+        styles: '.bmpe-accent .bubble-sub-button-slider .bubble-range-fill { background-color: var(--bmpe-accent) !important; }
+
+          .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo), 0
+          0 3px var(--bmpe-ink-halo); }'
       - type: heading
         heading: Master Bedroom
         heading_style: subtitle
@@ -3420,6 +3450,8 @@ views:
             icon: mdi:volume-high
             always_visible: true
             width: 130
+            show_button_info: true
+            slider_live_update: true
         modules:
         - bubble_media_player_enhanced
         bubble_media_player_enhanced:
@@ -3432,6 +3464,10 @@ views:
         show_icon: false
         rows: 3
         main_buttons_position: bottom
+        styles: '.bmpe-accent .bubble-sub-button-slider .bubble-range-fill { background-color: var(--bmpe-accent) !important; }
+
+          .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo), 0
+          0 3px var(--bmpe-ink-halo); }'
       - type: custom:bubble-card
         card_type: media-player
         entity: media_player.master_bedroom_homepod
@@ -3512,6 +3548,8 @@ views:
             icon: mdi:volume-high
             always_visible: true
             width: 130
+            show_button_info: true
+            slider_live_update: true
         modules:
         - bubble_media_player_enhanced
         bubble_media_player_enhanced:
@@ -3524,6 +3562,10 @@ views:
         show_icon: false
         rows: 3
         main_buttons_position: bottom
+        styles: '.bmpe-accent .bubble-sub-button-slider .bubble-range-fill { background-color: var(--bmpe-accent) !important; }
+
+          .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo), 0
+          0 3px var(--bmpe-ink-halo); }'
       - type: heading
         heading: Kitchen
         heading_style: subtitle

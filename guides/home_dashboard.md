@@ -54,7 +54,10 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   `media-player` card for its Apple TV or HomePod, shown only while that player is in use —
   no house-wide player card. Bubble's own volume button controls the Apple TV, not the
   speaker it plays through, so Apple TV cards hide it and add an always-visible slider
-  sub-button on the real speaker (Sonos, or the bedroom TV). Every media card — room
+  sub-button on the real speaker (Sonos, or the bedroom TV). The slider shows its icon and volume (`show_button_info`), updates the
+  speaker while dragging (`slider_live_update`), and a card `styles` rule fills it with the
+  module's artwork colour (`--bmpe-accent`) and its text with the module's ink colour, so it
+  matches the play button and progress bar. Every media card — room
   sections, `#media`, `#living-room` — uses the Bubble Media Player Enhanced module
   (artwork background and colours; `background_opacity: 0.65` so bright artwork doesn't wash out the overlaid title and times; `idle_artwork: none` since the cards hide when idle), so
   there is one media style and no separate media card dependency. Bubble's own icon is hidden
