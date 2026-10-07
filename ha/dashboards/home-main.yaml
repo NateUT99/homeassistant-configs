@@ -1759,6 +1759,7 @@ views:
       - type: custom:bubble-card
         card_type: climate
         entity: climate.living_room_fireplace
+      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#kitchen'
@@ -1812,6 +1813,7 @@ views:
         show_icon: false
         rows: 3
         main_buttons_position: bottom
+      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#family-room'
@@ -1933,6 +1935,7 @@ views:
 
             .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo),
             0 0 3px var(--bmpe-ink-halo); }'
+      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#office'
@@ -2016,6 +2019,7 @@ views:
         show_icon: false
         rows: 3
         main_buttons_position: bottom
+      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#master-bedroom'
@@ -2132,6 +2136,7 @@ views:
           idle_artwork: none
           background_opacity: 0.85
         show_icon: false
+      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#averys-room'
@@ -2191,6 +2196,7 @@ views:
         show_icon: false
         rows: 3
         main_buttons_position: bottom
+      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#security'
@@ -2289,6 +2295,7 @@ views:
         entity: light.garage_door_opener_light
         grid_options:
           columns: 6
+      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#climate'
@@ -2621,6 +2628,7 @@ views:
         features_position: bottom
         grid_options:
           columns: 12
+      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#weather'
@@ -2898,6 +2906,7 @@ views:
         - condition: numeric_state
           entity: sensor.erie_ohio_usa_air_quality_index
           above: 50
+      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#vacuum'
@@ -3340,6 +3349,7 @@ views:
           | float(999), states(''sensor.living_room_vacuum_side_brush_time_left'') | float(999), states(''sensor.living_room_vacuum_sensor_time_left'') | float(999)] | min %}
 
           .bubble-icon { color: var(--{{ ''red'' if h <= 0 else (''amber'' if h < 10 else ''secondary-text'') }}-color) !important; }'
+      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#vacuum-care'
@@ -3542,6 +3552,7 @@ views:
             perform_action: script.household_vacuum_reset_consumable
             data:
               consumable: sensor
+      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#laundry'
@@ -3716,6 +3727,7 @@ views:
         entity: light.utility_room_ceiling_lights
         grid_options:
           columns: 6
+      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#ai'
@@ -4350,6 +4362,7 @@ views:
               action: toggle
             hold_action:
               action: more-info
+      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#media'
@@ -4554,6 +4567,7 @@ views:
         show_icon: false
         rows: 3
         main_buttons_position: bottom
+      show_header: false
 - title: Climate
   path: climate
   type: sections

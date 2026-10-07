@@ -301,8 +301,10 @@ Pantry has nothing to show.
 
 ### 5. Pop-ups
 
-All pop-ups use `popup_mode: adaptive-dialog` and `popup_style: bubble`; the room pop-ups'
-header shows the same `room_summary` as the tile.
+All pop-ups use `popup_mode: adaptive-dialog`, `popup_style: bubble` and `show_header: false`:
+no title row or close button. Close by swiping down on a phone, or tapping outside or
+pressing Esc on a desktop. A pop-up's first card says what it is (a status hero where one
+exists).
 
 | Hash | Contents |
 |---|---|
@@ -317,7 +319,7 @@ header shows the same `room_summary` as the tile.
 | `#weather` | Hero (outside temperature, condition icon, condition with today's high and low, feels-like), rain line (first hour in the next 24 with a 40%+ chance, or "No rain expected"), six `metric_tile` tiles (wind and direction, humidity, rain chance over 24 h, AQI and dominant pollutant in the EPA colour above 50, UV index, next sunset or sunrise), Next 24 hours chart (apexcharts from `sensor.outside_forecast`: temperature line, rain-chance columns), Next 5 days (Bubble Weather `weather_forecast` module, `card_layout: weather_only`), Air quality pollutant tiles only while AQI > 50 |
 | `#vacuum` | Status hero (state; room, area and time while out, last clean when docked; battery), primary action (amber Pause while cleaning, Start/Resume otherwise, with Dock and Stop), How: segmented Mode, Suction and Water (Water only in vacuum + mop with the pad on), routine pause, Mop now (confirm), map (only when out or ran today), Care & settings row (icon amber/red when a consumable is low or due) |
 | `#vacuum-care` | Mop pass (segmented Fast / Standard), mop pad and water status, robot status, 5 consumables |
-| `#ai` | No header bar (`show_header: false`). Three heading cards (Forecast, Morning Recap, Weekly Insights); Forecast and Weekly Insights carry an age badge (`state_content: last_updated`), and Forecast adds a refresh button badge that starts the briefing script. Each heading is followed by a markdown body; see below. `open_action` and `close_action` press `input_button.household_ai_seen` |
+| `#ai` | Three heading cards (Forecast, Morning Recap, Weekly Insights); Forecast and Weekly Insights carry an age badge (`state_content: last_updated`), and Forecast adds a refresh button badge that starts the briefing script. Each heading is followed by a markdown body; see below. `open_action` and `close_action` press `input_button.household_ai_seen` |
 | `#laundry` | Washer and dryer status, remaining, progress, start/finish; "stop reminders" acknowledge (only while `alerting`); dishwasher; washer stats; utility room light |
 
 **`#ai` bodies** are markdown cards, not Bubble cards, because their length varies and Bubble

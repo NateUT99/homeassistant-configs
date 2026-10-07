@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.19.0 — October 2026*
+*Version 1.20.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.20.0 | October 2026 | Pop-ups drop the header row |
 | 1.19.0 | October 2026 | Home Flat theme replaces Frosted Glass; Home room sections use native section panels |
 | 1.18.0 | October 2026 | apexcharts-card approved for pop-up charts |
 | 1.17.0 | October 2026 | §9.3 pop-up controls: status hero, one primary action, `segmented` module for choices among a few options |
@@ -250,6 +251,7 @@ so every HA function and every `custom_templates` macro is available.
 
 ### 9.3 Pop-up controls
 
+Pop-ups have no header row (`show_header: false`); the first card identifies the pop-up.
 A device pop-up opens with a **status hero** (what it is doing now, one detail line, the key
 number on the right), then **one primary action** as a full-width pill (amber while the
 device is running, a solid neutral pill otherwise) with secondary actions as round buttons
