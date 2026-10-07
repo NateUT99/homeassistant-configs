@@ -703,7 +703,7 @@ views:
             idle_artwork: none
             artwork_fit: original
             progress_position: above
-            background_opacity: 0.65
+            background_opacity: 0.85
           show_icon: false
           rows: 3
           main_buttons_position: bottom
@@ -800,9 +800,9 @@ views:
               sub_button_type: slider
               icon: mdi:volume-high
               always_visible: true
-              width: 130
               show_button_info: true
               slider_live_update: true
+              width: 130
           modules:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
@@ -811,7 +811,7 @@ views:
             idle_artwork: none
             artwork_fit: original
             progress_position: above
-            background_opacity: 0.65
+            background_opacity: 0.85
           show_icon: false
           rows: 3
           main_buttons_position: bottom
@@ -839,7 +839,7 @@ views:
             progress_bar: full
             idle_artwork: none
             progress_position: above
-            background_opacity: 0.65
+            background_opacity: 0.85
           show_icon: false
           rows: 3
           main_buttons_position: bottom
@@ -949,7 +949,7 @@ views:
             progress_bar: full
             idle_artwork: none
             progress_position: above
-            background_opacity: 0.65
+            background_opacity: 0.85
           show_icon: false
           rows: 3
           main_buttons_position: bottom
@@ -1059,7 +1059,7 @@ views:
             progress_bar: full
             idle_artwork: none
             progress_position: above
-            background_opacity: 0.65
+            background_opacity: 0.85
           rows: 3
           show_icon: false
           main_buttons_position: bottom
@@ -1200,7 +1200,7 @@ views:
             idle_artwork: none
             artwork_fit: original
             progress_position: above
-            background_opacity: 0.65
+            background_opacity: 0.85
           show_icon: false
           rows: 3
           main_buttons_position: bottom
@@ -1314,7 +1314,7 @@ views:
             progress_bar: full
             idle_artwork: none
             progress_position: above
-            background_opacity: 0.65
+            background_opacity: 0.85
           show_icon: false
           rows: 3
           main_buttons_position: bottom
@@ -1706,7 +1706,7 @@ views:
             idle_artwork: none
             artwork_fit: original
             progress_position: above
-            background_opacity: 0.65
+            background_opacity: 0.85
           show_icon: false
           rows: 3
           main_buttons_position: bottom
@@ -1801,7 +1801,7 @@ views:
           progress_bar: full
           idle_artwork: none
           progress_position: above
-          background_opacity: 0.65
+          background_opacity: 0.85
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -1918,7 +1918,7 @@ views:
             idle_artwork: none
             artwork_fit: original
             progress_position: above
-            background_opacity: 0.65
+            background_opacity: 0.85
           show_icon: false
           rows: 3
           main_buttons_position: bottom
@@ -2005,7 +2005,7 @@ views:
           progress_bar: full
           idle_artwork: none
           progress_position: above
-          background_opacity: 0.65
+          background_opacity: 0.85
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -2069,9 +2069,9 @@ views:
               sub_button_type: slider
               icon: mdi:volume-high
               always_visible: true
-              width: 130
               show_button_info: true
               slider_live_update: true
+              width: 130
             bottom:
             - name: Controls
               buttons_layout: inline
@@ -2090,7 +2090,7 @@ views:
             idle_artwork: none
             artwork_fit: original
             progress_position: above
-            background_opacity: 0.65
+            background_opacity: 0.85
           show_icon: false
           rows: 3
           main_buttons_position: bottom
@@ -2109,7 +2109,7 @@ views:
           progress_bar: full
           idle_artwork: none
           progress_position: above
-          background_opacity: 0.65
+          background_opacity: 0.85
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -2123,7 +2123,7 @@ views:
           card_layout: default
           progress_bar: compact
           idle_artwork: none
-          background_opacity: 0.65
+          background_opacity: 0.85
         show_icon: false
     - type: custom:bubble-card
       card_type: pop-up
@@ -2180,7 +2180,7 @@ views:
           progress_bar: full
           idle_artwork: none
           progress_position: above
-          background_opacity: 0.65
+          background_opacity: 0.85
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -3496,7 +3496,7 @@ views:
           idle_artwork: none
           artwork_fit: original
           progress_position: above
-          background_opacity: 0.65
+          background_opacity: 0.85
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -3523,9 +3523,9 @@ views:
             sub_button_type: slider
             icon: mdi:volume-high
             always_visible: true
-            width: 130
             show_button_info: true
             slider_live_update: true
+            width: 130
         modules:
         - bubble_media_player_enhanced
         bubble_media_player_enhanced:
@@ -3534,7 +3534,7 @@ views:
           idle_artwork: none
           artwork_fit: original
           progress_position: above
-          background_opacity: 0.65
+          background_opacity: 0.85
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -3556,7 +3556,7 @@ views:
           progress_bar: full
           idle_artwork: none
           progress_position: above
-          background_opacity: 0.65
+          background_opacity: 0.85
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -3577,7 +3577,7 @@ views:
           progress_bar: full
           idle_artwork: none
           progress_position: above
-          background_opacity: 0.65
+          background_opacity: 0.85
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -3598,7 +3598,7 @@ views:
           progress_bar: full
           idle_artwork: none
           progress_position: above
-          background_opacity: 0.65
+          background_opacity: 0.85
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -3632,7 +3632,7 @@ views:
           idle_artwork: none
           artwork_fit: original
           progress_position: above
-          background_opacity: 0.65
+          background_opacity: 0.85
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -3657,7 +3657,7 @@ views:
           progress_bar: full
           idle_artwork: none
           progress_position: above
-          background_opacity: 0.65
+          background_opacity: 0.85
         show_icon: false
         rows: 3
         main_buttons_position: bottom

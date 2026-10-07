@@ -59,7 +59,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   module's artwork colour (`--bmpe-accent`) and its text with the module's ink colour, so it
   matches the play button and progress bar. Every media card — room
   sections, `#media`, `#living-room` — uses the Bubble Media Player Enhanced module
-  (artwork background and colours; `background_opacity: 0.65` so bright artwork doesn't wash out the overlaid title and times; `idle_artwork: none` since the cards hide when idle), so
+  (artwork background and colours; `background_opacity: 0.85` so bright artwork doesn't wash out the overlaid title and times; `idle_artwork: none` since the cards hide when idle), so
   there is one media style and no separate media card dependency. Bubble's own icon is hidden
   (`show_icon: false`) because the module already draws the cover. All media cards use the large
   layout (`rows: 3`, full scrubbable progress bar above the controls,
