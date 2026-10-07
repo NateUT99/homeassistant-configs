@@ -123,7 +123,8 @@ living_room,master_bedroom,averys_room,office,entertainment_room,kitchen,entranc
 {% macro security_icon() -%}
 {%- set o = security_open_count() | int -%}
 {%- set u = security_unlocked_count() | int -%}
-{{- 'mdi:door-open' if o > 0 else ('mdi:lock-open-variant' if u > 0 else 'mdi:shield-check') -}}
+{%- set garage = not is_state('cover.garage_door_opener_door', 'closed') -%}
+{{- ('mdi:garage-open-variant' if garage else 'mdi:door-open') if o > 0 else ('mdi:lock-open-variant' if u > 0 else 'mdi:shield-check') -}}
 {%- endmacro %}
 
 {% macro security_color() -%}
