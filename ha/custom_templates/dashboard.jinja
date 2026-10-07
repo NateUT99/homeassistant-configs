@@ -143,3 +143,32 @@ living_room,master_bedroom,averys_room,office,entertainment_room,kitchen,entranc
     HomePods playing plus 10 minutes. -#}
 {{- ['binary_sensor.living_room_appletv_active', 'binary_sensor.family_room_appletv_active', 'binary_sensor.master_bedroom_appletv_active', 'binary_sensor.kitchen_homepod_active', 'binary_sensor.office_homepod_active', 'binary_sensor.master_bedroom_homepod_active', 'binary_sensor.averys_room_homepod_active'] | select('is_state', 'on') | list | count -}}
 {%- endmacro %}
+
+{#-
+  Room temperature vs the house average, for the #climate room tiles. The average covers the
+  living spaces only: the utility room holds the furnace and laundry and runs far warmer, so
+  it would drag every other room "cold". Returns the signed difference in °F, one decimal.
+-#}
+{% macro room_temp_delta(entity) -%}
+{%- set living = ['sensor.living_room_thermostat_temperature', 'sensor.kitchen_climate_temperature',
+    'sensor.family_room_climate_temperature', 'sensor.office_climate_temperature',
+    'sensor.master_bedroom_climate_temperature', 'sensor.averys_room_climate_temperature'] -%}
+{%- set temps = living | map('states') | select('is_number') | map('float') | list -%}
+{%- if temps and states(entity) | is_number -%}
+{{- (states(entity) | float - (temps | sum / temps | count)) | round(1) -}}
+{%- else -%}0{%- endif -%}
+{%- endmacro %}
+
+{#-
+  UIX style for a #climate room tile: tinted blue when the room runs 1.5° or more below the
+  house average, amber when 1.5° or more above, with the signed offset in the top corner.
+  The tile icon is hidden so long room names clear the offset.
+-#}
+{% macro room_temp_style(entity) -%}
+{%- set d = room_temp_delta(entity) | float(0) -%}
+{%- set c = 'var(--blue-color)' if d <= -1.5 else ('var(--amber-color)' if d >= 1.5 else '') -%}
+ha-card { overflow: hidden; {% if c %}background: color-mix(in srgb, {{ c }} 16%, transparent) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, {{ c }} 40%, transparent) !important; --feature-color: {{ c }};{% endif %} }
+ha-tile-icon { display: none; }
+ha-tile-info { padding-right: 44px; }
+ha-card::after { content: '{{ '%+.1f' | format(d) }}°'; position: absolute; top: 12px; right: 14px; font-size: 12px; font-weight: 600; color: {{ c if c else 'var(--secondary-text-color)' }}; }
+{%- endmacro %}

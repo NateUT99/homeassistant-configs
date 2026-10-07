@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.17.0 — October 2026*
+*Version 1.18.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.18.0 | October 2026 | apexcharts-card approved for pop-up charts |
 | 1.17.0 | October 2026 | §9.3 pop-up controls: status hero, one primary action, `segmented` module for choices among a few options |
 | 1.16.0 | October 2026 | AI content is the weather briefing and weekly digest; the house summary is removed; AI chip marks an unread digest |
 | 1.15.0 | October 2026 | Quick actions become a second chip row; Quick Launcher module dropped |
@@ -83,6 +84,7 @@ and an update to this table.
 | chore-calendar-card | Bundled with Chore Calendar | Chores view |
 | Battery State Card | HACS frontend | Battery list on the Maintenance view (auto-discovered, threshold-filtered) |
 | Expander Card | HACS frontend | Collapsible sections on long secondary views |
+| apexcharts-card | HACS frontend | Time-series charts in pop-ups (the `#climate` Last 12 hours chart). Colours as theme variables (`color: var(--amber-color)`) |
 | Bubble Media Player Enhanced, Bubble Weather | Bubble Module Store (author: Clooos) | Media cards and the `#weather` card. Store-installed third-party modules: not mirrored in `ha/bubble_modules/` (§13); update them from the Module Store |
 
 > Mushroom is not approved. The view-level `badges` row is not used, which removes the only

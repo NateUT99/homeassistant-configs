@@ -2292,11 +2292,328 @@ views:
       popup_style: bubble
       cards:
       - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        entity: climate.living_room_thermostat
+        name: '{{ states(''sensor.living_room_thermostat_temperature'') | float(0) | round(1) }}°'
+        icon: mdi:thermostat
+        show_state: true
+        state_content: '{% set c = ''climate.living_room_thermostat'' %}{% set lo = state_attr(c, ''target_temp_low'') %}{% set hi = state_attr(c, ''target_temp_high'') %}{% set t = state_attr(c, ''temperature'')
+          %}{% set p = state_attr(c, ''preset_mode'') %}{% set preset = {''going_to_sleep'': ''Going to sleep''}.get(p, (p or '''') | capitalize) %}{% if not is_state(''input_select.household_hvac_mode_before_pause'',
+          ''none'') %}Paused · a door or window is open{% elif is_state(c, ''off'') %}Off{% elif is_state(''binary_sensor.household_hvac_heating'', ''on'') %}Heating to {{ (lo if lo is not none else t)
+          | int }}°{% elif is_state(''binary_sensor.household_hvac_cooling'', ''on'') %}Cooling to {{ (hi if hi is not none else t) | int }}°{% elif lo is not none %}Holding {{ lo | int }}–{{ hi | int }}°{%
+          else %}Holding {{ t | int }}°{% endif %}{{ '' · '' ~ preset if p and p != ''none'' else '''' }}'
+        rows: 1.4
+        tap_action:
+          action: more-info
+        button_action:
+          tap_action:
+            action: more-info
+        sub_button:
+          main:
+          - name: '{{ states(''sensor.living_room_thermostat_humidity'') | float(0) | round(0) | int }} %'
+            icon: mdi:water-percent
+            css_class: humidity
+            show_name: true
+            show_icon: true
+            show_background: false
+            fill_width: false
+            tap_action:
+              action: more-info
+              entity: sensor.living_room_thermostat_humidity
+        styles: '{% set heat = is_state(''binary_sensor.household_hvac_heating'', ''on'') %}{% set cool = is_state(''binary_sensor.household_hvac_cooling'', ''on'') %}{% set c = ''var(--amber-color)'' if
+          heat else (''var(--blue-color)'' if cool else ''var(--primary-text-color)'') %}
+
+          .bubble-container.bubble-button-card-container { border-radius: 24px !important; background: color-mix(in srgb, {{ c }} {{ ''22%'' if heat or cool else ''8%'' }}, transparent) !important; {% if
+          heat or cool %}box-shadow: inset 0 0 0 1px color-mix(in srgb, {{ c }} 45%, transparent) !important;{% endif %} }
+
+          .bubble-background { background-color: transparent !important; }
+
+          .bubble-name { font-size: 30px !important; font-weight: 300 !important; line-height: 1.1 !important; }
+
+          .bubble-state { color: {{ c if heat or cool else ''var(--secondary-text-color)'' }} !important; opacity: 1 !important; }
+
+          .bubble-icon { color: {{ c }} !important; }
+
+          .humidity .bubble-sub-button-name-container { font-size: 16px !important; }'
+      - type: custom:bubble-card
         card_type: climate
         entity: climate.living_room_thermostat
+        show_name: false
+        show_icon: false
+        show_state: false
+        styles: '.bubble-container.bubble-climate-container { background: transparent !important; }
+
+          .bubble-container.bubble-climate-container::before { display: none !important; }
+
+          .bubble-background { background-color: transparent !important; }'
+      - type: custom:bubble-card
+        card_type: sub-buttons
+        entity: climate.living_room_thermostat
+        hide_main_background: true
+        rows: 0.9
+        modules:
+        - segmented
+        sub_button:
+          main: []
+          bottom:
+          - name: Preset
+            buttons_layout: inline
+            group:
+            - name: Home
+              icon: mdi:home-outline
+              css_class: seg-home
+              sub_button_type: default
+              show_name: true
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              tap_action:
+                action: perform-action
+                perform_action: climate.set_preset_mode
+                target:
+                  entity_id: climate.living_room_thermostat
+                data:
+                  preset_mode: home
+            - name: Away
+              icon: mdi:home-export-outline
+              css_class: seg-away
+              sub_button_type: default
+              show_name: true
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              tap_action:
+                action: perform-action
+                perform_action: climate.set_preset_mode
+                target:
+                  entity_id: climate.living_room_thermostat
+                data:
+                  preset_mode: away
+            - name: Sleep
+              icon: mdi:weather-night
+              css_class: seg-sleep
+              sub_button_type: default
+              show_name: true
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              tap_action:
+                action: perform-action
+                perform_action: climate.set_preset_mode
+                target:
+                  entity_id: climate.living_room_thermostat
+                data:
+                  preset_mode: sleep
       - type: custom:bubble-card
         card_type: climate
         entity: climate.living_room_fireplace
+        tap_action:
+          action: more-info
+        hold_action:
+          action: perform-action
+          perform_action: climate.toggle
+          target:
+            entity_id: climate.living_room_fireplace
+        button_action:
+          tap_action:
+            action: more-info
+          hold_action:
+            action: perform-action
+            perform_action: climate.toggle
+            target:
+              entity_id: climate.living_room_fireplace
+        styles: '{% set on = not is_state(''climate.living_room_fireplace'', ''off'') %}
+
+          {% if on %}.bubble-container.bubble-climate-container { background: color-mix(in srgb, var(--amber-color) 22%, transparent) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber-color)
+          45%, transparent) !important; }
+
+          .bubble-background { background-color: transparent !important; }
+
+          .bubble-icon-container { background: var(--amber-color) !important; }
+
+          .bubble-icon { color: var(--primary-background-color) !important; }{% endif %}'
+      - type: heading
+        heading: Last 12 hours
+        heading_style: subtitle
+        badges:
+        - type: entity
+          entity: sensor.household_hvac_heating_runtime_today
+          name: Heated today
+          show_name: true
+          show_state: true
+          show_icon: false
+          color: amber
+          visibility:
+          - condition: numeric_state
+            entity: sensor.household_hvac_heating_runtime_today
+            above: 0
+        - type: entity
+          entity: sensor.household_hvac_cooling_runtime_today
+          name: Cooled today
+          show_name: true
+          show_state: true
+          show_icon: false
+          color: blue
+          visibility:
+          - condition: numeric_state
+            entity: sensor.household_hvac_cooling_runtime_today
+            above: 0
+      - type: custom:apexcharts-card
+        graph_span: 12h
+        header:
+          show: false
+        apex_config:
+          chart:
+            height: 170
+            background: transparent
+            toolbar:
+              show: false
+          theme:
+            mode: dark
+          legend:
+            show: false
+          grid:
+            borderColor: rgba(127,127,127,0.15)
+          tooltip:
+            theme: dark
+            x:
+              format: HH:mm
+          xaxis:
+            labels:
+              format: h TT
+        yaxis:
+        - id: temp
+          decimals: 0
+          apex_config:
+            tickAmount: 3
+        - id: run
+          show: false
+          min: 0
+          max: 1
+        series:
+        - entity: binary_sensor.household_hvac_heating
+          name: Heating
+          yaxis_id: run
+          type: area
+          curve: stepline
+          stroke_width: 0
+          opacity: 0.25
+          color: var(--amber-color)
+          transform: 'return x === ''on'' ? 1 : 0;'
+        - entity: binary_sensor.household_hvac_cooling
+          name: Cooling
+          yaxis_id: run
+          type: area
+          curve: stepline
+          stroke_width: 0
+          opacity: 0.25
+          color: var(--blue-color)
+          transform: 'return x === ''on'' ? 1 : 0;'
+        - entity: climate.living_room_thermostat
+          attribute: target_temp_low
+          name: Heat to
+          yaxis_id: temp
+          curve: stepline
+          stroke_width: 1
+          color: var(--amber-color)
+          stroke_dash: 4
+          opacity: 0.7
+        - entity: climate.living_room_thermostat
+          attribute: target_temp_high
+          name: Cool to
+          yaxis_id: temp
+          curve: stepline
+          stroke_width: 1
+          color: var(--blue-color)
+          stroke_dash: 4
+          opacity: 0.7
+        - entity: sensor.living_room_thermostat_temperature
+          name: Inside
+          yaxis_id: temp
+          stroke_width: 2
+          color: var(--primary-text-color)
+      - type: heading
+        heading: Rooms
+        heading_style: subtitle
+      - type: tile
+        entity: sensor.living_room_thermostat_temperature
+        name: Living Room
+        features:
+        - type: trend-graph
+          hours_to_show: 24
+        features_position: bottom
+        grid_options:
+          columns: 6
+        uix:
+          style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.living_room_thermostat_temperature'') }}'
+      - type: tile
+        entity: sensor.kitchen_climate_temperature
+        name: Kitchen
+        features:
+        - type: trend-graph
+          hours_to_show: 24
+        features_position: bottom
+        grid_options:
+          columns: 6
+        uix:
+          style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.kitchen_climate_temperature'') }}'
+      - type: tile
+        entity: sensor.family_room_climate_temperature
+        name: Family Room
+        features:
+        - type: trend-graph
+          hours_to_show: 24
+        features_position: bottom
+        grid_options:
+          columns: 6
+        uix:
+          style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.family_room_climate_temperature'') }}'
+      - type: tile
+        entity: sensor.office_climate_temperature
+        name: Office
+        features:
+        - type: trend-graph
+          hours_to_show: 24
+        features_position: bottom
+        grid_options:
+          columns: 6
+        uix:
+          style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.office_climate_temperature'') }}'
+      - type: tile
+        entity: sensor.master_bedroom_climate_temperature
+        name: Master Bedroom
+        features:
+        - type: trend-graph
+          hours_to_show: 24
+        features_position: bottom
+        grid_options:
+          columns: 6
+        uix:
+          style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.master_bedroom_climate_temperature'') }}'
+      - type: tile
+        entity: sensor.averys_room_climate_temperature
+        name: Avery's Room
+        features:
+        - type: trend-graph
+          hours_to_show: 24
+        features_position: bottom
+        grid_options:
+          columns: 6
+        uix:
+          style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.averys_room_climate_temperature'') }}'
+      - type: tile
+        entity: sensor.outside_temperature
+        name: Outside
+        features:
+        - type: trend-graph
+          hours_to_show: 24
+        features_position: bottom
+        grid_options:
+          columns: 12
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#weather'
