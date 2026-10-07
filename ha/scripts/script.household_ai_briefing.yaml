@@ -1,7 +1,9 @@
 alias: 'Household: AI Briefing'
-description: 'Asks Claude (ai_task.claude_sonnet_ai_task) for the weather briefing at the top of the home-main
-  dashboard: a one-sentence headline of what the day or night will be like, a short detail with the practical
-  upshot, and an icon. Facts come only from the allowlist macro weather_facts in /config/custom_templates/ai_insights.jinja.
+description: 'Asks Claude (ai_task.claude_sonnet_ai_task) for the briefing at the top of the home-main
+  dashboard: a one-sentence headline, a practical tip, and an icon, all about the weather for the coming
+  hours. The morning run (before 11:00) also looks back: it adds a house recap of overnight and yesterday
+  plus what the house needs today, and its headline picks the single most useful item from either side.
+  Facts come only from the allowlist macros weather_facts and house_facts in /config/custom_templates/ai_insights.jinja.
   The result is fired as household_ai_briefing_ready and stored by sensor.household_ai_briefing; a failed
   call fires nothing, so the previous briefing stays. Runs on the AI Insights Schedule and from the dashboard''s
   Refresh button. See guides/ai_insights.md.'
@@ -35,13 +37,28 @@ sequence:
     - max
     - min
   response_variable: yday
+- alias: Get the last 8 days of energy and HVAC statistics
+  action: recorder.get_statistics
+  data:
+    start_time: '{{ (today_at() - timedelta(days=8)).isoformat() }}'
+    statistic_ids:
+    - sensor.household_energy_monitor_total_energy_delivered
+    - sensor.household_hvac_heating_runtime_today
+    - sensor.household_hvac_cooling_runtime_today
+    period: day
+    types:
+    - change
+  response_variable: house_stats
 - alias: Build the facts and the allowed icon list
   variables:
+    is_morning: '{{ morning | default(now().hour < 11) | bool }}'
     facts: '{% from ''ai_insights.jinja'' import weather_facts %}{{ weather_facts(hourly[''weather.outside_waterville_oh_usa''].forecast,
       daily[''weather.outside_waterville_oh_usa''].forecast, (yday.statistics.get(''sensor.outside_temperature'')
       or [none])[0]) }}'
-    focus: '{% set h = now().hour %}{{ ''today, from now until bedtime'' if h < 11 else (''the rest of
-      today and tonight'' if h < 16 else ''tonight and tomorrow'') }}'
+    house: '{% from ''ai_insights.jinja'' import house_facts %}{{ house_facts(house_stats.statistics)
+      if is_morning else '''' }}'
+    focus: '{% set h = now().hour %}{{ ''today, from now until bedtime'' if is_morning or h < 11 else
+      (''the rest of today and tonight'' if h < 16 else ''tonight and tomorrow'') }}'
     icons:
     - mdi:weather-sunny
     - mdi:weather-partly-cloudy
@@ -65,7 +82,7 @@ sequence:
     task_name: household_ai_briefing
     entity_id: ai_task.claude_sonnet_ai_task
     instructions: |-
-      You write the weather briefing at the top of a family's home dashboard in Waterville, Ohio. Someone glances at it on their phone before heading out, so it has to tell them what {{ focus }} will be like, and what to do about it, in one breath.
+      You write the briefing at the top of a family's home dashboard in Waterville, Ohio. Someone glances at it on their phone before heading out, so it has to tell them what {{ focus }} will be like, and what to do about it, in one breath.
 
       Voice: a sharp, good-humored local friend who actually looked at the forecast and tells you straight. Talk to the reader ("you"), with a bit of attitude: tell them what to wear, when to go out, what to skip. Never a stoic weather report, never cutesy, no emoji. Facts stay precise.
 
@@ -78,17 +95,23 @@ sequence:
       - Times as people say them ("by 3", "after dinner", "around sunset"), 12-hour clock, °F.
 
       Rules:
-      - headline: one sentence, 90 characters or fewer. The single most useful thing about {{ focus }}.
+      - headline: one sentence, 90 characters or fewer. The single most useful thing about {{ focus }}{{ ', from the weather or the house' if is_morning }}.
       - tip: one or two sentences, 200 characters or fewer: the practical call, said like a friend would (a jacket for the early hours, the dry window for a walk, a good night to open the windows, bring the plants in). Add what the headline left out; never repeat it. Never generic advice.
-      - icon: exactly one value from this list: {{ icons | join(', ') }}.
+      {% if is_morning %}- house: one or two sentences, 200 characters or fewer, looking both ways: first what happened overnight and yesterday (anything opened overnight, an internet drop, a leak, energy or heating well off a typical day, laundry left waiting), then what the house needs today (chores due, trash). Skip anything normal; a quiet night is just "quiet night". Same voice, a little attitude for anything ignored. If the headline used a house item, don't repeat it here.
+      {% else %}- house: leave empty.
+      {% endif %}- icon: exactly one value from this list: {{ icons | join(', ') }}.
       - Use only the facts below. Never invent anything, including when wind or rain stops if the facts don't say. Plain text.
 
       Style examples only (never reuse their facts):
       Headlines: "Chilly start at 41°, but you'll be at 68° by 3." / "Dry until about 4, then a soggy evening." / "Ten degrees colder than yesterday, and the wind makes it feel worse."
+      House: "Quiet night, and yesterday ran about normal. The coffee grinder is now a week overdue; it's not cleaning itself." / "Someone opened the patio door at 2:14 AM. Recycling goes out tonight."
       Tips: "Grab a light jacket for the early hours, but you'll shed it by midday." / "Get the walk in before 4; after that you're dodging puddles." / "Leave the windows open tonight and let the house cool off for free."
 
-      Facts:
-      {{ facts }}
+      Weather facts:
+      {{ facts }}{% if is_morning %}
+
+      House facts:
+      {{ house }}{% endif %}
     structure:
       headline:
         description: One sentence, 90 characters or fewer
@@ -105,6 +128,12 @@ sequence:
         required: true
         selector:
           text: {}
+      house:
+        description: 'Morning only: overnight and yesterday, then what the house needs today; 200 characters
+          or fewer'
+        required: false
+        selector:
+          text: {}
   response_variable: result
 - alias: Store the briefing
   note: Lengths and the icon are enforced here as well, so a model that ignores the limits can't break
@@ -114,3 +143,11 @@ sequence:
     headline: '{{ (result.data.headline | default('''') | string)[:90] }}'
     tip: '{{ (result.data.tip | default('''') | string)[:200] }}'
     icon: '{{ result.data.icon if result.data.icon in icons else ''mdi:weather-partly-cloudy'' }}'
+    house: '{{ (result.data.house | default('''') | string)[:200] if is_morning else '''' }}'
+fields:
+  morning:
+    name: Morning run
+    description: Force the morning version (with the house recap) at any hour; for testing.
+    required: false
+    selector:
+      boolean: {}

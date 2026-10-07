@@ -1,5 +1,5 @@
-# Stores the Claude-generated text shown on the home-main dashboard: the weather
-# briefing and the weekly digest. Generation lives in
+# Stores the Claude-generated text shown on the home-main dashboard: the
+# briefing (weather, plus a house recap in the morning) and the weekly digest. Generation lives in
 # script.household_ai_briefing / _weekly_digest, which call
 # ai_task.generate_data and then fire one of the *_ready events below; these
 # trigger-based sensors only store the result, so the dashboard never calls
@@ -23,6 +23,11 @@ template:
         icon: "{{ trigger.event.data.icon | default('mdi:creation') }}"
         attributes:
           tip: "{{ trigger.event.data.tip | default('') }}"
+          # Only the morning run writes the house recap; later runs keep it, so
+          # it reads as "this morning's" until the next morning.
+          house: >-
+            {{ trigger.event.data.house if trigger.event.data.house | default('') != ''
+               else (this.attributes.house | default('') if this is defined and this.attributes is defined else '') }}
           generated_at: "{{ now().isoformat() }}"
 
   - trigger:
@@ -85,4 +90,41 @@ sensor:
     start: >-
       {% set s = today_at('08:05') - timedelta(days=now().weekday()) %}
       {{ s if s <= now() else s - timedelta(days=7) }}
+    end: "{{ now() }}"
+
+  # Overnight activity for the morning briefing's house recap: counts since the
+  # most recent 10 PM. history_stats counts transitions into the state, so a
+  # door left open all night counts once.
+  - platform: history_stats
+    name: Household Doors Opened Overnight
+    unique_id: household_doors_opened_overnight
+    entity_id: binary_sensor.household_exterior_doors_open
+    state: "on"
+    type: count
+    start: &overnight >-
+      {{ today_at('22:00') - timedelta(days=1) if now() < today_at('22:00') else today_at('22:00') }}
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: Household Garage Opened Overnight
+    unique_id: household_garage_opened_overnight
+    entity_id: cover.garage_door_opener_door
+    state: "open"
+    type: count
+    start: *overnight
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: Household Internet Drops Overnight
+    unique_id: household_internet_drops_overnight
+    entity_id: binary_sensor.utility_room_firewalla_gold_se_wan_buckeye_broadband_status
+    state: "off"
+    type: count
+    start: *overnight
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: Household Generator Runs Overnight
+    unique_id: household_generator_runs_overnight
+    entity_id: sensor.outside_home_generator_status
+    state: "Running"
+    type: count
+    start: *overnight
     end: "{{ now() }}"

@@ -86,3 +86,42 @@ Tomorrow vs today: tomorrow's forecast high {{ daily[1].temperature | round(0) |
 {{- 'about the same' if pct | abs < 10 else (pct | abs ~ '% ' ~ ('more' if pct > 0 else 'less')) -}}
 {%- endif -%}
 {%- endmacro %}
+
+{#- Morning house recap: what happened overnight and yesterday (which the
+    chips can't show, since they show only now) and what the house needs
+    today. stats: recorder.get_statistics (period day, change) covering the
+    last 8 days. Overnight counts come from the history_stats sensors in
+    ha/packages/ai_insights.yaml (since 10 PM). -#}
+{% macro house_facts(stats={}) -%}
+{%- set t = today_at() -%}
+{%- set y = t - timedelta(days=1) -%}
+{%- set w = t - timedelta(days=8) -%}
+{%- set e = stats.get('sensor.household_energy_monitor_total_energy_delivered', []) -%}
+{%- set hh = stats.get('sensor.household_hvac_heating_runtime_today', []) -%}
+{%- set ch = stats.get('sensor.household_hvac_cooling_runtime_today', []) -%}
+{%- set e_y = window_total(e, y, t) | float(0) -%}{%- set e_typ = (window_total(e, w, y, 'change', true) | float(0) / 7) | round(1) -%}
+{%- set h_y = window_total(hh, y, t) | float(0) -%}{%- set h_typ = (window_total(hh, w, y, 'change', true) | float(0) / 7) | round(1) -%}
+{%- set c_y = window_total(ch, y, t) | float(0) -%}{%- set c_typ = (window_total(ch, w, y, 'change', true) | float(0) / 7) | round(1) -%}
+{%- set doors = states('sensor.household_doors_opened_overnight') | int(0) -%}
+{%- set last_door = states.binary_sensor.household_exterior_doors_open.last_changed if states.binary_sensor.household_exterior_doors_open is not none else none -%}
+{%- set leaks = label_entities('water_leak_sensor') | select('is_state','on') | map('state_attr','friendly_name') | list -%}
+{%- set chores = expand(integration_entities('chore_calendar') | select('match','sensor\\.') | list) -%}
+{%- set ns = namespace(today=[]) -%}
+{%- for c in chores -%}
+{%- set due = c.attributes.next_due or (c.attributes.schedule.due_datetime if c.attributes.schedule is mapping else none) -%}
+{%- set name = c.name | replace('Household Chores ', '') -%}
+{%- if c.state == 'overdue' %}{% set ns.today = ns.today + [name ~ ' (overdue)'] %}
+{%- elif c.state != 'completed' and due and as_datetime(due).date() == now().date() %}{% set ns.today = ns.today + [name ~ ' (due ' ~ as_local(as_datetime(due)).strftime('%-I %p') ~ ')'] %}
+{%- endif -%}
+{%- endfor -%}
+Overnight (since 10 PM): exterior doors opened {{ doors }} time{{ 's' if doors != 1 }}{% if doors > 0 and last_door is not none and last_door >= today_at('22:00') - timedelta(days=1) %} (last activity {{ as_local(last_door).strftime('%-I:%M %p') }}){% endif %}; garage door opened {{ states('sensor.household_garage_opened_overnight') | int(0) }} times; internet dropped {{ states('sensor.household_internet_drops_overnight') | int(0) }} times; generator ran {{ states('sensor.household_generator_runs_overnight') | int(0) }} times. Doors and garage right now: front door {{ states('lock.entrance_front_door') }}, garage {{ states('cover.garage_door_opener_door') }}.
+Water leaks right now: {{ leaks | join(', ') if leaks else 'none' }}.
+Yesterday's electricity: {{ e_y }} kWh; a typical day this past week {{ e_typ }} kWh (yesterday: {{ vs(e_y, e_typ) }}).
+Yesterday's heating: {{ h_y }} h (typical {{ h_typ }} h, {{ vs(h_y, h_typ) }}); cooling {{ c_y }} h (typical {{ c_typ }} h, {{ vs(c_y, c_typ) }}).
+{% if now().hour < 8 -%}
+{#- The ran flags reset at 08:00, so after that they describe today, not yesterday. -#}
+Vacuum yesterday: daytime clean {{ 'done' if is_state('input_boolean.vacuum_ran_daytime','on') else 'did not run' }}, night clean {{ 'done' if is_state('input_boolean.vacuum_ran_evening','on') else 'did not run' }}.
+{% endif -%}
+Laundry: washer {{ 'finished and waiting to be unloaded' if is_state('input_select.utility_room_washer_status','alerting') else 'nothing waiting' }}; dryer {{ 'finished and waiting to be unloaded' if is_state('input_select.utility_room_dryer_status','alerting') else 'nothing waiting' }}.
+Chores due today or overdue: {{ ns.today | join(', ') if ns.today else 'none' }}.
+{%- endmacro %}

@@ -286,23 +286,15 @@ header shows the same `room_summary` as the tile.
 | `#climate` | Thermostat and fireplace (Bubble climate) |
 | `#weather` | Bubble Weather card (`weather_forecast` module: animated condition background, 5-day forecast), outside conditions, AQI and pollutants |
 | `#vacuum` | Commands, routine pause, Mop now (confirm), map (only when out or ran today), status, mop settings (when the pad is on), 4 consumables |
-| `#ai` | No header bar (`show_header: false`). Two heading cards (Weather, This Week), each with an age badge (`state_content: last_updated`); Weather adds a refresh button badge that starts the briefing script. Each heading is followed by a markdown body; see below. `open_action` and `close_action` press `input_button.household_ai_seen` |
+| `#ai` | No header bar (`show_header: false`). Two heading cards (Briefing, This Week), each with an age badge (`state_content: last_updated`); Briefing adds a refresh button badge that starts the briefing script. Each heading is followed by a markdown body; see below. `open_action` and `close_action` press `input_button.household_ai_seen` |
 | `#laundry` | Washer and dryer status, remaining, progress, start/finish; "stop reminders" acknowledge (only while `alerting`); dishwasher; washer stats; utility room light |
 
 **`#ai` bodies** are markdown cards, not Bubble cards, because their length varies and Bubble
 cards have a fixed height. Each shows *Working on it…* while its script entity is `on`.
 
-- **Weather:** the briefing headline in bold, then the tip.
-- **This Week:** the digest headline in bold and its story, then a borderless table. Electricity (kWh,
-  cost, change vs. the week before) and Climate (heating/cooling hours) come from the Sunday
-  digest. The other rows render live, so they are current between digests:
-  - Vacuuming: "Done" with a check when both the day and night counters
-    (`sensor.household_vacuum_day_runs_this_week`, `_night_`) are above zero; otherwise
-    "Not yet".
-  - Mopping: "Done" with a check when both this-week mop flags are on; otherwise "Not yet".
-  - Chores: the overdue count and the count due in the next 7 days.
-
-The UIX style on these cards removes table borders and keeps the first column on one line.
+- **Briefing:** the headline in bold, then the tip; under a *This morning* label, the morning
+  house recap when the sensor has one.
+- **This Week:** the digest headline in bold, then its story.
 
 `#laundry` is reachable only while a washer, dryer, or dishwasher chip is showing; it is about
 the current cycle.

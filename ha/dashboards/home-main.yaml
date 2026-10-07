@@ -2735,8 +2735,8 @@ views:
       popup_style: bubble
       cards:
       - type: heading
-        heading: Weather
-        icon: mdi:weather-partly-cloudy
+        heading: Briefing
+        icon: mdi:creation
         heading_style: title
         badges:
         - type: entity
@@ -2752,8 +2752,9 @@ views:
             target:
               entity_id: script.household_ai_briefing
       - type: markdown
-        content: '{% if is_state(''script.household_ai_briefing'',''on'') %}*Working on it…*{% elif has_value(''sensor.household_ai_briefing'') %}**{{ states(''sensor.household_ai_briefing'') }}**<br>{{
-          state_attr(''sensor.household_ai_briefing'',''tip'') }}{% else %}No briefing yet.{% endif %}'
+        content: '{% set house = state_attr(''sensor.household_ai_briefing'',''house'') %}{% if is_state(''script.household_ai_briefing'',''on'') %}*Working on it…*{% elif has_value(''sensor.household_ai_briefing'')
+          %}**{{ states(''sensor.household_ai_briefing'') }}**<br>{{ state_attr(''sensor.household_ai_briefing'',''tip'') }}{% if house %}<br><br><b>THIS MORNING</b><br>{{ house }}{% endif %}{% else %}No
+          briefing yet.{% endif %}'
         uix:
           style:
             ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
@@ -2775,31 +2776,8 @@ views:
           show_icon: false
           state_content: last_updated
       - type: markdown
-        content: '{% macro mark(ok) %}<ha-icon icon="{{ ''mdi:check-circle'' if ok else ''mdi:close-circle'' }}"></ha-icon>{% endmacro %}{% if state_attr(''sensor.household_ai_weekly_digest'',''headline'')
-          %}{% set kwh = state_attr(''sensor.household_ai_weekly_digest'',''energy_kwh'') | float(0) %}{% set prev = state_attr(''sensor.household_ai_weekly_digest'',''energy_prev_kwh'') | float(0) %}{%
-          set pct = (((kwh - prev) / prev) * 100) | round(0) | int if prev > 0 else 0 %}{% set done = state_attr(''sensor.household_ai_weekly_digest'',''chores_done'') or [] %}{% set late = state_attr(''sensor.household_ai_weekly_digest'',''chores_overdue'')
-          or [] %}**{{ state_attr(''sensor.household_ai_weekly_digest'',''headline'') }}**<br>{{ state_attr(''sensor.household_ai_weekly_digest'',''story'') }}
-
-          <table>
-
-          <tr><td><ha-icon icon="mdi:flash"></ha-icon>Electricity</td><td>{{ kwh | round(0) | int }} kWh · ${{ state_attr(''sensor.household_ai_weekly_digest'',''energy_cost'') | round(0) | int }} · {{
-          (''↓ '' ~ (pct | abs) ~ ''%'') if pct < 0 else (''↑ '' ~ pct ~ ''%'') }}</td></tr>
-
-          <tr><td><ha-icon icon="mdi:hvac"></ha-icon>Climate</td><td>Heat {{ state_attr(''sensor.household_ai_weekly_digest'',''heating_h'') }} h · Cool {{ state_attr(''sensor.household_ai_weekly_digest'',''cooling_h'')
-          }} h</td></tr>
-
-          {% set day = states(''sensor.household_vacuum_day_runs_this_week'') | int(0) > 0 %}{% set night = states(''sensor.household_vacuum_night_runs_this_week'') | int(0) > 0 %}{% set mop = is_state(''input_boolean.vacuum_mop_common_areas_done_this_week'',''on'')
-          %}{% set master = is_state(''input_boolean.vacuum_mop_master_suite_done_this_week'',''on'') %}<tr><td><ha-icon icon="mdi:robot-vacuum"></ha-icon>Vacuuming</td><td>{{ mark(day and night) }}{{ ''Done''
-          if day and night else ''Not yet'' }}</td></tr>
-
-          <tr><td><ha-icon icon="mdi:water"></ha-icon>Mopping</td><td>{{ mark(mop and master) }}{{ ''Done'' if mop and master else ''Not yet'' }}</td></tr>
-
-          {% set ch = expand(integration_entities(''chore_calendar'') | select(''match'',''sensor\\.'') | list) %}{% set late_now = ch | selectattr(''state'',''eq'',''overdue'') | list | count %}{% set
-          soon = ch | rejectattr(''state'',''eq'',''overdue'') | selectattr(''attributes.next_due'',''defined'') | rejectattr(''attributes.next_due'',''none'') | map(attribute=''attributes.next_due'') |
-          map(''as_datetime'') | select(''le'', now() + timedelta(days=7)) | list | count %}<tr><td><ha-icon icon="mdi:clipboard-check-outline"></ha-icon>Chores</td><td>{{ late_now }} overdue · {{ soon
-          }} due this week</td></tr>
-
-          </table>{% else %}The first digest arrives Sunday evening.{% endif %}'
+        content: '{% if state_attr(''sensor.household_ai_weekly_digest'',''headline'') %}**{{ state_attr(''sensor.household_ai_weekly_digest'',''headline'') }}**<br>{{ state_attr(''sensor.household_ai_weekly_digest'',''story'')
+          }}{% else %}The first digest arrives Sunday evening.{% endif %}'
         uix:
           style:
             ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
