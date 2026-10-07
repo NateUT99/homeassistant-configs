@@ -113,6 +113,12 @@ Deploy the Bubble modules (Bubble Card Tools reads every YAML file in this folde
 scp ha/bubble_modules/*.yaml ha:/config/bubble_card/modules/
 ```
 
+Deploy the theme, then call `frontend.reload_themes`:
+
+```bash
+scp ha/themes/home_flat.yaml ha:/config/themes/home_flat.yaml
+```
+
 ### 2. Create the dashboard
 
 Create a storage-mode dashboard with `url_path: home-main`, title **Home**, icon
@@ -308,7 +314,7 @@ header shows the same `room_summary` as the tile.
 | `#averys-room` | Ceiling light, desk and dresser lamps, fan speed, HomePod |
 | `#security` | Doorbell camera (square crop, first); lock, garage door, garage interior door, doors & windows; Water (the 4 leak sensors); outside lights |
 | `#climate` | Hero (indoor temperature; Heating to / Cooling to / Holding range / Paused, and preset; humidity; amber or blue tint while running), heat and cool setpoint steppers, segmented presets (Home · Away · Sleep), fireplace (hold toggles off ↔ heat; amber while on), Last 12 hours chart (apexcharts: indoor temperature, dashed setpoints, heating/cooling bands; heading badges for today's runtime), Rooms: 6 tiles with a 24-hour trend graph, tinted blue or amber and labelled with the offset when 1.5° or more from the living-space average (`room_temp_style` in `dashboard.jinja`; utility room excluded), plus Outside |
-| `#weather` | Bubble Weather card (`weather_forecast` module: animated condition background, 5-day forecast), outside conditions, AQI and pollutants |
+| `#weather` | Hero (outside temperature, condition icon, condition with today's high and low, feels-like), rain line (first hour in the next 24 with a 40%+ chance, or "No rain expected"), six `metric_tile` tiles (wind and direction, humidity, rain chance over 24 h, AQI and dominant pollutant in the EPA colour above 50, UV index, next sunset or sunrise), Next 24 hours chart (apexcharts from `sensor.outside_forecast`: temperature line, rain-chance columns), Next 5 days (Bubble Weather `weather_forecast` module, `card_layout: weather_only`), Air quality pollutant tiles only while AQI > 50 |
 | `#vacuum` | Status hero (state; room, area and time while out, last clean when docked; battery), primary action (amber Pause while cleaning, Start/Resume otherwise, with Dock and Stop), How: segmented Mode, Suction and Water (Water only in vacuum + mop with the pad on), routine pause, Mop now (confirm), map (only when out or ran today), Care & settings row (icon amber/red when a consumable is low or due) |
 | `#vacuum-care` | Mop pass (segmented Fast / Standard), mop pad and water status, robot status, 5 consumables |
 | `#ai` | No header bar (`show_header: false`). Three heading cards (Forecast, Morning Recap, Weekly Insights); Forecast and Weekly Insights carry an age badge (`state_content: last_updated`), and Forecast adds a refresh button badge that starts the briefing script. Each heading is followed by a markdown body; see below. `open_action` and `close_action` press `input_button.household_ai_seen` |
@@ -333,6 +339,78 @@ only done right after the maintenance itself (see `guides/vacuum_cleaning_routin
 **Laundry acknowledge** sets `input_select.utility_room_<appliance>_status` to `acknowledged`,
 which ends *Utility Room: Laundry Announcement*'s repeat loop (it continues only while a status
 is `alerting` or `fault`). Retrieval or the next cycle returns the status to `idle`.
+
+**Weather forecast package** — `ha/packages/weather_forecast.yaml`, deployed to
+`/config/packages/weather_forecast.yaml`, reload with `template.reload`. It creates
+`sensor.outside_forecast`, which the `#weather` hero, rain line, Rain tile and Next 24 hours
+chart read:
+
+```yaml
+# Outside forecast snapshot for the home-main #weather pop-up.
+#
+# Weather entities only hand out forecasts through the weather.get_forecasts action, so a
+# card can't read them directly. This trigger-based sensor fetches the hourly and daily
+# forecasts every 30 minutes and keeps a trimmed copy as attributes: the next 24 hours
+# (time, temperature, rain chance, condition) for the apexcharts hourly chart, today's
+# high and low, and the first hour in the next 24 with a 40%+ chance of rain.
+# The full hourly response covers about a week; trimming it keeps the attribute small
+# enough for the recorder.
+#
+# The response variables are named *_fc because an attribute named `hourly` would shadow a
+# response variable of the same name for the attributes rendered after it.
+#
+# State: today's forecast high. See guides/home_dashboard.md.
+# Deployed to /config/packages/weather_forecast.yaml; reload with template.reload.
+
+template:
+  - trigger:
+      - trigger: time_pattern
+        minutes: /30
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: event_template_reloaded
+    action:
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.outside_waterville_oh_usa
+        data:
+          type: hourly
+        response_variable: hourly_fc
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.outside_waterville_oh_usa
+        data:
+          type: daily
+        response_variable: daily_fc
+    sensor:
+      - name: Outside Forecast
+        unique_id: outside_forecast
+        icon: mdi:weather-partly-cloudy
+        device_class: temperature
+        unit_of_measurement: "°F"
+        state: "{{ daily_fc['weather.outside_waterville_oh_usa'].forecast[0].temperature }}"
+        attributes:
+          low: "{{ daily_fc['weather.outside_waterville_oh_usa'].forecast[0].templow }}"
+          hourly: >-
+            {% set ns = namespace(out=[]) %}
+            {% for h in hourly_fc['weather.outside_waterville_oh_usa'].forecast[:24] %}
+              {% set ns.out = ns.out + [{'datetime': h.datetime, 'temperature': h.temperature,
+                 'rain': h.precipitation_probability | default(0), 'condition': h.condition}] %}
+            {% endfor %}
+            {{ ns.out }}
+          rain_max_24h: >-
+            {{ hourly_fc['weather.outside_waterville_oh_usa'].forecast[:24]
+               | map(attribute='precipitation_probability', default=0) | map('float', 0) | max | int }}
+          next_rain: >-
+            {% set wet = hourly_fc['weather.outside_waterville_oh_usa'].forecast[:24]
+               | selectattr('precipitation_probability', 'defined')
+               | selectattr('precipitation_probability', 'ge', 40) | list %}
+            {{ wet[0].datetime if wet else none }}
+```
+
+Static `state_content` text on a Bubble button must be a template (`"{{ 'Humidity' }}"`): a
+plain string is read as an attribute name and renders blank.
 
 ### 6. Views
 
@@ -397,6 +475,8 @@ row showing the lowest level. New devices appear automatically.
 | `ha/bubble_modules/consumable_status.yaml` | `/config/bubble_card/modules/consumable_status.yaml` | Consumable icon colour module (repo authoritative) |
 | `ha/bubble_modules/apple_tile.yaml` | `/config/bubble_card/modules/apple_tile.yaml` | Apple-style tile module for `#lights` and room tiles (repo authoritative) |
 | `ha/bubble_modules/segmented.yaml` | `/config/bubble_card/modules/segmented.yaml` | Segmented pill control for pop-up choices (repo authoritative) |
+| `ha/bubble_modules/metric_tile.yaml` | `/config/bubble_card/modules/metric_tile.yaml` | Compact value-over-label tile for the `#weather` grid (repo authoritative) |
+| `ha/packages/weather_forecast.yaml` | `/config/packages/weather_forecast.yaml` | `sensor.outside_forecast`: 24-hour hourly forecast, today's high and low, rain timing for `#weather`; `template.reload` after a change (repo authoritative) |
 | `ha/themes/home_flat.yaml` | `/config/themes/home_flat.yaml` | Dashboard theme; `frontend.reload_themes` after a change (repo authoritative) |
 | `ha/packages/media_activity.yaml` | `/config/packages/media_activity.yaml` | HomePod and Apple TV "recently active" sensors for room media cards and the Media chip (repo authoritative) |
 

@@ -2632,6 +2632,210 @@ views:
       cards:
       - type: custom:bubble-card
         card_type: button
+        button_type: name
+        entity: weather.outside_waterville_oh_usa
+        name: '{{ states(''sensor.outside_temperature'') | float(0) | round(0) | int }}°'
+        icon: '{% from ''dashboard.jinja'' import weather_icon %}{{ weather_icon() }}'
+        show_state: true
+        state_content: '{{ state_translated(''weather.outside_waterville_oh_usa'') }} · H {{ states(''sensor.outside_forecast'') | float(0) | round(0) | int }}° L {{ state_attr(''sensor.outside_forecast'',
+          ''low'') | float(0) | round(0) | int }}°'
+        rows: 1.4
+        tap_action:
+          action: more-info
+        button_action:
+          tap_action:
+            action: more-info
+        sub_button:
+          main:
+          - name: Feels {{ state_attr('weather.outside_waterville_oh_usa', 'apparent_temperature') | float(0) | round(0) | int }}°
+            css_class: feels
+            show_name: true
+            show_icon: false
+            show_background: false
+            fill_width: false
+        styles: '.bubble-container.bubble-button-card-container { border-radius: 24px !important; }
+
+          .bubble-name { font-size: 34px !important; font-weight: 300 !important; line-height: 1.1 !important; }
+
+          .bubble-state { color: var(--secondary-text-color) !important; opacity: 1 !important; }
+
+          .feels .bubble-sub-button-name-container { font-size: 15px !important; color: var(--secondary-text-color) !important; }'
+      - type: markdown
+        text_only: true
+        grid_options:
+          columns: 12
+        content: '{% set n = state_attr(''sensor.outside_forecast'', ''next_rain'') %}{% if n %}Rain likely from {{ as_timestamp(n) | timestamp_custom(''%a %-I %p'') }} · up to {{ state_attr(''sensor.outside_forecast'',
+          ''rain_max_24h'') }}%{% else %}No rain expected in the next 24 hours{% endif %}'
+        uix:
+          style:
+            ha-markdown$: 'p { margin: 0 4px !important; font-size: 13px; color: var(--secondary-text-color); }'
+            'ha-markdown $ ha-markdown-element:': 'p { margin: 0 4px !important; font-size: 13px; color: var(--secondary-text-color); }'
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        name: '{{ state_attr(''weather.outside_waterville_oh_usa'', ''wind_speed'') | float(0) | round(0) | int }} mph'
+        show_state: true
+        state_content: '{% set b = state_attr(''weather.outside_waterville_oh_usa'', ''wind_bearing'') | float(0) %}Wind · {{ [''N'',''NE'',''E'',''SE'',''S'',''SW'',''W'',''NW''][((b + 22.5) // 45) | int
+          % 8] }}'
+        modules:
+        - metric_tile
+        grid_options:
+          columns: 4
+        tap_action:
+          action: more-info
+          entity: weather.outside_waterville_oh_usa
+        button_action:
+          tap_action:
+            action: more-info
+            entity: weather.outside_waterville_oh_usa
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        name: '{{ states(''sensor.outside_humidity'') | float(0) | round(0) | int }} %'
+        show_state: true
+        state_content: '{{ ''Humidity'' }}'
+        modules:
+        - metric_tile
+        grid_options:
+          columns: 4
+        tap_action:
+          action: more-info
+          entity: sensor.outside_humidity
+        button_action:
+          tap_action:
+            action: more-info
+            entity: sensor.outside_humidity
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        name: '{{ state_attr(''sensor.outside_forecast'', ''rain_max_24h'') | int(0) }} %'
+        show_state: true
+        state_content: '{{ ''Rain · 24 h'' }}'
+        modules:
+        - metric_tile
+        grid_options:
+          columns: 4
+        tap_action:
+          action: more-info
+          entity: sensor.outside_forecast
+        button_action:
+          tap_action:
+            action: more-info
+            entity: sensor.outside_forecast
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        name: '{{ states(''sensor.erie_ohio_usa_air_quality_index'') }}'
+        show_state: true
+        state_content: AQI · {{ states('sensor.erie_ohio_usa_dominant_pollutant') | replace('_', '.') | upper }}
+        modules:
+        - metric_tile
+        grid_options:
+          columns: 4
+        tap_action:
+          action: more-info
+          entity: sensor.erie_ohio_usa_air_quality_index
+        button_action:
+          tap_action:
+            action: more-info
+            entity: sensor.erie_ohio_usa_air_quality_index
+        styles: '{% from ''dashboard.jinja'' import weather_color %}.bubble-name { color: {{ weather_color() if states(''sensor.erie_ohio_usa_air_quality_index'') | int(0) > 50 else ''var(--primary-text-color)''
+          }} !important; }'
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        name: '{{ state_attr(''weather.outside_waterville_oh_usa'', ''uv_index'') | int(0) }}'
+        show_state: true
+        state_content: '{{ ''UV index'' }}'
+        modules:
+        - metric_tile
+        grid_options:
+          columns: 4
+        tap_action:
+          action: more-info
+          entity: weather.outside_waterville_oh_usa
+        button_action:
+          tap_action:
+            action: more-info
+            entity: weather.outside_waterville_oh_usa
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        name: '{% set up = is_state(''sun.sun'', ''above_horizon'') %}{{ as_timestamp(state_attr(''sun.sun'', ''next_setting'' if up else ''next_rising'')) | timestamp_custom(''%-I:%M'') }}'
+        show_state: true
+        state_content: '{{ ''Sunset'' if is_state(''sun.sun'', ''above_horizon'') else ''Sunrise'' }}'
+        modules:
+        - metric_tile
+        grid_options:
+          columns: 4
+        tap_action:
+          action: more-info
+          entity: sun.sun
+        button_action:
+          tap_action:
+            action: more-info
+            entity: sun.sun
+      - type: heading
+        heading: Next 24 hours
+        heading_style: subtitle
+      - type: custom:apexcharts-card
+        graph_span: 24h
+        span:
+          start: hour
+        now:
+          show: false
+        header:
+          show: false
+        apex_config:
+          chart:
+            height: 160
+            background: transparent
+            toolbar:
+              show: false
+          theme:
+            mode: dark
+          legend:
+            show: false
+          grid:
+            borderColor: rgba(127,127,127,0.15)
+          xaxis:
+            labels:
+              format: h TT
+          tooltip:
+            theme: dark
+            x:
+              format: ddd h TT
+        yaxis:
+        - id: t
+          decimals: 0
+          apex_config:
+            tickAmount: 3
+        - id: r
+          show: false
+          min: 0
+          max: 100
+        series:
+        - entity: sensor.outside_forecast
+          name: Rain chance
+          type: column
+          yaxis_id: r
+          color: var(--blue-color)
+          opacity: 0.5
+          unit: '%'
+          data_generator: return entity.attributes.hourly.map(h => [new Date(h.datetime).getTime(), h.rain]);
+        - entity: sensor.outside_forecast
+          name: Temperature
+          yaxis_id: t
+          curve: smooth
+          stroke_width: 2
+          color: var(--amber-color)
+          unit: °
+          data_generator: return entity.attributes.hourly.map(h => [new Date(h.datetime).getTime(), h.temperature]);
+      - type: heading
+        heading: Next 5 days
+        heading_style: subtitle
+      - type: custom:bubble-card
+        card_type: button
         button_type: state
         entity: weather.outside_waterville_oh_usa
         show_state: true
@@ -2639,74 +2843,61 @@ views:
         modules:
         - weather_forecast
         weather_forecast:
-          card_layout: default
+          card_layout: weather_only
           type: daily
           max_days: 5
-        sub_button:
-          main:
-          - name: Temperature
-            css_class: highlight
-            attribute: temperature
-            show_attribute: true
-            show_icon: false
-            show_background: false
-            fill_width: false
-            hide_when_parent_unavailable: true
-        styles: ".highlight .bubble-sub-button-name-container,\n.highlight .scrolling-container,\n.highlight .scrolling-container span {\n  font-size: var(--bubble-sub-button-highlight-font-size, 20px)\
-          \ !important;\n  font-weight: var(--bubble-sub-button-highlight-font-weight, 300) !important;\n  white-space: nowrap !important;\n  overflow: hidden !important;\n}"
-      - type: custom:bubble-card
-        card_type: separator
-        name: Outside
-        icon: mdi:home-thermometer-outline
-      - type: tile
-        entity: sensor.outside_temperature
-        grid_options:
-          columns: 6
-        name: Temperature
-      - type: tile
-        entity: sensor.outside_humidity
-        grid_options:
-          columns: 6
-        name: Humidity
-      - type: tile
-        entity: sensor.outside_waterville_oh_usa_pressure_trend
-        grid_options:
-          columns: 6
-        name: Pressure
-      - type: tile
-        entity: sensor.outside_waterville_oh_usa_precipitation_intensity
-        grid_options:
-          columns: 6
-        name: Precipitation
-      - type: custom:bubble-card
-        card_type: separator
-        name: Air Quality
-        icon: mdi:weather-hazy
+      - type: heading
+        heading: Air quality
+        heading_style: subtitle
+        visibility:
+        - condition: numeric_state
+          entity: sensor.erie_ohio_usa_air_quality_index
+          above: 50
       - type: tile
         entity: sensor.erie_ohio_usa_air_quality_index
         grid_options:
           columns: 6
         name: AQI
+        visibility:
+        - condition: numeric_state
+          entity: sensor.erie_ohio_usa_air_quality_index
+          above: 50
       - type: tile
         entity: sensor.erie_ohio_usa_dominant_pollutant
         grid_options:
           columns: 6
         name: Dominant
+        visibility:
+        - condition: numeric_state
+          entity: sensor.erie_ohio_usa_air_quality_index
+          above: 50
       - type: tile
         entity: sensor.erie_ohio_usa_pm2_5
         grid_options:
           columns: 4
         name: PM2.5
+        visibility:
+        - condition: numeric_state
+          entity: sensor.erie_ohio_usa_air_quality_index
+          above: 50
       - type: tile
         entity: sensor.erie_ohio_usa_pm10
         grid_options:
           columns: 4
         name: PM10
+        visibility:
+        - condition: numeric_state
+          entity: sensor.erie_ohio_usa_air_quality_index
+          above: 50
       - type: tile
         entity: sensor.erie_ohio_usa_ozone
         grid_options:
           columns: 4
         name: Ozone
+        visibility:
+        - condition: numeric_state
+          entity: sensor.erie_ohio_usa_air_quality_index
+          above: 50
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#vacuum'

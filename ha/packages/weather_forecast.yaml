@@ -1,0 +1,61 @@
+# Outside forecast snapshot for the home-main #weather pop-up.
+#
+# Weather entities only hand out forecasts through the weather.get_forecasts action, so a
+# card can't read them directly. This trigger-based sensor fetches the hourly and daily
+# forecasts every 30 minutes and keeps a trimmed copy as attributes: the next 24 hours
+# (time, temperature, rain chance, condition) for the apexcharts hourly chart, today's
+# high and low, and the first hour in the next 24 with a 40%+ chance of rain.
+# The full hourly response covers about a week; trimming it keeps the attribute small
+# enough for the recorder.
+#
+# The response variables are named *_fc because an attribute named `hourly` would shadow a
+# response variable of the same name for the attributes rendered after it.
+#
+# State: today's forecast high. See guides/home_dashboard.md.
+# Deployed to /config/packages/weather_forecast.yaml; reload with template.reload.
+
+template:
+  - trigger:
+      - trigger: time_pattern
+        minutes: /30
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: event_template_reloaded
+    action:
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.outside_waterville_oh_usa
+        data:
+          type: hourly
+        response_variable: hourly_fc
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.outside_waterville_oh_usa
+        data:
+          type: daily
+        response_variable: daily_fc
+    sensor:
+      - name: Outside Forecast
+        unique_id: outside_forecast
+        icon: mdi:weather-partly-cloudy
+        device_class: temperature
+        unit_of_measurement: "°F"
+        state: "{{ daily_fc['weather.outside_waterville_oh_usa'].forecast[0].temperature }}"
+        attributes:
+          low: "{{ daily_fc['weather.outside_waterville_oh_usa'].forecast[0].templow }}"
+          hourly: >-
+            {% set ns = namespace(out=[]) %}
+            {% for h in hourly_fc['weather.outside_waterville_oh_usa'].forecast[:24] %}
+              {% set ns.out = ns.out + [{'datetime': h.datetime, 'temperature': h.temperature,
+                 'rain': h.precipitation_probability | default(0), 'condition': h.condition}] %}
+            {% endfor %}
+            {{ ns.out }}
+          rain_max_24h: >-
+            {{ hourly_fc['weather.outside_waterville_oh_usa'].forecast[:24]
+               | map(attribute='precipitation_probability', default=0) | map('float', 0) | max | int }}
+          next_rain: >-
+            {% set wet = hourly_fc['weather.outside_waterville_oh_usa'].forecast[:24]
+               | selectattr('precipitation_probability', 'defined')
+               | selectattr('precipitation_probability', 'ge', 40) | list %}
+            {{ wet[0].datetime if wet else none }}

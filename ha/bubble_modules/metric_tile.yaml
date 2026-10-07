@@ -1,0 +1,31 @@
+# Bubble Card module: compact metric tile (value large, label small, no icon badge).
+# Deployed to /config/bubble_card/modules/metric_tile.yaml (standards/dashboards.md §13).
+# Apply with `modules: [metric_tile]` on a `button_type: name` button whose `name` is the value
+# ("6 mph") and `state_content` the label ("Wind · W · gusts 9"). Used in the #weather grid,
+# three across on a phone (`grid_options: {columns: 4}`).
+metric_tile:
+  name: Metric tile
+  version: "1.0"
+  creator: home-main
+  description: Compact metric tile for 3-across grids; value large, label small, no icon badge.
+  supported:
+    - button
+  code: |
+    .bubble-container.bubble-button-card-container {
+      border-radius: 18px !important;
+    }
+    .bubble-icon-container {
+      display: none !important;
+    }
+    .bubble-name-container {
+      margin-left: 14px !important;
+    }
+    .bubble-name {
+      font-size: 20px !important;
+      font-weight: 500 !important;
+    }
+    .bubble-state {
+      font-size: 11px !important;
+      color: var(--secondary-text-color) !important;
+      opacity: 1 !important;
+    }
