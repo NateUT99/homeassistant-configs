@@ -9,10 +9,10 @@
 #
 # Everything else tints and glows while "active" for its domain (thermostat heating or
 # cooling, vacuum cleaning or returning, anything else `on`): blue for cooling, amber
-# otherwise (heating included); neutral when idle.
+# otherwise (heating included); neutral when idle, icon included (standards/dashboards.md §10).
 apple_tile:
   name: Apple tile
-  version: "3.2"
+  version: "3.3"
   creator: home-main
   description: Apple-style tile; security palette for locks and covers, amber/blue activity tint otherwise.
   supported:
@@ -45,5 +45,5 @@ apple_tile:
       background: {{ c if active else ('color-mix(in srgb, ' ~ c ~ ' 18%, transparent)' if secure else 'color-mix(in srgb, var(--primary-text-color) 10%, transparent)') }} !important;
     }
     .bubble-icon {
-      color: {{ 'var(--primary-background-color)' if active else (c if secure else 'var(--cyan-color)') }} !important;
+      color: {{ 'var(--primary-background-color)' if active else (c if secure else 'var(--primary-text-color)') }} !important;
     }
