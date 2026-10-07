@@ -1759,7 +1759,6 @@ views:
       - type: custom:bubble-card
         card_type: climate
         entity: climate.living_room_fireplace
-      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#kitchen'
@@ -1813,7 +1812,6 @@ views:
         show_icon: false
         rows: 3
         main_buttons_position: bottom
-      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#family-room'
@@ -1935,7 +1933,6 @@ views:
 
             .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo),
             0 0 3px var(--bmpe-ink-halo); }'
-      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#office'
@@ -2019,7 +2016,6 @@ views:
         show_icon: false
         rows: 3
         main_buttons_position: bottom
-      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#master-bedroom'
@@ -2136,7 +2132,6 @@ views:
           idle_artwork: none
           background_opacity: 0.85
         show_icon: false
-      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#averys-room'
@@ -2196,7 +2191,6 @@ views:
         show_icon: false
         rows: 3
         main_buttons_position: bottom
-      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#security'

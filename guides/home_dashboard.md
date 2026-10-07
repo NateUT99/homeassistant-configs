@@ -301,10 +301,11 @@ Pantry has nothing to show.
 
 ### 5. Pop-ups
 
-All pop-ups use `popup_mode: adaptive-dialog`, `popup_style: bubble` and `show_header: false`:
-no title row or close button. Close by swiping down on a phone, or tapping outside or
-pressing Esc on a desktop. A pop-up's first card says what it is (a status hero where one
-exists).
+All pop-ups use `popup_mode: adaptive-dialog` and `popup_style: bubble`. All except the six
+room pop-ups also set `show_header: false`: no title row or close button, closed by swiping
+down on a phone or tapping outside / pressing Esc on a desktop, with the first card saying what
+the pop-up is. The room pop-ups keep their header, which shows the same `room_summary` as the
+tile, until they get a room hero (#13 step 4).
 
 | Hash | Contents |
 |---|---|

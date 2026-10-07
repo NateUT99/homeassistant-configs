@@ -252,6 +252,7 @@ so every HA function and every `custom_templates` macro is available.
 ### 9.3 Pop-up controls
 
 Pop-ups have no header row (`show_header: false`); the first card identifies the pop-up.
+Room pop-ups keep their header until they have a room hero.
 A device pop-up opens with a **status hero** (what it is doing now, one detail line, the key
 number on the right), then **one primary action** as a full-width pill (amber while the
 device is running, a solid neutral pill otherwise) with secondary actions as round buttons
