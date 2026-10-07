@@ -216,7 +216,8 @@ Both scripts are `mode: single` with `max_exceeded: silent`. The schedule starts
 the rest of today and tonight, otherwise tonight and tomorrow. The headline gives the shape
 of that period (a cold start that turns warm, when rain comes and goes); the tip adds what
 the headline left out and what it means in practice. The tip is the practical call in a friend's voice (what to
-wear, when to go out). A temperature comparison appears only when the gap is 8° or more and
+wear, when to go out). Its drama stays in proportion to the season: strong words (cold snap,
+bundle up) are reserved for frost, a 15° drop, a heat advisory, or heavy rain. A temperature comparison appears only when the gap is 8° or more and
 fits the period (today vs yesterday, or tomorrow vs today in the evening), and calls out only what matters: rain 30%+, gusts 25 mph+, UV 6+, AQI over
 100, frost (34° or below), feels-like 90°+.
 
