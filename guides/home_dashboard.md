@@ -56,7 +56,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   speaker it plays through, so Apple TV cards hide it and add an always-visible slider
   sub-button on the real speaker (Sonos, or the bedroom TV). Every media card — room
   sections, `#media`, `#living-room` — uses the Bubble Media Player Enhanced module
-  (artwork background and colours; `idle_artwork: none` since the cards hide when idle), so
+  (artwork background and colours; `background_opacity: 0.65` so bright artwork doesn't wash out the overlaid title and times; `idle_artwork: none` since the cards hide when idle), so
   there is one media style and no separate media card dependency. Bubble's own icon is hidden
   (`show_icon: false`) because the module already draws the cover. All media cards use the large
   layout (`rows: 3`, full scrubbable progress bar above the controls,
