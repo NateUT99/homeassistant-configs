@@ -122,6 +122,7 @@ Yesterday's heating: {{ h_y }} h (typical {{ h_typ }} h, {{ vs(h_y, h_typ) }}); 
 {#- The ran flags reset at 08:00, so after that they describe today, not yesterday. -#}
 Vacuum yesterday: daytime clean {{ 'done' if is_state('input_boolean.vacuum_ran_daytime','on') else 'did not run' }}, night clean {{ 'done' if is_state('input_boolean.vacuum_ran_evening','on') else 'did not run' }}.
 {% endif -%}
+Mopping this week (weekly, since Monday; today is {{ now().strftime('%A') }}): common areas {{ 'done' if is_state('input_boolean.vacuum_mop_common_areas_done_this_week','on') else 'not done yet' }}; master suite {{ 'done' if is_state('input_boolean.vacuum_mop_master_suite_done_this_week','on') else 'not done yet' }}.
 Laundry: washer {{ 'finished and waiting to be unloaded' if is_state('input_select.utility_room_washer_status','alerting') else 'nothing waiting' }}; dryer {{ 'finished and waiting to be unloaded' if is_state('input_select.utility_room_dryer_status','alerting') else 'nothing waiting' }}.
 Chores due today or overdue: {{ ns.today | join(', ') if ns.today else 'none' }}.
 {%- endmacro %}

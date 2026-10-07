@@ -1,9 +1,9 @@
 alias: 'Household: AI Briefing'
 description: 'Asks Claude (ai_task.claude_sonnet_ai_task) for the briefing at the top of the home-main
   dashboard: a one-sentence headline, a practical tip, and an icon, all about the weather for the coming
-  hours. The morning run (before 11:00) also looks back: it adds a house recap of overnight and yesterday
-  plus what the house needs today, and its headline picks the single most useful item from either side.
-  Facts come only from the allowlist macros weather_facts and house_facts in /config/custom_templates/ai_insights.jinja.
+  hours. The morning run (before 11:00) also looks back: it adds a separate house recap of overnight and
+  yesterday plus what the house needs today. The headline and tip stay about the weather. Facts come only
+  from the allowlist macros weather_facts and house_facts in /config/custom_templates/ai_insights.jinja.
   The result is fired as household_ai_briefing_ready and stored by sensor.household_ai_briefing; a failed
   call fires nothing, so the previous briefing stays. Runs on the AI Insights Schedule and from the dashboard''s
   Refresh button. See guides/ai_insights.md.'
@@ -95,9 +95,9 @@ sequence:
       - Times as people say them ("by 3", "after dinner", "around sunset"), 12-hour clock, °F.
 
       Rules:
-      - headline: one sentence, 90 characters or fewer. The single most useful thing about {{ focus }}{{ ', from the weather or the house' if is_morning }}.
+      - headline: one sentence, 90 characters or fewer. The single most useful thing about {{ focus }}.
       - tip: one or two sentences, 200 characters or fewer: the practical call, said like a friend would (a jacket for the early hours, the dry window for a walk, a good night to open the windows, bring the plants in). Add what the headline left out; never repeat it. Never generic advice.
-      {% if is_morning %}- house: one or two sentences, 200 characters or fewer, looking both ways: first what happened overnight and yesterday (anything opened overnight, an internet drop, a leak, energy or heating well off a typical day, laundry left waiting), then what the house needs today (chores due, trash). Skip anything normal; a quiet night is just "quiet night". Same voice, a little attitude for anything ignored. If the headline used a house item, don't repeat it here.
+      {% if is_morning %}- house: one or two sentences, 200 characters or fewer, looking both ways: first what happened overnight and yesterday (anything opened overnight, an internet drop, a leak, energy or heating well off a typical day, laundry left waiting, a scheduled vacuum run that didn't happen), then what the house needs today (chores due, trash, and the weekly mop passes if still not done, more pointedly as the week goes on). Skip anything normal; a quiet night is just "quiet night". Same voice, a little attitude for anything ignored. The headline and tip are weather only; the house goes here.
       {% else %}- house: leave empty.
       {% endif %}- icon: exactly one value from this list: {{ icons | join(', ') }}.
       - Use only the facts below. Never invent anything, including when wind or rain stops if the facts don't say. Plain text.

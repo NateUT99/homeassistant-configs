@@ -1,11 +1,11 @@
 alias: 'Household: AI Weekly Digest'
-description: 'Sunday-evening week in review. The numbers are computed here from long-term statistics,
-  not by Claude: electricity, heating and cooling runtime, refrigerator energy, and heating/cooling degree
-  days (base 65°F, from the daily mean outdoor temperature) for the last 7 days, the 7 before, and the
-  4-week average before that; cost at the $0.2033/kWh rate in the Energy settings; vacuum coverage and
-  chores. Claude (ai_task.claude_sonnet_ai_task) writes a one-line headline and a short paragraph on what
-  changed and whether the weather explains it. Fired as household_ai_weekly_digest_ready and stored by
-  sensor.household_ai_weekly_digest. Runs on the AI Insights Schedule. See guides/ai_insights.md.'
+description: 'Sunday-evening consumption review: the last 7 days against the 7 before and the 4-week average.
+  The numbers are computed here from long-term statistics, not by Claude: electricity (with cost at the
+  $0.2033/kWh rate in the Energy settings), heating and cooling runtime, refrigerator energy, and heating/cooling
+  degree days (base 65°F, from the daily mean outdoor temperature). Claude (ai_task.claude_sonnet_ai_task)
+  writes a one-line headline and a short paragraph on what changed and whether the weather explains it.
+  Fired as household_ai_weekly_digest_ready and stored by sensor.household_ai_weekly_digest. Runs on the
+  AI Insights Schedule. See guides/ai_insights.md.'
 icon: mdi:calendar-week
 mode: single
 max_exceeded: silent
@@ -13,7 +13,7 @@ sequence:
 - alias: Get five weeks of daily statistics
   action: recorder.get_statistics
   data:
-    start_time: '{{ (today_at() - timedelta(days=34)).strftime(''%Y-%m-%d %H:%M:%S'') }}'
+    start_time: '{{ (today_at() - timedelta(days=34)).isoformat() }}'
     statistic_ids:
     - sensor.household_energy_monitor_total_energy_delivered
     - sensor.household_hvac_heating_runtime_today
@@ -61,24 +61,13 @@ sequence:
       []), as_datetime(this_start), as_datetime(end)) | float(0) }}'
     fridge_avg_kwh: '{% from ''ai_insights.jinja'' import window_total %}{{ window_total(s.get(''sensor.kitchen_refrigerator_summation_delivered'',
       []), as_datetime(base_start), as_datetime(this_start), ''change'', true) | float(0) }}'
-    vacuum_day_runs: '{{ states(''sensor.household_vacuum_day_runs_this_week'') | int(0) }}'
-    vacuum_night_runs: '{{ states(''sensor.household_vacuum_night_runs_this_week'') | int(0) }}'
-    mop_common_done: '{{ is_state(''input_boolean.vacuum_mop_common_areas_done_this_week'', ''on'') }}'
-    mop_master_done: '{{ is_state(''input_boolean.vacuum_mop_master_suite_done_this_week'', ''on'') }}'
-    chores_done: '{{ expand(integration_entities(''chore_calendar'') | select(''match'', ''sensor\\.'')
-      | list) | selectattr(''attributes.last_completed'', ''defined'') | rejectattr(''attributes.last_completed'',
-      ''none'') | selectattr(''attributes.last_completed'', ''ge'', (now() - timedelta(days=7)).isoformat())
-      | map(attribute=''name'') | map(''replace'', ''Household Chores '', '''') | list }}'
-    chores_overdue: '{{ expand(integration_entities(''chore_calendar'') | select(''match'', ''sensor\\.'')
-      | list) | selectattr(''state'', ''eq'', ''overdue'') | map(attribute=''name'') | map(''replace'',
-      ''Household Chores '', '''') | list }}'
 - alias: Ask Claude for the headline and the story
   action: ai_task.generate_data
   data:
     task_name: household_ai_weekly_digest
     entity_id: ai_task.claude_sonnet_ai_task
     instructions: |-
-      {% from 'ai_insights.jinja' import vs %}Write the weekly energy recap for a family's house in Waterville, Ohio. A table on the dashboard already shows the raw numbers; your job is to say what they mean.
+      {% from 'ai_insights.jinja' import vs %}Write the weekly consumption recap for a family's house in Waterville, Ohio: how the last 7 days of electricity and heating/cooling compare with the week before and with recent history. Say what the numbers mean, not just what they are.
 
       Voice: a sharp, good-humored house manager. Plain and specific, a light touch of wit, never cutesy, no emoji.
 
@@ -86,21 +75,19 @@ sequence:
       1. Electricity against last week and against the 4-week average. A change under 10% is "about the same".
       2. Heating and cooling hours against last week, and whether the weather explains it. Degree days measure how much heating or cooling the weather called for (heating degree days rise as it gets colder). If runtime moved roughly with degree days, the weather explains it; if runtime rose clearly more than degree days did, say so plainly, without guessing a cause.
       3. The refrigerator, only if it used 15% more or less than its average.
-      4. Vacuuming and chores only if something was clearly missed.
+      This is about consumption only; never mention cleaning, chores, or anything else.
 
       Rules:
-      - headline: 70 characters or fewer, the week in a few words.
+      - headline: 70 characters or fewer, the consumption story in a few words.
       - story: two or three sentences, 300 characters or fewer. Lead with the most notable comparison. Round numbers ("about 20% more", "6 hours of heat"). Don't recite every number.
       - The comparisons in the facts ("47% less", "about the same") are already worked out; use them as given and never reverse a direction.
       - Use only the facts below. Never invent a cause. If a series has no data (0 for both weeks), leave it out.
 
-      Facts (this week = the last 7 days):
+      Facts ("this week" = the last 7 days):
       Electricity: {{ energy_kwh }} kWh this week (about ${{ energy_cost }}). Last week {{ energy_prev_kwh }} kWh (this week: {{ vs(energy_kwh, energy_prev_kwh) }}). 4-week average {{ energy_avg_kwh }} kWh (this week: {{ vs(energy_kwh, energy_avg_kwh) }}).
       Heating runtime: {{ heating_h }} h this week vs {{ heating_prev_h }} h last week ({{ vs(heating_h, heating_prev_h) }}). Heating degree days: {{ hdd }} vs {{ hdd_prev }} ({{ vs(hdd, hdd_prev) }}).
       Cooling runtime: {{ cooling_h }} h this week vs {{ cooling_prev_h }} h last week ({{ vs(cooling_h, cooling_prev_h) }}). Cooling degree days: {{ cdd }} vs {{ cdd_prev }} ({{ vs(cdd, cdd_prev) }}).
       Refrigerator: {{ fridge_kwh }} kWh this week; average {{ fridge_avg_kwh }} kWh (this week: {{ vs(fridge_kwh, fridge_avg_kwh) }}).
-      Vacuum: {{ vacuum_day_runs }} daytime and {{ vacuum_night_runs }} night cycles; mop pass {{ 'done' if mop_common_done else 'not done' }}; master suite mop follow-up {{ 'done' if mop_master_done else 'not done' }}.
-      Chores completed: {{ chores_done | join(', ') if chores_done else 'none' }}. Overdue: {{ chores_overdue | join(', ') if chores_overdue else 'none' }}.
     structure:
       headline:
         description: One line, 70 characters or fewer
@@ -132,9 +119,3 @@ sequence:
     cdd_prev: '{{ cdd_prev }}'
     fridge_kwh: '{{ fridge_kwh }}'
     fridge_avg_kwh: '{{ fridge_avg_kwh }}'
-    vacuum_day_runs: '{{ vacuum_day_runs }}'
-    vacuum_night_runs: '{{ vacuum_night_runs }}'
-    mop_common_done: '{{ mop_common_done }}'
-    mop_master_done: '{{ mop_master_done }}'
-    chores_done: '{{ chores_done }}'
-    chores_overdue: '{{ chores_overdue }}'

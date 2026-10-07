@@ -286,15 +286,16 @@ header shows the same `room_summary` as the tile.
 | `#climate` | Thermostat and fireplace (Bubble climate) |
 | `#weather` | Bubble Weather card (`weather_forecast` module: animated condition background, 5-day forecast), outside conditions, AQI and pollutants |
 | `#vacuum` | Commands, routine pause, Mop now (confirm), map (only when out or ran today), status, mop settings (when the pad is on), 4 consumables |
-| `#ai` | No header bar (`show_header: false`). Two heading cards (Briefing, This Week), each with an age badge (`state_content: last_updated`); Briefing adds a refresh button badge that starts the briefing script. Each heading is followed by a markdown body; see below. `open_action` and `close_action` press `input_button.household_ai_seen` |
+| `#ai` | No header bar (`show_header: false`). Three heading cards (Forecast, Morning Recap, Weekly Insights); Forecast and Weekly Insights carry an age badge (`state_content: last_updated`), and Forecast adds a refresh button badge that starts the briefing script. Each heading is followed by a markdown body; see below. `open_action` and `close_action` press `input_button.household_ai_seen` |
 | `#laundry` | Washer and dryer status, remaining, progress, start/finish; "stop reminders" acknowledge (only while `alerting`); dishwasher; washer stats; utility room light |
 
 **`#ai` bodies** are markdown cards, not Bubble cards, because their length varies and Bubble
 cards have a fixed height. Each shows *Working on it…* while its script entity is `on`.
 
-- **Briefing:** the headline in bold, then the tip; under a *This morning* label, the morning
-  house recap when the sensor has one.
-- **This Week:** the digest headline in bold, then its story.
+- **Forecast:** the briefing headline in bold, then the tip.
+- **Morning Recap:** the morning house recap (the briefing sensor's `house` attribute), or
+  "Arrives with the 6:30 AM briefing" until the first one.
+- **Weekly Insights:** the digest headline in bold, then its story.
 
 `#laundry` is reachable only while a washer, dryer, or dishwasher chip is showing; it is about
 the current cycle.

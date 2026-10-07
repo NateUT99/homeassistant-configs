@@ -7,8 +7,8 @@
 ## Overview
 
 Claude writes two pieces of text for the `home-main` dashboard: a **briefing** three times
-a day (the headline shows under the chip strip) and a Sunday **weekly digest** on energy and
-HVAC use. Every briefing covers the weather ahead; the morning one also looks back, with a
+a day (the headline shows under the chip strip) and a Sunday **weekly digest** on consumption: the last 7
+days of electricity and HVAC against the week before and recent history. Every briefing covers the weather ahead; the morning one also looks back, with a
 house recap of overnight and yesterday and what the house needs today. Both run on Claude Sonnet (`ai_task.claude_sonnet_ai_task`).
 Scripts gather an explicit allowlist of facts, call `ai_task.generate_data` with a typed
 `structure`, and fire a `*_ready` event; trigger-based template sensors in a package store
@@ -108,11 +108,9 @@ scp ha/packages/ai_insights.yaml ha:/config/packages/ai_insights.yaml
 ```
 
 Then call `template.reload` and `history_stats.reload`. The two AI sensors read `unknown`
-until their first event. Two `history_stats` counters count how many times each daily
-vacuum "ran" flag turned on since Monday 08:05 (the flags reset at 08:00, so a start any
-earlier would count Sunday night's still-on flag as a Monday run). Four more count door
-openings, garage openings, internet drops, and generator runs since the most recent 10 PM,
-for the morning recap.
+until their first event. Four `history_stats` counters count door openings, garage
+openings, internet drops, and generator runs since the most recent 10 PM, for the morning
+recap.
 
 ```yaml
 # Stores the Claude-generated text shown on the home-main dashboard: the
@@ -175,40 +173,9 @@ template:
           cdd_prev: "{{ trigger.event.data.cdd_prev | default(0) }}"
           fridge_kwh: "{{ trigger.event.data.fridge_kwh | default(0) }}"
           fridge_avg_kwh: "{{ trigger.event.data.fridge_avg_kwh | default(0) }}"
-          vacuum_day_runs: "{{ trigger.event.data.vacuum_day_runs | default(0) }}"
-          vacuum_night_runs: "{{ trigger.event.data.vacuum_night_runs | default(0) }}"
-          mop_common_done: "{{ trigger.event.data.mop_common_done | default(false) }}"
-          mop_master_done: "{{ trigger.event.data.mop_master_done | default(false) }}"
-          chores_done: "{{ trigger.event.data.chores_done | default([]) }}"
-          chores_overdue: "{{ trigger.event.data.chores_overdue | default([]) }}"
           generated_at: "{{ now().isoformat() }}"
 
-# Weekly vacuum coverage: how many times each daily "ran" flag turned on this
-# week. Both flags reset at 08:00 daily (see guides/vacuum_cleaning_routine.md),
-# so the week starts Monday 08:05: an earlier start would catch Sunday night's
-# still-on flag (it clears a fraction of a second after 08:00) as a Monday run.
 sensor:
-  - platform: history_stats
-    name: Household Vacuum Day Runs This Week
-    unique_id: household_vacuum_day_runs_this_week
-    entity_id: input_boolean.vacuum_ran_daytime
-    state: "on"
-    type: count
-    start: >-
-      {% set s = today_at('08:05') - timedelta(days=now().weekday()) %}
-      {{ s if s <= now() else s - timedelta(days=7) }}
-    end: "{{ now() }}"
-  - platform: history_stats
-    name: Household Vacuum Night Runs This Week
-    unique_id: household_vacuum_night_runs_this_week
-    entity_id: input_boolean.vacuum_ran_evening
-    state: "on"
-    type: count
-    start: >-
-      {% set s = today_at('08:05') - timedelta(days=now().weekday()) %}
-      {{ s if s <= now() else s - timedelta(days=7) }}
-    end: "{{ now() }}"
-
   # Overnight activity for the morning briefing's house recap: counts since the
   # most recent 10 PM. history_stats counts transitions into the state, so a
   # door left open all night counts once.
@@ -273,16 +240,17 @@ fits the period (today vs yesterday, or tomorrow vs today in the evening), and c
 testing). It looks back first (doors and garage opened since 10 PM and the last door time,
 internet drops, generator runs, leaks, yesterday's electricity and heating/cooling against a
 typical day of the past week, laundry left waiting, and, before 08:00 when the flags reset,
-whether the vacuum ran), then ahead (chores due today or overdue). The headline picks the
-single most useful item from the weather or the house. The sensor keeps the recap through the
-midday and evening runs, so `#ai` shows it as "This morning" until the next morning.
+whether the vacuum ran), then ahead (chores due today or overdue, and this week's mop passes
+if not done yet, more pointedly as the week goes on). The headline and tip
+stay about the weather; house items go only in the recap. The sensor keeps the recap through the midday and
+evening runs, so `#ai` shows it under Morning Recap until the next morning.
 
 **Digest.** "This week" is the 7 days ending now, "last week" the 7 before, and the average
 the 28 days before this week, scaled to 7 days by how many days have data (so a sensor
 younger than five weeks still averages fairly). The story leads with the most notable of:
 electricity against last week and the average; heating and cooling hours against degree
-days; the refrigerator, only when 15% off its average; vacuuming and chores only when
-clearly missed.
+days; the refrigerator, only when 15% off its average. It covers consumption only;
+cleaning and chores belong to the morning recap.
 
 **Voice** (both prompts): a sharp, good-humored local — conversational, a light touch of wit,
 never cutesy, no emoji; facts stay precise and no cause is invented.
@@ -296,8 +264,8 @@ The `#ai` pop-up presses it on open and on close; the AI chip is amber while the
 ### 6. Dashboard
 
 See `guides/home_dashboard.md`: the greeting markdown card shows the briefing headline, the
-AI chip opens `#ai`, and `#ai` holds the briefing with its morning house recap (and a
-Refresh button) and the digest.
+AI chip opens `#ai`, and `#ai` has three sections: Forecast (the briefing, with a Refresh
+button), Morning Recap, and Weekly Insights (the digest).
 
 ---
 
@@ -324,8 +292,6 @@ Cost: Claude Sonnet, 3 calls a day plus one a week — around $1.30/month; the m
 |---|---|---|
 | Household AI Briefing | `sensor.household_ai_briefing` | Trigger-based template sensor (package) |
 | Household AI Weekly Digest | `sensor.household_ai_weekly_digest` | Trigger-based template sensor (package) |
-| Household Vacuum Day Runs This Week | `sensor.household_vacuum_day_runs_this_week` | `history_stats` count (package) |
-| Household Vacuum Night Runs This Week | `sensor.household_vacuum_night_runs_this_week` | `history_stats` count (package) |
 | Household Doors Opened Overnight | `sensor.household_doors_opened_overnight` | `history_stats` count since 10 PM (package) |
 | Household Garage Opened Overnight | `sensor.household_garage_opened_overnight` | `history_stats` count since 10 PM (package) |
 | Household Internet Drops Overnight | `sensor.household_internet_drops_overnight` | `history_stats` count since 10 PM (package) |
@@ -343,7 +309,7 @@ Cost: Claude Sonnet, 3 calls a day plus one a week — around $1.30/month; the m
 
 | Repo path | Deployed location | Purpose |
 |---|---|---|
-| `ha/packages/ai_insights.yaml` | `/config/packages/ai_insights.yaml` | Result-storing sensors, weekly vacuum and overnight counters |
+| `ha/packages/ai_insights.yaml` | `/config/packages/ai_insights.yaml` | Result-storing sensors, overnight counters |
 | `ha/custom_templates/ai_insights.jinja` | `/config/custom_templates/ai_insights.jinja` | `weather_facts()`, `house_facts()`, `window_total()`, `vs()` allowlist macros |
 
 ---

@@ -2735,8 +2735,8 @@ views:
       popup_style: bubble
       cards:
       - type: heading
-        heading: Briefing
-        icon: mdi:creation
+        heading: Forecast
+        icon: mdi:weather-partly-cloudy
         heading_style: title
         badges:
         - type: entity
@@ -2752,9 +2752,8 @@ views:
             target:
               entity_id: script.household_ai_briefing
       - type: markdown
-        content: '{% set house = state_attr(''sensor.household_ai_briefing'',''house'') %}{% if is_state(''script.household_ai_briefing'',''on'') %}*Working on it…*{% elif has_value(''sensor.household_ai_briefing'')
-          %}**{{ states(''sensor.household_ai_briefing'') }}**<br>{{ state_attr(''sensor.household_ai_briefing'',''tip'') }}{% if house %}<br><br><b>THIS MORNING</b><br>{{ house }}{% endif %}{% else %}No
-          briefing yet.{% endif %}'
+        content: '{% if is_state(''script.household_ai_briefing'',''on'') %}*Working on it…*{% elif has_value(''sensor.household_ai_briefing'') %}**{{ states(''sensor.household_ai_briefing'') }}**<br>{{
+          state_attr(''sensor.household_ai_briefing'',''tip'') }}{% else %}No forecast yet.{% endif %}'
         uix:
           style:
             ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
@@ -2766,8 +2765,24 @@ views:
               none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
               0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
       - type: heading
-        heading: This Week
-        icon: mdi:calendar-week
+        heading: Morning Recap
+        icon: mdi:home-clock
+        heading_style: title
+      - type: markdown
+        content: '{% set house = state_attr(''sensor.household_ai_briefing'',''house'') %}{% if house %}{{ house }}{% else %}Arrives with the 6:30 AM briefing.{% endif %}'
+        uix:
+          style:
+            ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
+              { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
+              none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
+              0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
+            'ha-markdown $ ha-markdown-element:': 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
+              { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
+              none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
+              0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
+      - type: heading
+        heading: Weekly Insights
+        icon: mdi:chart-line
         heading_style: title
         badges:
         - type: entity

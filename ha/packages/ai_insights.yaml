@@ -58,40 +58,9 @@ template:
           cdd_prev: "{{ trigger.event.data.cdd_prev | default(0) }}"
           fridge_kwh: "{{ trigger.event.data.fridge_kwh | default(0) }}"
           fridge_avg_kwh: "{{ trigger.event.data.fridge_avg_kwh | default(0) }}"
-          vacuum_day_runs: "{{ trigger.event.data.vacuum_day_runs | default(0) }}"
-          vacuum_night_runs: "{{ trigger.event.data.vacuum_night_runs | default(0) }}"
-          mop_common_done: "{{ trigger.event.data.mop_common_done | default(false) }}"
-          mop_master_done: "{{ trigger.event.data.mop_master_done | default(false) }}"
-          chores_done: "{{ trigger.event.data.chores_done | default([]) }}"
-          chores_overdue: "{{ trigger.event.data.chores_overdue | default([]) }}"
           generated_at: "{{ now().isoformat() }}"
 
-# Weekly vacuum coverage: how many times each daily "ran" flag turned on this
-# week. Both flags reset at 08:00 daily (see guides/vacuum_cleaning_routine.md),
-# so the week starts Monday 08:05: an earlier start would catch Sunday night's
-# still-on flag (it clears a fraction of a second after 08:00) as a Monday run.
 sensor:
-  - platform: history_stats
-    name: Household Vacuum Day Runs This Week
-    unique_id: household_vacuum_day_runs_this_week
-    entity_id: input_boolean.vacuum_ran_daytime
-    state: "on"
-    type: count
-    start: >-
-      {% set s = today_at('08:05') - timedelta(days=now().weekday()) %}
-      {{ s if s <= now() else s - timedelta(days=7) }}
-    end: "{{ now() }}"
-  - platform: history_stats
-    name: Household Vacuum Night Runs This Week
-    unique_id: household_vacuum_night_runs_this_week
-    entity_id: input_boolean.vacuum_ran_evening
-    state: "on"
-    type: count
-    start: >-
-      {% set s = today_at('08:05') - timedelta(days=now().weekday()) %}
-      {{ s if s <= now() else s - timedelta(days=7) }}
-    end: "{{ now() }}"
-
   # Overnight activity for the morning briefing's house recap: counts since the
   # most recent 10 PM. history_stats counts transitions into the state, so a
   # door left open all night counts once.
