@@ -2392,21 +2392,360 @@ views:
       popup_mode: adaptive-dialog
       popup_style: bubble
       cards:
-      - type: tile
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
         entity: vacuum.living_room_vacuum
-        name: Vacuum
-        grid_options:
-          columns: 12
-        state_content:
-        - state
-        - battery_level
-        features:
-        - type: vacuum-commands
-          commands:
-          - start_pause
-          - stop
-          - return_home
-          - locate
+        icon: mdi:robot-vacuum
+        name: '{% set s = states(''vacuum.living_room_vacuum'') %}{% if s == ''error'' %}Error{% elif s == ''docked'' and is_state(''sensor.living_room_vacuum_status'', ''charging'') and states(''sensor.living_room_vacuum_battery'')
+          | int(0) < 100 %}Charging{% else %}{{ s | replace(''_'', '' '') | capitalize }}{% endif %}'
+        show_state: true
+        state_content: '{% set s = states(''vacuum.living_room_vacuum'') %}{% set area = (states(''sensor.living_room_vacuum_cleaning_area'') | float(0) * 10.764) | round(0) | int %}{% set mins = states(''sensor.living_room_vacuum_cleaning_time'')
+          | float(0) | round(0) | int %}{% set err = states(''sensor.living_room_vacuum_vacuum_error'') %}{% if s == ''error'' or err not in [''none'',''unknown'',''unavailable''] %}{{ err | replace(''_'',''
+          '') | capitalize }}{% elif s in [''cleaning'',''paused'',''returning''] %}{{ states(''sensor.living_room_vacuum_current_room'') }} · {{ area }} ft² · {{ mins }} min{% else %}{% set t = as_datetime(states(''sensor.living_room_vacuum_last_clean_end''))
+          %}Last clean {{ relative_time(t) ~ '' ago'' if t else ''unknown'' }} · {{ area }} ft² · {{ mins }} min{% endif %}'
+        tap_action:
+          action: more-info
+        button_action:
+          tap_action:
+            action: more-info
+        sub_button:
+          main:
+          - name: '{{ states(''sensor.living_room_vacuum_battery'') }} %'
+            css_class: battery
+            show_name: true
+            show_icon: false
+            show_background: false
+            fill_width: false
+            tap_action:
+              action: more-info
+              entity: sensor.living_room_vacuum_battery
+        styles: '{% set on = states(''vacuum.living_room_vacuum'') in [''cleaning'', ''returning''] %}
+
+          .bubble-button-card-container { border-radius: 22px !important; background: color-mix(in srgb, {{ ''var(--amber-color)'' if on else ''var(--primary-text-color)'' }} {{ ''22%'' if on else ''8%''
+          }}, transparent) !important; }
+
+          .bubble-background { background-color: transparent !important; }
+
+          .bubble-icon { color: {{ ''var(--amber-color)'' if on else ''var(--primary-text-color)'' }} !important; }
+
+          .battery .bubble-sub-button-name-container { font-size: 20px !important; font-weight: 400 !important; }'
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        entity: vacuum.living_room_vacuum
+        name: Pause
+        icon: mdi:pause
+        show_state: true
+        state_content: '{{ ''Vacuum + mop'' if is_state(''select.living_room_vacuum_cleaning_mode'',''vac_and_mop'') else ''Vacuum'' }} · {{ (state_attr(''vacuum.living_room_vacuum'',''fan_speed'') or '''')
+          | replace(''_plus'',''+'') | capitalize }}{{ '' · '' ~ states(''select.living_room_vacuum_mop_intensity'') | capitalize ~ '' water'' if is_state(''select.living_room_vacuum_cleaning_mode'',''vac_and_mop'')
+          else '''' }}'
+        rows: 1.2
+        visibility:
+        - condition: state
+          entity: vacuum.living_room_vacuum
+          state: cleaning
+        tap_action:
+          action: perform-action
+          perform_action: vacuum.pause
+          target:
+            entity_id: vacuum.living_room_vacuum
+        button_action:
+          tap_action:
+            action: perform-action
+            perform_action: vacuum.pause
+            target:
+              entity_id: vacuum.living_room_vacuum
+        sub_button:
+          main:
+          - name: Dock
+            icon: mdi:home-import-outline
+            show_name: false
+            state_background: false
+            light_background: false
+            fill_width: false
+            css_class: round
+            tap_action:
+              action: perform-action
+              perform_action: vacuum.return_to_base
+              target:
+                entity_id: vacuum.living_room_vacuum
+          - name: Stop
+            icon: mdi:stop
+            show_name: false
+            state_background: false
+            light_background: false
+            fill_width: false
+            css_class: round
+            tap_action:
+              action: perform-action
+              perform_action: vacuum.stop
+              target:
+                entity_id: vacuum.living_room_vacuum
+        styles: '.bubble-button-card-container { border-radius: 22px !important; background: linear-gradient(90deg, var(--amber-color), color-mix(in srgb, var(--amber-color) 70%, white)) !important; }
+
+          .bubble-background { background-color: transparent !important; }
+
+          .bubble-name, .bubble-icon { color: var(--primary-background-color) !important; font-weight: 600 !important; }
+
+          .bubble-state { color: color-mix(in srgb, var(--primary-background-color) 70%, transparent) !important; }
+
+          .bubble-icon-container { background: transparent !important; }
+
+          .round { width: 44px !important; height: 44px !important; border-radius: 50% !important; justify-content: center !important; background: color-mix(in srgb, var(--primary-background-color) 85%,
+          transparent) !important; }
+
+          .round ha-icon { color: var(--primary-text-color) !important; }'
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        entity: vacuum.living_room_vacuum
+        name: '{{ ''Resume'' if is_state(''vacuum.living_room_vacuum'',''paused'') else ''Start'' }}'
+        icon: mdi:play
+        show_state: true
+        state_content: '{{ ''Vacuum + mop'' if is_state(''select.living_room_vacuum_cleaning_mode'',''vac_and_mop'') else ''Vacuum'' }} · {{ (state_attr(''vacuum.living_room_vacuum'',''fan_speed'') or '''')
+          | replace(''_plus'',''+'') | capitalize }}{{ '' · '' ~ states(''select.living_room_vacuum_mop_intensity'') | capitalize ~ '' water'' if is_state(''select.living_room_vacuum_cleaning_mode'',''vac_and_mop'')
+          else '''' }}'
+        rows: 1.2
+        visibility:
+        - condition: state
+          entity: vacuum.living_room_vacuum
+          state_not: cleaning
+        tap_action:
+          action: perform-action
+          perform_action: vacuum.start
+          target:
+            entity_id: vacuum.living_room_vacuum
+        button_action:
+          tap_action:
+            action: perform-action
+            perform_action: vacuum.start
+            target:
+              entity_id: vacuum.living_room_vacuum
+        sub_button:
+          main:
+          - name: Dock
+            icon: mdi:home-import-outline
+            show_name: false
+            state_background: false
+            light_background: false
+            fill_width: false
+            css_class: round
+            tap_action:
+              action: perform-action
+              perform_action: vacuum.return_to_base
+              target:
+                entity_id: vacuum.living_room_vacuum
+          - name: Stop
+            icon: mdi:stop
+            show_name: false
+            state_background: false
+            light_background: false
+            fill_width: false
+            css_class: round
+            tap_action:
+              action: perform-action
+              perform_action: vacuum.stop
+              target:
+                entity_id: vacuum.living_room_vacuum
+        styles: '.bubble-button-card-container { border-radius: 22px !important; background: var(--primary-text-color) !important; }
+
+          .bubble-background { background-color: transparent !important; }
+
+          .bubble-name, .bubble-icon { color: var(--primary-background-color) !important; font-weight: 600 !important; }
+
+          .bubble-state { color: color-mix(in srgb, var(--primary-background-color) 70%, transparent) !important; }
+
+          .bubble-icon-container { background: transparent !important; }
+
+          .round { width: 44px !important; height: 44px !important; border-radius: 50% !important; justify-content: center !important; background: color-mix(in srgb, var(--primary-background-color) 85%,
+          transparent) !important; }
+
+          .round ha-icon { color: var(--primary-text-color) !important; }'
+      - type: heading
+        heading: How
+        heading_style: subtitle
+      - type: custom:bubble-card
+        card_type: sub-buttons
+        entity: select.living_room_vacuum_cleaning_mode
+        hide_main_background: true
+        rows: 0.9
+        modules:
+        - segmented
+        sub_button:
+          main: []
+          bottom:
+          - name: Mode
+            buttons_layout: inline
+            group:
+            - name: Vacuum
+              icon: mdi:robot-vacuum
+              css_class: seg-vacuum
+              show_name: true
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              tap_action:
+                action: perform-action
+                perform_action: select.select_option
+                target:
+                  entity_id: select.living_room_vacuum_cleaning_mode
+                data:
+                  option: vacuum
+            - name: Vacuum + mop
+              icon: mdi:water-plus-outline
+              css_class: seg-vac_and_mop
+              show_name: true
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              tap_action:
+                action: perform-action
+                perform_action: select.select_option
+                target:
+                  entity_id: select.living_room_vacuum_cleaning_mode
+                data:
+                  option: vac_and_mop
+      - type: custom:bubble-card
+        card_type: sub-buttons
+        entity: vacuum.living_room_vacuum
+        hide_main_background: true
+        rows: 0.9
+        modules:
+        - segmented
+        sub_button:
+          main: []
+          bottom:
+          - name: Suction
+            buttons_layout: inline
+            group:
+            - name: Quiet
+              icon: mdi:fan-speed-1
+              css_class: seg-quiet
+              show_name: true
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              tap_action:
+                action: perform-action
+                perform_action: vacuum.set_fan_speed
+                target:
+                  entity_id: vacuum.living_room_vacuum
+                data:
+                  fan_speed: quiet
+            - name: Balanced
+              icon: mdi:fan-speed-2
+              css_class: seg-balanced
+              show_name: true
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              tap_action:
+                action: perform-action
+                perform_action: vacuum.set_fan_speed
+                target:
+                  entity_id: vacuum.living_room_vacuum
+                data:
+                  fan_speed: balanced
+            - name: Turbo
+              icon: mdi:fan-speed-3
+              css_class: seg-turbo
+              show_name: true
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              tap_action:
+                action: perform-action
+                perform_action: vacuum.set_fan_speed
+                target:
+                  entity_id: vacuum.living_room_vacuum
+                data:
+                  fan_speed: turbo
+            - name: Max
+              icon: mdi:fan-plus
+              css_class: seg-max
+              show_name: true
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              tap_action:
+                action: perform-action
+                perform_action: vacuum.set_fan_speed
+                target:
+                  entity_id: vacuum.living_room_vacuum
+                data:
+                  fan_speed: max
+      - type: custom:bubble-card
+        card_type: sub-buttons
+        entity: select.living_room_vacuum_mop_intensity
+        hide_main_background: true
+        rows: 0.9
+        modules:
+        - segmented
+        visibility:
+        - condition: state
+          entity: select.living_room_vacuum_cleaning_mode
+          state: vac_and_mop
+        - condition: state
+          entity: binary_sensor.living_room_vacuum_mop_attached
+          state: 'on'
+        sub_button:
+          main: []
+          bottom:
+          - name: Water
+            buttons_layout: inline
+            group:
+            - name: Low
+              icon: mdi:water-outline
+              css_class: seg-low
+              show_name: true
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              tap_action:
+                action: perform-action
+                perform_action: select.select_option
+                target:
+                  entity_id: select.living_room_vacuum_mop_intensity
+                data:
+                  option: low
+            - name: Medium
+              icon: mdi:water
+              css_class: seg-medium
+              show_name: true
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              tap_action:
+                action: perform-action
+                perform_action: select.select_option
+                target:
+                  entity_id: select.living_room_vacuum_mop_intensity
+                data:
+                  option: medium
+            - name: High
+              icon: mdi:waves
+              css_class: seg-high
+              show_name: true
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              tap_action:
+                action: perform-action
+                perform_action: select.select_option
+                target:
+                  entity_id: select.living_room_vacuum_mop_intensity
+                data:
+                  option: high
       - type: custom:bubble-card
         card_type: button
         button_type: switch
@@ -2452,64 +2791,88 @@ views:
             entity: input_boolean.vacuum_ran_evening
             state: 'on'
       - type: custom:bubble-card
-        card_type: separator
-        name: Status
-        icon: mdi:gauge
-      - type: tile
-        entity: sensor.living_room_vacuum_status
-        grid_options:
-          columns: 6
-        name: Status
-      - type: tile
-        entity: sensor.living_room_vacuum_current_room
-        grid_options:
-          columns: 6
-        name: Room
-        visibility:
-        - condition: state
-          entity: binary_sensor.living_room_vacuum_cleaning
-          state: 'on'
-      - type: tile
-        entity: sensor.living_room_vacuum_cleaning_area
-        grid_options:
-          columns: 6
-        name: Area
-      - type: tile
-        entity: sensor.living_room_vacuum_cleaning_time
-        grid_options:
-          columns: 6
-        name: Duration
-      - type: tile
-        entity: sensor.living_room_vacuum_last_clean_end
-        grid_options:
-          columns: 6
-        name: Last clean
+        card_type: button
+        button_type: name
+        name: Care & settings
+        icon: mdi:cog-outline
+        show_state: true
+        state_content: Brushes and filters, mop, dock
+        tap_action:
+          action: navigate
+          navigation_path: '#vacuum-care'
+        button_action:
+          tap_action:
+            action: navigate
+            navigation_path: '#vacuum-care'
+        sub_button:
+          main:
+          - icon: mdi:chevron-right
+            show_background: false
+            state_background: false
+            fill_width: false
+            tap_action:
+              action: navigate
+              navigation_path: '#vacuum-care'
+        styles: '{% set h = [states(''sensor.living_room_vacuum_filter_clean_time_left'') | float(999), states(''sensor.living_room_vacuum_filter_time_left'') | float(999), states(''sensor.living_room_vacuum_main_brush_time_left'')
+          | float(999), states(''sensor.living_room_vacuum_side_brush_time_left'') | float(999), states(''sensor.living_room_vacuum_sensor_time_left'') | float(999)] | min %}
+
+          .bubble-icon { color: var(--{{ ''red'' if h <= 0 else (''amber'' if h < 10 else ''secondary-text'') }}-color) !important; }'
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#vacuum-care'
+      name: Vacuum care
+      icon: mdi:cog-outline
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
       - type: custom:bubble-card
         card_type: separator
         name: Mop
         icon: mdi:water
-      - type: tile
-        entity: select.living_room_vacuum_mop_intensity
-        grid_options:
-          columns: 6
-        name: Intensity
-        features:
-        - type: select-options
-        visibility:
-        - condition: state
-          entity: binary_sensor.living_room_vacuum_mop_attached
-          state: 'on'
-      - type: tile
+      - type: custom:bubble-card
+        card_type: sub-buttons
         entity: select.living_room_vacuum_mop_mode
-        grid_options:
-          columns: 6
-        name: Mode
-        features:
-        - type: select-options
-        visibility:
-        - condition: state
-          entity: binary_sensor.living_room_vacuum_mop_attached
-          state: 'on'
+        hide_main_background: true
+        rows: 0.9
+        modules:
+        - segmented
+        sub_button:
+          main: []
+          bottom:
+          - name: Mop pass
+            buttons_layout: inline
+            group:
+            - name: Fast
+              icon: mdi:run-fast
+              css_class: seg-fast
+              show_name: true
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              tap_action:
+                action: perform-action
+                perform_action: select.select_option
+                target:
+                  entity_id: select.living_room_vacuum_mop_mode
+                data:
+                  option: fast
+            - name: Standard
+              icon: mdi:walk
+              css_class: seg-standard
+              show_name: true
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              tap_action:
+                action: perform-action
+                perform_action: select.select_option
+                target:
+                  entity_id: select.living_room_vacuum_mop_mode
+                data:
+                  option: standard
       - type: tile
         entity: binary_sensor.living_room_vacuum_mop_attached
         grid_options:
@@ -2520,6 +2883,11 @@ views:
         grid_options:
           columns: 6
         name: Water
+      - type: tile
+        entity: sensor.living_room_vacuum_status
+        grid_options:
+          columns: 12
+        name: Robot status
       - type: custom:bubble-card
         card_type: separator
         name: Maintenance

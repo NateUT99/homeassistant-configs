@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.16.0 — October 2026*
+*Version 1.17.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.17.0 | October 2026 | §9.3 pop-up controls: status hero, one primary action, `segmented` module for choices among a few options |
 | 1.16.0 | October 2026 | AI content is the weather briefing and weekly digest; the house summary is removed; AI chip marks an unread digest |
 | 1.15.0 | October 2026 | Quick actions become a second chip row; Quick Launcher module dropped |
 | 1.14.0 | October 2026 | Yet Another Media Player removed; author Bubble modules (Media Player Enhanced, Weather, Quick Launcher) approved; Quick Actions row |
@@ -243,6 +244,22 @@ so every HA function and every `custom_templates` macro is available.
   module in `ha/bubble_modules/<id>.yaml`, applied by ID.
 - When an alert condition already exists as a helper (a group, a threshold, a template
   binary sensor), the chip reads the helper — don't re-derive it in the dashboard.
+
+### 9.3 Pop-up controls
+
+A device pop-up opens with a **status hero** (what it is doing now, one detail line, the key
+number on the right), then **one primary action** as a full-width pill (amber while the
+device is running, a solid neutral pill otherwise) with secondary actions as round buttons
+beside it. Detail and maintenance go behind a "settings" row that opens a second pop-up.
+
+A choice among two to five options (a `select`, a vacuum's fan speed, a thermostat preset)
+is a **`segmented` row**: a `sub-buttons` card with `modules: [segmented]`, its `entity` set
+to the thing being chosen, and one sub-button per option with `css_class: seg-<option>` and a
+tap action that selects it. The module fills the pill matching the current value. Don't set
+`entity` on the sub-buttons: a sub-button bound to a `select` renders as a dropdown. A solid
+pill's fill goes on `.bubble-button-card-container`, with `.bubble-background` transparent
+(the `apple_tile` approach). Leave out
+options nobody picks rather than wrapping the row.
 
 ---
 

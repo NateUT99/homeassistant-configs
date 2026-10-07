@@ -1,0 +1,59 @@
+# Bubble Card module: segmented pill control.
+# Deployed to /config/bubble_card/modules/segmented.yaml (standards/dashboards.md §13).
+# Apply with `modules: [segmented]` on a `sub-buttons` card whose `entity` is the thing being
+# chosen: a `select` (its state), a `vacuum` (its fan speed), or a `climate` entity (its preset).
+# Each sub-button is one option, with `css_class: seg-<option>` and a tap action that selects it;
+# the module draws the track and fills the pill whose class matches the current value. Leave
+# `entity` off the sub-buttons themselves: a sub-button bound to a `select` renders as a dropdown.
+segmented:
+  name: Segmented control
+  version: "1.0"
+  creator: home-main
+  description: Pill row for a select, vacuum fan speed, or climate preset; the current option is a solid pill.
+  supported:
+    - sub-buttons
+  code: |
+    {% set d = entity.split('.')[0] if entity else '' %}
+    {% set v = state_attr(entity, 'fan_speed') if d == 'vacuum'
+       else (state_attr(entity, 'preset_mode') if d == 'climate' else states(entity)) %}
+    .bubble-sub-button-bottom-container {
+      justify-content: stretch !important;
+    }
+    .bubble-sub-button-group {
+      width: 100% !important;
+      flex-wrap: nowrap !important;
+      gap: 4px !important;
+      padding: 4px !important;
+      box-sizing: border-box !important;
+      border-radius: 18px !important;
+      background: color-mix(in srgb, var(--primary-text-color) 8%, transparent) !important;
+    }
+    .bubble-sub-button {
+      flex: 1 1 0 !important;
+      min-width: 0 !important;
+      justify-content: center !important;
+      gap: 4px !important;
+      padding: 0 6px !important;
+      border-radius: 14px !important;
+      background: transparent !important;
+      transition: background 0.2s ease;
+      --mdc-icon-size: 18px;
+    }
+    .bubble-sub-button .bubble-sub-button-name-container {
+      font-size: 13px !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+    .bubble-sub-button ha-icon,
+    .bubble-sub-button .bubble-sub-button-name-container {
+      color: var(--secondary-text-color) !important;
+    }
+    .seg-{{ v }} {
+      background: var(--primary-text-color) !important;
+    }
+    .seg-{{ v }} ha-icon,
+    .seg-{{ v }} .bubble-sub-button-name-container {
+      color: var(--primary-background-color) !important;
+      font-weight: 600 !important;
+    }

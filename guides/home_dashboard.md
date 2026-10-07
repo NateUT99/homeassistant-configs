@@ -29,7 +29,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 │   │                         ── Happening now (heading + 2-up grid, shown while an appliance runs)
 │   ├── Sections 2–8       ── Room sections × 7 (Expander: heading + media card + tiles)
 │   └── Section 9          ── Pop-ups: #rooms (room tiles by floor, 2-up) + 6 rooms
-│                             + #security #climate #weather #vacuum #laundry #ai
+│                             + #security #climate #weather #vacuum #vacuum-care #laundry #ai
 │
 └── Chores view ── Navbar Card ── chore-calendar-card
          │
@@ -309,7 +309,8 @@ header shows the same `room_summary` as the tile.
 | `#security` | Doorbell camera (square crop, first); lock, garage door, garage interior door, doors & windows; Water (the 4 leak sensors); outside lights |
 | `#climate` | Thermostat and fireplace (Bubble climate) |
 | `#weather` | Bubble Weather card (`weather_forecast` module: animated condition background, 5-day forecast), outside conditions, AQI and pollutants |
-| `#vacuum` | Commands, routine pause, Mop now (confirm), map (only when out or ran today), status, mop settings (when the pad is on), 4 consumables |
+| `#vacuum` | Status hero (state; room, area and time while out, last clean when docked; battery), primary action (amber Pause while cleaning, Start/Resume otherwise, with Dock and Stop), How: segmented Mode, Suction and Water (Water only in vacuum + mop with the pad on), routine pause, Mop now (confirm), map (only when out or ran today), Care & settings row (icon amber/red when a consumable is low or due) |
+| `#vacuum-care` | Mop pass (segmented Fast / Standard), mop pad and water status, robot status, 5 consumables |
 | `#ai` | No header bar (`show_header: false`). Three heading cards (Forecast, Morning Recap, Weekly Insights); Forecast and Weekly Insights carry an age badge (`state_content: last_updated`), and Forecast adds a refresh button badge that starts the briefing script. Each heading is followed by a markdown body; see below. `open_action` and `close_action` press `input_button.household_ai_seen` |
 | `#laundry` | Washer and dryer status, remaining, progress, start/finish; "stop reminders" acknowledge (only while `alerting`); dishwasher; washer stats; utility room light |
 
@@ -343,7 +344,7 @@ Navbar order: Home · Rooms · Climate · Chores · More. Rooms opens `/home-mai
 | Climate | `climate` | Collapsible sections (Thermostat and Rooms open by default, Humidity collapsed): thermostat and fireplace (Bubble climate), HVAC-paused line (only while paused), HVAC runtime and cycles today; per-room temperature tiles with a 24 h trend; one 24 h humidity history graph |
 | Energy | `energy` | Built-in energy cards: date selection, compare, Sankey, per-device detail graph; cost table; generator status, warning, maintenance, last ran, run time, battery, connection, status message |
 | Chores | `chores` | `chore-calendar-card` on `calendar.household_chores` |
-| Maintenance | `maintenance` | Collapsible sections (Expander Card; Batteries open by default, the rest collapsed): vacuum consumables (same cards as `#vacuum`); pending updates; network (WAN, Firewalla, speed test, latency, loss, alarms, modem resets, modem maintenance, Litra agent); batteries |
+| Maintenance | `maintenance` | Collapsible sections (Expander Card; Batteries open by default, the rest collapsed): vacuum consumables (same cards as `#vacuum-care`); pending updates; network (WAN, Firewalla, speed test, latency, loss, alarms, modem resets, modem maintenance, Litra agent); batteries |
 
 **Energy** reads the Energy settings: grid import from `sensor.household_energy_monitor_total_energy_delivered`
 with `sensor.household_energy_monitor_power_demand` as the grid power sensor, and the six
@@ -395,6 +396,7 @@ row showing the lowest level. New devices appear automatically.
 | `ha/dashboards/home-main.yaml` | HA storage (`home-main`) | Dashboard mirror (HA authoritative) |
 | `ha/bubble_modules/consumable_status.yaml` | `/config/bubble_card/modules/consumable_status.yaml` | Consumable icon colour module (repo authoritative) |
 | `ha/bubble_modules/apple_tile.yaml` | `/config/bubble_card/modules/apple_tile.yaml` | Apple-style tile module for `#lights` and room tiles (repo authoritative) |
+| `ha/bubble_modules/segmented.yaml` | `/config/bubble_card/modules/segmented.yaml` | Segmented pill control for pop-up choices (repo authoritative) |
 | `ha/packages/media_activity.yaml` | `/config/packages/media_activity.yaml` | HomePod and Apple TV "recently active" sensors for room media cards and the Media chip (repo authoritative) |
 
 ---
