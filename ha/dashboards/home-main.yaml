@@ -703,6 +703,7 @@ views:
             idle_artwork: none
             artwork_fit: original
             progress_position: above
+            background_opacity: 0.55
           show_icon: false
           rows: 3
           main_buttons_position: bottom
@@ -806,6 +807,7 @@ views:
             idle_artwork: none
             artwork_fit: original
             progress_position: above
+            background_opacity: 0.55
           show_icon: false
           rows: 3
           main_buttons_position: bottom
@@ -829,6 +831,7 @@ views:
             progress_bar: full
             idle_artwork: none
             progress_position: above
+            background_opacity: 0.55
           show_icon: false
           rows: 3
           main_buttons_position: bottom
@@ -938,6 +941,7 @@ views:
             progress_bar: full
             idle_artwork: none
             progress_position: above
+            background_opacity: 0.55
           show_icon: false
           rows: 3
           main_buttons_position: bottom
@@ -1047,6 +1051,7 @@ views:
             progress_bar: full
             idle_artwork: none
             progress_position: above
+            background_opacity: 0.55
           rows: 3
           show_icon: false
           main_buttons_position: bottom
@@ -1187,6 +1192,7 @@ views:
             idle_artwork: none
             artwork_fit: original
             progress_position: above
+            background_opacity: 0.55
           show_icon: false
           rows: 3
           main_buttons_position: bottom
@@ -1296,6 +1302,7 @@ views:
             progress_bar: full
             idle_artwork: none
             progress_position: above
+            background_opacity: 0.55
           show_icon: false
           rows: 3
           main_buttons_position: bottom
@@ -1687,6 +1694,7 @@ views:
             idle_artwork: none
             artwork_fit: original
             progress_position: above
+            background_opacity: 0.55
           show_icon: false
           rows: 3
           main_buttons_position: bottom
@@ -1777,6 +1785,7 @@ views:
           progress_bar: full
           idle_artwork: none
           progress_position: above
+          background_opacity: 0.55
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -1850,6 +1859,7 @@ views:
           idle_artwork: none
           artwork_fit: original
           progress_position: above
+          background_opacity: 0.55
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -1932,6 +1942,7 @@ views:
           progress_bar: full
           idle_artwork: none
           progress_position: above
+          background_opacity: 0.55
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -1985,6 +1996,7 @@ views:
           idle_artwork: none
           artwork_fit: original
           progress_position: above
+          background_opacity: 0.55
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -1999,6 +2011,7 @@ views:
           progress_bar: full
           idle_artwork: none
           progress_position: above
+          background_opacity: 0.55
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -2012,6 +2025,7 @@ views:
           card_layout: default
           progress_bar: compact
           idle_artwork: none
+          background_opacity: 0.55
         show_icon: false
     - type: custom:bubble-card
       card_type: pop-up
@@ -2068,6 +2082,7 @@ views:
           progress_bar: full
           idle_artwork: none
           progress_position: above
+          background_opacity: 0.55
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -3388,6 +3403,7 @@ views:
           idle_artwork: none
           artwork_fit: original
           progress_position: above
+          background_opacity: 0.55
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -3419,6 +3435,7 @@ views:
           idle_artwork: none
           artwork_fit: original
           progress_position: above
+          background_opacity: 0.55
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -3436,6 +3453,7 @@ views:
           progress_bar: full
           idle_artwork: none
           progress_position: above
+          background_opacity: 0.55
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -3456,6 +3474,7 @@ views:
           progress_bar: full
           idle_artwork: none
           progress_position: above
+          background_opacity: 0.55
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -3476,6 +3495,7 @@ views:
           progress_bar: full
           idle_artwork: none
           progress_position: above
+          background_opacity: 0.55
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -3507,6 +3527,7 @@ views:
           idle_artwork: none
           artwork_fit: original
           progress_position: above
+          background_opacity: 0.55
         show_icon: false
         rows: 3
         main_buttons_position: bottom
@@ -3527,6 +3548,7 @@ views:
           progress_bar: full
           idle_artwork: none
           progress_position: above
+          background_opacity: 0.55
         show_icon: false
         rows: 3
         main_buttons_position: bottom

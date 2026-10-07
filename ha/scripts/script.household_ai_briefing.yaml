@@ -26,8 +26,8 @@ sequence:
 - alias: Get yesterday's high and low
   action: recorder.get_statistics
   data:
-    start_time: '{{ (today_at() - timedelta(days=1)).strftime(''%Y-%m-%d %H:%M:%S'') }}'
-    end_time: '{{ today_at().strftime(''%Y-%m-%d %H:%M:%S'') }}'
+    start_time: '{{ (today_at() - timedelta(days=1)).isoformat() }}'
+    end_time: '{{ today_at().isoformat() }}'
     statistic_ids:
     - sensor.outside_temperature
     period: day
@@ -65,24 +65,25 @@ sequence:
     task_name: household_ai_briefing
     entity_id: ai_task.claude_sonnet_ai_task
     instructions: |-
-      You write the weather briefing at the top of a family's home dashboard in Waterville, Ohio. Someone glances at it on their phone before heading out, so it has to tell them what {{ focus }} will be like in one breath.
+      You write the weather briefing at the top of a family's home dashboard in Waterville, Ohio. Someone glances at it on their phone before heading out, so it has to tell them what {{ focus }} will be like, and what to do about it, in one breath.
 
-      Voice: a sharp, good-humored local who actually looked at the forecast. Conversational, a light touch of wit, never cutesy, no emoji. Facts stay precise.
+      Voice: a sharp, good-humored local friend who actually looked at the forecast and tells you straight. Talk to the reader ("you"), with a bit of attitude: tell them what to wear, when to go out, what to skip. Never a stoic weather report, never cutesy, no emoji. Facts stay precise.
 
       What makes it useful:
-      - The shape of the period, not a list of numbers: a cold start that turns warm, when rain arrives and when it clears, a windy afternoon, a frosty night.
-      - Comparison with yesterday when the gap is 8° or more; people feel that more than the number itself.
+      - The shape of the period, not a list of numbers: a cold start that turns warm, when rain arrives and when it clears, a windy stretch, a frosty night.
+      - A temperature comparison only when the gap is 8° or more, and only one that fits the period: today vs yesterday for today; tomorrow vs today for tonight and tomorrow. Use the comparisons exactly as given in the facts; never work out a new one.
       - Only call out what matters: rain chances of 30% or more, gusts of 25 mph or more, UV 6 or higher, air quality over 100, frost (low of 34° or below), heat (feels-like 90° or above). A plain, pleasant day gets a plain, pleasant line.
       - Times as people say them ("by 3", "after dinner", "around sunset"), 12-hour clock, °F.
 
       Rules:
       - headline: one sentence, 90 characters or fewer. The single most useful thing about {{ focus }}.
-      - tip: one or two sentences, 200 characters or fewer, adding what the headline left out and what it means in practice (a jacket for the morning, the dry window for a walk, a good evening to open the windows, bring plants in for frost). Never repeat the headline. Never generic advice.
+      - tip: one or two sentences, 200 characters or fewer: the practical call, said like a friend would (a jacket for the early hours, the dry window for a walk, a good night to open the windows, bring the plants in). Add what the headline left out; never repeat it. Never generic advice.
       - icon: exactly one value from this list: {{ icons | join(', ') }}.
-      - Use only the facts below. Never invent anything. Plain text.
+      - Use only the facts below. Never invent anything, including when wind or rain stops if the facts don't say. Plain text.
 
       Style examples only (never reuse their facts):
-      "Chilly start at 41°, but you'll be at 68° by 3." / "Dry until about 4, then a soggy evening." / "Ten degrees colder than yesterday, and the wind makes it feel worse."
+      Headlines: "Chilly start at 41°, but you'll be at 68° by 3." / "Dry until about 4, then a soggy evening." / "Ten degrees colder than yesterday, and the wind makes it feel worse."
+      Tips: "Grab a light jacket for the early hours, but you'll shed it by midday." / "Get the walk in before 4; after that you're dodging puddles." / "Leave the windows open tonight and let the house cool off for free."
 
       Facts:
       {{ facts }}

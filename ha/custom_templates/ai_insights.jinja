@@ -18,7 +18,7 @@
     calling script's variables. -#}
 {% macro weather_facts(hourly=[], daily=[], yday=none) -%}
 {%- set hrs = hourly[:24] -%}
-{%- set ns = namespace(windows=[], start=none, end=none, peak=0, hi=none, lo=none, gust=none, uv=none, cold=none) -%}
+{%- set ns = namespace(windows=[], start=none, end=none, peak=0, winds=[], wstart=none, wend=none, hi=none, lo=none, gust=none, uv=none, cold=none) -%}
 {%- for h in hrs -%}
 {%- set p = h.precipitation_probability | default(0) | float(0) | round(0) | int -%}
 {%- if p >= 30 -%}
@@ -29,6 +29,15 @@
 {%- if ns.start is not none and (p < 30 or loop.last) -%}
 {%- set ns.windows = ns.windows + [as_local(as_datetime(ns.start)).strftime('%-I %p') ~ ' to ' ~ (as_local(as_datetime(ns.end)) + timedelta(hours=1)).strftime('%-I %p') ~ ' (up to ' ~ ns.peak ~ '%)'] -%}
 {%- set ns.start = none -%}
+{%- endif -%}
+{%- set g = h.wind_gust_speed | default(0) | float(0) -%}
+{%- if g >= 20 -%}
+{%- if ns.wstart is none %}{% set ns.wstart = h.datetime %}{% endif -%}
+{%- set ns.wend = h.datetime -%}
+{%- endif -%}
+{%- if ns.wstart is not none and (g < 20 or loop.last) -%}
+{%- set ns.winds = ns.winds + [as_local(as_datetime(ns.wstart)).strftime('%-I %p') ~ ' to ' ~ (as_local(as_datetime(ns.wend)) + timedelta(hours=1)).strftime('%-I %p %A')] -%}
+{%- set ns.wstart = none -%}
 {%- endif -%}
 {%- if ns.hi is none or h.temperature > ns.hi.temperature %}{% set ns.hi = h %}{% endif -%}
 {%- if ns.lo is none or h.temperature < ns.lo.temperature %}{% set ns.lo = h %}{% endif -%}
@@ -42,11 +51,15 @@ Now: {{ states('weather.outside_waterville_oh_usa') }}, {{ states('sensor.outsid
 {% if ns.hi is not none -%}
 Next 24 hours: high {{ ns.hi.temperature | round(0) | int }}° at {{ at(ns.hi) }}; low {{ ns.lo.temperature | round(0) | int }}° at {{ at(ns.lo) }}; coldest feels-like {{ ns.cold.apparent_temperature | default(ns.cold.temperature) | round(0) | int }}° at {{ at(ns.cold) }}{% if ns.gust.wind_gust_speed | default(0) >= 15 %}; strongest gust {{ ns.gust.wind_gust_speed | round(0) | int }} mph at {{ at(ns.gust) }}{% endif %}{% if ns.uv.uv_index | default(0) >= 3 %}; peak UV {{ ns.uv.uv_index }} at {{ at(ns.uv) }}{% endif %}.
 Rain chance 30% or more: {{ ns.windows | join('; ') if ns.windows else 'none in the next 24 hours' }}.
+Gusts of 20 mph or more: {{ ns.winds | join('; ') if ns.winds else 'none in the next 24 hours' }}.
 Every 3 hours: {% for h in hrs[::3] %}{{ as_local(as_datetime(h.datetime)).strftime('%-I %p') }} {{ h.condition }} {{ h.temperature | round(0) | int }}° (feels {{ h.apparent_temperature | default(h.temperature) | round(0) | int }}°) rain {{ h.precipitation_probability | default(0) | round(0) | int }}%{{ '; ' if not loop.last }}{% endfor %}.
 {% endif -%}
 Daily: {% for d in daily[:3] %}{{ as_local(as_datetime(d.datetime)).strftime('%A') }} {{ d.condition }}, high {{ d.temperature | round(0) | int }}°, low {{ d.templow | default('?') }}°, rain {{ d.precipitation_probability | default(0) | round(0) | int }}%{{ '; ' if not loop.last }}{% endfor %}.
 {% if yday is not none and yday.max is defined and daily | count > 0 -%}
-Yesterday ({{ (now() - timedelta(days=1)).strftime('%A') }}): high {{ yday.max | round(0) | int }}°, low {{ yday.min | round(0) | int }}°. {{ as_local(as_datetime(daily[0].datetime)).strftime('%A') }}'s forecast high is {{ (daily[0].temperature - yday.max) | round(0) | int }}° {{ 'warmer' if daily[0].temperature >= yday.max else 'colder' }} than yesterday's.
+Today vs yesterday: today's forecast high {{ daily[0].temperature | round(0) | int }}° is {{ (daily[0].temperature - yday.max) | abs | round(0) | int }}° {{ 'warmer' if daily[0].temperature >= yday.max else 'colder' }} than yesterday's {{ yday.max | round(0) | int }}°.
+{% endif -%}
+{% if daily | count > 1 -%}
+Tomorrow vs today: tomorrow's forecast high {{ daily[1].temperature | round(0) | int }}° is {{ (daily[1].temperature - daily[0].temperature) | abs | round(0) | int }}° {{ 'warmer' if daily[1].temperature >= daily[0].temperature else 'colder' }} than today's {{ daily[0].temperature | round(0) | int }}°.
 {%- endif %}
 {%- endmacro %}
 

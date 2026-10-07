@@ -215,8 +215,9 @@ Both scripts are `mode: single` with `max_exceeded: silent`. The schedule starts
 **Briefing.** The focus follows the time of day: before 11:00 it covers today, before 16:00
 the rest of today and tonight, otherwise tonight and tomorrow. The headline gives the shape
 of that period (a cold start that turns warm, when rain comes and goes); the tip adds what
-the headline left out and what it means in practice. It mentions yesterday only when the gap
-is 8° or more, and calls out only what matters: rain 30%+, gusts 25 mph+, UV 6+, AQI over
+the headline left out and what it means in practice. The tip is the practical call in a friend's voice (what to
+wear, when to go out). A temperature comparison appears only when the gap is 8° or more and
+fits the period (today vs yesterday, or tomorrow vs today in the evening), and calls out only what matters: rain 30%+, gusts 25 mph+, UV 6+, AQI over
 100, frost (34° or below), feels-like 90°+.
 
 **Digest.** "This week" is the 7 days ending now, "last week" the 7 before, and the average
