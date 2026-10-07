@@ -1,10 +1,14 @@
-# "Recently active" flags for the HomePods, used to show a room's media card on the
-# home-main dashboard and to count it in the Media chip: on while the HomePod is playing,
-# and held on for 10 minutes after it stops (delay_off). A HomePod usually drops from
-# paused to idle by itself after 8 minutes, but not when an app parks a track on it
-# without playing (idle -> paused directly), which can sit paused indefinitely -- so the
-# card can't rely on "paused". Apple TVs don't need this: their cards show while playing
-# or paused. See guides/home_dashboard.md.
+# "Recently active" flags for the HomePods and Apple TVs, used to show a room's media card
+# on the home-main dashboard and to count it in the Media chip.
+#
+# HomePods: on while playing, held on for 10 minutes after it stops (delay_off). A HomePod
+# usually drops from paused to idle by itself after 8 minutes, but not when an app parks a
+# track on it without playing (idle -> paused directly), which can sit paused indefinitely
+# -- so the card can't rely on "paused".
+#
+# Apple TVs: on while playing or paused (a paused show is one you'll come back to), held on
+# for 30 seconds. Moving around the Apple TV interface drops it to idle for under a second
+# at a time, which would otherwise hide and re-show the card. See guides/home_dashboard.md.
 #
 # Deployed to /config/packages/media_activity.yaml; reload with template.reload.
 
@@ -26,3 +30,15 @@ template:
         unique_id: averys_room_homepod_active
         state: "{{ is_state('media_player.averys_room_homepod', 'playing') }}"
         delay_off: "00:10:00"
+      - name: Living Room Apple TV Active
+        unique_id: living_room_appletv_active
+        state: "{{ is_state('media_player.living_room_appletv', ['playing', 'paused']) }}"
+        delay_off: "00:00:30"
+      - name: Family Room Apple TV Active
+        unique_id: family_room_appletv_active
+        state: "{{ is_state('media_player.family_room_appletv', ['playing', 'paused']) }}"
+        delay_off: "00:00:30"
+      - name: Master Bedroom Apple TV Active
+        unique_id: master_bedroom_appletv_active
+        state: "{{ is_state('media_player.master_bedroom_appletv', ['playing', 'paused']) }}"
+        delay_off: "00:00:30"

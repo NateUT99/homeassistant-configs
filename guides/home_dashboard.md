@@ -65,12 +65,14 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   layout (`rows: 3`, full scrubbable progress bar above the controls,
   `main_buttons_position: bottom`); Apple TV cards also use `artwork_fit: original` so wide
   TV artwork is not cropped square.
-- **Apple TV cards show while playing or paused; HomePod cards while playing plus 10
-  minutes.** A paused Apple TV is a show you'll come back to. A HomePod usually drops from
-  `paused` to `idle` on its own 8 minutes after playing, but an app that parks a track on it
-  without playing (`idle` → `paused`, seen with AirMusic in Avery's room) leaves it paused
-  indefinitely. So HomePod cards — and the Media chip's count — follow a template sensor
-  that is on while playing and for 10 minutes after (`ha/packages/media_activity.yaml`).
+- **Media cards follow an "active" template sensor per player**
+  (`ha/packages/media_activity.yaml`), and so does the Media chip's count. Apple TVs are
+  active while playing or paused (a paused show is one you'll come back to) plus 30 seconds,
+  because moving around the Apple TV interface drops it to `idle` for under a second at a
+  time, which would otherwise hide and re-show the card. HomePods are active while playing
+  plus 10 minutes: a HomePod usually drops from `paused` to `idle` on its own 8 minutes after
+  playing, but an app that parks a track on it without playing (`idle` → `paused`, seen with
+  AirMusic in Avery's room) leaves it paused indefinitely.
 - **Areas fold into pop-ups instead of getting tiles** when they have nothing controlled
   from the dashboard more than occasionally (`standards/dashboards.md` §8.1).
 
@@ -140,7 +142,7 @@ switch by hand are quick actions; running appliances are Happening now.
 | **Weather** | Always | Outside temp and condition ("58° Sunny"), plus "AQI n" when above 50 | AQI on the EPA scale: yellow > 50, orange > 100, red > 150; neutral otherwise | `#weather` | — |
 | **Lights** | Always | "N on" / "All off" (visible lights in the areas listed in `house_light_areas()`) | Amber when any are on | `#lights` | — |
 | **Security** | Always | Apple Home-style, higher risk first: "N Open" (front door, patio door, or garage physically open), else "N Unlocked" (front door lock), else "Secure". Interior doors and windows are not counted | Green secure, else `alert_level()` (amber / red); icon open door, open lock, or check-shield | `#security` | `script.household_secure_doors` |
-| **Media** | Always | "N on" / "Media off" — players with a room media card showing: Apple TVs playing or paused, HomePods whose activity sensor is on | Purple when any are on | `#media` | — |
+| **Media** | Always | "N on" / "Media off" — players with a room media card showing (their activity sensor is on) | Purple when any are on | `#media` | — |
 
 **`#lights`** lists every light by room (Living Room through Utility Room) as `apple_tile`
 tiles — tap toggles, hold opens more-info. **`#media`** lists every Apple TV and HomePod card
@@ -196,17 +198,24 @@ start collapsed.
 
 The navbar's Rooms tab (`#rooms`) stays as the at-a-glance view of every room.
 
-**HomePod activity package** — `ha/packages/media_activity.yaml`, deployed to
-`/config/packages/media_activity.yaml`, reload with `template.reload`:
+**Media activity package** — `ha/packages/media_activity.yaml`, deployed to
+`/config/packages/media_activity.yaml`, reload with `template.reload`. HA derives
+`binary_sensor.*_apple_tv_active` from the "Apple TV" names; rename the three to
+`*_appletv_active` after the first reload so they match the media player IDs the dashboard
+uses:
 
 ```yaml
-# "Recently active" flags for the HomePods, used to show a room's media card on the
-# home-main dashboard and to count it in the Media chip: on while the HomePod is playing,
-# and held on for 10 minutes after it stops (delay_off). A HomePod usually drops from
-# paused to idle by itself after 8 minutes, but not when an app parks a track on it
-# without playing (idle -> paused directly), which can sit paused indefinitely -- so the
-# card can't rely on "paused". Apple TVs don't need this: their cards show while playing
-# or paused. See guides/home_dashboard.md.
+# "Recently active" flags for the HomePods and Apple TVs, used to show a room's media card
+# on the home-main dashboard and to count it in the Media chip.
+#
+# HomePods: on while playing, held on for 10 minutes after it stops (delay_off). A HomePod
+# usually drops from paused to idle by itself after 8 minutes, but not when an app parks a
+# track on it without playing (idle -> paused directly), which can sit paused indefinitely
+# -- so the card can't rely on "paused".
+#
+# Apple TVs: on while playing or paused (a paused show is one you'll come back to), held on
+# for 30 seconds. Moving around the Apple TV interface drops it to idle for under a second
+# at a time, which would otherwise hide and re-show the card. See guides/home_dashboard.md.
 #
 # Deployed to /config/packages/media_activity.yaml; reload with template.reload.
 
@@ -228,6 +237,18 @@ template:
         unique_id: averys_room_homepod_active
         state: "{{ is_state('media_player.averys_room_homepod', 'playing') }}"
         delay_off: "00:10:00"
+      - name: Living Room Apple TV Active
+        unique_id: living_room_appletv_active
+        state: "{{ is_state('media_player.living_room_appletv', ['playing', 'paused']) }}"
+        delay_off: "00:00:30"
+      - name: Family Room Apple TV Active
+        unique_id: family_room_appletv_active
+        state: "{{ is_state('media_player.family_room_appletv', ['playing', 'paused']) }}"
+        delay_off: "00:00:30"
+      - name: Master Bedroom Apple TV Active
+        unique_id: master_bedroom_appletv_active
+        state: "{{ is_state('media_player.master_bedroom_appletv', ['playing', 'paused']) }}"
+        delay_off: "00:00:30"
 ```
 
 **Happening now** sits below the greeting: a `Happening now` heading and a 2-column grid,
@@ -279,11 +300,11 @@ header shows the same `room_summary` as the tile.
 
 | Hash | Contents |
 |---|---|
-| `#living-room` | Apple TV player at the top (only while playing or paused; Soundbar volume slider; Apps, Speech and Night sub-buttons), 4 lights, thermostat + fireplace (Bubble climate) |
+| `#living-room` | Apple TV player at the top (only while active; Soundbar volume slider; Apps, Speech and Night sub-buttons), 4 lights, thermostat + fireplace (Bubble climate) |
 | `#kitchen` | Sink light, dishwasher and refrigerator tiles, HomePod |
-| `#family-room` | Ambient lamp, 2 pinball underglows, 3 game power switches, Apple TV |
+| `#family-room` | Ambient lamp, 2 pinball underglows, 3 game power switches, Apple TV player (only while active; Theater volume slider; Apps, Speech and Night sub-buttons) |
 | `#office` | 7 lights, fan speed (tile `fan-speed` feature), HomePod |
-| `#master-bedroom` | Ceiling light, nightstand lamp, fan speed, Apple TV, HomePod, bathroom speaker |
+| `#master-bedroom` | Ceiling light, nightstand lamp, fan speed, Apple TV player (only while active; bedroom TV volume slider; Apps sub-button), HomePod, bathroom speaker |
 | `#averys-room` | Ceiling light, desk and dresser lamps, fan speed, HomePod |
 | `#security` | Doorbell camera (square crop, first); lock, garage door, garage interior door, doors & windows; Water (the 4 leak sensors); outside lights |
 | `#climate` | Thermostat and fireplace (Bubble climate) |
@@ -374,7 +395,7 @@ row showing the lowest level. New devices appear automatically.
 | `ha/dashboards/home-main.yaml` | HA storage (`home-main`) | Dashboard mirror (HA authoritative) |
 | `ha/bubble_modules/consumable_status.yaml` | `/config/bubble_card/modules/consumable_status.yaml` | Consumable icon colour module (repo authoritative) |
 | `ha/bubble_modules/apple_tile.yaml` | `/config/bubble_card/modules/apple_tile.yaml` | Apple-style tile module for `#lights` and room tiles (repo authoritative) |
-| `ha/packages/media_activity.yaml` | `/config/packages/media_activity.yaml` | HomePod "recently active" sensors for room media cards and the Media chip (repo authoritative) |
+| `ha/packages/media_activity.yaml` | `/config/packages/media_activity.yaml` | HomePod and Apple TV "recently active" sensors for room media cards and the Media chip (repo authoritative) |
 
 ---
 
