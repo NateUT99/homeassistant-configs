@@ -14,7 +14,7 @@ description: >-
   written, since those are the moments worth getting exact. OnLevel is
   non-volatile flash, so this keeps writes to a few per device per day.
 
-  Standard drives Master Bedroom + Office, Avery Schedule drives Avery's Room --
+  Standard drives Master Bedroom, Office + Living Room, Avery Schedule drives Avery's Room --
   each fixture reads its own instance so the two curves can diverge. The
   threshold and the fixture list are the only things to touch when tuning or
   adding a light.
@@ -33,6 +33,7 @@ triggers:
       - light.master_bedroom_ceiling_fan_light
       - light.office_ceiling_fan_light
       - light.averys_room_ceiling_fan_light
+      - light.living_room_ceiling_fan_light
     to: "off"
     id: light_off
   - alias: An AL sleep-mode switch flipped
@@ -59,6 +60,9 @@ actions:
         - light: light.averys_room_ceiling_fan_light
           number: number.averys_room_ceiling_fan_on_level_1
           al_switch: switch.adaptive_lighting_avery_schedule
+        - light: light.living_room_ceiling_fan_light
+          number: number.living_room_ceiling_fan_on_level_1
+          al_switch: switch.adaptive_lighting_standard
       sequence:
         - alias: Only stage this fixture while its light is off
           if:

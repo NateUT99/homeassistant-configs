@@ -19,8 +19,8 @@ commissioned to Home Assistant. It has two parts:
 
 ## Shared: LED Bar
 
-Applies to any Inovelli switch's notification LED bar in this house — the three currently
-built (Avery's Room, Master Bedroom, Office) are all paired with a Ceiling Fan Canopy, but
+Applies to any Inovelli switch's notification LED bar in this house — the four currently
+built (Avery's Room, Master Bedroom, Office, Living Room) are all paired with a Ceiling Fan Canopy, but
 nothing about this section depends on that pairing.
 
 ### Channel
@@ -90,7 +90,7 @@ used to decide the fan-off resting state; `light_just_turned_off` is what lets t
 skip the flash described above without also suppressing it for genuine fan-speed changes. Called
 by every room's wall-control automation with that room's literal entity IDs, rather than one
 script per switch — a single source of truth for the speed→colour mapping and the
-sleep-settle logic, instead of three near-identical copies that can silently drift out of sync
+sleep-settle logic, instead of per-room near-identical copies that can silently drift out of sync
 with each other. Every call
 recomputes fully from live state: no snapshot, nothing timing-sensitive to get wrong on an
 out-of-order recompute.
@@ -114,7 +114,7 @@ GitHub issue #11.
 A **household gating automation** (`automation.household_ceiling_fan_switch_led_locator`)
 reacts to presence and sleep-boolean changes and calls the shared script for each affected
 switch with that room's field values. Household-wide triggers (presence, HA start) recompute
-all three rooms; each bedroom's own sleep flag recomputes only that room.
+all four rooms; each bedroom's own sleep flag recomputes only that room.
 
 ### What's device-pattern-specific
 
@@ -283,7 +283,7 @@ independent of the HA automation entirely.
   fan's normal ~0.3–0.6s settle time. The button-gesture branches contain no LED
   code at all.
 
-- **Adaptive Lighting owns steady-state ceiling brightness.** The three fan lights
+- **Adaptive Lighting owns steady-state ceiling brightness.** The four fan lights
   are enrolled in Adaptive Lighting (`guides/adaptive_lighting.md`); `On level`
   (Step 2) is written by its pre-stage automation, not set here. A paddle hold
   dims locally over the cluster 8 binding, and this automation pins that level
@@ -380,7 +380,7 @@ rename; it isn't a genuine duplicate endpoint, just an unfinished one.
 The nine Thread-diagnostics sensors (`_thread_channel`, `_thread_routing_role`,
 `_thread_network_name`, `_reboot_count`, `_uptime`, `_boot_reason`, and the
 three `_current_switch_position_*`) come `disabled_by: integration` from the
-Matter integration on **all three** switches, Office included — this is the
+Matter integration on every switch — this is the
 integration's own default for that entity category, not leftover config from
 the rename. They can be renamed while still disabled (`ha_set_entity` with
 `new_entity_id`); the entity keeps `disabled_by: integration`, so no
@@ -429,14 +429,14 @@ the vendor cluster for discovery.
 
 ## Step 3 — Switch (VTM30-SN) parameters
 
-Set physically during the install (paddle + config taps) and confirmed in HA:
+Set during the install, either at the switch (paddle + config taps) or from the HA entity:
 
 | Setting | Value | Why |
 |---|---|---|
-| Switch mode | Single-pole | No traveler; single-location install. Set physically; the live readout in HA is `select.*_switch_type` = `Single-Pole` (the older `Switch Mode` select reads `unavailable`). |
+| Switch mode | Single-pole | No traveler; single-location install. Live entity: `select.*_switch_type` = `Single-Pole`. |
 | Smart Bulb Mode | Enabled | Keeps the load permanently powered so the paddle emits Matter commands (events / bindings) instead of chasing the empty local relay. Required for the binding to fire. Live entity: `select.*_ceiling_fan_switch_smart_bulb_mode` = `Smart Bulb Enable`. |
 | Control of switch load | `Remote & paddle control` (default — **do not** change) | On the White series the outgoing On/Off binding is triggered by the paddle's local load action. Setting this to `Remote control only` (to stop the phantom `switch.*_ceiling_fan_switch_load_control` toggle) also kills the paddle → light binding, even with Smart Bulb Mode on. Leave it and accept the internal-relay toggle as the cost of a working binding. See `LESSONS.md`. Live entity: `select.*_ceiling_fan_switch_control_of_switch_load`. |
-| Dimming Speed (Simulated) | `3s` | End-to-end ramp time for a paddle press-and-hold over the cluster 8 (Level Control) binding — see [Step 4](#step-4--matter-binding-paddle--light). At `Instant` (default) a paddle hold emits no Move/Step and cluster 8 dimming does nothing. `3s` is the tested value on all three rooms; see `LESSONS.md` for values tried and rejected. Live entity: `select.*_ceiling_fan_switch_dimming_speed_simulated`. |
+| Dimming Speed (Simulated) | `3s` | End-to-end ramp time for a paddle press-and-hold over the cluster 8 (Level Control) binding — see [Step 4](#step-4--matter-binding-paddle--light). At `Instant` (default) a paddle hold emits no Move/Step and cluster 8 dimming does nothing. `3s` is the tested value, used in every room; see `LESSONS.md` for values tried and rejected. Live entity: `select.*_ceiling_fan_switch_dimming_speed_simulated`. |
 | `LED on/off intensity (Load Control)` (`number.*`) | `0` | Normalize on every new switch — this parameter visually stacks under the RGB Indicator bar and ships at an inconsistent, uncommanded default per unit. See [Shared: LED Bar](#shared-led-bar). |
 | `LED Color`, `LED Intensity(On)` / `(Off)`, `LED Effect` (`select.*`) | Leave at default | Unmanaged — this design drives the bar through `light.<prefix>_ceiling_fan_switch_led_bar` instead. See [Shared: LED Bar](#shared-led-bar). |
 
@@ -588,7 +588,7 @@ occur.
 
 Fan speed (VTM36 3-speed): `1–33% = low`, `34–66% = medium`, `67–100% = high`.
 The automations use 33 / 66 / 100, with `< 45` / `< 78` band edges to absorb the
-Matter fan's percentage rounding. All three rooms' fans share this same
+Matter fan's percentage rounding. All rooms' fans share this same
 `percentage_step` — confirmed before building the shared script.
 
 The LED bar shows each running speed as a distinct fully-saturated hue, mapped by
@@ -608,8 +608,7 @@ to the running-speed colour in a bedroom.
 ## Replicating for another room
 
 This setup is a per-room pattern. Avery's Room is the first instance, the
-Master Bedroom the second, and the Office the third; Living Room is planned and
-uses the same build. Every room is configured identically apart from the
+Master Bedroom the second, and the Office the third, and the Living Room the fourth. Every room is configured identically apart from the
 substitutions below. To add a room, work through Steps 1–6 with these
 substitutions.
 
@@ -621,13 +620,13 @@ substitutions.
 | Canopy device name | `Ceiling Fan` | `Ceiling Fan` | `Ceiling Fan` | `Ceiling Fan` |
 | Switch device name | `Ceiling Fan Switch` | `Ceiling Fan Switch` | `Ceiling Fan Switch` | `Ceiling Fan Switch` |
 | Canopy Matter node | 10 | 12 | 26 | 15 |
-| Switch Matter node | 11 | 13 | TBD | 16 |
-| `sleeping_boolean` field ([Shared: LED Bar](#shared-led-bar)) | `input_boolean.avery_sleeping` | `input_boolean.everyone_sleeping` | TBD | unset |
+| Switch Matter node | 11 | 13 | 27 | 16 |
+| `sleeping_boolean` field ([Shared: LED Bar](#shared-led-bar)) | `input_boolean.avery_sleeping` | `input_boolean.everyone_sleeping` | unset | unset |
 
 Every switch uses the same presence-gates-on/off rule — there is no
 bedroom/non-bedroom classification to decide at install time. Only the two
 bedrooms pass a `sleeping_boolean` to `script.household_ceiling_fan_led_state` at all;
-Office omits the field entirely and always shows accurate fan speed. Avery's
+Office and Living Room omit the field entirely and always show accurate fan speed. Avery's
 Room uses her own personal flag rather than the household one because she's a
 child whose bedtime doesn't line up with the rest of the household's; Master
 Bedroom uses the household `input_boolean.everyone_sleeping` since there's no
@@ -716,7 +715,7 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 
 | Control | Detail |
 |---|---|
-| Fabric membership | Canopy (light + fan) and wall switch: both directly commissioned to the Home Assistant and Apple Home Matter fabrics (multi-admin) on all three rooms — Apple commands reach the device directly, not through HA's service layer. The binding is written by HA as a fabric admin regardless of what else holds a fabric grant. A residual, un-revoked Apple Keychain fabric grant from the canopy's original direct commissioning may still be present in the node's fabric table alongside the current one; harmless, and not pursued further since clearing it would require a factory reset that also wipes the paddle→canopy bindings. |
+| Fabric membership | Canopy (light + fan): commissioned to the Home Assistant and Apple Home Matter fabrics (multi-admin) in every room — Apple commands reach the device directly, not through HA's service layer. Wall switch: Home Assistant fabric only; it is not shared to Apple Home. The binding is written by HA as a fabric admin regardless of what else holds a fabric grant. Every node also carries an Apple Keychain fabric, left by commissioning into HA from the iPhone Companion app; harmless, and it occupies one of the node's fabric slots. |
 | Binding scope | The paddle → light bindings are node 11 → node 10 endpoint 1 only: On/Off (cluster 6) and Level Control (cluster 8). The corresponding ACL entry on the canopy grants the switch operate (not administer) access. |
 | Blast radius if the switch were compromised | It can turn the fan light on and off, change its brightness, and set the notification LED bar's colour/intensity. It has no Load, no access to other devices, and no administer rights on the canopy. |
 | Local control | The switch's config-button programming menu is reachable by anyone physically present (config-button hold). This is Inovelli firmware behaviour and is not exposed over the network. |
@@ -728,11 +727,13 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 | Avery's Room: Ceiling Fan Wall Control | `automation.averys_room_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar` + `int_adaptive_lighting`) |
 | Master Bedroom: Ceiling Fan Wall Control | `automation.master_bedroom_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar` + `int_adaptive_lighting`) |
 | Office: Ceiling Fan Wall Control | `automation.office_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar` + `int_adaptive_lighting`) |
+| Living Room: Ceiling Fan Wall Control | `automation.living_room_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar` + `int_adaptive_lighting`) |
 | Household: Ceiling Fan Switch LED Locator | `automation.household_ceiling_fan_switch_led_locator` | Automation (Lighting, `int_inovelli_led_bar`, `scope_multi_area`, `presence`) |
-| Ceiling Fan LED State | `script.household_ceiling_fan_led_state` | Script (`mode: restart`, shared across all three rooms) |
+| Ceiling Fan LED State | `script.household_ceiling_fan_led_state` | Script (`mode: restart`, shared across every room) |
 | Avery's Room Ceiling Fan Last Speed | `input_select.averys_room_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
 | Master Bedroom Ceiling Fan Last Speed | `input_select.master_bedroom_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
 | Office Ceiling Fan Last Speed | `input_select.office_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
+| Living Room Ceiling Fan Last Speed | `input_select.living_room_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
 | Ceiling Fan | `fan.averys_room_ceiling_fan` / `light.averys_room_ceiling_fan_light` | Matter device (VTM36) |
 | Ceiling Fan Switch | `event.averys_room_ceiling_fan_switch_button_config` et al. | Matter device (VTM30-SN) |
 
@@ -743,15 +744,16 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 | `ha/automations/automation.averys_room_ceiling_fan_wall_control.yaml` | HA automation registry | Mirror — Avery's Room wall-control automation |
 | `ha/automations/automation.master_bedroom_ceiling_fan_wall_control.yaml` | HA automation registry | Mirror — Master Bedroom wall-control automation |
 | `ha/automations/automation.office_ceiling_fan_wall_control.yaml` | HA automation registry | Mirror — Office wall-control automation |
+| `ha/automations/automation.living_room_ceiling_fan_wall_control.yaml` | HA automation registry | Mirror — Living Room wall-control automation |
 | `ha/automations/automation.household_ceiling_fan_switch_led_locator.yaml` | HA automation registry | Mirror — shared presence/sleep LED dispatch |
-| `ha/scripts/script.household_ceiling_fan_led_state.yaml` | HA script registry | Mirror — shared LED-bar script, all three rooms |
+| `ha/scripts/script.household_ceiling_fan_led_state.yaml` | HA script registry | Mirror — shared LED-bar script, every room |
 | `scripts/matter_write_attribute.py` | run from a LAN machine (Mac Mini) | Reads vendor-cluster attributes HA doesn't expose; `--dump-node` / `--dump-modes` for discovery |
 
 ## Related documents
 
 - `standards/automations.md` — automation naming, category, and label rules
 - `standards/naming.md` — entity/device naming (the `avery_s` slug gotcha)
-- `guides/adaptive_lighting.md` — the three ceiling fan lights' brightness curve, and the
+- `guides/adaptive_lighting.md` — the ceiling fan lights' brightness curve, and the
   `On level` pre-staging that this guide's hold-start and turn-off branches coordinate with
 - `LESSONS.md` — Matter binding and VTM3x parameter gotchas (dimming speed values,
   `scene.create` inside a restart script, `light.turn_off` dropping `transition`,

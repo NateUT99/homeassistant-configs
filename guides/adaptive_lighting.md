@@ -6,15 +6,14 @@
 
 Adaptive Lighting (AL — HACS, `basnijholt/adaptive-lighting`) adjusts light brightness through
 the day on a sun-position curve. Two instances run here, **Standard** and **Avery Schedule**.
-The three Inovelli canopy ceiling-fan light kits (Master Bedroom, Office, Avery's Room) are
+The four Inovelli canopy ceiling-fan light kits (Master Bedroom, Office, Living Room, Avery's Room) are
 dumb LED loads on a Matter/Thread dimmer, so AL adapts brightness only on those — colour
-temperature is not available on the hardware. Those three lights (and their paired fan
-entities) are exposed to Apple Home through Home-Assistant-Matter-Hub bridging rather than
-direct Matter commissioning, so an Apple Home turn-on is a real `light.turn_on` call AL's
-`intercept` adapts immediately, the same as HA's own dashboard or a script. Only a wall-paddle
-tap — a Matter binding written into the switch firmware that never reaches HA — falls outside
-`intercept`'s reach; a companion automation pre-stages each fixture's Matter `OnLevel` so that
-binding-driven turn-on lands closer to the adapted level, and the wall-control automations add
+temperature is not available on the hardware. Those lights (and their paired fan entities)
+are commissioned directly to both the Home Assistant and Apple Home Matter fabrics, so neither
+an Apple Home turn-on nor a wall-paddle tap — a Matter binding written into the switch
+firmware — passes through HA's service layer, and both fall outside `intercept`'s reach. A
+companion automation pre-stages each fixture's Matter `OnLevel` so that a binding-driven
+turn-on lands closer to the adapted level, and the wall-control automations add
 a fast 2-second correction on every observed turn-on as a backstop regardless of source (see
 Design Decisions). The Standard instance also carries `light.kitchen_overhead_sink`, a
 colour-capable ZHA light with no wall-paddle path — AL adapts its brightness on any bare
@@ -29,7 +28,7 @@ the light stays on at AL's sleep level.
 ```
 Standard          switch.adaptive_lighting_standard
   lights          light.master_bedroom_ceiling_fan_light, light.office_ceiling_fan_light,
-                  light.kitchen_overhead_sink
+                  light.living_room_ceiling_fan_light, light.kitchen_overhead_sink
   sleep mode      switch.adaptive_lighting_standard_sleep_mode
                     ◄── Household: Sleep Mode   (input_boolean.everyone_sleeping)
 
@@ -120,7 +119,7 @@ is paused. That combination was broken before v1.32.0; it is a hard minimum vers
 - HACS, with **Adaptive Lighting v1.32.0 or later** installed. The autoreset + `pause_changed`
   path and the `has_entity_name` switch IDs below are 1.32.0 behaviour; v1.32.0 itself needs
   HA core 2025.9+.
-- The three Inovelli canopy ceiling fans built per `guides/inovelli_switches.md` — the
+- The Inovelli canopy ceiling fans built per `guides/inovelli_switches.md` — the
   `light.<room>_ceiling_fan_light` entities, the `number.<room>_ceiling_fan_on_level_1`
   entities, and the per-room wall-control automations must already exist.
 - `input_boolean.everyone_sleeping` and `input_boolean.avery_sleeping`, with the
@@ -134,7 +133,7 @@ is paused. That combination was broken before v1.32.0; it is a hard minimum vers
 
 | Instance name | Lights |
 |---|---|
-| `Standard` | `light.master_bedroom_ceiling_fan_light`, `light.office_ceiling_fan_light`, `light.kitchen_overhead_sink` |
+| `Standard` | `light.master_bedroom_ceiling_fan_light`, `light.office_ceiling_fan_light`, `light.living_room_ceiling_fan_light`, `light.kitchen_overhead_sink` |
 | `Avery Schedule` | `light.averys_room_ceiling_fan_light` |
 
 Each instance registers a main switch plus `_adapt_brightness`, `_adapt_color`, and
@@ -143,7 +142,7 @@ Each instance registers a main switch plus `_adapt_brightness`, `_adapt_color`, 
 `switch.adaptive_lighting_standard_sleep_mode`. Confirm the exact IDs in Developer Tools →
 States before wiring anything against them.
 
-Apply the `int_adaptive_lighting` label to both config entries and to the three enrolled
+Apply the `int_adaptive_lighting` label to both config entries and to the four enrolled
 `light.*_ceiling_fan_light` entities (`standards/automations.md` §3.2).
 
 ## Step 2 — Configure each instance
@@ -228,9 +227,9 @@ are the moments worth getting exact.
 write. Gating on ~10 perceptible points keeps writes to a few per device per day: nothing
 across the flat midday top or the flat sleep floor, a handful during each ramp.
 
-Standard drives Master Bedroom and Office; Avery Schedule drives Avery's Room. Each fixture
+Standard drives Master Bedroom, Office, and Living Room; Avery Schedule drives Avery's Room. Each fixture
 row in the automation names its own instance switch, so the two curves stay independent.
-Adding a fourth fixture is one `for_each` row plus enrolment in an instance.
+Adding another fixture is one `for_each` row plus enrolment in an instance.
 
 ## Step 5 — Turn-on correction
 
@@ -244,7 +243,7 @@ wall-paddle turn-on; it does not guarantee an exact landing, since `OnLevel` is 
 0–254 value re-staged periodically rather than a live command. Rather than accept that gap,
 this forces a 2-second correction on every turn-on regardless of source, closing it instead of
 waiting on AL's normal ~45s adaptation cycle. On a turn-on `intercept` already caught (HA
-dashboard, scripts), the call is a no-op. The three canopy fixtures are directly commissioned
+dashboard, scripts), the call is a no-op. The canopy fixtures are directly commissioned
 to both the Home Assistant and Apple Home Matter fabrics (multi-admin, see
 `guides/inovelli_switches.md`), so an Apple Home turn-on bypasses HA's service layer the same
 way the wall paddle does — `intercept` never sees it, and this snap is what corrects it.
@@ -280,8 +279,8 @@ Held in the automation's `variables` block for one-place tuning.
 | Adaptive Lighting: Pre-Stage | `automation.adaptive_lighting_pre_stage` | Automation (Maintenance; `int_adaptive_lighting`, `int_inovelli_fan_canopy`, `scope_whole_home`) |
 | Kitchen: Sink Button Handler | `automation.kitchen_sink_button_handler` | Automation (Lighting; `int_adaptive_lighting`) — drives `light.kitchen_overhead_sink` |
 
-The three `light.*_ceiling_fan_light` entities and `light.kitchen_overhead_sink` carry the
-`int_adaptive_lighting` label as enrolled members. The three `automation.*_ceiling_fan_wall_control`
+The four `light.*_ceiling_fan_light` entities and `light.kitchen_overhead_sink` carry the
+`int_adaptive_lighting` label as enrolled members. The four `automation.*_ceiling_fan_wall_control`
 automations (whose `long_release`, turn-off, and turn-on-snap branches call
 `adaptive_lighting.set_manual_control` / `adaptive_lighting.apply`) and
 `automation.kitchen_sink_button_handler` (whose single-press and sleep-mode long-press branches
