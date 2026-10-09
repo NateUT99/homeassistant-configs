@@ -1455,36 +1455,46 @@ views:
         cards:
         - type: custom:bubble-card
           card_type: button
-          button_type: name
+          button_type: switch
           name: Living Room
           icon: mdi:sofa
-          state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''living_room'', ''sensor.living_room_thermostat_temperature'') }}'
+          state_content: '{% from ''dashboard.jinja'' import room_summary %}{{ room_summary(''living_room'', ''sensor.living_room_thermostat_temperature'', ''fan.living_room_ceiling_fan'') }}'
           tap_action:
             action: navigate
             navigation_path: '#living-room'
           hold_action:
-            action: none
+            action: toggle
           button_action:
             tap_action:
               action: navigate
               navigation_path: '#living-room'
             hold_action:
-              action: none
+              action: toggle
           sub_button:
             bottom:
+            - entity: light.living_room_ceiling_fan_light
+              icon: mdi:ceiling-light
+              tap_action:
+                action: toggle
+              custom_height: 44
+              hold_action:
+                action: more-info
+            - entity: fan.living_room_ceiling_fan
+              icon: mdi:ceiling-fan
+              tap_action:
+                action: toggle
+              custom_height: 44
+              hold_action:
+                action: more-info
             - entity: media_player.living_room_appletv
               icon: mdi:apple
               tap_action:
                 action: navigate
                 navigation_path: '#living-room'
               custom_height: 44
-            - entity: climate.living_room_fireplace
-              icon: mdi:fireplace
-              tap_action:
-                action: more-info
-              custom_height: 44
           rows: 3
           styles: '{% from ''dashboard.jinja'' import room_glow %}{{ room_glow(''living_room'') }}'
+          entity: light.living_room_ceiling_fan_light
         - type: custom:bubble-card
           card_type: button
           button_type: name

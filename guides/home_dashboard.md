@@ -277,7 +277,7 @@ the line never overlaps the chips. A UIX style trims the heading's bottom margin
 
 | Tile | Hold toggles | Tile buttons | Summary |
 |---|---|---|---|
-| Living Room | — | Apple TV, Fireplace (more-info) | lights · temp |
+| Living Room | Ceiling light | Ceiling light, Fan, Apple TV | lights · fan · temp |
 | Kitchen | — | — | lights · temp |
 | Family Room | — | Apple TV (more-info) | lights · temp |
 | Office | Ceiling light | Ceiling light, Fan | lights · fan · temp |
@@ -294,10 +294,6 @@ visible lights are on.
 Areas without a tile: Entrance, Garage, and Outside fold into `#security`; Utility Room
 into `#laundry`; the Bathroom lamp is automated and its leak sensor feeds the Leak chip;
 Pantry has nothing to show.
-
-> **Coordinated change:** the Living Room ceiling fan and light are being added. When they
-> are in HA, the Living Room tile becomes `button_type: switch` with the light as `entity`
-> and hold, and gains a fan tile button.
 
 ### 5. Pop-ups
 
