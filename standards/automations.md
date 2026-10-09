@@ -1,5 +1,5 @@
 # Home Assistant Automation Standard
-*Version 1.21.1 — October 2026*
+*Version 1.21.2 — October 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.21.2 | October 2026 | §5.12 fast path now accepts any of three driving signals (CarPlay helper, activity `Automotive`, audio output `CarPlay`) via a short wait, not a point-in-time activity condition |
 | 1.21.1 | October 2026 | Clarified §3.2 — a guide whose integration consists of a single automation does not get an `int_` label |
 | 1.21 | September 2026 | Corrected §3.2 — `notification` means a push actually lands on a device (`notify.*` or a Live Activity), not merely "sends any kind of notification." A TTS-only automation no longer carries `notification` alongside `text_to_speech`; the two labels no longer imply each other |
 | 1.20 | September 2026 | Amended §5.11 — `event` entities are no longer listed as having no semantic trigger form; `event.received` (shipped 2026.7) is the preferred form, with a note on its required `options.event_type` and its own restart-replay behavior |
@@ -455,17 +456,19 @@ should use the activity gate directly instead (see `automation.household_nate_pr
 `input_boolean.arrival_confirmed` is maintained by `automation.household_confirm_arrival`, which
 confirms via two independent paths:
 
-- **Fast path:** `zone.home` rises from 0 while the arriving person's activity sensor reads
-  `Automotive`. Covers a genuine drive-home immediately, without waiting for a door.
+- **Fast path:** `zone.home` rises from 0 and a driving signal appears within 15 seconds — a
+  CarPlay helper set by an iOS Shortcut, activity `Automotive`, or audio output `CarPlay` (see
+  `guides/presence_tracking.md` → *CarPlay Signal*). Covers a genuine drive-home immediately,
+  without waiting for a door.
 - **Evidence path:** a door or lock signals entry (front door unlocked, garage interior door or
   patio door opened, garage cover opened) while a tracked person is already inside `zone.home`.
 
 Anything that isn't clearly a car — walking, cycling, running, stationary, or the sensor's idle
 `Unknown` state — defers to the evidence path rather than being enumerated. Entry evidence always
 eventually arrives, so deferring costs latency, never correctness. Do not extend the fast path's
-activity list to `Unknown` or `Unavailable` — `Unknown` is the sensor's common idle state. When
-an automation acts on the activity sensor at the moment of arrival, wait for it briefly
-(`wait_template`, short timeout) rather than checking it as a condition: the activity update lands
+signals to activity `Unknown` or `Unavailable` — `Unknown` is the sensor's common idle state. When
+an automation acts on Companion App sensors at the moment of arrival, wait for them briefly
+(`wait_template`, short timeout) rather than checking them as a condition: their update lands
 just after the zone change (see `LESSONS.md`).
 
 > **`arrival_confirmed` is not an authorization signal.** It answers "is someone physically

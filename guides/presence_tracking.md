@@ -1,6 +1,6 @@
 # Presence Tracking
 
-*Last updated: September 2026*
+*Last updated: October 2026*
 
 ## Overview
 
@@ -106,10 +106,11 @@ If the person entity doesn't exist yet, create it with `action: create`.
 The new person is automatically covered by [Confirmed Arrival](#confirmed-arrival)'s evidence path
 as soon as `zone.home`'s occupant count includes them — no config change needed, just a later
 confirmation (on the next door/lock event) instead of an immediate one. If the person also uses
-the HA Companion App, `sensor.<name>_iphone_activity` will exist and can be added to
-`automation.household_confirm_arrival`'s `geofence_arrival` branch as an additional
-`condition: state … Automotive` (combined with `or`) to give them the same immediate confirmation
-on a drive-home. This is an optimization, not a requirement.
+the HA Companion App, their `sensor.<name>_iphone_activity` and `sensor.<name>_iphone_audio_output` (and a
+`<name>_carplay` helper, if they set up the [CarPlay Signal](#carplay-signal) Shortcuts) can be
+added to the `or` in `automation.household_confirm_arrival`'s "Wait for a driving signal" step to
+give them the same immediate confirmation on a drive-home. This is an optimization, not a
+requirement.
 
 ## Guest Tracking
 
@@ -130,7 +131,7 @@ docking the vacuum, setting the thermostat preset — trigger on this helper goi
 `zone.home` directly.
 
 ```
-  zone.home rises above 0 ──── AND activity = Automotive ───┐   (fast path: real drive-home)
+  zone.home rises above 0 ──── AND driving signal ≤15 s ────┐   (fast path: real drive-home)
                                                             │
   lock.entrance_front_door → unlocked ───────────┐          │
   binary_sensor.entrance_front_door opened ──────┤          │   (evidence path — CONFIRMS only,
@@ -154,7 +155,8 @@ docking the vacuum, setting the thermostat preset — trigger on this helper goi
 ```
 
 **Why two paths.** The fast path buys a couple of minutes on a genuine drive-home, docking the
-vacuum before anyone walks in. The evidence path is the correctness backstop and needs no
+vacuum before anyone walks in. A driving signal is any of the three in
+[CarPlay Signal](#carplay-signal). The evidence path is the correctness backstop and needs no
 per-person activity sensor — anything that isn't clearly a car (walking, cycling, running,
 stationary, or the sensor's idle `Unknown`) defers to it rather than being enumerated, since
 evidence always eventually arrives.
@@ -170,12 +172,42 @@ story at all. Gating on a tracked person already being in `zone.home` means evid
 
 **Exception: automations whose action *is* the entry.** `automation.household_nate_presence` opens
 the garage door on arrival, so it cannot wait on entry evidence without being circular — it reads
-`sensor.nates_iphone_activity` directly instead. It opens only when `person.nate` was `not_home`
-for more than 5 minutes and the activity sensor reports `Automotive` within 15 seconds of the
-arrival. The wait is there because the activity update lands just after the zone change (see
-`LESSONS.md` → *iPhone activity sensor lands ~100 ms after the zone change*). `Unknown` does not
-count as driving: opening the garage is an entry action, so a tracker re-acquire while home must
-not open it.
+the same driving signals directly instead. It opens only when `person.nate` was `not_home` for
+more than 5 minutes and a driving signal appears within 15 seconds of the arrival. An activity
+of `Unknown` does not count as driving: opening the garage is an entry action, so a tracker
+re-acquire while home must not open it.
+
+## CarPlay Signal
+
+Both arrival automations wait up to 15 seconds for any one of three driving signals:
+
+| Signal | Source | Timing |
+|---|---|---|
+| `input_boolean.nate_carplay` is `on` | iOS Shortcuts personal automation on CarPlay connect/disconnect | Set when CarPlay connects, minutes before arrival — passes the wait at once |
+| `sensor.nates_iphone_activity` is `Automotive` | Companion App motion activity | Arrives ~100 ms after the zone change it rides with |
+| `sensor.nates_iphone_audio_output` is `CarPlay` | Companion App audio route | Same update as activity; stays `CarPlay` when stopped, where activity may read `Stationary` |
+
+The two Companion App sensors only update when the app wakes for a location event, so they are
+stale between updates and land just after the arrival edge (see `LESSONS.md` → *iPhone activity
+sensor lands ~100 ms after the zone change*). That's why the check is a `wait_template` rather
+than a condition. The helper is independent of that timing because the Shortcut fires on the
+CarPlay connection itself. The Companion App sensors stay in as a fallback for when the Shortcut
+doesn't run.
+
+The car's wireless CarPlay network (`sensor.nates_iphone_ssid` = `Car-0EDD`) is not used: it
+dropped to `Not Connected` mid-drive and is tied to one vehicle.
+
+### Setup
+
+1. **Helper:** `input_boolean.nate_carplay` ("Nate CarPlay"), labels `matterhub` and `presence`,
+   no `initial`. The `matterhub` label exposes it to Apple Home as a switch.
+2. **Shortcuts** (iPhone → Shortcuts → Automation → New), both set to **Run Immediately**:
+   - **CarPlay → Connects** → Home: set **Nate CarPlay** to On
+   - **CarPlay → Disconnects** → Home: set **Nate CarPlay** to Off
+
+**Security.** Anyone with Apple Home access can flip the switch. That alone opens nothing: the
+garage also requires `person.nate` to arrive after more than 5 minutes away. The same guard
+covers a missed "Disconnects" run that leaves the helper `on` while home.
 
 See [Adding a New Household Member's Tracker](#adding-a-new-household-member's-tracker), Step 6,
 for how a new person is picked up by this design.
@@ -239,6 +271,8 @@ the HA-side behaviour above works regardless of how it gets toggled.
 | Guest | `person.guest` | Person (no linked user — tracking-only) |
 | Nate Home | `input_boolean.nate_home` | Helper |
 | Guest Mode | `input_boolean.guest_mode` | Helper |
+| Nate CarPlay | `input_boolean.nate_carplay` | Helper (set by iOS Shortcuts) |
+| Household: Nate Presence | `automation.household_nate_presence` | Automation |
 | Household: Confirm Arrival | `automation.household_confirm_arrival` | Automation |
 | Household: First Arrives Home | `automation.household_first_arrives_home` | Automation |
 | Household: Last Leaves Home | `automation.household_last_leaves_home` | Automation |

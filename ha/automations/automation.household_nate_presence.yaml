@@ -4,10 +4,11 @@ description: 'Nate-specific arrival and departure actions.
 
 
   - **Arrival:** disables guest mode, then opens the garage door only when Nate was
-  away for more than 5 minutes AND his iPhone activity reports Automotive (driving)
-  within 15 seconds — this suppresses brief geofence flaps and walks. The auto-open
-  is a convenience, not a guarantee; the garage can always be opened manually from
-  the CarPlay button or Apple Home.
+  away for more than 5 minutes AND a driving signal appears within 15 seconds: the
+  CarPlay helper (set by an iOS Shortcut), iPhone activity Automotive, or iPhone audio
+  output CarPlay. This suppresses brief geofence flaps and walks. The auto-open is a
+  convenience, not a guarantee; the garage can always be opened manually from the
+  CarPlay button or Apple Home.
 
   - **Departure:** trigger is wired but disabled — no actions yet. Re-enable and populate
   the sequence when departure logic is needed.'
@@ -51,15 +52,16 @@ actions:
       value_template: '{{ trigger.from_state is not none and (now() - trigger.from_state.last_changed).total_seconds()
         > 300 }}'
       alias: Nate was away for more than 5 minutes
-    - wait_template: '{{ is_state(''sensor.nates_iphone_activity'', ''Automotive'') }}'
+    - wait_template: '{{ is_state(''input_boolean.nate_carplay'', ''on'') or is_state(''sensor.nates_iphone_activity'',
+        ''Automotive'') or is_state(''sensor.nates_iphone_audio_output'', ''CarPlay'') }}'
       timeout:
         seconds: 15
       continue_on_timeout: false
-      alias: Wait for iPhone activity to report Automotive
-      note: Activity arrives in the same companion-app update as the zone change but
-        lands ~100 ms after it, so a point-in-time state check reads the stale value.
-        wait_template (not wait_for_trigger) so an already-Automotive sensor passes
-        immediately.
+      alias: Wait for a driving signal
+      note: Any one of three signals. The CarPlay helper is set by an iOS Shortcut when
+        CarPlay connects, so it's usually on before the arrival edge and passes at once.
+        Activity and audio output arrive ~100 ms after the zone change (see LESSONS.md),
+        which the 15 s wait covers.
     - action: cover.open_cover
       target:
         entity_id: cover.garage_door_opener_door

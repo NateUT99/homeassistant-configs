@@ -4,8 +4,9 @@ description: >-
   Distinguishes "inside the zone.home geofence" from "actually inside the
   house." zone.home fires at ~100m, well before anyone reaches a door, so
   a walk around the block can look identical to a drive home. Confirms
-  arrival immediately when activity reads Automotive (real drive-home,
-  no need to wait), or when door/lock evidence appears while a tracked
+  arrival immediately when a driving signal appears within 15 seconds
+  of the geofence arrival (CarPlay helper, activity Automotive, or audio
+  output CarPlay), or when door/lock evidence appears while a tracked
   person is already home. See standards/automations.md §5.12 -- this
   helper is convenience-only and must never gate a security decision.
 triggers:
@@ -83,14 +84,26 @@ actions:
           - condition: trigger
             id: [geofence_arrival]
             alias: Triggered by geofence arrival
-          - condition: state
-            entity_id: sensor.nates_iphone_activity
-            state: Automotive
-            alias: Activity is Automotive
         sequence:
+          - alias: Wait for a driving signal
+            wait_template: >-
+              {{ is_state('input_boolean.nate_carplay', 'on')
+                 or is_state('sensor.nates_iphone_activity', 'Automotive')
+                 or is_state('sensor.nates_iphone_audio_output', 'CarPlay') }}
+            timeout:
+              seconds: 15
+            continue_on_timeout: false
+            note: >-
+              Same three-signal driving check as
+              automation.household_nate_presence. Activity and audio output
+              arrive ~100 ms after the zone change (see LESSONS.md); a
+              timeout defers to the evidence path. Mode is queued so
+              evidence triggers during this wait run afterward instead of
+              being dropped.
           - alias: Confirm arrival immediately
             action: input_boolean.turn_on
             target:
               entity_id: input_boolean.arrival_confirmed
-mode: single
+mode: queued
+max: 10
 category: 01M08R77W9A83G7DDA33MT8R09
