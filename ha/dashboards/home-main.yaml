@@ -726,7 +726,7 @@ views:
           icon: mdi:ceiling-light
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -745,7 +745,7 @@ views:
           icon: mdi:ceiling-fan
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -859,7 +859,7 @@ views:
           icon: mdi:ceiling-light
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -878,7 +878,7 @@ views:
           icon: mdi:ceiling-fan
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -897,7 +897,7 @@ views:
           icon: mdi:lamp
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -970,7 +970,7 @@ views:
           icon: mdi:ceiling-light
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -989,7 +989,7 @@ views:
           icon: mdi:ceiling-fan
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -1008,7 +1008,7 @@ views:
           icon: mdi:desk-lamp
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -1080,7 +1080,7 @@ views:
           icon: mdi:ceiling-light
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -1099,7 +1099,7 @@ views:
           icon: mdi:ceiling-fan
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -1118,7 +1118,7 @@ views:
           icon: mdi:spotlight-beam
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -1137,7 +1137,7 @@ views:
           icon: mdi:lamp
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -1227,7 +1227,7 @@ views:
           icon: mdi:lamp
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -1246,7 +1246,7 @@ views:
           icon: mdi:led-strip-variant
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -1265,7 +1265,7 @@ views:
           icon: mdi:led-strip-variant
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -1338,7 +1338,7 @@ views:
           icon: mdi:ceiling-light
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -1387,7 +1387,7 @@ views:
           icon: mdi:outdoor-lamp
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -1406,7 +1406,7 @@ views:
           icon: mdi:outdoor-lamp
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:
@@ -1425,7 +1425,7 @@ views:
           icon: mdi:outdoor-lamp
           state_content: state
           tap_action:
-            action: toggle
+            action: more-info
           hold_action:
             action: more-info
           button_action:

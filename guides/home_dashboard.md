@@ -186,8 +186,9 @@ and the chevron is a separate button; inner padding `4px 10px 10px`; open state 
 per device under `storage-id: home-main-room-<slug>`). The title card is a heading — the room
 name (HA adds the arrow for a tappable heading) and its temperature as a badge; tapping it
 opens the room's pop-up (`#security` for Outside). Inside: the room's media card(s) while in
-use, then 2-up `apple_tile` tiles of the room's everyday controls (tap toggles, hold opens
-more-info). Living Room,
+use, then 2-up `apple_tile` tiles of the room's everyday controls: tapping the tile toggles
+it (`button_action`), tapping its icon opens more-info (card `tap_action`), and hold opens
+more-info. Living Room,
 Master Bedroom, Avery's Room, and Office start expanded; Family Room, Kitchen, and Outside
 start collapsed.
 
