@@ -382,10 +382,9 @@ The nine Thread-diagnostics sensors (`_thread_channel`, `_thread_routing_role`,
 three `_current_switch_position_*`) come `disabled_by: integration` from the
 Matter integration on **all three** switches, Office included — this is the
 integration's own default for that entity category, not leftover config from
-the rename. HA also refuses to rename an entity that's disabled by its
-integration, so renaming them required enabling them first; they were
-disabled again immediately after to keep parity with Master Bedroom and
-Avery's Room.
+the rename. They can be renamed while still disabled (`ha_set_entity` with
+`new_entity_id`); the entity keeps `disabled_by: integration`, so no
+enable/disable round-trip is needed.
 
 ## Step 2 — Canopy module (VTM36) parameters
 
@@ -621,7 +620,7 @@ substitutions.
 | Area / entity prefix | `averys_room` | `master_bedroom` | `living_room` | `office` |
 | Canopy device name | `Ceiling Fan` | `Ceiling Fan` | `Ceiling Fan` | `Ceiling Fan` |
 | Switch device name | `Ceiling Fan Switch` | `Ceiling Fan Switch` | `Ceiling Fan Switch` | `Ceiling Fan Switch` |
-| Canopy Matter node | 10 | 12 | TBD | 15 |
+| Canopy Matter node | 10 | 12 | 26 | 15 |
 | Switch Matter node | 11 | 13 | TBD | 16 |
 | `sleeping_boolean` field ([Shared: LED Bar](#shared-led-bar)) | `input_boolean.avery_sleeping` | `input_boolean.everyone_sleeping` | TBD | unset |
 
