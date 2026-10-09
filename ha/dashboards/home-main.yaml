@@ -721,9 +721,9 @@ views:
           modules:
           - apple_tile
           rows: 1.2
-          entity: light.living_room_tv_accent
-          name: TV Accent
-          icon: mdi:television-ambient-light
+          entity: light.living_room_ceiling_fan_light
+          name: Ceiling Light
+          icon: mdi:ceiling-light
           state_content: state
           tap_action:
             action: toggle
@@ -740,17 +740,17 @@ views:
           modules:
           - apple_tile
           rows: 1.2
-          entity: climate.living_room_fireplace
-          name: Fireplace
-          icon: mdi:fireplace
+          entity: fan.living_room_ceiling_fan
+          name: Fan
+          icon: mdi:ceiling-fan
           state_content: state
           tap_action:
-            action: more-info
+            action: toggle
           hold_action:
             action: more-info
           button_action:
             tap_action:
-              action: more-info
+              action: toggle
             hold_action:
               action: more-info
     background: true

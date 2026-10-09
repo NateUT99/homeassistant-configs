@@ -187,13 +187,13 @@ per device under `storage-id: home-main-room-<slug>`). The title card is a headi
 name (HA adds the arrow for a tappable heading) and its temperature as a badge; tapping it
 opens the room's pop-up (`#security` for Outside). Inside: the room's media card(s) while in
 use, then 2-up `apple_tile` tiles of the room's everyday controls (tap toggles, hold opens
-more-info; the Fireplace tile opens its controls on tap instead of toggling). Living Room,
+more-info). Living Room,
 Master Bedroom, Avery's Room, and Office start expanded; Family Room, Kitchen, and Outside
 start collapsed.
 
 | Room | Media card (while in use) | Tiles |
 |---|---|---|
-| Living Room | Apple TV; volume slider → Soundbar | TV Accent, Fireplace |
+| Living Room | Apple TV; volume slider → Soundbar | Ceiling Light, Fan |
 | Master Bedroom | Apple TV (slider → TV); HomePod | Ceiling Light, Fan, Nightstand |
 | Avery's Room | HomePod | Ceiling Light, Fan, Desk Lamp |
 | Office | HomePod | Ceiling Light, Fan, Key Light, Bourbon Lamp |
