@@ -1,6 +1,6 @@
 # Energy Monitoring
 
-*Last updated: September 2026*
+*Last updated: October 2026*
 
 ## Overview
 
@@ -107,14 +107,24 @@ it off dashboards while staying live for the automation.
 Two automations guard the plug, both category Maintenance:
 
 - **Kitchen: Refrigerator Power Monitor**
-  (`automation.kitchen_refrigerator_power_monitor`) — alerts if
-  `sensor.kitchen_refrigerator_power` goes `unavailable` for 10 minutes (the plug dropped off
-  the network) or reads under 5W for 2 hours (breaker trip, unplugged cord, or a dead
-  compressor — outages are covered by the whole-house generator, so this branch is only
-  catching faults HA can still see). Alerts route by presence and sleep state through
-  `script.household_tts_announce`: critical push when no one is home, TTS to the kitchen
-  when someone is home and awake, TTS to the master bedroom with `critical_fallback: true`
-  when everyone is asleep.
+  (`automation.kitchen_refrigerator_power_monitor`) — alerts on three faults:
+  - **Plug silent for 15 minutes** — neither `sensor.kitchen_refrigerator_voltage` nor
+    `sensor.kitchen_refrigerator_current` has reported (`last_reported`). ZHA waits 2 hours
+    before marking a mains-powered device `unavailable`, so a hung plug looks healthy to HA
+    for that whole window; this check is what catches it. Voltage and current are the
+    freshness signals because grid voltage drifts constantly, so they update every few
+    seconds even when the fridge is idle. Power does not: the plug stops sending it while
+    the load is steady, and gaps of 10+ minutes are normal.
+  - **Plug `unavailable` for 10 minutes** — the backstop for a plug that is already missing
+    when HA or ZHA starts.
+  - **Under 5W for 2 hours** — breaker trip, unplugged cord, or a dead compressor. Outages are
+    covered by the whole-house generator, so this branch only catches faults HA can still see.
+
+  The automation is `mode: single` with `max_exceeded: silent`, so a hung plug that later
+  also goes `unavailable` stays one alert and one recovery notice. Alerts route by presence
+  and sleep state: a critical push when no one is home; otherwise through
+  `script.household_tts_announce` — a broadcast when someone is home and awake, or the master
+  bedroom with `critical_fallback: true` when everyone is asleep.
 - **Kitchen: Refrigerator Keep Powered**
   (`automation.kitchen_refrigerator_keep_powered`) — if Metering only mode itself turns off,
   re-enables it immediately; if the relay reports `off`, waits 2 minutes (debounce) and then
@@ -232,7 +242,7 @@ dashboard's cost figure track the real bill.
 | Refrigerator Power | `sensor.kitchen_refrigerator_power` | Sensor (ZHA) — instantaneous W |
 | Refrigerator (switch, hidden) | `switch.kitchen_refrigerator` | ZHA — relay control, hidden not disabled; watched by Keep Powered below |
 | Refrigerator Compressor | `binary_sensor.kitchen_refrigerator_compressor` | ZHA — power-threshold-crossing edge pulse (15W rise/drop), renamed and re-classed `running`; momentary, not a running/idle level indicator |
-| Refrigerator Power Monitor | `automation.kitchen_refrigerator_power_monitor` | Automation — offline/no-draw alerting |
+| Refrigerator Power Monitor | `automation.kitchen_refrigerator_power_monitor` | Automation — silent/offline/no-draw alerting |
 | Refrigerator Keep Powered | `automation.kitchen_refrigerator_keep_powered` | Automation — self-heals an unexpected relay/metering-only-mode off |
 | Refrigerator Maintenance | `input_boolean.kitchen_refrigerator_maintenance` | Helper — suppresses Keep Powered during deliberate plug work |
 

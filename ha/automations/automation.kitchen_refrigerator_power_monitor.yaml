@@ -1,17 +1,32 @@
 id: "1789169024670"
 alias: "Kitchen: Refrigerator Power Monitor"
 description: >-
-  Watches the refrigerator's Third Reality metering plug
-  (sensor.kitchen_refrigerator_power) for two faults: the plug itself going
+  Watches the refrigerator's Third Reality metering plug for three faults: the
+  plug going silent (no voltage or current report for 15 minutes), the plug
   unavailable for 10 minutes, or the fridge drawing under 5W for 2 hours
   (breaker trip, unplugged cord, or dead compressor -- the whole-house
-  generator covers grid outages, so a sustained zero-draw here means
-  something HA can still see). Alerts route by presence: critical push when
-  nobody home, TTS broadcast (every room, gated same as any other broadcast
-  call) when someone is home and awake, TTS to the master bedroom with a
-  critical push fallback when everyone is asleep. Sends a quiet recovery
-  notice once the fault clears.
+  generator covers grid outages). ZHA waits 2 hours before marking a
+  mains-powered device unavailable, so the silence check is what catches a
+  hung plug quickly; the unavailable trigger is the backstop for a plug that
+  is missing at startup. Alerts route by presence: critical push when nobody
+  home, TTS broadcast when someone is home and awake, TTS to the master
+  bedroom with a critical push fallback when everyone is asleep. Sends a
+  quiet recovery notice once the fault clears.
 triggers:
+  - trigger: template
+    value_template: >-
+      {% set v = states.sensor.kitchen_refrigerator_voltage %}
+      {% set c = states.sensor.kitchen_refrigerator_current %}
+      {{ v is not none and c is not none
+         and v.state not in ['unavailable', 'unknown']
+         and now() - [v.last_reported, c.last_reported] | max
+             > timedelta(minutes=15) }}
+    id: plug_silent
+    alias: Refrigerator plug silent for 15 minutes
+    variables:
+      alert_message: >-
+        The refrigerator plug stopped reporting 15 minutes ago. It may be
+        frozen or without power.
   - trigger: state
     entity_id: sensor.kitchen_refrigerator_power
     to:
@@ -21,6 +36,10 @@ triggers:
       minutes: 10
     id: plug_offline
     alias: Refrigerator power sensor unavailable for 10 minutes
+    variables:
+      alert_message: >-
+        The refrigerator's Zigbee plug has been unavailable for over 10
+        minutes. It may have dropped off the network.
   - trigger: numeric_state
     entity_id: sensor.kitchen_refrigerator_power
     below: 5
@@ -28,69 +47,74 @@ triggers:
       hours: 2
     id: no_draw
     alias: Refrigerator power under 5W for 2 hours
+    variables:
+      alert_message: >-
+        The refrigerator has drawn under 5W for over 2 hours. It may have lost
+        power, tripped a breaker, or the compressor may have failed.
 actions:
-  - alias: Handle whichever fault triggered this run
+  - alias: Route the alert by presence and sleep state
     choose:
-      - alias: Plug offline
+      - alias: "Nobody home — critical push only"
+        conditions:
+          - condition: numeric_state
+            entity_id: zone.home
+            below: 1
+        sequence:
+          - alias: Critical push to Nate's iPhone
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: "🧊 Refrigerator Alert"
+              message: "{{ alert_message }}"
+              data:
+                push:
+                  interruption-level: critical
+                  sound:
+                    name: default
+                    critical: 1
+                    volume: 1
+      - alias: "Someone home, everyone sleeping — TTS to master bedroom, critical fallback"
+        conditions:
+          - condition: numeric_state
+            entity_id: zone.home
+            above: 0
+          - condition: state
+            entity_id: input_boolean.everyone_sleeping
+            state: "on"
+        sequence:
+          - alias: TTS via household announce script (master bedroom, critical fallback)
+            action: script.household_tts_announce
+            data:
+              message: "{{ alert_message }}"
+              target: master_bedroom
+              notification_title: "🧊 Refrigerator Alert"
+              critical_fallback: true
+              chime_path: error
+    default:
+      - alias: "Someone home, awake — broadcast"
+        action: script.household_tts_announce
+        data:
+          message: "{{ alert_message }}"
+          target: broadcast
+          notification_title: "🧊 Refrigerator Alert"
+          chime_path: error
+  - alias: Wait for the fault to clear and send a recovery notice
+    choose:
+      - alias: Plug silent or offline
         conditions:
           - condition: trigger
-            id: plug_offline
+            id:
+              - plug_silent
+              - plug_offline
         sequence:
-          - alias: Set the alert message
-            variables:
-              alert_message: >-
-                The refrigerator's Zigbee plug has been unavailable for over
-                10 minutes. It may have dropped off the network.
-          - alias: Route the alert by presence and sleep state
-            choose:
-              - alias: "Nobody home — critical push only"
-                conditions:
-                  - condition: numeric_state
-                    entity_id: zone.home
-                    below: 1
-                sequence:
-                  - alias: Critical push to Nate's iPhone
-                    action: notify.mobile_app_nates_iphone
-                    data:
-                      title: "🧊 Refrigerator Alert"
-                      message: "{{ alert_message }}"
-                      data:
-                        push:
-                          interruption-level: critical
-                          sound:
-                            name: default
-                            critical: 1
-                            volume: 1
-              - alias: "Someone home, everyone sleeping — TTS to master bedroom, critical fallback"
-                conditions:
-                  - condition: numeric_state
-                    entity_id: zone.home
-                    above: 0
-                  - condition: state
-                    entity_id: input_boolean.everyone_sleeping
-                    state: "on"
-                sequence:
-                  - alias: TTS via household announce script (master bedroom, critical fallback)
-                    action: script.household_tts_announce
-                    data:
-                      message: "{{ alert_message }}"
-                      target: master_bedroom
-                      notification_title: "🧊 Refrigerator Alert"
-                      critical_fallback: true
-                      chime_path: error
-            default:
-              - alias: "Someone home, awake — broadcast"
-                action: script.household_tts_announce
-                data:
-                  message: "{{ alert_message }}"
-                  target: broadcast
-                  notification_title: "🧊 Refrigerator Alert"
-                  chime_path: error
-          - alias: Wait for the plug to come back online
+          - alias: Wait for the plug to report a valid voltage again
+            note: >-
+              Voltage drifts by a tenth of a volt every few seconds, so a live
+              plug changes this state within about a minute. Covers both a
+              silent plug and one ZHA has marked unavailable.
             wait_for_trigger:
               - trigger: state
-                entity_id: sensor.kitchen_refrigerator_power
-                from:
+                entity_id: sensor.kitchen_refrigerator_voltage
+                not_to:
                   - unavailable
                   - unknown
           - alias: Send quiet recovery notification
@@ -105,57 +129,6 @@ actions:
           - condition: trigger
             id: no_draw
         sequence:
-          - alias: Set the alert message
-            variables:
-              alert_message: >-
-                The refrigerator has drawn under 5W for over 2 hours. It may
-                have lost power, tripped a breaker, or the compressor may
-                have failed.
-          - alias: Route the alert by presence and sleep state
-            choose:
-              - alias: "Nobody home — critical push only"
-                conditions:
-                  - condition: numeric_state
-                    entity_id: zone.home
-                    below: 1
-                sequence:
-                  - alias: Critical push to Nate's iPhone
-                    action: notify.mobile_app_nates_iphone
-                    data:
-                      title: "🧊 Refrigerator Alert"
-                      message: "{{ alert_message }}"
-                      data:
-                        push:
-                          interruption-level: critical
-                          sound:
-                            name: default
-                            critical: 1
-                            volume: 1
-              - alias: "Someone home, everyone sleeping — TTS to master bedroom, critical fallback"
-                conditions:
-                  - condition: numeric_state
-                    entity_id: zone.home
-                    above: 0
-                  - condition: state
-                    entity_id: input_boolean.everyone_sleeping
-                    state: "on"
-                sequence:
-                  - alias: TTS via household announce script (master bedroom, critical fallback)
-                    action: script.household_tts_announce
-                    data:
-                      message: "{{ alert_message }}"
-                      target: master_bedroom
-                      notification_title: "🧊 Refrigerator Alert"
-                      critical_fallback: true
-                      chime_path: error
-            default:
-              - alias: "Someone home, awake — broadcast"
-                action: script.household_tts_announce
-                data:
-                  message: "{{ alert_message }}"
-                  target: broadcast
-                  notification_title: "🧊 Refrigerator Alert"
-                  chime_path: error
           - alias: Wait for power draw to resume
             wait_for_trigger:
               - trigger: numeric_state
@@ -168,5 +141,6 @@ actions:
             data:
               title: Refrigerator Monitor
               message: The refrigerator is drawing power again.
-mode: restart
+mode: single
+max_exceeded: silent
 category: 01M0SZBV5BGDGY2BQ2GBB5NA4C
