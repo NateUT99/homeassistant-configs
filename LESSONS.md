@@ -889,6 +889,12 @@ Any automation whose trigger can fire after midnight but is reasoning about "tod
 
 This generalizes beyond this one sensor: any `date`-scoped calendar-derived value is a midnight trap for whatever consumes it after midnight, not just this household's custody schedule.
 
+### iPhone activity sensor lands ~100 ms after the zone change it arrives with — wait for it, don't check it
+
+The Companion App's `sensor.<phone>_activity` is not updated continuously; between location updates it can sit at `Unknown` for most of a drive. The arrival update carries both the new location and `Automotive`, but HA applies the `person` state change first. Seen 2026-10-09: `person.nate` → `home` at 08:38:30.454, activity `Unknown` → `Automotive` at 08:38:30.554. An arrival automation that checks `state: Automotive` as a condition reads the stale `Unknown` and skips.
+
+Use a short `wait_template` on the activity state with `continue_on_timeout: false` instead of a condition. It passes immediately if the sensor is already `Automotive`. A `wait_for_trigger` would hang in that case, because there's no change left to wait for. See `automation.household_nate_presence`.
+
 ---
 
 ## Matter & HomeKit

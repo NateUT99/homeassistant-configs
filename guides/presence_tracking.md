@@ -170,9 +170,12 @@ story at all. Gating on a tracked person already being in `zone.home` means evid
 
 **Exception: automations whose action *is* the entry.** `automation.household_nate_presence` opens
 the garage door on arrival, so it cannot wait on entry evidence without being circular — it reads
-`sensor.nates_iphone_activity` directly instead, gated on `Automotive`, `Unknown`, or
-`unavailable`. That automation's cost matrix is inverted from the vacuum's: a spurious garage open
-is cheap, so it can afford the looser gate that `Confirm Arrival`'s fast path deliberately avoids.
+`sensor.nates_iphone_activity` directly instead. It opens only when `person.nate` was `not_home`
+for more than 5 minutes and the activity sensor reports `Automotive` within 15 seconds of the
+arrival. The wait is there because the activity update lands just after the zone change (see
+`LESSONS.md` → *iPhone activity sensor lands ~100 ms after the zone change*). `Unknown` does not
+count as driving: opening the garage is an entry action, so a tracker re-acquire while home must
+not open it.
 
 See [Adding a New Household Member's Tracker](#adding-a-new-household-member's-tracker), Step 6,
 for how a new person is picked up by this design.

@@ -463,9 +463,10 @@ confirms via two independent paths:
 Anything that isn't clearly a car — walking, cycling, running, stationary, or the sensor's idle
 `Unknown` state — defers to the evidence path rather than being enumerated. Entry evidence always
 eventually arrives, so deferring costs latency, never correctness. Do not extend the fast path's
-activity list to `Unknown` or `Unavailable` the way `household_nate_presence` does for opening the
-garage — a spurious garage open is cheap, a spurious dock or preset change on a shared arrival
-signal is not, and `Unknown` is the sensor's common idle state.
+activity list to `Unknown` or `Unavailable` — `Unknown` is the sensor's common idle state. When
+an automation acts on the activity sensor at the moment of arrival, wait for it briefly
+(`wait_template`, short timeout) rather than checking it as a condition: the activity update lands
+just after the zone change (see `LESSONS.md`).
 
 > **`arrival_confirmed` is not an authorization signal.** It answers "is someone physically
 > inside," not "is this entry authorized." Its evidence inputs are door and lock sensors, which

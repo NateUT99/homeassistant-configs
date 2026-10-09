@@ -3,11 +3,11 @@ alias: 'Household: Nate Presence'
 description: 'Nate-specific arrival and departure actions.
 
 
-  - **Arrival:** opens the garage door only when Nate was away for more than 5 minutes
-  AND his iPhone activity is Automotive (driving) — this suppresses brief geofence
-  flaps and walks. Then disables guest mode. The auto-open is a convenience, not a
-  guarantee; the garage can always be opened manually from the CarPlay button or Apple
-  Home.
+  - **Arrival:** disables guest mode, then opens the garage door only when Nate was
+  away for more than 5 minutes AND his iPhone activity reports Automotive (driving)
+  within 15 seconds — this suppresses brief geofence flaps and walks. The auto-open
+  is a convenience, not a guarantee; the garage can always be opened manually from
+  the CarPlay button or Apple Home.
 
   - **Departure:** trigger is wired but disabled — no actions yet. Re-enable and populate
   the sequence when departure logic is needed.'
@@ -43,26 +43,27 @@ actions:
       - home
       alias: Triggered by Nate arriving home
     sequence:
-    - if:
-      - condition: state
-        entity_id: sensor.nates_iphone_activity
-        state:
-        - Automotive
-        alias: iPhone activity is Automotive (driving)
-      - condition: template
-        value_template: '{{ trigger.from_state is not none and (now() - trigger.from_state.last_changed).total_seconds()
-          > 300 }}'
-        alias: Nate was away for more than 5 minutes
-      then:
-      - action: cover.open_cover
-        target:
-          entity_id: cover.garage_door_opener_door
-        alias: Open the Garage Door
-      alias: Open Garage Door if actually arriving by car
     - action: input_boolean.turn_off
       target:
         entity_id: input_boolean.guest_mode
       alias: Disable Guest Mode
+    - condition: template
+      value_template: '{{ trigger.from_state is not none and (now() - trigger.from_state.last_changed).total_seconds()
+        > 300 }}'
+      alias: Nate was away for more than 5 minutes
+    - wait_template: '{{ is_state(''sensor.nates_iphone_activity'', ''Automotive'') }}'
+      timeout:
+        seconds: 15
+      continue_on_timeout: false
+      alias: Wait for iPhone activity to report Automotive
+      note: Activity arrives in the same companion-app update as the zone change but
+        lands ~100 ms after it, so a point-in-time state check reads the stale value.
+        wait_template (not wait_for_trigger) so an already-Automotive sensor passes
+        immediately.
+    - action: cover.open_cover
+      target:
+        entity_id: cover.garage_door_opener_door
+      alias: Open the Garage Door
     alias: Nate arrived home
 mode: single
 category: 01M08R77W9A83G7DDA33MT8R09
