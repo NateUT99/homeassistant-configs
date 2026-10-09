@@ -911,6 +911,14 @@ Use a short `wait_template` on the activity state with `continue_on_timeout: fal
 
 Multiple Matter/HomeKit bridges fighting over the same devices produces unreliable state and duplicated entities in HomeKit. Standardize on Matter Hub and disable other bridges.
 
+### An Apple Home tile gone stale on a Matter Hub bridge needs a label cycle, not a restart
+
+Seen 2026-10-09: after a new entity was added to the General bridge, an existing tile (`input_boolean.immediate_departure`) showed in Apple Home as a light bulb with "No Response". The bridge was presenting it correctly the whole time — same endpoint (#2), same `OnOffPlugInUnit` type, no errors. The stale record was Apple's.
+
+Neither of the obvious fixes worked: Apple's routine ~50-minute reconnects keep the existing subscription and don't re-read the bridge, and restarting the Matter Hub add-on (which forced fresh subscriptions) didn't help either. What fixed it was removing the `matterhub` label, waiting for Matter Hub to drop the endpoint (it reacts within ~2 minutes) and for the tile to disappear from Apple Home, then adding the label back. Matter Hub reused endpoint #2, and Apple created a fresh, working tile. The new tile loses its room assignment and any Home-app scenes or automations that used it.
+
+Don't remove the tile from the Home app itself — removing a bridged accessory there can take the whole bridge with it.
+
 ### Some integrations need HACS replacements for proper entity types
 
 The default Xiaomi integration exposes pedestal fans as switches, not fans, which breaks HomeKit fan controls (oscillate, speed). The `hass-xiaomi-miot` HACS integration exposes proper `fan` entities. When a device's primary entity type seems wrong, check HACS for a better integration before working around it.
