@@ -36,14 +36,18 @@ description: >-
   being staggered room by room. A single-room call keeps that room's
   own tuned volume; a multi-room call (2+ rooms resolved) uses one
   shared volume (0.5) since one service call can't carry a different
-  volume per target. Office is dropped from a broadcast (and, if
-  explicitly targeted, gets a push instead of TTS) whenever
-  binary_sensor.nates_work_laptop_audio_input_in_use is on -- the same
-  MacBook Pro call-detection signal automation.office_camera_lighting
-  relies on. Avery's room is dropped whenever
-  input_boolean.avery_sleeping is on. A room that's busy (office only)
-  or offline is pulled out of the call and covered by a single push
-  notification instead. Pass critical_fallback to send that fallback
+  volume per target. While
+  binary_sensor.nates_work_laptop_audio_input_in_use is on (the MacBook
+  Pro call-detection signal automation.office_camera_lighting also
+  relies on), a routine announcement isn't spoken anywhere: every
+  target room, the living room AppleTV included, counts as busy and the
+  message goes out as a push instead, since any HomePod in the house
+  carries into the call. An urgent announcement (chime_path error or
+  critical_fallback) still plays everywhere except the office, which
+  gets a push. Avery's room is dropped whenever
+  input_boolean.avery_sleeping is on. A room that's busy or offline is
+  pulled out of the call and covered by a single push notification
+  instead. Pass critical_fallback to send that fallback
   push as an iOS critical alert.
 
   Timing notes, both live-verified 2026-09-26: pre-generating the audio
@@ -78,7 +82,7 @@ fields:
     name: Target
     description: >-
       Which HomePod to announce to, broadcast to unconditionally fan
-      out to kitchen, master bedroom, office (unless it's busy with a
+      out to kitchen, master bedroom, office (pushed instead during a
       call), and Avery's room (unless she's asleep), or auto to pick
       the single best room: master bedroom if everyone's asleep, the
       living room AppleTV if it's on, otherwise kitchen.
@@ -144,9 +148,11 @@ variables:
     {{ {'push': {'interruption-level': 'critical', 'sound': {'name': 'default',
     'critical': 1, 'volume': 1}}} if (critical_fallback | default(false)) else {} }}
   office_busy: "{{ is_state('binary_sensor.nates_work_laptop_audio_input_in_use', 'on') }}"
+  urgent: "{{ (critical_fallback | default(false)) or (chime_path | default('soft')) == 'error' }}"
+  call_quiet: "{{ office_busy and not urgent }}"
   broadcast_rooms: >-
-    {{ ['kitchen', 'master_bedroom'] + ([] if office_busy else ['office']) +
-    ([] if is_state('input_boolean.avery_sleeping', 'on') else ['averys_room']) }}
+    {{ ['kitchen', 'master_bedroom', 'office'] + ([] if
+    is_state('input_boolean.avery_sleeping', 'on') else ['averys_room']) }}
   target_rooms: >-
     {{ broadcast_rooms if (target | default('auto')) == 'broadcast' else [resolved_target] }}
   rooms_offline: |-
@@ -156,7 +162,9 @@ variables:
     {% if states(speaker_map.get(r, '')) in ['unavailable', 'unknown'] %}{% set ns.rooms = ns.rooms + [r] %}{% endif %}
     {% endfor %}
     {{ ns.rooms }}
-  rooms_busy: "{{ ['office'] if ('office' in target_rooms and office_busy) else [] }}"
+  rooms_busy: >-
+    {{ target_rooms if call_quiet else (['office'] if ('office' in
+    target_rooms and office_busy) else []) }}
   rooms_unreachable: "{{ (rooms_offline + rooms_busy) | unique | list }}"
   rooms_to_speak: "{{ target_rooms | reject('in', rooms_unreachable) | list }}"
   speaker_entities: |-
@@ -188,10 +196,12 @@ sequence:
       Speak directly through the living room AppleTV if auto resolved
       there, otherwise use the normal room list
     choose:
-      - alias: Auto resolved to the living room (asleep is false and the AppleTV is on)
+      - alias: >-
+          Auto resolved to the living room (asleep is false, the AppleTV
+          is on, and no call is muting routine announcements)
         conditions:
           - condition: template
-            value_template: "{{ resolved_target == 'living_room' }}"
+            value_template: "{{ resolved_target == 'living_room' and not call_quiet }}"
         sequence:
           - alias: Pre-generate the announcement audio
             note: >-

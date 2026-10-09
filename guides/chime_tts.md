@@ -6,7 +6,7 @@
 
 Chime TTS is a HACS integration that wraps Home Assistant's cloud TTS service with a configurable chime sound prefix. Announcements open with a brief soft chime before the spoken message, making them instantly recognizable as home automation alerts rather than unexpected audio playback. This instance runs `nimroddolev/chime_tts` v1.3.0, installed from HACS's default store (no custom repository registration needed).
 
-`script.household_tts_announce` is the sole entry point for every TTS announcement in this house. It pre-generates each announcement's audio via `chime_tts.say_url`, then dispatches it with `media_player.play_media` — either to the resolved HomePod(s), or directly to the living room AppleTV when `auto` resolves there. If the AppleTV rejects the stream, the same clip plays on the kitchen HomePod instead. When TTS can't land — an active video call, or the resolved HomePod being `unavailable` — the script falls back to a push notification to Nate's iPhone, optionally as an iOS critical alert.
+`script.household_tts_announce` is the sole entry point for every TTS announcement in this house. It pre-generates each announcement's audio via `chime_tts.say_url`, then dispatches it with `media_player.play_media` — either to the resolved HomePod(s), or directly to the living room AppleTV when `auto` resolves there. If the AppleTV rejects the stream, the same clip plays on the kitchen HomePod instead. When TTS can't land — a call in progress on the MacBook Pro, or the resolved HomePod being `unavailable` — the script falls back to a push notification to Nate's iPhone, optionally as an iOS critical alert.
 
 ---
 
@@ -19,7 +19,7 @@ automations
 script.household_tts_announce
           │
           ▼
-  resolved_target == 'living_room'?
+  resolved_target == 'living_room' and not call_quiet?
    (only possible via target: auto, when the AppleTV is on)
           │
    ┌──────┴──────┐
@@ -27,7 +27,8 @@ script.household_tts_announce
    ▼             ▼
  (A) living      (B) normal room resolution
      room             │  fallback guards, checked in order:
-     branch           ├─ office busy with a call            ─┐
+     branch           ├─ on a call: every room (routine) or  ─┐
+                       │    office only (urgent)                │
                        ├─ resolved HomePod unavailable/unknown ─┼─► notify.mobile_app_nates_iphone
                        │                     (critical payload when critical_fallback: true)
                        └─ routing (target: kitchen / master_bedroom / office / averys_room / broadcast / auto)
@@ -157,15 +158,15 @@ data:
 | `chime_path` | No | `soft` | Which Chime TTS preset plays before the message. `soft` is the routine-announcement chime every other caller uses; `error` is a distinct fault/life-safety chime — used by the water leak, refrigerator fault, and laundry fault callers |
 | `volume_override` | No | — | Overrides the tuned per-room volume table and the multi-room 0.5 default with this exact level (0.0–1.0) for every targeted HomePod. Used by the water leak alert (0.75) to be unmistakably louder than any routine announcement |
 
-**`target: broadcast` always reaches all four rooms — kitchen, master bedroom, office (unless it's busy with a call), and Avery's room (unless `input_boolean.avery_sleeping` is on).** There is no living-room exception on this path; automations that need whole-house coverage (`automation.household_hvac_exterior_open_pause`, `automation.kitchen_refrigerator_power_monitor`'s awake-hours branch) rely on `broadcast` reaching everyone, and the living room AppleTV is still ducked so it doesn't compete with the announcement — see Design Decisions.
+**`target: broadcast` always reaches all four rooms — kitchen, master bedroom, office (pushed instead during a call), and Avery's room (unless `input_boolean.avery_sleeping` is on).** There is no living-room exception on this path; automations that need whole-house coverage (`automation.household_hvac_exterior_open_pause`, `automation.kitchen_refrigerator_power_monitor`'s awake-hours branch) rely on `broadcast` reaching everyone, and the living room AppleTV is still ducked so it doesn't compete with the announcement — see Design Decisions.
 
 **`target: auto`'s living-room preference is what most single-room callers should use.** Most TTS automations in this house call with `target: auto` (or an explicit `kitchen`/`master_bedroom` when the message is *about* that room specifically, like a mop-pass warning) rather than `broadcast`, so they benefit from the living-room routing automatically.
 
 **One `media_player.play_media` action targeting a list of entity_ids, not a loop.** Every HomePod resolved for a given call is spoken to with a single action carrying `target.entity_id` as a list — a real single dispatch, not one call per room. A `repeat` action executes its iterations sequentially, so a per-room loop would speak kitchen, then master bedroom, then office, then Avery's room one after another rather than together — audibly staggered, not a broadcast. A single multi-target action starts every resolved HomePod within under a second of each other.
 
-**"Office busy" is a per-room condition, not a global one.** A call only makes the *Office* speaker unsuitable — kitchen, master bedroom, and Avery's room are physically far enough away that TTS there won't bleed into the call's microphone. `office_busy` is `true` when `binary_sensor.nates_work_laptop_audio_input_in_use` is `on` — the same MacBook Pro signal `automation.office_camera_lighting` relies on to detect an active call, deliberately audio-input rather than camera so an audio-only call (mic in use, no camera) still excludes the office.
+**A call silences routine announcements house-wide; urgent ones still play outside the office.** Every HomePod in the house carries into the office, so during a call a routine announcement is pushed instead of spoken anywhere — `call_quiet` marks every target room busy, including the living room AppleTV path. An urgent announcement (`chime_path: error` or `critical_fallback: true`, i.e. water leak, refrigerator fault, laundry fault) still plays everywhere except the office, which gets the push; a life-safety alert shouldn't wait for a call to end. `office_busy` is `true` when `binary_sensor.nates_work_laptop_audio_input_in_use` is `on` — the same MacBook Pro signal `automation.office_camera_lighting` relies on to detect an active call, deliberately audio-input rather than camera so an audio-only call (mic in use, no camera) still counts.
 
-**Fallback guard.** Any room that's unreachable — office busy with a call, or that room's HomePod offline — is pulled out of the room list before the `media_player.play_media` call and covered by a single push to `notify.mobile_app_nates_iphone` instead (one push regardless of how many rooms were unreachable, since the message/title is identical either way). The remaining reachable rooms still get TTS in their own single action. `chime_tts` against a dead speaker fails silently at every log level, so detecting "offline" ahead of the call — rather than after — is what keeps the announcement from vanishing with no trace.
+**Fallback guard.** Any room that's unreachable — busy because of a call (see above), or that room's HomePod offline — is pulled out of the room list before the `media_player.play_media` call and covered by a single push to `notify.mobile_app_nates_iphone` instead (one push regardless of how many rooms were unreachable, since the message/title is identical either way). The remaining reachable rooms still get TTS in their own single action. `chime_tts` against a dead speaker fails silently at every log level, so detecting "offline" ahead of the call — rather than after — is what keeps the announcement from vanishing with no trace.
 
 `critical_fallback: true` upgrades that push to a critical alert; callers that just want the message delivered leave it unset.
 
