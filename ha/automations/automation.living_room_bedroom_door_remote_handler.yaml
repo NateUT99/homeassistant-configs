@@ -1,0 +1,262 @@
+id: "1791583179976"
+alias: "Living Room: Bedroom Door Remote Handler"
+description: >-
+  Handles the Bedroom Door Remote (IKEA STYRBAR) for the Living Room ceiling fan
+  and light. Up tap turns the light on at Adaptive Lighting's level, or releases
+  AL manual control if it is already on; down tap turns it off. Up hold turns
+  the room on (fan at last speed, light on); down hold turns fan and light off.
+  Right tap speeds the fan up (from off: last speed), left tap slows it down to
+  off. Arrow holds are ignored. LED bar, last-speed memory, and the AL turn-on
+  snap are handled by automation.living_room_ceiling_fan_wall_control, which reacts
+  to the resulting state changes.
+triggers:
+  - alias: Up tap
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "54:0f:57:ff:fe:2c:1e:4e"
+      command: "on"
+    id: up_tap
+  - alias: Down tap
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "54:0f:57:ff:fe:2c:1e:4e"
+      command: "off"
+    id: down_tap
+  - alias: Up hold
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "54:0f:57:ff:fe:2c:1e:4e"
+      command: move_with_on_off
+    id: up_hold
+  - alias: Down hold
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "54:0f:57:ff:fe:2c:1e:4e"
+      command: move
+    id: down_hold
+  - alias: Right tap
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "54:0f:57:ff:fe:2c:1e:4e"
+      command: press
+      args:
+        - 256
+        - 13
+        - 0
+    id: right_tap
+  - alias: Left tap
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "54:0f:57:ff:fe:2c:1e:4e"
+      command: press
+      args:
+        - 257
+        - 13
+        - 0
+    id: left_tap
+  - alias: Arrow hold released
+    trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: "54:0f:57:ff:fe:2c:1e:4e"
+      command: release
+    id: arrow_release
+conditions: []
+actions:
+  - alias: Route by gesture
+    choose:
+      - alias: Up tap - light on, or hand it back to Adaptive Lighting
+        conditions:
+          - alias: Triggered by up tap
+            condition: trigger
+            id: up_tap
+        sequence:
+          - alias: Release AL if already on, otherwise turn on
+            if:
+              - alias: Ceiling light is on
+                condition: state
+                entity_id: light.living_room_ceiling_fan_light
+                state: "on"
+            then:
+              - alias: Release Adaptive Lighting manual control
+                action: adaptive_lighting.set_manual_control
+                data:
+                  entity_id: switch.adaptive_lighting_standard
+                  lights:
+                    - light.living_room_ceiling_fan_light
+                  manual_control: false
+            else:
+              - alias: Turn the ceiling light on
+                note: >-
+                  Bare turn_on so Adaptive Lighting's intercept sets the brightness
+                  instead of flagging manual control.
+                action: light.turn_on
+                target:
+                  entity_id: light.living_room_ceiling_fan_light
+      - alias: Down tap - light off
+        conditions:
+          - alias: Triggered by down tap
+            condition: trigger
+            id: down_tap
+        sequence:
+          - alias: Turn the ceiling light off
+            action: light.turn_off
+            target:
+              entity_id: light.living_room_ceiling_fan_light
+      - alias: Up hold - whole room on
+        conditions:
+          - alias: Triggered by up hold
+            condition: trigger
+            id: up_hold
+        sequence:
+          - alias: Turn the fan on to the remembered speed if it is off
+            if:
+              - alias: Fan is off
+                condition: state
+                entity_id: fan.living_room_ceiling_fan
+                state: "off"
+            then:
+              - alias: Set the remembered speed
+                action: fan.set_preset_mode
+                target:
+                  entity_id: fan.living_room_ceiling_fan
+                data:
+                  preset_mode: >-
+                    {{ states('input_select.living_room_ceiling_fan_last_speed')
+                    }}
+          - alias: Turn the light on if it is off
+            if:
+              - alias: Ceiling light is off
+                condition: state
+                entity_id: light.living_room_ceiling_fan_light
+                state: "off"
+            then:
+              - alias: Turn the ceiling light on
+                action: light.turn_on
+                target:
+                  entity_id: light.living_room_ceiling_fan_light
+      - alias: Down hold - whole room off
+        conditions:
+          - alias: Triggered by down hold
+            condition: trigger
+            id: down_hold
+        sequence:
+          - alias: Turn the fan off
+            action: fan.turn_off
+            target:
+              entity_id: fan.living_room_ceiling_fan
+          - alias: Turn the ceiling light off
+            action: light.turn_off
+            target:
+              entity_id: light.living_room_ceiling_fan_light
+      - alias: Right tap - fan faster
+        conditions:
+          - alias: Triggered by right tap
+            condition: trigger
+            id: right_tap
+        sequence:
+          - alias: Step the fan up
+            choose:
+              - alias: Fan off - resume the remembered speed
+                conditions:
+                  - alias: Fan is off
+                    condition: state
+                    entity_id: fan.living_room_ceiling_fan
+                    state: "off"
+                sequence:
+                  - alias: Set the remembered speed
+                    action: fan.set_preset_mode
+                    target:
+                      entity_id: fan.living_room_ceiling_fan
+                    data:
+                      preset_mode: >-
+                        {{ states('input_select.living_room_ceiling_fan_last_speed')
+                        }}
+              - alias: Low - go to medium
+                conditions:
+                  - alias: Fan is at low
+                    condition: state
+                    entity_id: fan.living_room_ceiling_fan
+                    attribute: preset_mode
+                    state: low
+                sequence:
+                  - alias: Set medium
+                    action: fan.set_preset_mode
+                    target:
+                      entity_id: fan.living_room_ceiling_fan
+                    data:
+                      preset_mode: medium
+            default:
+              - alias: Medium or high - go to high
+                action: fan.set_preset_mode
+                target:
+                  entity_id: fan.living_room_ceiling_fan
+                data:
+                  preset_mode: high
+      - alias: Left tap - fan slower
+        conditions:
+          - alias: Triggered by left tap
+            condition: trigger
+            id: left_tap
+          - alias: Fan is on
+            condition: state
+            entity_id: fan.living_room_ceiling_fan
+            state: "on"
+        sequence:
+          - alias: Step the fan down
+            choose:
+              - alias: Low - turn off
+                conditions:
+                  - alias: Fan is at low
+                    condition: state
+                    entity_id: fan.living_room_ceiling_fan
+                    attribute: preset_mode
+                    state: low
+                sequence:
+                  - alias: Turn the fan off
+                    action: fan.turn_off
+                    target:
+                      entity_id: fan.living_room_ceiling_fan
+              - alias: High - go to medium
+                conditions:
+                  - alias: Fan is at high
+                    condition: state
+                    entity_id: fan.living_room_ceiling_fan
+                    attribute: preset_mode
+                    state: high
+                sequence:
+                  - alias: Set medium
+                    action: fan.set_preset_mode
+                    target:
+                      entity_id: fan.living_room_ceiling_fan
+                    data:
+                      preset_mode: medium
+            default:
+              - alias: Medium - go to low
+                action: fan.set_preset_mode
+                target:
+                  entity_id: fan.living_room_ceiling_fan
+                data:
+                  preset_mode: low
+      - alias: Arrow hold released - swallow the trailing stray on
+        conditions:
+          - alias: Triggered by an arrow release
+            condition: trigger
+            id: arrow_release
+        sequence:
+          - alias: Hold the run open for 1s
+            note: >-
+              The STYRBAR follows an arrow-hold release with a stray "on" command
+              ~0.5s later, indistinguishable from an up tap. With mode single,
+              that trigger is dropped while this delay runs.
+            delay:
+              seconds: 1
+mode: single
+max_exceeded: silent
+category: 01M08MMBZ719V4GZ2FT10RPTJ2

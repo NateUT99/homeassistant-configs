@@ -1,31 +1,15 @@
 id: "1789046731183"
 alias: "Adaptive Lighting: Pre-Stage"
-description: >-
-  Keeps each Inovelli canopy light kit's Matter OnLevel loaded with the current
-  Adaptive Lighting brightness target, so a wall-paddle tap -- a firmware Matter
-  binding AL's intercept never sees -- turns the light on near the adapted level
-  instead of jumping to full.
+description: |-
+  Keeps each Inovelli canopy light kit's Matter OnLevel loaded with the current Adaptive Lighting brightness target, so a wall-paddle tap -- a firmware Matter binding AL's intercept never sees -- turns the light on near the adapted level instead of jumping to full.
 
-  Re-stages on a 15-minute poll, plus immediately when a canopy light turns off,
-  when either AL sleep-mode switch flips, and on HA start. Writes only while the
-  light is off. On the poll it writes only when the stored OnLevel is off the
-  live target by at least the perceptibility threshold (25 raw units, about 10
-  points of HA brightness); on the other triggers any non-zero change is
-  written, since those are the moments worth getting exact. OnLevel is
-  non-volatile flash, so this keeps writes to a few per device per day.
+  Re-stages on a 15-minute poll, plus immediately when a canopy light turns off, when either AL sleep-mode switch flips, and on HA start. Writes only while the light is off. On the poll it writes only when the stored OnLevel is off the live target by at least the perceptibility threshold (25 raw units, about 10 points of HA brightness); on the other triggers any non-zero change is written, since those are the moments worth getting exact. OnLevel is non-volatile flash, so this keeps writes to a few per device per day.
 
-  Standard drives Master Bedroom, Office + Living Room, Avery Schedule drives Avery's Room --
-  each fixture reads its own instance so the two curves can diverge. The
-  threshold and the fixture list are the only things to touch when tuning or
-  adding a light.
-mode: single
-max_exceeded: silent
-variables:
-  poll_write_threshold: 25
+  Standard drives Master Bedroom, Office + Living Room, Avery Schedule drives Avery's Room -- each fixture reads its own instance so the two curves can diverge. The threshold and the fixture list are the only things to touch when tuning or adding a light.
 triggers:
   - alias: Periodic re-stage
     trigger: time_pattern
-    minutes: "/15"
+    minutes: /15
     id: tick
   - alias: A canopy fan light turned off
     trigger: state
@@ -68,24 +52,44 @@ actions:
           if:
             - alias: Fixture light is off
               condition: template
-              value_template: "{{ is_state(repeat.item.light, 'off') }}"
+              value_template: >-
+                {{ is_state(repeat.item.light, 'off') }}
           then:
             - alias: Resolve AL's current brightness as a raw OnLevel target
               variables:
-                al_pct: "{{ state_attr(repeat.item.al_switch, 'brightness_pct') | float(-1) }}"
-                target: "{{ [[ (al_pct / 100 * 254) | round(0) | int, 1] | max, 254] | min }}"
-                stored: "{{ states(repeat.item.number) | int(-1) }}"
-                min_delta: "{{ poll_write_threshold if (trigger is not none and trigger.id == 'tick') else 1 }}"
-            - alias: Write OnLevel only when AL has a reading and the target moved enough to matter
+                al_pct: >-
+                  {{ state_attr(repeat.item.al_switch, 'brightness_pct') | float(-1)
+                  }}
+                target: >-
+                  {{ [[ (al_pct / 100 * 254) | round(0) | int, 1] | max, 254]
+                  | min }}
+                stored: >-
+                  {{ states(repeat.item.number) | int(-1) }}
+                min_delta: >-
+                  {{ poll_write_threshold if (trigger is not none and trigger.id
+                  == 'tick') else 1 }}
+            - alias: >-
+                Write OnLevel only when AL has a reading and the target moved
+                enough to matter
               if:
-                - alias: AL brightness known and OnLevel off-target by at least the active threshold
+                - alias: >-
+                    AL brightness known and OnLevel off-target by at least the
+                    active threshold
                   condition: template
-                  value_template: "{{ al_pct >= 0 and (target - stored) | abs >= (min_delta | int) }}"
+                  value_template: >-
+                    {{ al_pct >= 0 and (target - stored) | abs >= (min_delta |
+                    int) }}
               then:
                 - alias: Set the fixture's Matter OnLevel
                   action: number.set_value
                   target:
-                    entity_id: "{{ repeat.item.number }}"
+                    entity_id: >-
+                      {{ repeat.item.number }}
                   data:
-                    value: "{{ target }}"
+                    value: >-
+                      {{ target }}
+mode: single
+max_exceeded: silent
+variables:
+  poll_write_threshold: 25
 category: 01M0SZBV5BGDGY2BQ2GBB5NA4C

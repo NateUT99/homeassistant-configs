@@ -1,25 +1,23 @@
 alias: "Household: Ceiling Fan LED State"
 description: >-
-  Shared LED-bar state for any Inovelli ceiling-fan canopy switch's RGB
-  Indicator light (light.<prefix>_ceiling_fan_switch_led_bar). A distinct
-  speed colour while the fan runs (cyan low / blue medium / violet high;
-  blue a touch brighter to match the others), a white locator glow (color_name: white, brightness 8) while the fan is off and the
-  ceiling light is also off with someone home, dark when the fan is off and the
-  ceiling light is on (already lit and occupied) or when nobody's home.
-  Uses light.turn_on/turn_off directly on the RGB Indicator entity -- does
-  not touch the switch's select.*_led_color/_intensity_on/_off/_effect
-  parameters, which are left unmanaged. Pass sleeping_boolean for a
-  bedroom: while that boolean is on, the fan-running state settles from
-  the speed colour to the locator glow 30s after the last change (a fan
-  change, or the boolean itself turning on) -- mode: restart means any
-  subsequent call cancels a pending countdown and starts over, and the
-  boolean turning off recomputes the correct state immediately with no
-  delay. Leave sleeping_boolean unset for a switch with no sleep gating
-  (e.g. Office). Pass light_just_turned_off (true only from the
-  ceiling-light-changed trigger when the light is now off) to skip the
-  speed-colour flash and settle straight to the locator glow when the fan is
-  already running and the room is asleep -- a real fan-speed change still
-  gets its flash regardless of this field.
+  Shared LED-bar state for any Inovelli ceiling-fan canopy switch's RGB Indicator
+  light (light.<prefix>_ceiling_fan_switch_led_bar). A distinct speed colour while
+  the fan runs (cyan low / blue medium / violet high; blue a touch brighter to
+  match the others), a white locator glow (color_name: white, brightness 8) while
+  the fan is off and the ceiling light is also off with someone home, dark when
+  the fan is off and the ceiling light is on (already lit and occupied) or when
+  nobody's home. Uses light.turn_on/turn_off directly on the RGB Indicator entity
+  -- does not touch the switch's select.*_led_color/_intensity_on/_off/_effect
+  parameters, which are left unmanaged. Pass sleeping_boolean for a bedroom: while
+  that boolean is on, the fan-running state settles from the speed colour to the
+  locator glow 30s after the last change (a fan change, or the boolean itself
+  turning on) -- mode: restart means any subsequent call cancels a pending countdown
+  and starts over, and the boolean turning off recomputes the correct state immediately
+  with no delay. Leave sleeping_boolean unset for a switch with no sleep gating
+  (e.g. Office). Pass light_just_turned_off (true only from the ceiling-light-changed
+  trigger when the light is now off) to skip the speed-colour flash and settle
+  straight to the locator glow when the fan is already running and the room is
+  asleep -- a real fan-speed change still gets its flash regardless of this field.
 mode: restart
 fields:
   fan_entity:
@@ -32,8 +30,8 @@ fields:
   light_entity:
     name: Ceiling light entity
     description: >-
-      The room's ceiling light (fan light kit) -- used only to decide the
-      fan-off resting state.
+      The room's ceiling light (fan light kit) -- used only to decide the fan-off
+      resting state.
     required: true
     selector:
       entity:
@@ -41,8 +39,7 @@ fields:
   led_bar_entity:
     name: LED bar entity
     description: >-
-      The switch's RGB Indicator light entity
-      (light.*_ceiling_fan_switch_led_bar).
+      The switch's RGB Indicator light entity (light.*_ceiling_fan_switch_led_bar).
     required: true
     selector:
       entity:
@@ -50,9 +47,8 @@ fields:
   sleeping_boolean:
     name: Sleeping boolean
     description: >-
-      Optional. The input_boolean that gates this room's sleep-mode
-      settle-to-locator-glow behavior. Leave unset for a switch with no
-      sleep gating.
+      Optional. The input_boolean that gates this room's sleep-mode settle-to-locator-glow
+      behavior. Leave unset for a switch with no sleep gating.
     required: false
     default: ""
     selector:
@@ -61,11 +57,11 @@ fields:
   light_just_turned_off:
     name: Light just turned off
     description: >-
-      Optional. Pass true only from the ceiling-light-changed trigger when
-      the light is now off, so a real fan-speed change still gets its
-      speed-colour flash but a light-off event while the fan is already running and the
-      room is asleep skips straight to the locator glow. Leave unset/false
-      for every other caller.
+      Optional. Pass true only from the ceiling-light-changed trigger when the
+      light is now off, so a real fan-speed change still gets its speed-colour
+      flash but a light-off event while the fan is already running and the room
+      is asleep skips straight to the locator glow. Leave unset/false for every
+      other caller.
     required: false
     default: false
     selector:
@@ -73,67 +69,80 @@ fields:
 sequence:
   - alias: Resolve live state
     variables:
-      someone_home: "{{ states('zone.home') | int(0) > 0 }}"
-      fan_on: "{{ is_state(fan_entity, 'on') }}"
-      light_on: "{{ is_state(light_entity, 'on') }}"
-      fan_pct: "{{ state_attr(fan_entity, 'percentage') | int(0) }}"
+      someone_home: >-
+        {{ states('zone.home') | int(0) > 0 }}
+      fan_on: >-
+        {{ is_state(fan_entity, 'on') }}
+      light_on: >-
+        {{ is_state(light_entity, 'on') }}
+      fan_speed: >-
+        {{ state_attr(fan_entity, 'preset_mode') }}
       sleeping: >-
-        {{ (sleeping_boolean | default('')) not in ['', None] and
-        is_state(sleeping_boolean, 'on') }}
-      # Speed is encoded as hue, not brightness -- brightness steps on the
-      # bar aren't distinguishable at a glance. Well-separated cool hues
-      # avoid warning connotations and stay clear of the white locator glow.
+        {{ (sleeping_boolean | default('')) not in ['', None] and is_state(sleeping_boolean,
+        'on') }}
       speed_hs: >-
-        {{ [180, 100] if fan_pct < 50 else ([240, 100] if fan_pct < 90 else
-        [280, 100]) }}
-      # Blue renders perceptibly dimmer than cyan/violet at equal brightness.
-      speed_brightness: "{{ 210 if 50 <= fan_pct < 90 else 180 }}"
+        {{ {'low': [180, 100], 'medium': [240, 100], 'high': [280, 100]}.get(fan_speed,
+        [240, 100]) }}
+      speed_brightness: >-
+        {{ 210 if fan_speed == 'medium' else 180 }}
   - alias: Apply the resting state
     choose:
       - alias: Nobody home - dark
         conditions:
           - condition: template
-            value_template: "{{ not someone_home }}"
+            value_template: >-
+              {{ not someone_home }}
             alias: Nobody home
         sequence:
           - alias: Turn off the LED bar
             action: light.turn_off
             target:
-              entity_id: "{{ led_bar_entity }}"
-      - alias: Light just turned off, fan already running and asleep - skip the flash, settle immediately
+              entity_id: >-
+                {{ led_bar_entity }}
+      - alias: >-
+          Light just turned off, fan already running and asleep - skip the flash,
+          settle immediately
         conditions:
           - condition: template
-            value_template: "{{ (light_just_turned_off | default(false)) and fan_on and sleeping }}"
+            value_template: >-
+              {{ (light_just_turned_off | default(false)) and fan_on and sleeping
+              }}
             alias: Light-off event, fan running, asleep
         sequence:
           - alias: Go straight to the white locator glow
             action: light.turn_on
             target:
-              entity_id: "{{ led_bar_entity }}"
+              entity_id: >-
+                {{ led_bar_entity }}
             data:
               brightness: 8
               color_name: white
-      - alias: Fan running - speed colour, settling to locator glow if sleeping
+      - alias: >-
+          Fan running - speed colour, settling to locator glow if sleeping
         conditions:
           - condition: template
-            value_template: "{{ fan_on }}"
+            value_template: >-
+              {{ fan_on }}
             alias: Fan is on
         sequence:
           - alias: Set the speed colour immediately
             action: light.turn_on
             target:
-              entity_id: "{{ led_bar_entity }}"
+              entity_id: >-
+                {{ led_bar_entity }}
             data:
-              hs_color: "{{ speed_hs }}"
-              brightness: "{{ speed_brightness }}"
+              hs_color: >-
+                {{ speed_hs }}
+              brightness: >-
+                {{ speed_brightness }}
           - alias: If this room is asleep, settle to the locator glow after 30s
             note: >-
-              mode: restart cancels this wait if any subsequent call
-              (another fan change, or the sleeping boolean itself) comes
-              in first.
+              mode: restart cancels this wait if any subsequent call (another
+              fan change, or the sleeping boolean itself) comes in first.
             if:
               - condition: template
-                value_template: "{{ sleeping }}"
+                value_template: >-
+                  {{ sleeping }}
                 alias: Sleeping boolean is on
             then:
               - delay: "00:00:30"
@@ -141,25 +150,29 @@ sequence:
               - alias: Settle to the white locator glow
                 action: light.turn_on
                 target:
-                  entity_id: "{{ led_bar_entity }}"
+                  entity_id: >-
+                    {{ led_bar_entity }}
                 data:
-                  color_name: white
                   brightness: 8
+                  color_name: white
       - alias: Fan off, ceiling light also off, someone home - locator glow
         conditions:
           - condition: template
-            value_template: "{{ not light_on }}"
+            value_template: >-
+              {{ not light_on }}
             alias: Ceiling light is off
         sequence:
           - alias: Turn on the locator glow
             action: light.turn_on
             target:
-              entity_id: "{{ led_bar_entity }}"
+              entity_id: >-
+                {{ led_bar_entity }}
             data:
-              color_name: white
               brightness: 8
+              color_name: white
     default:
       - alias: Fan off, ceiling light on - dark
         action: light.turn_off
         target:
-          entity_id: "{{ led_bar_entity }}"
+          entity_id: >-
+            {{ led_bar_entity }}

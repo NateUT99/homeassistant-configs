@@ -851,6 +851,26 @@ Household Exterior Openings group — hid the front door, patio door, and window
 themselves, dropping them from area pages, auto-generated dashboards, and entity pickers.
 Leave Hide members off for roll-up groups; turning it off un-hides the members it hid.
 
+### IKEA STYRBAR arrow holds can't be mapped in ZHA
+
+Captured 2026-10-09 on the Bedroom Door Remote (model "Remote Control N2"). Up and
+down behave as expected: `on` / `off` on a tap, `move_with_on_off` / `move` when a
+hold starts, `stop_with_on_off` / `stop` on release. The arrows send `press` with
+`args` `[257, 13, 0]` (left) or `[256, 13, 0]` (right) on a tap. Holding an arrow
+is the problem:
+
+- Nothing arrives when the hold starts — ZHA lists `remote_button_long_press`
+  for `left` / `right`, but no event fires.
+- The release is `release` with `args: [0]` for both arrows, so it can't say
+  which one was held.
+- About 0.5 s after the release, the remote sends a plain `on`, identical to an
+  up tap.
+
+**Rule:** map only taps on the arrows, and swallow the stray `on`. A `release`
+trigger that runs a 1 s delay under `mode: single` drops it
+(`automation.living_room_bedroom_door_remote_handler`). Match arrow taps on the
+full `args` list; it is the field that distinguishes left from right.
+
 ## Presence & Device Trackers
 
 ### Template `device_tracker`'s `in_zones` requires full zone entity_id, not the bare slug — fails silently

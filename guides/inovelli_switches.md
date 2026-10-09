@@ -121,7 +121,7 @@ all four rooms; each bedroom's own sleep flag recomputes only that room.
 This section deliberately says nothing about *what* makes a switch's "running" state look the
 way it does — that's supplied by whatever the switch controls. The Ceiling Fan Canopy pattern's
 addition is exactly one thing: pass the fan's own entity as `fan_entity` so the script can read
-its `percentage` and map it to a speed colour. A future canopy-less switch would have no
+its `preset_mode` (`low` / `medium` / `high`) and map it to a speed colour. A future canopy-less switch would have no
 "running" state at all — just the locator glow while home, and dark while away.
 
 ### Known hardware quirk
@@ -171,7 +171,7 @@ Double-tap down always turns the fan and light off. Double-tap up turns
 the fan and light on **only when the light is off**; if the light is
 already on, it instead releases Adaptive Lighting manual control on the
 light if it was left manually controlled, rather than silently re-running
-`fan.set_percentage` / `light.turn_on` on top of state that hasn't
+`fan.set_preset_mode` / `light.turn_on` on top of state that hasn't
 changed. Tap → light and hold → light are Matter bindings and are
 independent of the HA automation entirely.
 
@@ -195,10 +195,10 @@ independent of the HA automation entirely.
                        └────────────────────────────┘     (Shared: LED Bar)
 
   automation.<prefix>_ceiling_fan_wall_control   (one automation, five triggers)
-      event.*_button_config        ──►  fan.set_percentage / fan.turn_off   (1 / 2 taps)
+      event.*_button_config        ──►  fan.set_preset_mode / fan.turn_off  (1 / 2 taps)
                                    └─►  script.household_ceiling_fan_led_state (3 taps: peek)
       event.*_button_down (multi_press_2) ─►  fan.turn_off + light.turn_off
-      event.*_button_up   (multi_press_2) ─►  fan.set_percentage (last speed) + light.turn_on   (if light off)
+      event.*_button_up   (multi_press_2) ─►  fan.set_preset_mode (last speed) + light.turn_on  (if light off)
                                    └─►  adaptive_lighting.set_manual_control (false, if manual)  (if light on)
       event.*_button_up/down (long_press) ─►  adaptive_lighting.set_manual_control (true)
       fan.<prefix>_ceiling_fan      ──►  input_select.<prefix>_ceiling_fan_last_speed
@@ -229,7 +229,7 @@ independent of the HA automation entirely.
   and light off. `multi_press_2` on `…_button_up` branches on whether the
   light is off: if off, it sets the fan to the remembered speed and turns
   the light on, same as the down branch's mirror; if the light is already
-  on, `fan.set_percentage` / `light.turn_on` would be a redundant
+  on, `fan.set_preset_mode` / `light.turn_on` would be a redundant
   re-command, so it instead releases Adaptive Lighting manual control on
   the light if it was left manually controlled. Each branch gates on
   `event_type` being `multi_press_2`, so a single tap or a hold does not
@@ -278,7 +278,7 @@ independent of the HA automation entirely.
 - **The LED bar reacts to settled state, not button presses.** With no per-change
   animation to time precisely, dispatching from the button-gesture branches ahead
   of the fan's own Matter round-trip would only add complexity for no visible
-  benefit. Every LED update comes from the `fan.percentage` and
+  benefit. Every LED update comes from the fan's `preset_mode` and
   `light.<prefix>_ceiling_fan_light` state triggers alone, reacting within the
   fan's normal ~0.3–0.6s settle time. The button-gesture branches contain no LED
   code at all.
@@ -513,7 +513,7 @@ to the firmware without matching an automation branch:
 | Paddle gesture | Result |
 |---|---|
 | Double-tap down (`multi_press_2`) | `fan.turn_off` + `light.turn_off` |
-| Double-tap up (`multi_press_2`) | If the light is off: `fan.set_percentage` to the remembered speed + `light.turn_on` (comes on at the `On level`, which Adaptive Lighting pre-stages — `guides/adaptive_lighting.md`). If the light is already on: no fan/light action — if it was left manually controlled, releases manual control so it returns to AL's curve. |
+| Double-tap up (`multi_press_2`) | If the light is off: `fan.set_preset_mode` to the remembered speed + `light.turn_on` (comes on at the `On level`, which Adaptive Lighting pre-stages — `guides/adaptive_lighting.md`). If the light is already on: no fan/light action — if it was left manually controlled, releases manual control so it returns to AL's curve. |
 | Hold start, either paddle (`long_press`) | `adaptive_lighting.set_manual_control(true)` for the ceiling light — pins the wall-set dim level against AL's curve for the whole gesture, until the light next turns off or the 30-minute autoreset fires |
 
 Gated on `trigger.to_state.attributes.event_type == 'long_press'`, which reads
@@ -521,14 +521,13 @@ the triggering entity, so the other paddle's stale attribute cannot match. No
 de-dup guard on the double-tap branches: `mode: queued` plus idempotent actions
 make a repeat `multi_press_2` a no-op.
 
-**Fan `percentage` attribute change** (the value is already settled — no delay
+**Fan `preset_mode` attribute change** (the value is already settled — no delay
 needed):
 
-1. Resolve the current speed band into a `speed` variable
-   (`off`/`low`/`medium`/`high`).
-2. If the fan is on, write `speed` to `input_select.*_ceiling_fan_last_speed`
-   (skipped when off, so the memory survives an off/on cycle).
-3. Call `script.household_ceiling_fan_led_state` with this room's `fan_entity`,
+1. If `preset_mode` is `low`, `medium`, or `high`, write it to
+   `input_select.*_ceiling_fan_last_speed`. An off fan reports no preset, so the
+   memory survives an off/on cycle.
+2. Call `script.household_ceiling_fan_led_state` with this room's `fan_entity`,
    `light_entity`, `led_bar_entity`, and (for a bedroom) `sleeping_boolean` to
    recompute the bar. See [Shared: LED Bar](#shared-led-bar).
 
@@ -584,21 +583,52 @@ occur.
 
 `mode: queued`, `max: 10` — runs process in order.
 
+## Living Room: Bedroom Door Remote
+
+The Bedroom Door Remote (IKEA STYRBAR, ZHA) is a second control point for the
+Living Room canopy, handled by
+Living Room: Bedroom Door Remote Handler
+(`automation.living_room_bedroom_door_remote_handler`; category Lighting, labels
+`int_inovelli_fan_canopy` + `int_adaptive_lighting`). It triggers on `zha_event`
+by the remote's IEEE address and `command`; left and right are told apart by
+`args` (`[257, 13, 0]` left, `[256, 13, 0]` right).
+
+| Gesture | Result |
+|---|---|
+| Up tap | Light on with a bare `light.turn_on` (Adaptive Lighting sets the level); if already on, release AL manual control |
+| Down tap | Light off |
+| Up hold | Fan to the remembered speed (if off) + light on (if off) |
+| Down hold | Fan and light off |
+| Right tap | Fan faster: from off, the remembered speed; then low → medium → high, holding at high |
+| Left tap | Fan slower: high → medium → low → off; nothing if the fan is off |
+
+Arrow holds are unused: the STYRBAR sends nothing when one starts, the release is
+identical for both arrows, and a stray `on` follows ~0.5 s later (`LESSONS.md`).
+A `release` trigger holds a 1 s delay under `mode: single`, which drops that stray
+`on` before it can act as an up tap.
+
+The handler only commands the fan and light. The LED bar, the last-speed helper,
+and the Adaptive Lighting turn-on snap all follow from
+`automation.living_room_ceiling_fan_wall_control` reacting to the resulting
+state changes, the same as for any other source.
+
 ## Scale reference
 
-Fan speed (VTM36 3-speed): `1–33% = low`, `34–66% = medium`, `67–100% = high`.
-The automations use 33 / 66 / 100, with `< 45` / `< 78` band edges to absorb the
-Matter fan's percentage rounding. All rooms' fans share this same
-`percentage_step` — confirmed before building the shared script.
+Fan speed (VTM36 3-speed) is read and written as the fan's `preset_mode`: `low`,
+`medium`, `high`. The entity also lists `natural_wind` and `sleep_wind`; nothing
+here sets them, and every speed step falls back to a named neighbour if it reads
+one. `preset_mode` and `percentage` (33 / 67 / 100) arrive as separate Matter
+reports and can disagree for ~10 ms mid-change, so every trigger, condition, and
+read uses `preset_mode` alone.
 
 The LED bar shows each running speed as a distinct fully-saturated hue, mapped by
 `script.household_ceiling_fan_led_state`:
 
-| Speed | `fan.percentage` | Bar colour | Brightness |
+| Speed | `preset_mode` | Bar colour | Brightness |
 |---|---|---|---|
-| low | 33 | cyan, `hs_color: [180, 100]` | 180 |
-| medium | 67 | blue, `hs_color: [240, 100]` | 210 |
-| high | 100 | violet, `hs_color: [280, 100]` | 180 |
+| low | `low` | cyan, `hs_color: [180, 100]` | 180 |
+| medium | `medium` | blue, `hs_color: [240, 100]` | 210 |
+| high | `high` | violet, `hs_color: [280, 100]` | 180 |
 
 Locator glow (fan off, ceiling light off, someone home) is `color_name: white` at
 brightness `8`, unchanged by day/night — see
@@ -636,7 +666,7 @@ separate personal flag for that room.
 2–3, the two bindings, the automation shape (one
 `automation.<prefix>_ceiling_fan_wall_control`, category Climate, labels
 `int_inovelli_fan_canopy` + `int_inovelli_led_bar` + `int_adaptive_lighting`,
-`mode: queued` max 10, five triggers), and the speed bands. One value is easy
+`mode: queued` max 10, five triggers), and the preset-based speed steps. One value is easy
 to get wrong and worth re-checking per room: `Control of switch load` left at
 `Remote & paddle control`.
 
@@ -728,6 +758,7 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 | Master Bedroom: Ceiling Fan Wall Control | `automation.master_bedroom_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar` + `int_adaptive_lighting`) |
 | Office: Ceiling Fan Wall Control | `automation.office_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar` + `int_adaptive_lighting`) |
 | Living Room: Ceiling Fan Wall Control | `automation.living_room_ceiling_fan_wall_control` | Automation (Climate, `int_inovelli_fan_canopy` + `int_inovelli_led_bar` + `int_adaptive_lighting`) |
+| Living Room: Bedroom Door Remote Handler | `automation.living_room_bedroom_door_remote_handler` | Automation (Lighting, `int_inovelli_fan_canopy` + `int_adaptive_lighting`) |
 | Household: Ceiling Fan Switch LED Locator | `automation.household_ceiling_fan_switch_led_locator` | Automation (Lighting, `int_inovelli_led_bar`, `scope_multi_area`, `presence`) |
 | Ceiling Fan LED State | `script.household_ceiling_fan_led_state` | Script (`mode: restart`, shared across every room) |
 | Avery's Room Ceiling Fan Last Speed | `input_select.averys_room_ceiling_fan_last_speed` | Helper (`int_inovelli_fan_canopy`) |
@@ -745,6 +776,7 @@ a factory reset and re-commission are **not** required — this cleanup is enoug
 | `ha/automations/automation.master_bedroom_ceiling_fan_wall_control.yaml` | HA automation registry | Mirror — Master Bedroom wall-control automation |
 | `ha/automations/automation.office_ceiling_fan_wall_control.yaml` | HA automation registry | Mirror — Office wall-control automation |
 | `ha/automations/automation.living_room_ceiling_fan_wall_control.yaml` | HA automation registry | Mirror — Living Room wall-control automation |
+| `ha/automations/automation.living_room_bedroom_door_remote_handler.yaml` | HA automation registry | Mirror — Living Room STYRBAR remote handler |
 | `ha/automations/automation.household_ceiling_fan_switch_led_locator.yaml` | HA automation registry | Mirror — shared presence/sleep LED dispatch |
 | `ha/scripts/script.household_ceiling_fan_led_state.yaml` | HA script registry | Mirror — shared LED-bar script, every room |
 | `scripts/matter_write_attribute.py` | run from a LAN machine (Mac Mini) | Reads vendor-cluster attributes HA doesn't expose; `--dump-node` / `--dump-modes` for discovery |
@@ -805,7 +837,7 @@ reports `multi_press_1` twice instead, raise `Button Delay`
 config button emits its event twice per tap; the config branch's guard condition
 (`< 0.3 s since the previous config event → skip`) must be present to drop the
 duplicate. If the resumed speed lands one step low, confirm the fan trigger is on
-the `percentage` **attribute**, not a bare `state` trigger.
+the `preset_mode` **attribute**, not a bare `state` trigger.
 
 **LED bar shows the wrong colour/brightness, doesn't update, or renders
 differently between rooms at the same commanded value.** Check

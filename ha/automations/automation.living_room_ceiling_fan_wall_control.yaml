@@ -2,32 +2,28 @@ id: "1791581122154"
 alias: "Living Room: Ceiling Fan Wall Control"
 description: >-
   Single wall-control automation for the Living Room ceiling fan (VTM36 canopy
-  + VTM30-SN switch), covering the links that don't run over the Matter
-  binding. Down paddle double tap turns the fan and light off; up paddle
-  double tap turns the fan on to the last speed and the light on if the
-  light is off; if the light is already on, it instead releases Adaptive
-  Lighting manual control on the ceiling light if it was left manually
-  controlled. Config
-  button: single tap resumes the last speed (fan off) or advances
-  low->medium->high->low (fan on); double tap turns it off; triple tap
-  peeks at the current LED state without changing the fan. Fan-percentage
-  changes recompute the switch's RGB Indicator LED bar via
-  script.household_ceiling_fan_led_state (shared across all four canopy
-  switches) -- the running fan's speed colour, a white locator glow when
-  idle, or dark when nobody's home. Living Room has no sleep gating -- always
-  speed-accurate while running. See guides/inovelli_switches.md. None of
-  this works while HA is down; paddle tap -> light on/off (cluster 6) and
-  paddle hold -> dim (cluster 8) are Matter bindings that run regardless.
-  On the hold's start (not its release) HA marks the ceiling light
-  manually controlled, so Adaptive Lighting leaves the wall-set brightness
-  alone for the whole gesture; any observed
-  turn-off (single-tap, double-tap, HA) hands it back to Adaptive
-  Lighting, and the 30-min autoreset is the backstop. Any observed turn-on
-  that is not manually controlled gets snapped to the current Adaptive
-  Lighting target over 2s -- OnLevel pre-staging is not reliably honored
-  for every turn-on path (confirmed on the Office light, which has landed at full
-  brightness even with a correctly pre-staged OnLevel), so this is a fast
-  backstop rather than a redundant check.
+  + VTM30-SN switch), covering the links that don't run over the Matter binding.
+  Down paddle double tap turns the fan and light off; up paddle double tap turns
+  the fan on to the last speed and the light on if the light is off; if the light
+  is already on, it instead releases Adaptive Lighting manual control on the ceiling
+  light if it was left manually controlled. Config button: single tap resumes
+  the last speed (fan off) or advances low->medium->high->low (fan on); double
+  tap turns it off; triple tap peeks at the current LED state without changing
+  the fan. Fan speed changes recompute the switch's RGB Indicator LED bar via
+  script.household_ceiling_fan_led_state (shared across all four canopy switches)
+  -- the running fan's speed colour, a white locator glow when idle, or dark when
+  nobody's home. Living Room has no sleep gating -- always speed-accurate while
+  running. See guides/inovelli_switches.md. None of this works while HA is down;
+  paddle tap -> light on/off (cluster 6) and paddle hold -> dim (cluster 8) are
+  Matter bindings that run regardless. On the hold's start (not its release) HA
+  marks the ceiling light manually controlled, so Adaptive Lighting leaves the
+  wall-set brightness alone for the whole gesture; any observed turn-off (single-tap,
+  double-tap, HA) hands it back to Adaptive Lighting, and the 30-min autoreset
+  is the backstop. Any observed turn-on that is not manually controlled gets snapped
+  to the current Adaptive Lighting target over 2s -- OnLevel pre-staging is not
+  reliably honored for every turn-on path (confirmed on the Office light, which
+  has landed at full brightness even with a correctly pre-staged OnLevel), so
+  this is a fast backstop rather than a redundant check.
 triggers:
   - alias: Config button gesture
     trigger: state
@@ -39,10 +35,10 @@ triggers:
     not_from:
       - unavailable
       - unknown
-  - alias: Fan speed settled (percentage attribute changed)
+  - alias: Fan speed changed (preset_mode attribute changed)
     trigger: state
     entity_id: fan.living_room_ceiling_fan
-    attribute: percentage
+    attribute: preset_mode
     id: fan
   - alias: Down paddle gesture
     trigger: state
@@ -77,7 +73,9 @@ actions:
           - condition: trigger
             id: config
             alias: Triggered by the config button
-          - alias: Ignore the duplicate event the config button fires ~8ms after a tap
+          - alias: >-
+              Ignore the duplicate event the config button fires ~8ms after a
+              tap
             condition: template
             value_template: >-
               {{ trigger.from_state is none or (trigger.to_state.last_changed
@@ -101,25 +99,51 @@ actions:
                         alias: Fan currently off
                     then:
                       - alias: Turn fan on to the remembered speed
-                        action: fan.set_percentage
+                        action: fan.set_preset_mode
                         target:
                           entity_id: fan.living_room_ceiling_fan
                         data:
-                          percentage: >-
-                            {% set s = states('input_select.living_room_ceiling_fan_last_speed') %}
-                            {{ {'low': 33, 'medium': 66, 'high': 100}.get(s, 66) }}
+                          preset_mode: >-
+                            {{ states('input_select.living_room_ceiling_fan_last_speed')
+                            }}
                     else:
                       - alias: Advance low -> medium -> high -> low
-                        note: >-
-                          Wide bands absorb Matter fan percentage rounding:
-                          low~33, medium~66, high~100.
-                        action: fan.set_percentage
-                        target:
-                          entity_id: fan.living_room_ceiling_fan
-                        data:
-                          percentage: >-
-                            {% set p = state_attr('fan.living_room_ceiling_fan', 'percentage') | int(0) %}
-                            {{ 66 if p < 45 else (100 if p < 78 else 33) }}
+                        choose:
+                          - alias: Low - go to medium
+                            conditions:
+                              - alias: Fan is at low
+                                condition: state
+                                entity_id: fan.living_room_ceiling_fan
+                                attribute: preset_mode
+                                state: low
+                            sequence:
+                              - alias: Set medium
+                                action: fan.set_preset_mode
+                                target:
+                                  entity_id: fan.living_room_ceiling_fan
+                                data:
+                                  preset_mode: medium
+                          - alias: Medium - go to high
+                            conditions:
+                              - alias: Fan is at medium
+                                condition: state
+                                entity_id: fan.living_room_ceiling_fan
+                                attribute: preset_mode
+                                state: medium
+                            sequence:
+                              - alias: Set high
+                                action: fan.set_preset_mode
+                                target:
+                                  entity_id: fan.living_room_ceiling_fan
+                                data:
+                                  preset_mode: high
+                        default:
+                          - alias: High - wrap to low
+                            action: fan.set_preset_mode
+                            target:
+                              entity_id: fan.living_room_ceiling_fan
+                            data:
+                              preset_mode: low
               - alias: Double tap - off
                 conditions:
                   - condition: state
@@ -132,7 +156,9 @@ actions:
                     action: fan.turn_off
                     target:
                       entity_id: fan.living_room_ceiling_fan
-              - alias: Triple tap - peek at the current LED state without changing the fan
+              - alias: >-
+                  Triple tap - peek at the current LED state without changing
+                  the fan
                 conditions:
                   - condition: state
                     entity_id: event.living_room_ceiling_fan_switch_button_config
@@ -150,16 +176,16 @@ actions:
                         led_bar_entity: light.living_room_ceiling_fan_switch_led_bar
                         light_entity: light.living_room_ceiling_fan_light
                     note: >-
-                      script.turn_on, not a direct call: matches the bedroom
-                      automations, where a blocking call would stall this
-                      queued automation behind the script's 30s sleep-settle
-                      wait.
+                      script.turn_on, not a direct call: matches the bedroom automations,
+                      where a blocking call would stall this queued automation
+                      behind the script's 30s sleep-settle wait.
       - alias: Down paddle double-tapped - turn the fan and light off
         conditions:
           - condition: trigger
             id: down_paddle
             alias: Triggered by the down paddle
-          - alias: Gesture was a double tap (multi_press_2), not a single tap or hold
+          - alias: >-
+              Gesture was a double tap (multi_press_2), not a single tap or hold
             condition: state
             entity_id: event.living_room_ceiling_fan_switch_button_down
             attribute: event_type
@@ -173,23 +199,26 @@ actions:
             action: light.turn_off
             target:
               entity_id: light.living_room_ceiling_fan_light
-      - alias: Up paddle double-tapped - turn on if off, else restore Adaptive Lighting
+      - alias: >-
+          Up paddle double-tapped - turn on if off, else restore Adaptive Lighting
         conditions:
           - condition: trigger
             id: up_paddle
             alias: Triggered by the up paddle
-          - alias: Gesture was a double tap (multi_press_2), not a single tap or hold
+          - alias: >-
+              Gesture was a double tap (multi_press_2), not a single tap or hold
             condition: state
             entity_id: event.living_room_ceiling_fan_switch_button_up
             attribute: event_type
             state: multi_press_2
         sequence:
-          - alias: If the light is off, turn the fan and light on; otherwise restore Adaptive Lighting if manually controlled
+          - alias: >-
+              If the light is off, turn the fan and light on; otherwise restore
+              Adaptive Lighting if manually controlled
             note: >-
-              Turning everything on only applies when the light (and with
-              it, normally, the fan) is off -- if the light is already
-              on, double-tap up is a manual-control release instead of a
-              redundant re-command.
+              Turning everything on only applies when the light (and with it,
+              normally, the fan) is off -- if the light is already on, double-tap
+              up is a manual-control release instead of a redundant re-command.
             if:
               - alias: Ceiling light is off
                 condition: state
@@ -197,25 +226,26 @@ actions:
                 state: "off"
             then:
               - alias: Turn the fan on to the remembered speed
-                action: fan.set_percentage
+                action: fan.set_preset_mode
                 target:
                   entity_id: fan.living_room_ceiling_fan
                 data:
-                  percentage: >-
-                    {% set s = states('input_select.living_room_ceiling_fan_last_speed') %}
-                    {{ {'low': 33, 'medium': 66, 'high': 100}.get(s, 66) }}
+                  preset_mode: >-
+                    {{ states('input_select.living_room_ceiling_fan_last_speed')
+                    }}
               - alias: Turn the fan light on
                 action: light.turn_on
                 target:
                   entity_id: light.living_room_ceiling_fan_light
             else:
-              - alias: If the light was manually controlled, restore it to Adaptive Lighting
+              - alias: >-
+                  If the light was manually controlled, restore it to Adaptive
+                  Lighting
                 if:
                   - alias: Light is manually controlled
                     condition: template
                     value_template: >-
-                      {{ 'light.living_room_ceiling_fan_light' in
-                      (state_attr('switch.adaptive_lighting_standard',
+                      {{ 'light.living_room_ceiling_fan_light' in (state_attr('switch.adaptive_lighting_standard',
                       'manual_control_brightness') or []) }}
                 then:
                   - alias: Release Adaptive Lighting manual control
@@ -225,7 +255,8 @@ actions:
                       lights:
                         - light.living_room_ceiling_fan_light
                       manual_control: false
-      - alias: Paddle hold started - mark the ceiling light manually controlled
+      - alias: >-
+          Paddle hold started - mark the ceiling light manually controlled
         conditions:
           - condition: trigger
             id:
@@ -234,41 +265,43 @@ actions:
             alias: Triggered by either paddle
           - alias: Gesture is a hold-start (long_press), not a tap or a release
             condition: template
-            value_template: "{{ trigger.to_state.attributes.event_type == 'long_press' }}"
+            value_template: >-
+              {{ trigger.to_state.attributes.event_type == 'long_press' }}
         sequence:
-          - alias: Mark the ceiling light manually controlled so AL stops adapting its brightness
+          - alias: >-
+              Mark the ceiling light manually controlled so AL stops adapting
+              its brightness
             action: adaptive_lighting.set_manual_control
             data:
               entity_id: switch.adaptive_lighting_standard
               lights:
                 - light.living_room_ceiling_fan_light
               manual_control: true
-      - alias: Fan speed settled - record it and update the LED bar
+      - alias: Fan speed changed - record it and update the LED bar
         conditions:
           - condition: trigger
             id: fan
             alias: Triggered by the fan
         sequence:
-          - alias: Resolve the current speed band
-            variables:
-              speed: >-
-                {% if is_state('fan.living_room_ceiling_fan', 'off') %}off{% else
-                %}{% set p = state_attr('fan.living_room_ceiling_fan',
-                'percentage') | int(0) %}{% if p < 45 %}low{% elif p < 78
-                %}medium{% else %}high{% endif %}{% endif %}
           - alias: Record the running speed for resume-last-speed
             if:
-              - condition: state
+              - alias: Fan is at a named speed (off reads as no preset)
+                condition: state
                 entity_id: fan.living_room_ceiling_fan
-                state: "on"
-                alias: Fan is on
+                attribute: preset_mode
+                state:
+                  - low
+                  - medium
+                  - high
             then:
               - alias: Store speed name
                 action: input_select.select_option
                 target:
                   entity_id: input_select.living_room_ceiling_fan_last_speed
                 data:
-                  option: "{{ speed }}"
+                  option: >-
+                    {{ state_attr('fan.living_room_ceiling_fan', 'preset_mode')
+                    }}
           - alias: Recompute the LED state
             action: script.turn_on
             target:
@@ -279,10 +312,12 @@ actions:
                 led_bar_entity: light.living_room_ceiling_fan_switch_led_bar
                 light_entity: light.living_room_ceiling_fan_light
             note: >-
-              script.turn_on, not a direct call: matches the bedroom
-              automations, where a blocking call would stall this queued
-              automation behind the script's 30s sleep-settle wait.
-      - alias: Ceiling light changed - recompute the LED bar, release AL if off, snap AL if on
+              script.turn_on, not a direct call: matches the bedroom automations,
+              where a blocking call would stall this queued automation behind
+              the script's 30s sleep-settle wait.
+      - alias: >-
+          Ceiling light changed - recompute the LED bar, release AL if off, snap
+          AL if on
         conditions:
           - condition: trigger
             id: light
@@ -297,19 +332,20 @@ actions:
                 fan_entity: fan.living_room_ceiling_fan
                 light_entity: light.living_room_ceiling_fan_light
                 led_bar_entity: light.living_room_ceiling_fan_switch_led_bar
-                light_just_turned_off: "{{ is_state('light.living_room_ceiling_fan_light', 'off') }}"
+                light_just_turned_off: >-
+                  {{ is_state('light.living_room_ceiling_fan_light', 'off') }}
             note: >-
-              script.turn_on, not a direct call: matches the bedroom
-              automations, where a blocking call would stall this queued
-              automation behind the script's 30s sleep-settle wait.
-          - alias: If the light is now off, hand its brightness back to Adaptive Lighting
+              script.turn_on, not a direct call: matches the bedroom automations,
+              where a blocking call would stall this queued automation behind
+              the script's 30s sleep-settle wait.
+          - alias: >-
+              If the light is now off, hand its brightness back to Adaptive Lighting
             note: >-
-              A single paddle tap turns the light off via the cluster-6
-              Matter binding, which AL does not see as a light.turn_off
-              service call, so a light wall-dimmed earlier would stay
-              manually controlled through an off/on. HA does see the
-              resulting off state, so clear AL manual control here.
-              Harmless no-op when the light was not manually controlled.
+              A single paddle tap turns the light off via the cluster-6 Matter
+              binding, which AL does not see as a light.turn_off service call,
+              so a light wall-dimmed earlier would stay manually controlled through
+              an off/on. HA does see the resulting off state, so clear AL manual
+              control here. Harmless no-op when the light was not manually controlled.
             if:
               - alias: Ceiling light is now off
                 condition: state
@@ -323,25 +359,27 @@ actions:
                   lights:
                     - light.living_room_ceiling_fan_light
                   manual_control: false
-          - alias: If the light just turned on and is not manually controlled, snap it to the curve
+          - alias: >-
+              If the light just turned on and is not manually controlled, snap
+              it to the curve
             note: >-
-              Closes the gap for a turn-on that lands away from the current
-              Adaptive Lighting target -- confirmed on the Office light turning on
-              to full brightness even with a correctly pre-staged OnLevel,
-              then only fading down over AL's normal ~45s cycle. Forces a
-              fast 2s correction instead of waiting on that cycle. Gated on
-              trigger.from_state being off (not just the current state
-              being on) -- without that guard this step also fires on
-              Adaptive Lighting's own periodic brightness-only attribute
-              updates while the light is already on, and each apply call
-              is itself a light change that retriggers this same branch,
+              Closes the gap for a turn-on that lands away from the current Adaptive
+              Lighting target -- confirmed on the Office light turning on to full
+              brightness even with a correctly pre-staged OnLevel, then only fading
+              down over AL's normal ~45s cycle. Forces a fast 2s correction instead
+              of waiting on that cycle. Gated on trigger.from_state being off
+              (not just the current state being on) -- without that guard this
+              step also fires on Adaptive Lighting's own periodic brightness-only
+              attribute updates while the light is already on, and each apply
+              call is itself a light change that retriggers this same branch,
               creating a continuous feedback loop with Adaptive Lighting.
             if:
-              - alias: This is a real off-to-on transition, not an attribute-only change
+              - alias: >-
+                  This is a real off-to-on transition, not an attribute-only change
                 condition: template
                 value_template: >-
-                  {{ trigger.from_state is not none and
-                  trigger.from_state.state == 'off' }}
+                  {{ trigger.from_state is not none and trigger.from_state.state
+                  == 'off' }}
               - alias: Ceiling light is now on
                 condition: state
                 entity_id: light.living_room_ceiling_fan_light
@@ -349,8 +387,7 @@ actions:
               - alias: Not manually controlled
                 condition: template
                 value_template: >-
-                  {{ 'light.living_room_ceiling_fan_light' not in
-                  (state_attr('switch.adaptive_lighting_standard',
+                  {{ 'light.living_room_ceiling_fan_light' not in (state_attr('switch.adaptive_lighting_standard',
                   'manual_control_brightness') or []) }}
             then:
               - alias: Snap to the current Adaptive Lighting target over 2s

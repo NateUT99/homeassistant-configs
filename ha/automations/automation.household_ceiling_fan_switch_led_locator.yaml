@@ -1,17 +1,16 @@
 id: "1788920021778"
 alias: "Household: Ceiling Fan Switch LED Locator"
 description: >-
-  Keeps the four Inovelli ceiling-fan switch RGB Indicator LED bars in
-  sync with presence via script.household_ceiling_fan_led_state (shared across all
-  four canopy switches). Every switch shows the running fan's speed
-  colour, a white locator glow when idle, or dark when nobody's home.
-  Household-wide triggers (presence, HA start) recompute all four rooms.
-  input_boolean.everyone_sleeping additionally recomputes Master Bedroom
-  only, and input_boolean.avery_sleeping recomputes Avery's Room only --
-  each bedroom's own sleep flag gates whether its bar settles from the
-  speed colour to the locator glow 30s after the last change (see
-  script.household_ceiling_fan_led_state). Office and Living Room have no sleep gating. Fires 30s
-  after HA start to let Matter settle.
+  Keeps the four Inovelli ceiling-fan switch RGB Indicator LED bars in sync with
+  presence via script.household_ceiling_fan_led_state (shared across all four
+  canopy switches). Every switch shows the running fan's speed colour, a white
+  locator glow when idle, or dark when nobody's home. Household-wide triggers
+  (presence, HA start) recompute all four rooms. input_boolean.everyone_sleeping
+  additionally recomputes Master Bedroom only, and input_boolean.avery_sleeping
+  recomputes Avery's Room only -- each bedroom's own sleep flag gates whether
+  its bar settles from the speed colour to the locator glow 30s after the last
+  change (see script.household_ceiling_fan_led_state). Office and Living Room
+  have no sleep gating. Fires 30s after HA start to let Matter settle.
 triggers:
   - alias: HA started
     trigger: homeassistant
