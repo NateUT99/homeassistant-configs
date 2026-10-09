@@ -822,6 +822,16 @@ Hue bulbs and accessories work most reliably on the Hue bridge — they get firm
 
 The clean separation (Hue on channel 20, Z2M on channel 11) prevents interference and keeps each network simpler.
 
+### ZHA takes 2 hours to mark a silent mains-powered device `unavailable`
+
+ZHA marks a mains-powered (router) device `unavailable` only after **7200 s** of silence (the default `consider_unavailable_mains`). Until then its entities keep their last value and look healthy. On 2026-10-08 the refrigerator plug's firmware hung at 08:17. ZHA flagged it at 10:19, and an alert keyed on `unavailable` + `for: 10 min` fired at 10:29: over two hours late for a fridge.
+
+Don't lower the global timeout to fix one device: it applies to every mains router, and many report far less often. For a device whose silence matters, alert on staleness instead: a template trigger on `now() - <entity>.last_reported > timedelta(minutes=N)`, guarded against `unavailable`/`unknown`. Pick an entity that reports constantly (see the next entry). `automation.kitchen_refrigerator_power_monitor` is the reference implementation.
+
+### Third Reality metering plugs stop reporting power while the load is steady — use voltage or current for freshness
+
+The `3RSP02064Z` sends `power` only when it changes meaningfully. During a steady compressor-off stretch, `sensor.kitchen_refrigerator_power` went 9+ minutes without an update, and its `last_reported` doesn't advance either. `voltage` and `current` keep reporting every few seconds regardless, because grid voltage drifts by a tenth of a volt constantly (worst gaps observed: 47 s voltage, 84 s current). A stale `power` reading is normal; a stale `voltage` reading means the plug has stopped talking.
+
 ---
 
 ### A group helper's "Hide members" hides standalone sensors too
