@@ -119,7 +119,10 @@ actions:
       common-areas cleaning stays in
       automation.household_vacuum_evening_cleaning. The mop-attached gate keeps a
       hand-fitted wet pad from being dragged across the carpeted Office and the
-      bedrooms -- the weekly mop pass covers hard floor only.
+      bedrooms -- the weekly mop pass covers hard floor only. The water-box gate
+      doubles as the dustbin check -- on the Q8 Max the bin and water tank are
+      one module, so a pulled module would otherwise start a job that
+      immediately faults with no_dustbin.
     if:
       - condition: state
         entity_id: input_boolean.vacuum_ran_daytime
@@ -143,6 +146,10 @@ actions:
         entity_id: binary_sensor.living_room_vacuum_mop_attached
         state: "off"
         alias: Mop pad is not attached -- a wet pad must not run the carpeted daytime rooms
+      - condition: state
+        entity_id: binary_sensor.living_room_vacuum_water_box_attached
+        state: "on"
+        alias: Dustbin module is seated
     then:
       - alias: >-
           Build the daytime segment list -- drop the master suite if today's
@@ -198,9 +205,10 @@ actions:
       - alias: If the daytime clean was blocked by the mop pad, say so
         note: >-
           The else branch fires for any failed condition (already ran, paused,
-          outside hours, mid-clean). Only push when the reason is specifically
-          the mop pad still being attached from the weekly mop pass -- the other
-          cases are expected and silent.
+          outside hours, mid-clean, pad on, bin out). Only push when the reason
+          is specifically the mop pad still being attached from the weekly mop
+          pass -- the other cases are expected and silent, apart from the
+          dustbin push below.
         if:
           - condition: state
             entity_id: binary_sensor.living_room_vacuum_mop_attached
@@ -218,5 +226,35 @@ actions:
               message: Daytime clean skipped -- the mop pad is still attached.
               data:
                 tag: vacuum_mop_cleanup
+      - alias: If the daytime clean was blocked by a missing dustbin, say so
+        note: >-
+          Gated on the clean otherwise being due (not yet run, not paused,
+          within hours) so a departure with the module out after the day's
+          clean is already done stays silent.
+        if:
+          - condition: state
+            entity_id: binary_sensor.living_room_vacuum_water_box_attached
+            state: "off"
+            alias: Dustbin module is out
+          - condition: state
+            entity_id: input_boolean.vacuum_ran_daytime
+            state: "off"
+            alias: Daytime zone has not run today
+          - condition: state
+            entity_id: input_boolean.vacuum_routine_pause
+            state: "off"
+            alias: Vacuum routine is not paused
+          - condition: time
+            after: "09:00:00"
+            before: "19:00:00"
+            alias: Within daytime cleaning hours
+        then:
+          - alias: Tell Nate the daytime clean was skipped for the dustbin
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: Vacuum
+              message: Daytime clean skipped -- the dustbin is not installed.
+              data:
+                tag: vacuum_dustbin_missing
 mode: single
 category: 01M08R77W9A83G7DDA33MT8R09
