@@ -111,7 +111,7 @@ actions:
                   entity_id: light.kitchen_overhead_sink
                 data:
                   color_temp_kelvin: 2000
-                  brightness_pct: 10
+                  brightness_pct: 5
               - alias: Turn off media players labeled "Sleeping"
                 action: media_player.turn_off
                 target:

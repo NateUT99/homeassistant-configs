@@ -93,7 +93,7 @@ actions:
                 - light.living_room_mantle_status_light
             data:
               color_temp_kelvin: 2000
-              brightness_pct: 50
+              brightness_pct: 35
     default:
       - alias: Turn off status lights
         action: light.turn_off
