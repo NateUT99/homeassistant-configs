@@ -268,7 +268,7 @@ edge so a low percentage isn't hidden behind the icon.
 |---|---|---|---|---|
 | Washer / Dryer | Running, done (`alerting`), or faulted | "23 min left" / "Done · unload" / "Fault" | Teal, cycle progress (full when done) | `#laundry` |
 | Dishwasher | `binary_sensor.kitchen_dishwasher_running` on | "Running · N min" | Even tint (no progress reported) | `#laundry` |
-| Vacuum (name shows the action: "Vacuum (Cleaning)", "(Mopping)", "(Paused)", "(Washing mop)", "(Returning to dock)", "(Error)") | Cleaning, returning, paused, or error | "Room · 27%" while cleaning, mopping, or paused; "27%" otherwise; the error text on error | Lavender, cleaning progress | `#vacuum` |
+| Vacuum (name shows the action: "Vacuum (Cleaning)", "(Paused)", "(Returning to dock)", "(Docking)", "(Error)") | Cleaning, returning, paused, or error | "Room · 27%" while cleaning or paused; "27%" otherwise; the error text on error | Lavender, cleaning progress | `#vacuum` |
 
 **Greeting** sits below the chip strip: a text-only markdown card, "Good morning/afternoon/
 evening, <first name>!" (05:00–11:59 / 12:00–16:59 / otherwise, the logged-in user's first
