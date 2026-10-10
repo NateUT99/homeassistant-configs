@@ -104,7 +104,15 @@ watch this entity's state to catch the relay ever actually switching off — som
 only mode should make impossible, which is exactly why it's worth watching for. Hidden keeps
 it off dashboards while staying live for the automation.
 
-Two automations guard the plug, both category Maintenance:
+**Refrigerator temperature.** The plug can only show whether the fridge has power. An Aqara
+temperature sensor (`lumi.weather`, ZHA, device **Refrigerator Climate**) sits inside the fridge
+on the middle shelf, toward the back, away from the door and the cold-air vent. It answers
+whether the food is cold, and it keeps working when the plug or its outlet fails.
+`sensor.kitchen_refrigerator_climate_temperature` normally reads about 35–37°F, rising and
+falling slightly with each compressor cycle. The sensor reports on change and sends a
+heartbeat about once an hour, so `last_reported` should never go much past an hour.
+
+Three automations guard the refrigerator, all category Maintenance:
 
 - **Kitchen: Refrigerator Power Monitor**
   (`automation.kitchen_refrigerator_power_monitor`) — alerts on three faults:
@@ -125,6 +133,19 @@ Two automations guard the plug, both category Maintenance:
   and sleep state: a critical push when no one is home; otherwise through
   `script.household_tts_announce` — a broadcast when someone is home and awake, or the master
   bedroom with `critical_fallback: true` when everyone is asleep.
+- **Kitchen: Refrigerator Temperature Monitor**
+  (`automation.kitchen_refrigerator_temperature_monitor`) — alerts on two faults:
+  - **Above 41°F for 45 minutes** — 41°F is the food-safety limit. The 45-minute window
+    rides out a long door-open while loading groceries.
+  - **Sensor silent for 2 hours** — no `last_reported` from the temperature sensor. That is
+    two missed heartbeats. ZHA waits 6 hours before marking a battery device `unavailable`.
+
+  It is a separate automation from the Power Monitor because of the Power Monitor's
+  `mode: single`: a too-warm alert arriving while a plug-silent run waits for recovery
+  would be silently dropped, and a dead outlet produces exactly that sequence. This one is
+  `mode: parallel` (`max: 2`). Each trigger must clear before it can fire again, and
+  clearing ends its own run's wait, so the two faults never block each other and never
+  duplicate. Alert routing matches the Power Monitor.
 - **Kitchen: Refrigerator Keep Powered**
   (`automation.kitchen_refrigerator_keep_powered`) — if Metering only mode itself turns off,
   re-enables it immediately; if the relay reports `off`, waits 2 minutes (debounce) and then
@@ -242,7 +263,9 @@ dashboard's cost figure track the real bill.
 | Refrigerator Power | `sensor.kitchen_refrigerator_power` | Sensor (ZHA) — instantaneous W |
 | Refrigerator (switch, hidden) | `switch.kitchen_refrigerator` | ZHA — relay control, hidden not disabled; watched by Keep Powered below |
 | Refrigerator Compressor | `binary_sensor.kitchen_refrigerator_compressor` | ZHA — power-threshold-crossing edge pulse (15W rise/drop), renamed and re-classed `running`; momentary, not a running/idle level indicator |
+| Refrigerator Climate Temperature | `sensor.kitchen_refrigerator_climate_temperature` | Sensor (ZHA, Aqara `lumi.weather`) — air temperature inside the fridge, °F |
 | Refrigerator Power Monitor | `automation.kitchen_refrigerator_power_monitor` | Automation — silent/offline/no-draw alerting |
+| Refrigerator Temperature Monitor | `automation.kitchen_refrigerator_temperature_monitor` | Automation — too-warm/sensor-silent alerting |
 | Refrigerator Keep Powered | `automation.kitchen_refrigerator_keep_powered` | Automation — self-heals an unexpected relay/metering-only-mode off |
 | Refrigerator Maintenance | `input_boolean.kitchen_refrigerator_maintenance` | Helper — suppresses Keep Powered during deliberate plug work |
 

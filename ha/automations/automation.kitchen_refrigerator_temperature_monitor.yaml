@@ -1,0 +1,122 @@
+id: "1791644037754"
+alias: "Kitchen: Refrigerator Temperature Monitor"
+description: >-
+  Watches the Aqara temperature sensor inside the refrigerator for two faults:
+  the fridge above 41°F for 45 minutes, or the sensor not reporting for 2
+  hours. Complements the power monitor, which can only tell whether the fridge
+  has power; this one tells whether the food is cold. Alerts route by presence
+  and sleep state like the power monitor, and a quiet recovery notice follows
+  once the fault clears.
+triggers:
+  - trigger: numeric_state
+    entity_id: sensor.kitchen_refrigerator_climate_temperature
+    above: 41
+    for:
+      minutes: 45
+    id: too_warm
+    alias: Refrigerator above 41°F for 45 minutes
+    variables:
+      alert_message: The refrigerator has been above 41 degrees for 45 minutes.
+  - trigger: template
+    value_template: >-
+      {% set t = states.sensor.kitchen_refrigerator_climate_temperature %}
+      {{ t is not none and now() - t.last_reported > timedelta(hours=2) }}
+    id: sensor_silent
+    alias: Refrigerator temperature sensor silent for 2 hours
+    note: >-
+      No native trigger watches last_reported; the now() reference re-renders
+      this every minute. ZHA takes 6 hours to mark a battery device
+      unavailable, so this catches a dead sensor much sooner.
+    variables:
+      alert_message: The refrigerator temperature sensor stopped reporting 2 hours ago.
+actions:
+  - alias: Route the alert by presence and sleep state
+    choose:
+      - alias: "Nobody home — critical push only"
+        conditions:
+          - condition: numeric_state
+            entity_id: zone.home
+            below: 1
+        sequence:
+          - alias: Critical push to Nate's iPhone
+            action: notify.mobile_app_nates_iphone
+            data:
+              title: "🧊 Refrigerator Alert"
+              message: "{{ alert_message }}"
+              data:
+                push:
+                  interruption-level: critical
+                  sound:
+                    name: default
+                    critical: 1
+                    volume: 1
+      - alias: "Someone home, everyone sleeping — TTS to master bedroom, critical fallback"
+        conditions:
+          - condition: numeric_state
+            entity_id: zone.home
+            above: 0
+          - condition: state
+            entity_id: input_boolean.everyone_sleeping
+            state: "on"
+        sequence:
+          - alias: TTS via household announce script (master bedroom, critical fallback)
+            action: script.household_tts_announce
+            data:
+              message: "{{ alert_message }}"
+              target: master_bedroom
+              notification_title: "🧊 Refrigerator Alert"
+              critical_fallback: true
+              chime_path: error
+    default:
+      - alias: "Someone home, awake — broadcast"
+        action: script.household_tts_announce
+        data:
+          message: "{{ alert_message }}"
+          target: broadcast
+          notification_title: "🧊 Refrigerator Alert"
+          chime_path: error
+  - alias: Wait for the fault to clear and send a recovery notice
+    choose:
+      - alias: Too warm
+        conditions:
+          - condition: trigger
+            id: too_warm
+        sequence:
+          - alias: Wait for the temperature to drop below 41°F
+            wait_for_trigger:
+              - trigger: numeric_state
+                entity_id: sensor.kitchen_refrigerator_climate_temperature
+                below: 41
+          - alias: Send quiet recovery notification
+            action: notify.send_message
+            target:
+              entity_id: notify.nates_iphone
+            data:
+              title: Refrigerator Monitor
+              message: >-
+                The refrigerator is back to {{
+                states('sensor.kitchen_refrigerator_climate_temperature') |
+                float | round(0) | int }}°F.
+      - alias: Sensor silent
+        conditions:
+          - condition: trigger
+            id: sensor_silent
+        sequence:
+          - alias: Wait for the sensor to report again
+            note: >-
+              A heartbeat with an unchanged value updates last_reported
+              without firing a state change, so a state trigger would miss it.
+              The now() reference re-renders this every minute.
+            wait_template: >-
+              {% set t = states.sensor.kitchen_refrigerator_climate_temperature %}
+              {{ t is not none and now() - t.last_reported < timedelta(minutes=5) }}
+          - alias: Send quiet recovery notification
+            action: notify.send_message
+            target:
+              entity_id: notify.nates_iphone
+            data:
+              title: Refrigerator Monitor
+              message: The refrigerator temperature sensor is reporting again.
+mode: parallel
+max: 2
+category: 01M0SZBV5BGDGY2BQ2GBB5NA4C
