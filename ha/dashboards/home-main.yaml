@@ -93,11 +93,6 @@ views:
 
         .fireplace ha-icon { color: var(--amber-color) !important; }
 
-        .vacuum ha-icon { color: {% if states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable''] or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable'']
-        or is_state(''binary_sensor.vacuum_stuck'',''on'') %}var(--red-color){% elif is_state(''input_boolean.vacuum_routine_pause'',''on'') or is_state(''vacuum.living_room_vacuum'',''paused'') %}var(--amber-color){%
-        elif states(''vacuum.living_room_vacuum'') in [''cleaning'',''returning''] %}var(--purple-color){% elif is_state(''input_boolean.vacuum_ran_daytime'',''on'') or is_state(''input_boolean.vacuum_ran_evening'',''on'')
-        %}var(--green-color){% else %}var(--secondary-text-color){% endif %} !important; }
-
         .chores ha-icon { color: var(--{{ ''red'' if expand(integration_entities(''chore_calendar'') | select(''match'',''sensor\\.'') | list) | selectattr(''state'',''eq'',''overdue'') | list | count >
         0 else ''amber'' }}-color) !important; }
 
@@ -406,7 +401,7 @@ views:
 
         .qa-vac ha-icon { color: {{ ''var(--red-color)'' if is_state(''binary_sensor.vacuum_stuck'',''on'') or states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable'']
         or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable''] else (''var(--amber-color)'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') else
-        (''var(--purple-color)'' if states(''vacuum.living_room_vacuum'') in [''cleaning'',''returning''] else ''var(--secondary-text-color)'')) }} !important; }
+        ''var(--secondary-text-color)'') }} !important; }
 
 
         {% set g = state_attr(''sensor.household_ai_weekly_digest'',''generated_at'') %}{% set seen = states(''input_button.household_ai_seen'') %}.ai ha-icon { color: {{ ''var(--amber-color)'' if g is

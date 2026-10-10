@@ -167,7 +167,7 @@ Tap opens more-info, hold toggles (`standards/dashboards.md` §12):
 | HVAC (icon only) | `mdi:fire` amber while heating, `mdi:snowflake` blue while cooling, `mdi:hvac-off` amber while an open door or window has paused it, otherwise grey `mdi:hvac` (idle or switched off) | — (tap `#hvac`, hold opens more-info) |
 | Nate | Sleep (indigo) while `input_boolean.everyone_sleeping` is on; otherwise home (green) or away (grey) from `person.nate` | `input_boolean.everyone_sleeping` |
 | Avery | Sleep (indigo) while `input_boolean.avery_sleeping` is on; otherwise home (green) on her scheduled days (`binary_sensor.avery_home_today`), away (grey) on others | `input_boolean.avery_sleeping` |
-| Vacuum (icon only) | `mdi:robot-vacuum-alert` (red, stuck or a vacuum or dock error), `mdi:robot-vacuum-off` (amber, routine paused), or `mdi:robot-vacuum` (purple cleaning or returning, grey otherwise); tap opens `#vacuum` | `input_boolean.vacuum_routine_pause` |
+| Vacuum (icon only) | `mdi:robot-vacuum-alert` (red, stuck or a vacuum or dock error), `mdi:robot-vacuum-off` (amber, routine paused), or `mdi:robot-vacuum` (grey otherwise — a running vacuum shows in Happening now); tap opens `#vacuum` | `input_boolean.vacuum_routine_pause` |
 | Guest (icon only) | Amber while guest mode is on | `input_boolean.guest_mode` |
 
 Sleep wins over location, so a stale sleep flag is visible at a glance. Quick actions are icon-only so the row keeps a fixed width; every state that matters has its own icon, so none relies on colour alone, and tap opens the detail.
