@@ -258,16 +258,17 @@ template:
         delay_off: "00:00:30"
 ```
 
-**Happening now** sits below the greeting: a `Happening now` heading and a 2-column grid,
-both shown only while at least one card is visible. Each card is a Bubble `button` whose
-`styles` call `progress_fill(pct, rgb)` from `dashboard.jinja`, filling the card left to
-right with progress.
+**Happening now** sits below the greeting: a `Happening now` heading and a 1-column grid (full-width cards, so the status line never scrolls),
+both shown only while at least one card is visible. Each card is a Bubble `button` with the
+`progress_fill` module, which fills the card left to right with progress; the card's `styles`
+set `--fill` (percent), `--fill-color`, and `--fill-tint`. The fill starts at the icon's right
+edge so a low percentage isn't hidden behind the icon.
 
 | Card | Visible while | Line under the name | Fill | Tap |
 |---|---|---|---|---|
 | Washer / Dryer | Running, done (`alerting`), or faulted | "23 min left" / "Done · unload" / "Fault" | Teal, cycle progress (full when done) | `#laundry` |
 | Dishwasher | `binary_sensor.kitchen_dishwasher_running` on | "Running · N min" | Even tint (no progress reported) | `#laundry` |
-| Vacuum | Cleaning, returning, paused, or error | "Room · 60%" / "Returning to dock" / "Paused" / the error | Lavender, cleaning progress | `#vacuum` |
+| Vacuum | Cleaning, returning, paused, or error | "Cleaning · Room" / "Mopping · Room" / "Paused · Room" / "Washing mop" / "Returning to dock" / the error | Lavender, cleaning progress | `#vacuum` |
 
 **Greeting** sits below the chip strip: a text-only markdown card, "Good morning/afternoon/
 evening, <first name>!" (05:00–11:59 / 12:00–16:59 / otherwise, the logged-in user's first
@@ -475,6 +476,7 @@ row showing the lowest level. New devices appear automatically.
 | `ha/bubble_modules/consumable_status.yaml` | `/config/bubble_card/modules/consumable_status.yaml` | Consumable icon colour module (repo authoritative) |
 | `ha/bubble_modules/apple_tile.yaml` | `/config/bubble_card/modules/apple_tile.yaml` | Apple-style tile module for `#lights` and room tiles (repo authoritative) |
 | `ha/bubble_modules/segmented.yaml` | `/config/bubble_card/modules/segmented.yaml` | Segmented pill control for pop-up choices (repo authoritative) |
+| `ha/bubble_modules/progress_fill.yaml` | `/config/bubble_card/modules/progress_fill.yaml` | Progress-bar background for Happening now cards (repo authoritative) |
 | `scripts/dashboard_preview.py` | — (runs on the Mac) | WebKit iPhone-size screenshots of any view or pop-up as the non-admin Dashboard Preview user, for tuning; setup and options in its docstring |
 | `ha/bubble_modules/metric_tile.yaml` | `/config/bubble_card/modules/metric_tile.yaml` | Compact value-over-label tile for the `#weather` grid (repo authoritative) |
 | `ha/packages/weather_forecast.yaml` | `/config/packages/weather_forecast.yaml` | `sensor.outside_forecast`: 24-hour hourly forecast, today's high and low, rain timing for `#weather`; `template.reload` after a change (repo authoritative) |

@@ -49,20 +49,6 @@
 {%- endmacro %}
 
 {#-
-  Progress-fill background for "Happening now" cards (Bubble `styles`): the card fills
-  left to right to `pct` percent in the given theme colour (a CSS variable); pct=none
-  gives an even tint for appliances that report no progress.
--#}
-{% macro progress_fill(pct=none, color='var(--cyan-color)') -%}
-{%- set p = pct | int(0) if pct is not none else 100 -%}
-{%- set a = '32%' if pct is not none else '18%' -%}
-.bubble-button-card-container { border-radius: 22px !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }
-.bubble-background { opacity: 1 !important; background: linear-gradient(90deg, color-mix(in srgb, {{ color }} {{ a }}, transparent) {{ p }}%, transparent {{ p }}%) !important; }
-.bubble-icon-container { background: {{ color }} !important; }
-.bubble-icon { color: var(--primary-background-color) !important; }
-{%- endmacro %}
-
-{#-
   Category chips (Apple Home-style status row). Each *_status() returns the chip's one-line
   status; each *_color() returns the CSS colour for its icon (standards/dashboards.md §10).
   Areas whose lights count toward the house total live in house_light_areas().

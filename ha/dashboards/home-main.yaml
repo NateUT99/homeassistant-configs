@@ -466,7 +466,7 @@ views:
           - paused
           - error
     - type: grid
-      columns: 2
+      columns: 1
       square: false
       cards:
       - type: custom:bubble-card
@@ -480,8 +480,7 @@ views:
         icon: mdi:washing-machine
         state_content: '{% set st = states(''input_select.utility_room_washer_status'') %}{{ ''Done · unload'' if st == ''alerting'' else (''Fault'' if st == ''fault'' else (states(''sensor.utility_room_washer_minutes_remaining'')
           | int(0) ~ '' min left'')) }}'
-        styles: '{% from ''dashboard.jinja'' import progress_fill %}{{ progress_fill(100 if is_state(''input_select.utility_room_washer_status'',''alerting'') else states(''sensor.utility_room_washer_progress'')
-          | int(0)) }}'
+        styles: '.bubble-button-card-container { --fill: {{ 100 if is_state(''input_select.utility_room_washer_status'',''alerting'') else states(''sensor.utility_room_washer_progress'') | int(0) }}; }'
         visibility:
         - condition: or
           conditions:
@@ -506,6 +505,8 @@ views:
             navigation_path: '#laundry'
           hold_action:
             action: more-info
+        modules:
+        - progress_fill
       - type: custom:bubble-card
         card_type: button
         button_type: state
@@ -517,8 +518,7 @@ views:
         icon: mdi:tumble-dryer
         state_content: '{% set st = states(''input_select.utility_room_dryer_status'') %}{{ ''Done · unload'' if st == ''alerting'' else (''Fault'' if st == ''fault'' else (states(''sensor.utility_room_dryer_minutes_remaining'')
           | int(0) ~ '' min left'')) }}'
-        styles: '{% from ''dashboard.jinja'' import progress_fill %}{{ progress_fill(100 if is_state(''input_select.utility_room_dryer_status'',''alerting'') else states(''sensor.utility_room_dryer_progress'')
-          | int(0)) }}'
+        styles: '.bubble-button-card-container { --fill: {{ 100 if is_state(''input_select.utility_room_dryer_status'',''alerting'') else states(''sensor.utility_room_dryer_progress'') | int(0) }}; }'
         visibility:
         - condition: or
           conditions:
@@ -543,6 +543,8 @@ views:
             navigation_path: '#laundry'
           hold_action:
             action: more-info
+        modules:
+        - progress_fill
       - type: custom:bubble-card
         card_type: button
         button_type: state
@@ -553,7 +555,7 @@ views:
         name: Dishwasher
         icon: mdi:dishwasher
         state_content: Running · {{ ((now() - states.binary_sensor.kitchen_dishwasher_running.last_changed).total_seconds() / 60) | int }} min
-        styles: '{% from ''dashboard.jinja'' import progress_fill %}{{ progress_fill(none) }}'
+        styles: '.bubble-button-card-container { --fill-tint: 25%; }'
         visibility:
         - condition: state
           entity: binary_sensor.kitchen_dishwasher_running
@@ -567,6 +569,8 @@ views:
             navigation_path: '#laundry'
           hold_action:
             action: more-info
+        modules:
+        - progress_fill
       - type: custom:bubble-card
         card_type: button
         button_type: state
@@ -576,10 +580,12 @@ views:
         entity: vacuum.living_room_vacuum
         name: Vacuum
         icon: mdi:robot-vacuum
-        state_content: '{% set s = states(''vacuum.living_room_vacuum'') %}{{ (states(''sensor.living_room_vacuum_current_room'') ~ '' · '' ~ states(''sensor.living_room_vacuum_cleaning_progress'') | int(0)
-          ~ ''%'') if s == ''cleaning'' else (''Returning to dock'' if s == ''returning'' else (''Paused'' if s == ''paused'' else states(''sensor.living_room_vacuum_vacuum_error'') | replace(''_'', ''
-          '') | capitalize)) }}'
-        styles: '{% from ''dashboard.jinja'' import progress_fill %}{{ progress_fill(states(''sensor.living_room_vacuum_cleaning_progress'') | int(0), ''var(--purple-color)'') }}'
+        state_content: '{% set s = states(''vacuum.living_room_vacuum'') %}{% set st = states(''sensor.living_room_vacuum_status'') %}{% set st = s if st in [''unknown'', ''unavailable''] else st %}{% set
+          labels = {''returning_home'': ''Returning to dock'', ''docking'': ''Docking'', ''going_to_target'': ''Heading out'', ''going_to_wash_the_mop'': ''Going to wash mop'', ''back_to_dock_washing_duster'':
+          ''Going to wash mop'', ''washing_the_mop'': ''Washing mop'', ''emptying_the_bin'': ''Emptying bin'', ''paused'': ''Paused''} %}{% set action = labels.get(st) or (''Mopping'' if ''mopping'' in
+          st else (''Cleaning'' if ''clean'' in st else st | replace(''_'', '' '') | capitalize)) %}{{ (states(''sensor.living_room_vacuum_vacuum_error'') | replace(''_'', '' '') | capitalize) if s == ''error''
+          else action ~ ('' · '' ~ states(''sensor.living_room_vacuum_current_room'') if action in [''Cleaning'', ''Mopping'', ''Paused''] else '''') }}'
+        styles: '.bubble-button-card-container { --fill: {{ states(''sensor.living_room_vacuum_cleaning_progress'') | int(0) }}; --fill-color: var(--purple-color); }'
         visibility:
         - condition: state
           entity: vacuum.living_room_vacuum
@@ -597,6 +603,8 @@ views:
             navigation_path: '#vacuum'
           hold_action:
             action: more-info
+        modules:
+        - progress_fill
       grid_options:
         columns: 24
       visibility:

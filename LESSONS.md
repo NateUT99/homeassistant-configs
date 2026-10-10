@@ -481,6 +481,17 @@ The same applies to UIX itself as to Bubble Card Tools: installing it from HACS 
 
 Installing Bubble Card Tools from HACS only drops the files into `custom_components/`. Until it is added under **Settings → Devices & Services**, there is no config entry and no module store: modules have nowhere to save. Once set up, modules are individual YAML files in `/config/bubble_card/modules/`.
 
+### A profile theme's card-mod rules still apply under a view's `theme:`
+
+A view's `theme:` replaces theme *variables* only. A card-mod theme selected in a user's
+profile (Frosted Glass Dark) keeps injecting its `card-mod-card` CSS whenever the view theme
+defines none of its own, so a Home Flat view still rendered Frosted Glass's outlined cards,
+square icons, and `.bubble-background { background: transparent !important }`, which wiped
+every Bubble background fill (Happening now progress bars, tile tints) for that user only.
+`scripts/dashboard_preview.py` runs as a user with no profile theme, so it can't reproduce
+this. When a change renders in the preview but not on a device, check the viewer's
+**Profile → Theme** first; it should be Home Flat or Backend-selected.
+
 ---
 
 ## TTS & Media

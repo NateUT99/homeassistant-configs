@@ -1,0 +1,32 @@
+# Bubble Card module: turns a button's background into a progress bar for Happening now.
+# Deployed to /config/bubble_card/modules/progress_fill.yaml (standards/dashboards.md §13).
+# Apply with `modules: [progress_fill]` on a `button_type: state` button. The card's own
+# `styles` sets the values on `.bubble-button-card-container`:
+#   --fill        percent done, 0–100 (default 100: running, no percentage to show)
+#   --fill-color  §10 in-progress colour (default cyan; purple for the vacuum)
+#   --fill-tint   strength of the fill (default 45%; 25% for a full bar with no percentage)
+progress_fill:
+  name: Progress fill
+  version: "1.0"
+  creator: home-main
+  description: Background fills left to right with progress, starting at the icon's right edge.
+  supported:
+    - button
+  code: |
+    .bubble-button-card-container {
+      border-radius: 22px !important;
+      background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important;
+    }
+    /* 0% begins at the icon's right edge (50 px in) so a low percentage isn't hidden behind it */
+    .bubble-background {
+      opacity: 1 !important;
+      background: linear-gradient(90deg,
+        color-mix(in srgb, var(--fill-color, var(--cyan-color)) var(--fill-tint, 45%), transparent) calc(50px + (100% - 50px) * var(--fill, 100) / 100),
+        transparent calc(50px + (100% - 50px) * var(--fill, 100) / 100)) !important;
+    }
+    .bubble-icon-container {
+      background: var(--fill-color, var(--cyan-color)) !important;
+    }
+    .bubble-icon {
+      color: var(--primary-background-color) !important;
+    }
