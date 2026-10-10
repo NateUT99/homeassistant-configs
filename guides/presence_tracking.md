@@ -151,6 +151,7 @@ docking the vacuum, setting the thermostat preset — trigger on this helper goi
                             - thermostat → Home
                             - clear Immediate Departure override
                             - dock the vacuum if mid-run
+                            - ask to keep/clear the vacuum routine pause
                             - (future arrival actions land here)
 ```
 
@@ -247,8 +248,9 @@ debounce.
   unconditionally as its first action (a no-op when it wasn't armed), and
   `automation.household_first_arrives_home` clears it again on confirmed arrival.
   `input_boolean.vacuum_routine_pause` follows the same "must not survive to affect a later
-  departure" rule, cleared by the same `automation.household_first_arrives_home` on the same
-  confirmed-arrival trigger — see `guides/vacuum_cleaning_routine.md`.
+  departure" rule, but `automation.household_first_arrives_home` asks before clearing it
+  (Keep paused / Resume, cleared after 2 minutes with no answer) — see
+  `guides/vacuum_cleaning_routine.md`.
 - **The daytime vacuum clean comes along for free.** Starting the daytime Roborock run is
   a block inside this same automation (folded in from the former
   `automation.household_vacuum_start_cleaning`), so it rides the 5-minute debounce and the
