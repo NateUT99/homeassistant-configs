@@ -320,10 +320,10 @@ views:
               if is_state(''binary_sensor.household_hvac_cooling'',''on'') else ''mdi:hvac'')) }}'
             tap_action:
               action: navigate
-              navigation_path: '#climate'
+              navigation_path: '#hvac'
             hold_action:
               action: more-info
-            name: Climate
+            name: HVAC
           - fill_width: false
             state_background: false
             light_background: false
@@ -2302,9 +2302,9 @@ views:
       show_header: false
     - type: custom:bubble-card
       card_type: pop-up
-      hash: '#climate'
-      name: Climate
-      icon: mdi:thermostat
+      hash: '#hvac'
+      name: HVAC
+      icon: mdi:hvac
       button_type: name
       popup_mode: adaptive-dialog
       popup_style: bubble
@@ -2455,31 +2455,63 @@ views:
 
           .bubble-icon { color: var(--primary-background-color) !important; }{% endif %}'
       - type: heading
+        heading: Today
+        heading_style: subtitle
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        show_state: true
+        modules:
+        - metric_tile
+        grid_options:
+          columns: 4
+        tap_action:
+          action: none
+        button_action:
+          tap_action:
+            action: none
+        name: '{% set h = states(''sensor.household_hvac_heating_runtime_today'') | float(0) %}{% set c = states(''sensor.household_hvac_cooling_runtime_today'') | float(0) %}{% set m = ''cooling'' if c
+          > h else ''heating'' %}{% set r = [h, c] | max %}{{ ((r * 60) | round(0) | int) ~ '' min'' if r < 1 else (r | round(1)) ~ '' h'' }}'
+        state_content: '{% set h = states(''sensor.household_hvac_heating_runtime_today'') | float(0) %}{% set c = states(''sensor.household_hvac_cooling_runtime_today'') | float(0) %}{% set m = ''cooling''
+          if c > h else ''heating'' %}{{ ''Runtime'' if h == 0 and c == 0 else (''Cooled'' if m == ''cooling'' else ''Heated'') }}'
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        show_state: true
+        modules:
+        - metric_tile
+        grid_options:
+          columns: 4
+        tap_action:
+          action: none
+        button_action:
+          tap_action:
+            action: none
+        name: '{% set h = states(''sensor.household_hvac_heating_runtime_today'') | float(0) %}{% set c = states(''sensor.household_hvac_cooling_runtime_today'') | float(0) %}{% set m = ''cooling'' if c
+          > h else ''heating'' %}{{ states(''sensor.household_hvac_'' ~ m ~ ''_cycles_today'') | int(0) }}'
+        state_content: '{{ ''Cycles'' }}'
+      - type: custom:bubble-card
+        card_type: button
+        button_type: name
+        show_state: true
+        modules:
+        - metric_tile
+        grid_options:
+          columns: 4
+        tap_action:
+          action: none
+        button_action:
+          tap_action:
+            action: none
+        name: '{% set h = states(''sensor.household_hvac_heating_runtime_today'') | float(0) %}{% set c = states(''sensor.household_hvac_cooling_runtime_today'') | float(0) %}{% set m = ''cooling'' if c
+          > h else ''heating'' %}{% set s = ''sensor.household_hvac_'' ~ m ~ ''_average_cycle_today'' %}{{ (states(s) | float(0) | round(0) | int) ~ '' min'' if has_value(s) else ''—'' }}'
+        state_content: '{{ ''Avg cycle'' }}'
+        styles: '{% set h = states(''sensor.household_hvac_heating_runtime_today'') | float(0) %}{% set c = states(''sensor.household_hvac_cooling_runtime_today'') | float(0) %}{% set m = ''cooling'' if
+          c > h else ''heating'' %}{% set s = ''sensor.household_hvac_'' ~ m ~ ''_average_cycle_today'' %}{% if has_value(s) and states(s) | float(0) < 10 %}.bubble-name { color: var(--amber-color) !important;
+          }{% endif %}'
+      - type: heading
         heading: Last 12 hours
         heading_style: subtitle
-        badges:
-        - type: entity
-          entity: sensor.household_hvac_heating_runtime_today
-          name: Heated today
-          show_name: true
-          show_state: true
-          show_icon: false
-          color: amber
-          visibility:
-          - condition: numeric_state
-            entity: sensor.household_hvac_heating_runtime_today
-            above: 0
-        - type: entity
-          entity: sensor.household_hvac_cooling_runtime_today
-          name: Cooled today
-          show_name: true
-          show_state: true
-          show_icon: false
-          color: blue
-          visibility:
-          - condition: numeric_state
-            entity: sensor.household_hvac_cooling_runtime_today
-            above: 0
       - type: custom:apexcharts-card
         graph_span: 12h
         header:
@@ -2549,89 +2581,97 @@ views:
           color: var(--blue-color)
           stroke_dash: 4
           opacity: 0.7
+        - entity: sensor.outside_temperature
+          name: Outside
+          yaxis_id: temp
+          stroke_width: 1
+          color: var(--secondary-text-color)
+          opacity: 0.6
         - entity: sensor.living_room_thermostat_temperature
           name: Inside
           yaxis_id: temp
           stroke_width: 2
           color: var(--primary-text-color)
       - type: heading
-        heading: Rooms
+        heading: Last 14 days
         heading_style: subtitle
-      - type: tile
-        entity: sensor.living_room_thermostat_temperature
-        name: Living Room
-        features:
-        - type: trend-graph
-          hours_to_show: 24
-        features_position: bottom
-        grid_options:
-          columns: 6
-        uix:
-          style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.living_room_thermostat_temperature'') }}'
-      - type: tile
-        entity: sensor.kitchen_climate_temperature
-        name: Kitchen
-        features:
-        - type: trend-graph
-          hours_to_show: 24
-        features_position: bottom
-        grid_options:
-          columns: 6
-        uix:
-          style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.kitchen_climate_temperature'') }}'
-      - type: tile
-        entity: sensor.family_room_climate_temperature
-        name: Family Room
-        features:
-        - type: trend-graph
-          hours_to_show: 24
-        features_position: bottom
-        grid_options:
-          columns: 6
-        uix:
-          style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.family_room_climate_temperature'') }}'
-      - type: tile
-        entity: sensor.office_climate_temperature
-        name: Office
-        features:
-        - type: trend-graph
-          hours_to_show: 24
-        features_position: bottom
-        grid_options:
-          columns: 6
-        uix:
-          style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.office_climate_temperature'') }}'
-      - type: tile
-        entity: sensor.master_bedroom_climate_temperature
-        name: Master Bedroom
-        features:
-        - type: trend-graph
-          hours_to_show: 24
-        features_position: bottom
-        grid_options:
-          columns: 6
-        uix:
-          style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.master_bedroom_climate_temperature'') }}'
-      - type: tile
-        entity: sensor.averys_room_climate_temperature
-        name: Avery's Room
-        features:
-        - type: trend-graph
-          hours_to_show: 24
-        features_position: bottom
-        grid_options:
-          columns: 6
-        uix:
-          style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.averys_room_climate_temperature'') }}'
-      - type: tile
-        entity: sensor.outside_temperature
-        name: Outside
-        features:
-        - type: trend-graph
-          hours_to_show: 24
-        features_position: bottom
-        grid_options:
-          columns: 12
+      - type: custom:apexcharts-card
+        graph_span: 14d
+        span:
+          end: day
+        header:
+          show: false
+        apex_config:
+          chart:
+            height: 170
+            background: transparent
+            toolbar:
+              show: false
+          theme:
+            mode: dark
+          legend:
+            show: false
+          grid:
+            borderColor: rgba(127,127,127,0.15)
+          plotOptions:
+            bar:
+              columnWidth: 85%
+              borderRadius: 3
+          tooltip:
+            theme: dark
+            x:
+              format: ddd d MMM
+          xaxis:
+            labels:
+              format: d MMM
+        yaxis:
+        - id: run
+          min: 0
+          decimals: 1
+          apex_config:
+            tickAmount: 3
+        - id: temp
+          opposite: true
+          decimals: 0
+          apex_config:
+            tickAmount: 3
+        series:
+        - entity: sensor.household_hvac_heating_runtime_today
+          name: Heating
+          type: column
+          yaxis_id: run
+          color: var(--amber-color)
+          float_precision: 1
+          statistics:
+            type: change
+            period: day
+            align: middle
+          extend_to: false
+        - entity: sensor.household_hvac_cooling_runtime_today
+          name: Cooling
+          type: column
+          yaxis_id: run
+          color: var(--blue-color)
+          float_precision: 1
+          statistics:
+            type: change
+            period: day
+            align: middle
+          extend_to: false
+        - entity: sensor.outside_temperature
+          name: Outside
+          type: line
+          yaxis_id: temp
+          curve: smooth
+          stroke_width: 2
+          color: var(--secondary-text-color)
+          float_precision: 0
+          statistics:
+            type: mean
+            period: day
+            align: middle
+          extend_to: false
+        stacked: true
       show_header: false
     - type: custom:bubble-card
       card_type: pop-up
@@ -4579,60 +4619,31 @@ views:
   theme: Home Flat
   sections:
   - type: grid
+    column_span: 2
     cards:
     - type: custom:navbar-card
       template: main
-    - type: custom:expander-card
-      title-card:
-        type: heading
-        heading: Thermostat
-        icon: mdi:thermostat
-      title-card-clickable: true
-      icon: mdi:chevron-down
-      expanded: true
-      storage-id: home-main-climate-thermostat
-      clear: true
-      padding: '0'
-      child-margin-top: 0.6em
+    - type: custom:bubble-card
+      card_type: button
+      button_type: name
+      entity: climate.living_room_thermostat
+      name: HVAC
+      icon: mdi:thermostat
+      show_state: true
+      state_content: '{% set c = ''climate.living_room_thermostat'' %}{% set lo = state_attr(c, ''target_temp_low'') %}{% set hi = state_attr(c, ''target_temp_high'') %}{% set t = state_attr(c, ''temperature'')
+        %}{% set p = state_attr(c, ''preset_mode'') %}{% set preset = {''going_to_sleep'': ''Going to sleep''}.get(p, (p or '''') | capitalize) %}{% if not is_state(''input_select.household_hvac_mode_before_pause'',
+        ''none'') %}Paused · a door or window is open{% elif is_state(c, ''off'') %}Off{% elif is_state(''binary_sensor.household_hvac_heating'', ''on'') %}Heating to {{ (lo if lo is not none else t) |
+        int }}°{% elif is_state(''binary_sensor.household_hvac_cooling'', ''on'') %}Cooling to {{ (hi if hi is not none else t) | int }}°{% elif lo is not none %}Holding {{ lo | int }}–{{ hi | int }}°{%
+        else %}Holding {{ t | int }}°{% endif %}{{ '' · '' ~ preset if p and p != ''none'' else '''' }}'
+      tap_action:
+        action: navigate
+        navigation_path: /home-main/home#hvac
+      button_action:
+        tap_action:
+          action: navigate
+          navigation_path: /home-main/home#hvac
       grid_options:
         columns: 12
-      cards:
-      - type: custom:bubble-card
-        card_type: climate
-        entity: climate.living_room_thermostat
-      - type: custom:bubble-card
-        card_type: climate
-        entity: climate.living_room_fireplace
-      - type: tile
-        entity: input_select.household_hvac_mode_before_pause
-        name: Paused (doors/windows open)
-        visibility:
-        - condition: state
-          entity: input_select.household_hvac_mode_before_pause
-          state_not: none
-      - type: heading
-        heading: HVAC Today
-        icon: mdi:hvac
-        heading_style: subtitle
-      - type: grid
-        columns: 2
-        square: false
-        cards:
-        - type: tile
-          entity: sensor.household_hvac_heating_runtime_today
-          name: Heating
-        - type: tile
-          entity: sensor.household_hvac_cooling_runtime_today
-          name: Cooling
-        - type: tile
-          entity: sensor.household_hvac_heating_cycles_today
-          name: Heat cycles
-        - type: tile
-          entity: sensor.household_hvac_cooling_cycles_today
-          name: Cool cycles
-  - type: grid
-    column_span: 2
-    cards:
     - type: custom:expander-card
       title-card:
         type: heading
@@ -4658,36 +4669,48 @@ views:
           features:
           - type: trend-graph
             hours_to_show: 24
+          uix:
+            style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.living_room_thermostat_temperature'') }}'
         - type: tile
           entity: sensor.kitchen_climate_temperature
           name: Kitchen
           features:
           - type: trend-graph
             hours_to_show: 24
+          uix:
+            style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.kitchen_climate_temperature'') }}'
         - type: tile
           entity: sensor.family_room_climate_temperature
           name: Family Room
           features:
           - type: trend-graph
             hours_to_show: 24
+          uix:
+            style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.family_room_climate_temperature'') }}'
         - type: tile
           entity: sensor.office_climate_temperature
           name: Office
           features:
           - type: trend-graph
             hours_to_show: 24
+          uix:
+            style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.office_climate_temperature'') }}'
         - type: tile
           entity: sensor.master_bedroom_climate_temperature
           name: Master Bedroom
           features:
           - type: trend-graph
             hours_to_show: 24
+          uix:
+            style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.master_bedroom_climate_temperature'') }}'
         - type: tile
           entity: sensor.averys_room_climate_temperature
           name: Avery's Room
           features:
           - type: trend-graph
             hours_to_show: 24
+          uix:
+            style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.averys_room_climate_temperature'') }}'
         - type: tile
           entity: sensor.utility_room_climate_temperature
           name: Utility Room

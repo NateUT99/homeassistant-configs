@@ -15,7 +15,7 @@ Setup (one time, outside the repo):
 
 Usage:
     PLAYWRIGHT_BROWSERS_PATH=~/.local/share/ha-preview/browsers \
-        ~/.local/share/ha-preview/venv/bin/python scripts/dashboard_preview.py '#climate' out.png ["js expr"]
+        ~/.local/share/ha-preview/venv/bin/python scripts/dashboard_preview.py '#hvac' out.png ["js expr"]
     '-' as the hash screenshots the view without opening a pop-up.
 
 Environment:

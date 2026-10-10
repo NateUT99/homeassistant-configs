@@ -205,7 +205,7 @@ to another 4 hours.
 
 - `guides/presence_tracking.md` — `zone.home` and `input_boolean.everyone_sleeping`, which
   define "unattended" for the gate and the automation
-- `guides/home_dashboard.md` — the `#climate` pop-up and Fireplace chip
+- `guides/home_dashboard.md` — the `#hvac` pop-up and Fireplace chip
 
 ---
 

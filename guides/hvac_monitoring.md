@@ -1,6 +1,6 @@
 # HVAC Daily Usage Tracking
 
-*Last updated: September 2026*
+*Last updated: October 2026*
 
 ---
 
@@ -56,6 +56,14 @@ planned, which will yield true kWh per circuit. Runtime-based cost estimation wo
 thrown away at that point, so it isn't built now. The whole-home Rainforest EAGLE-3
 (`guides/energy_monitoring.md`) reads the revenue meter only and cannot decompose the
 HVAC load in the meantime.
+
+**The dashboard surface is the `#hvac` pop-up in `home-main`** (`guides/home_dashboard.md`).
+It shows today's runtime, cycles and average cycle for whichever mode has run more, a
+12-hour chart with outside temperature beside the indoor line, and a 14-day chart of daily
+runtime against daily mean outside temperature. The 14-day chart reads the `history_stats`
+long-term statistics with the `change` statistic per day, so it needs no additional sensors.
+The average-cycle tile turns amber below 10 minutes, a watch level above the 5-minute
+fault threshold that triggers *HVAC Anomaly Alert* (`automation.household_hvac_anomaly_alert`).
 
 ## Prerequisites
 
@@ -185,11 +193,13 @@ Both report `unavailable` before the first cycle of the day, rather than dividin
 |---|---|---|
 | `ha/packages/hvac_monitoring.yaml` | `/config/packages/hvac_monitoring.yaml` on the HA host | Runtime/cycle template and `history_stats` sensors |
 | `ha/automations/automation.household_hvac_anomaly_alert.yaml` | HA automation registry (mirror; HA authoritative) | Short-cycle and rapid-changeover push alerts |
+| `ha/dashboards/home-main.yaml` | HA dashboard storage (mirror; HA authoritative) | `#hvac` pop-up: today's metrics, 12-hour and 14-day charts |
 
 ## Related Documents
 
 - `guides/energy_monitoring.md` — whole-home electricity monitoring; the EAGLE-3 cannot
   isolate the HVAC load, which is why this guide exists as a separate, indirect signal
+- `guides/home_dashboard.md` — the `#hvac` pop-up layout
 - `standards/naming.md` §274 — `household_` scope prefix for entities not tied to one area
 
 ## Troubleshooting
@@ -208,9 +218,6 @@ single-stage. A Matter subscription drop on the thermostat is indistinguishable 
 
 - **CT clamps** on the condenser and air handler for true per-circuit kWh, added to the
   Energy Dashboard's individual-devices section once installed.
-- **Outdoor-temperature normalization.** Runtime vs. daily mean outdoor temperature is
-  the more useful trend signal once enough history accumulates.
-  `sensor.outside_home_generator_generac_959903_outdoor_temperature` already produces
-  long-term statistics, so no new sensor is needed to build that comparison later.
-- **Dashboard surface.** Sensors only for now; HA's built-in History/Statistics panel is
-  sufficient until there's enough data to justify designing a dedicated view.
+- **Outdoor-temperature normalization.** The 14-day chart shows runtime beside outdoor
+  temperature, but a true normalization (runtime per heating/cooling degree-day, trended
+  across seasons) needs a season or more of history before it is worth building.

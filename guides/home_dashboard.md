@@ -29,7 +29,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 │   │                         ── Happening now (heading + 2-up grid, shown while an appliance runs)
 │   ├── Sections 2–8       ── Room sections × 7 (Expander: heading + media card + tiles)
 │   └── Section 9          ── Pop-ups: #rooms (room tiles by floor, 2-up) + 6 rooms
-│                             + #security #climate #weather #vacuum #vacuum-care #laundry #ai
+│                             + #security #hvac #weather #vacuum #vacuum-care #laundry #ai
 │
 └── Chores view ── Navbar Card ── chore-calendar-card
          │
@@ -164,7 +164,7 @@ Tap opens more-info, hold toggles (`standards/dashboards.md` §12):
 | Chip | Icon and colour | Hold toggles |
 |---|---|---|
 | AI (icon only) | `mdi:creation`, amber while there is a weekly digest you haven't opened (`generated_at` newer than `input_button.household_ai_seen`, which `#ai` presses on open and close), grey otherwise | — (tap `#ai`) |
-| Climate (icon only) | `mdi:fire` amber while heating, `mdi:snowflake` blue while cooling, `mdi:hvac-off` amber while an open door or window has paused it, otherwise grey `mdi:hvac` (idle or switched off) | — (tap `#climate`, hold opens more-info) |
+| HVAC (icon only) | `mdi:fire` amber while heating, `mdi:snowflake` blue while cooling, `mdi:hvac-off` amber while an open door or window has paused it, otherwise grey `mdi:hvac` (idle or switched off) | — (tap `#hvac`, hold opens more-info) |
 | Nate | Sleep (indigo) while `input_boolean.everyone_sleeping` is on; otherwise home (green) or away (grey) from `person.nate` | `input_boolean.everyone_sleeping` |
 | Avery | Sleep (indigo) while `input_boolean.avery_sleeping` is on; otherwise home (green) on her scheduled days (`binary_sensor.avery_home_today`), away (grey) on others | `input_boolean.avery_sleeping` |
 | Vacuum (icon only) | `mdi:robot-vacuum-alert` (red, stuck or a vacuum or dock error), `mdi:robot-vacuum-off` (amber, routine paused), or `mdi:robot-vacuum` (purple cleaning or returning, grey otherwise); tap opens `#vacuum` | `input_boolean.vacuum_routine_pause` |
@@ -313,7 +313,7 @@ tile, until they get a room hero (#13 step 4).
 | `#master-bedroom` | Ceiling light, nightstand lamp, fan speed, Apple TV player (only while active; bedroom TV volume slider; Apps sub-button), HomePod, bathroom speaker |
 | `#averys-room` | Ceiling light, desk and dresser lamps, fan speed, HomePod |
 | `#security` | Doorbell camera (square crop, first); lock, garage door, garage interior door, doors & windows; Water (the 4 leak sensors); outside lights |
-| `#climate` | Hero (indoor temperature; Heating to / Cooling to / Holding range / Paused, and preset; humidity; amber or blue tint while running), heat and cool setpoint steppers, segmented presets (Home · Away · Sleep), fireplace (hold toggles off ↔ heat; amber while on), Last 12 hours chart (apexcharts: indoor temperature, dashed setpoints, heating/cooling bands; heading badges for today's runtime), Rooms: 6 tiles with a 24-hour trend graph, tinted blue or amber and labelled with the offset when 1.5° or more from the living-space average (`room_temp_style` in `dashboard.jinja`; utility room excluded), plus Outside |
+| `#hvac` | Hero (indoor temperature; Heating to / Cooling to / Holding range / Paused, and preset; humidity; amber or blue tint while running), heat and cool setpoint steppers, segmented presets (Home · Away · Sleep), fireplace (hold toggles off ↔ heat; amber while on), Today: three metric tiles for whichever mode has run more today (runtime, cycles, average cycle — amber under 10 min, an early short-cycling sign), Last 12 hours chart (apexcharts: indoor temperature, dashed setpoints, outside temperature, heating/cooling bands), Last 14 days chart (apexcharts on long-term statistics: daily heating/cooling hours as stacked columns via `change`, daily mean outside temperature on the right axis; `extend_to: false` so the live point doesn't narrow the columns) |
 | `#weather` | Hero (outside temperature, condition icon, condition with today's high and low, feels-like), rain line (first hour in the next 24 with a 40%+ chance, or "No rain expected"), six `metric_tile` tiles (wind and direction, humidity, rain chance over 24 h, AQI and dominant pollutant in the EPA colour above 50, UV index, next sunset or sunrise), Next 24 hours chart (apexcharts from `sensor.outside_forecast`: temperature line, rain-chance columns), Next 5 days (Bubble Weather `weather_forecast` module, `card_layout: weather_only`), Air quality pollutant tiles only while AQI > 50 |
 | `#vacuum` | Status hero (state; room, area and time while out, last clean when docked; battery), primary action (amber Pause while cleaning, Start/Resume otherwise, with Dock and Stop), How: segmented Mode, Suction and Water (Water only in vacuum + mop with the pad on), routine pause, Mop now (confirm), map (only when out or ran today), Care & settings row (icon amber/red when a consumable is low or due) |
 | `#vacuum-care` | Mop pass (segmented Fast / Standard), mop pad and water status, robot status, 5 consumables |
@@ -419,7 +419,7 @@ Navbar order: Home · Rooms · Climate · Chores · More. Rooms opens `/home-mai
 | View | Path | Contents |
 |---|---|---|
 | Home | `home` | Steps 3–5 |
-| Climate | `climate` | Collapsible sections (Thermostat and Rooms open by default, Humidity collapsed): thermostat and fireplace (Bubble climate), HVAC-paused line (only while paused), HVAC runtime and cycles today; per-room temperature tiles with a 24 h trend; one 24 h humidity history graph |
+| Climate | `climate` | HVAC row (thermostat state line; tap opens `/home-main/home#hvac`), then collapsible Rooms (open by default): per-room temperature tiles with a 24 h trend, tinted blue or amber and labelled with the offset when 1.5° or more from the living-space average (`room_temp_style` in `dashboard.jinja`; utility room and Outside excluded); Humidity (collapsed): one 24 h history graph |
 | Energy | `energy` | Built-in energy cards: date selection, compare, Sankey, per-device detail graph; cost table; generator status, warning, maintenance, last ran, run time, battery, connection, status message |
 | Chores | `chores` | `chore-calendar-card` on `calendar.household_chores` |
 | Maintenance | `maintenance` | Collapsible sections (Expander Card; Batteries open by default, the rest collapsed): vacuum consumables (same cards as `#vacuum-care`); pending updates; network (WAN, Firewalla, speed test, latency, loss, alarms, modem resets, modem maintenance, Litra agent); batteries |

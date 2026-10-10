@@ -86,7 +86,7 @@ and an update to this table.
 | chore-calendar-card | Bundled with Chore Calendar | Chores view |
 | Battery State Card | HACS frontend | Battery list on the Maintenance view (auto-discovered, threshold-filtered) |
 | Expander Card | HACS frontend | Collapsible sections on long secondary views |
-| apexcharts-card | HACS frontend | Time-series charts in pop-ups (the `#climate` Last 12 hours chart). Colours as theme variables (`color: var(--amber-color)`) |
+| apexcharts-card | HACS frontend | Time-series charts in pop-ups (the `#hvac` charts). Colours as theme variables (`color: var(--amber-color)`) |
 | Bubble Media Player Enhanced, Bubble Weather | Bubble Module Store (author: Clooos) | Media cards and the `#weather` card. Store-installed third-party modules: not mirrored in `ha/bubble_modules/` (§13); update them from the Module Store |
 
 > Mushroom is not approved. The view-level `badges` row is not used, which removes the only
