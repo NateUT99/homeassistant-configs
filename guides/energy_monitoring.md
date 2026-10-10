@@ -129,10 +129,9 @@ Three automations guard the refrigerator, all category Maintenance:
     covered by the whole-house generator, so this branch only catches faults HA can still see.
 
   The automation is `mode: single` with `max_exceeded: silent`, so a hung plug that later
-  also goes `unavailable` stays one alert and one recovery notice. Alerts route by presence
-  and sleep state: a critical push when no one is home; otherwise through
-  `script.household_tts_announce` — a broadcast when someone is home and awake, or the master
-  bedroom with `critical_fallback: true` when everyone is asleep.
+  also goes `unavailable` stays one alert and one recovery notice. Alerts are a standard
+  push, not critical: a plug or power fault only matters if the food warms, and the
+  Temperature Monitor below alerts critically when it does.
 - **Kitchen: Refrigerator Temperature Monitor**
   (`automation.kitchen_refrigerator_temperature_monitor`) — alerts on two faults:
   - **Above 41°F for 45 minutes** — 41°F is the food-safety limit. The 45-minute window
@@ -145,7 +144,9 @@ Three automations guard the refrigerator, all category Maintenance:
   would be silently dropped, and a dead outlet produces exactly that sequence. This one is
   `mode: parallel` (`max: 2`). Each trigger must clear before it can fire again, and
   clearing ends its own run's wait, so the two faults never block each other and never
-  duplicate. Alert routing matches the Power Monitor.
+  duplicate. Alerts route by presence and sleep state: a critical push when no one is home;
+  otherwise through `script.household_tts_announce` — a broadcast when someone is home and
+  awake, or the master bedroom with `critical_fallback: true` when everyone is asleep.
 - **Kitchen: Refrigerator Keep Powered**
   (`automation.kitchen_refrigerator_keep_powered`) — if Metering only mode itself turns off,
   re-enables it immediately; if the relay reports `off`, waits 2 minutes (debounce) and then

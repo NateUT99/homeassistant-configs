@@ -8,10 +8,9 @@ description: >-
   generator covers grid outages). ZHA waits 2 hours before marking a
   mains-powered device unavailable, so the silence check is what catches a
   hung plug quickly; the unavailable trigger is the backstop for a plug that
-  is missing at startup. Alerts route by presence: critical push when nobody
-  home, TTS broadcast when someone is home and awake, TTS to the master
-  bedroom with a critical push fallback when everyone is asleep. Sends a
-  quiet recovery notice once the fault clears.
+  is missing at startup. Alerts are a standard push; the temperature monitor
+  is the critical alert for food at risk. Sends a quiet recovery notice once
+  the fault clears.
 triggers:
   - trigger: template
     value_template: >-
@@ -52,51 +51,16 @@ triggers:
         The refrigerator has drawn under 5W for over 2 hours. It may have lost
         power, tripped a breaker, or the compressor may have failed.
 actions:
-  - alias: Route the alert by presence and sleep state
-    choose:
-      - alias: "Nobody home — critical push only"
-        conditions:
-          - condition: numeric_state
-            entity_id: zone.home
-            below: 1
-        sequence:
-          - alias: Critical push to Nate's iPhone
-            action: notify.mobile_app_nates_iphone
-            data:
-              title: "🧊 Refrigerator Alert"
-              message: "{{ alert_message }}"
-              data:
-                push:
-                  interruption-level: critical
-                  sound:
-                    name: default
-                    critical: 1
-                    volume: 1
-      - alias: "Someone home, everyone sleeping — TTS to master bedroom, critical fallback"
-        conditions:
-          - condition: numeric_state
-            entity_id: zone.home
-            above: 0
-          - condition: state
-            entity_id: input_boolean.everyone_sleeping
-            state: "on"
-        sequence:
-          - alias: TTS via household announce script (master bedroom, critical fallback)
-            action: script.household_tts_announce
-            data:
-              message: "{{ alert_message }}"
-              target: master_bedroom
-              notification_title: "🧊 Refrigerator Alert"
-              critical_fallback: true
-              chime_path: error
-    default:
-      - alias: "Someone home, awake — broadcast"
-        action: script.household_tts_announce
-        data:
-          message: "{{ alert_message }}"
-          target: broadcast
-          notification_title: "🧊 Refrigerator Alert"
-          chime_path: error
+  - alias: Send a standard push alert
+    note: >-
+      Standard, not critical: the temperature monitor is the critical alert for
+      spoiling food. A power or plug fault that matters will show up there.
+    action: notify.send_message
+    target:
+      entity_id: notify.nates_iphone
+    data:
+      title: "🧊 Refrigerator Alert"
+      message: "{{ alert_message }}"
   - alias: Wait for the fault to clear and send a recovery notice
     choose:
       - alias: Plug silent or offline
