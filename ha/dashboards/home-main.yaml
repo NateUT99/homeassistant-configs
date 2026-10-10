@@ -94,9 +94,9 @@ views:
         .fireplace ha-icon { color: var(--amber-color) !important; }
 
         .vacuum ha-icon { color: {% if states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable''] or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable'']
-        or is_state(''binary_sensor.vacuum_stuck'',''on'') %}var(--red-color){% elif is_state(''input_boolean.vacuum_routine_pause'',''on'') or states(''vacuum.living_room_vacuum'') in [''cleaning'',''returning'',''paused'']
-        %}var(--amber-color){% elif is_state(''input_boolean.vacuum_ran_daytime'',''on'') or is_state(''input_boolean.vacuum_ran_evening'',''on'') %}var(--green-color){% else %}var(--secondary-text-color){%
-        endif %} !important; }
+        or is_state(''binary_sensor.vacuum_stuck'',''on'') %}var(--red-color){% elif is_state(''input_boolean.vacuum_routine_pause'',''on'') or is_state(''vacuum.living_room_vacuum'',''paused'') %}var(--amber-color){%
+        elif states(''vacuum.living_room_vacuum'') in [''cleaning'',''returning''] %}var(--purple-color){% elif is_state(''input_boolean.vacuum_ran_daytime'',''on'') or is_state(''input_boolean.vacuum_ran_evening'',''on'')
+        %}var(--green-color){% else %}var(--secondary-text-color){% endif %} !important; }
 
         .chores ha-icon { color: var(--{{ ''red'' if expand(integration_entities(''chore_calendar'') | select(''match'',''sensor\\.'') | list) | selectattr(''state'',''eq'',''overdue'') | list | count >
         0 else ''amber'' }}-color) !important; }
@@ -2990,12 +2990,12 @@ views:
               entity: sensor.living_room_vacuum_battery
         styles: '{% set on = states(''vacuum.living_room_vacuum'') in [''cleaning'', ''returning''] %}
 
-          .bubble-container.bubble-button-card-container { border-radius: 22px !important; background: color-mix(in srgb, {{ ''var(--amber-color)'' if on else ''var(--primary-text-color)'' }} {{ ''22%''
+          .bubble-container.bubble-button-card-container { border-radius: 22px !important; background: color-mix(in srgb, {{ ''var(--purple-color)'' if on else ''var(--primary-text-color)'' }} {{ ''22%''
           if on else ''8%'' }}, transparent) !important; }
 
           .bubble-background { background-color: transparent !important; }
 
-          .bubble-icon { color: {{ ''var(--amber-color)'' if on else ''var(--primary-text-color)'' }} !important; }
+          .bubble-icon { color: {{ ''var(--purple-color)'' if on else ''var(--primary-text-color)'' }} !important; }
 
           .battery .bubble-sub-button-name-container { font-size: 20px !important; font-weight: 400 !important; }'
       - type: custom:bubble-card
