@@ -578,13 +578,17 @@ views:
         hold_action:
           action: more-info
         entity: vacuum.living_room_vacuum
-        name: Vacuum
+        name: '{% set s = states(''vacuum.living_room_vacuum'') %}{% set st = states(''sensor.living_room_vacuum_status'') %}{% set st = s if st in [''unknown'', ''unavailable''] else st %}{% set labels
+          = {''returning_home'': ''Returning to dock'', ''docking'': ''Docking'', ''going_to_target'': ''Heading out'', ''going_to_wash_the_mop'': ''Going to wash mop'', ''back_to_dock_washing_duster'':
+          ''Going to wash mop'', ''washing_the_mop'': ''Washing mop'', ''emptying_the_bin'': ''Emptying bin'', ''paused'': ''Paused''} %}{% set action = ''Error'' if s == ''error'' else (labels.get(st)
+          or (''Mopping'' if ''mopping'' in st else (''Cleaning'' if ''clean'' in st else st | replace(''_'', '' '') | capitalize))) %}Vacuum ({{ action }})'
         icon: mdi:robot-vacuum
         state_content: '{% set s = states(''vacuum.living_room_vacuum'') %}{% set st = states(''sensor.living_room_vacuum_status'') %}{% set st = s if st in [''unknown'', ''unavailable''] else st %}{% set
           labels = {''returning_home'': ''Returning to dock'', ''docking'': ''Docking'', ''going_to_target'': ''Heading out'', ''going_to_wash_the_mop'': ''Going to wash mop'', ''back_to_dock_washing_duster'':
-          ''Going to wash mop'', ''washing_the_mop'': ''Washing mop'', ''emptying_the_bin'': ''Emptying bin'', ''paused'': ''Paused''} %}{% set action = labels.get(st) or (''Mopping'' if ''mopping'' in
-          st else (''Cleaning'' if ''clean'' in st else st | replace(''_'', '' '') | capitalize)) %}{{ (states(''sensor.living_room_vacuum_vacuum_error'') | replace(''_'', '' '') | capitalize) if s == ''error''
-          else action ~ ('' · '' ~ states(''sensor.living_room_vacuum_current_room'') if action in [''Cleaning'', ''Mopping'', ''Paused''] else '''') }}'
+          ''Going to wash mop'', ''washing_the_mop'': ''Washing mop'', ''emptying_the_bin'': ''Emptying bin'', ''paused'': ''Paused''} %}{% set action = ''Error'' if s == ''error'' else (labels.get(st)
+          or (''Mopping'' if ''mopping'' in st else (''Cleaning'' if ''clean'' in st else st | replace(''_'', '' '') | capitalize))) %}{% set pct = states(''sensor.living_room_vacuum_cleaning_progress'')
+          | int(0) ~ ''%'' %}{{ (states(''sensor.living_room_vacuum_vacuum_error'') | replace(''_'', '' '') | capitalize) if s == ''error'' else ((states(''sensor.living_room_vacuum_current_room'') ~ ''
+          · '' ~ pct) if action in [''Cleaning'', ''Mopping'', ''Paused''] else pct) }}'
         styles: '.bubble-button-card-container { --fill: {{ states(''sensor.living_room_vacuum_cleaning_progress'') | int(0) }}; --fill-color: var(--purple-color); }'
         visibility:
         - condition: state
