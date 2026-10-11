@@ -192,7 +192,7 @@ is above 0.
 
 ## Deferred
 
-- **Offline alerts.** An opt-in `alert_offline` label on the devices that matter, plus one
+- **Offline alerts (#17).** An opt-in `alert_offline` label on the devices that matter, plus one
   automation that compares the `offline` attribute against `label_devices('alert_offline')`
   and pushes once per outage past a threshold. Waits on about a week of watching this section
   to learn which devices drop briefly. The fridge-plug alert can move onto it.
