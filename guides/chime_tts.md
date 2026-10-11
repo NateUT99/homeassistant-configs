@@ -6,7 +6,7 @@
 
 Chime TTS is a HACS integration that wraps Home Assistant's cloud TTS service with a configurable chime sound prefix. Announcements open with a brief soft chime before the spoken message, making them instantly recognizable as home automation alerts rather than unexpected audio playback. This instance runs `nimroddolev/chime_tts` v1.3.0, installed from HACS's default store (no custom repository registration needed).
 
-`script.household_tts_announce` is the sole entry point for every TTS announcement in this house. It pre-generates each announcement's audio via `chime_tts.say_url`, then dispatches it with `media_player.play_media` (through the small `script.household_tts_play` helper) — either to the resolved HomePod(s), or directly to the living room AppleTV when `auto` resolves there. If the AppleTV rejects the stream, the same clip plays on the kitchen HomePod instead; if a HomePod never starts playing, the script retries once. When TTS can't land — a call in progress on the MacBook Pro, the resolved HomePod being `unavailable`, or playback failing twice — the script falls back to a push notification to Nate's iPhone, optionally as an iOS critical alert.
+`script.household_tts_announce` is the sole entry point for every TTS announcement in this house. It pre-generates each announcement's audio via `chime_tts.say_url`, then dispatches it with `media_player.play_media` (through the small `script.household_tts_play` helper) — either to the resolved HomePod(s), or, when `auto` resolves to the living room, straight to the living room Sonos soundbar as a native Sonos announce over whatever is playing. If the soundbar is offline, the clip plays on the kitchen HomePod instead; if a HomePod never starts playing, the script retries once. When TTS can't land — a call in progress on the MacBook Pro, the resolved HomePod being `unavailable`, or playback failing twice — the script falls back to a push notification to Nate's iPhone, optionally as an iOS critical alert.
 
 ---
 
@@ -57,33 +57,30 @@ script.household_tts_announce
                                    ▼
                        [resume living room AppleTV if it was ducked]
 
-(A) chime_tts.say_url  (pre-generate)
+(A) chime_tts.say_url  (pre-generate, no boost)
           │
           ▼
-    [pause the living room AppleTV, only if it was actually playing]
+    soundbar unavailable/unknown?
           │
-          ▼
-    script.household_tts_play  (script.turn_on → play_media, announce: true,
-          │                     living room AppleTV only)
-          ▼
-    wait_for_trigger: playing → paused, or playing → idle
-          │
-          ▼
-    [no settle from AirPlay → AppleTV rejected the stream: play the same
-     clip on the kitchen HomePod and wait for it to finish; push if the
-     kitchen is offline]
-          │
-          ▼
-    [resume the AppleTV, only if this call was the one that paused it]
+   ┌──────┴──────┐
+   │ no          │ yes
+   ▼             ▼
+ media_player.play_media       kitchen HomePod via script.household_tts_play,
+ → living room soundbar         wait for it to finish (push if the kitchen
+   (announce: true,             is offline too)
+    extra.volume 60, LAN URL)
+   │
+   ▼
+ delay: clip duration + 2s  (holds the queue; the AppleTV is never paused)
 ```
 
 `chime_tts.say_url` generates the chime + spoken message and returns `{url, media_content_id, duration, success}` without playing anything — this instance is configured for the www-folder path, so `url` populates and `media_content_id` comes back `null`. The script always calls `say_url` and then a separate `media_player.play_media` (`announce: true`), never `chime_tts.say` directly — pre-generating first is what keeps the pause-to-playback gap under a second instead of several seconds of dead air. See `LESSONS.md` → TTS & Media.
 
-Volume is handled differently per branch: a single-room HomePod call keeps that room's own tuned `volume_level` (kitchen 0.6, office 0.5, Avery's room 0.4, master bedroom 0.4/0.5 by sleep state); a multi-room HomePod call uses one shared 0.5, since one `media_player.play_media` call can't carry a different volume per target. The living room branch sets no `volume_level` at all — the AppleTV already has a real in-progress volume the viewer chose, and the announce pipeline plays at it as-is. Every branch's generated clip is boosted with `audio_conversion: "Volume 150%"`, since cloud TTS masters noticeably quieter than typical TV/streaming audio. See `LESSONS.md` → TTS & Media.
+Volume is handled differently per branch: a single-room HomePod call keeps that room's own tuned `volume_level` (kitchen 0.6, office 0.5, Avery's room 0.4, master bedroom 0.4/0.5 by sleep state); a multi-room HomePod call uses one shared 0.5, since one `media_player.play_media` call can't carry a different volume per target. The living room branch passes the announce volume to the Sonos as `extra: {volume: 60}` (or `volume_override` × 100); Sonos plays the clip at that level over the show and puts its own volume back afterward. The HomePod branch's clip is boosted with `audio_conversion: "Volume 150%"`; the living room clip isn't, since the Sonos announce volume sets its loudness and a further boost only clips. See `LESSONS.md` → TTS & Media.
 
-> **Family room Sonos is not a script target.** `chime_tts.say` against the family room Sonos (`media_player.family_room_theater`) produces no audio and no error at any log level — see `LESSONS.md` → TTS & Media. `guides/laundry_automation.md` handles family-room awareness with a plain push notification when the Sonos is busy, entirely outside this script. The family room is a separate Sonos-only system from the living room AppleTV this guide otherwise covers.
+> **Family room Sonos is not a script target.** `chime_tts.say` against the family room Sonos (`media_player.family_room_theater`) produces no audio and no error at any log level — see `LESSONS.md` → TTS & Media. `guides/laundry_automation.md` handles family-room awareness with a plain push notification when the Sonos is busy, entirely outside this script. The family room is a separate Sonos-only system from the living room soundbar this script does target.
 
-> **Coordinated change:** The loopback URL rewrite assumes HA serves HTTP on port 80 (`http://127.0.0.1`, no port). If HA's HTTP port ever changes, update the `url` template on all four `script.household_tts_play` calls in `script.household_tts_announce`. The rewrite also assumes every `play_media` target is an Apple TV-integration device, where HA itself downloads the clip — a speaker that fetches the URL itself (Sonos, Cast, Alexa) would be handed its own loopback address, so it needs the original `tts_audio.url` passed on its own call. Tracked in issue #9.
+> **Coordinated change:** The loopback URL rewrite assumes HA serves HTTP on port 80 (`http://127.0.0.1`, no port). If HA's HTTP port ever changes, update the `url` template on every `script.household_tts_play` call in `script.household_tts_announce`. The rewrite only applies to Apple TV-integration devices, where HA itself downloads the clip. The living room Sonos fetches the URL itself, so its call rewrites the host to HA's LAN address, `http://10.10.0.4` (DHCP-reserved); if that address changes, update the soundbar `play_media` call. Tracked in issue #9.
 
 > **Coordinated change:** Room volumes and the `audio_conversion` boost live inside `script.household_tts_announce`'s `variables:` and its `chime_tts.say_url` actions, not in a shared table. Adjusting either means editing the script directly — see `guides/reminders.md` and any other guide referencing this script for the current field contract.
 
@@ -92,14 +89,14 @@ Volume is handled differently per branch: a single-room HomePod call keeps that 
 ## Design Decisions
 
 - **Pre-generate via `chime_tts.say_url`, then `media_player.play_media` — never `chime_tts.say` directly.** `chime_tts.say` generates and plays in one blocking call; the ~3–4s Nabu Casa cloud round trip is invisible when nothing else needs to fall silent first, but this script pauses another room's media in most paths, and that pause completes almost instantly. Generating before pausing anything is what keeps the gap under a second. See `LESSONS.md` → TTS & Media.
-- **Wait on a literal state trigger, not a duration-based `delay`.** `chime_tts.say_url`'s reported `duration` doesn't reliably track real multi-speaker playback time, and a templated `entity_id` inside a `wait_for_trigger` can't be auto-tracked by HA and silently falls back to its timeout. Both branches instead list every entity a call could target as literal state triggers and react to the real transition, keeping the duration only as a timeout backstop. See `LESSONS.md` → TTS & Media.
+- **Wait on a literal state trigger, not a duration-based `delay`.** `chime_tts.say_url`'s reported `duration` doesn't reliably track real multi-speaker playback time, and a templated `entity_id` inside a `wait_for_trigger` can't be auto-tracked by HA and silently falls back to its timeout. The HomePod branch instead lists every HomePod as a literal state trigger and reacts to the real transition, keeping the duration only as a timeout backstop. The living room Sonos announce is the exception: it never changes the soundbar's state, so that branch holds the queue with a `delay` of the clip's duration plus 2 seconds. See `LESSONS.md` → TTS & Media.
 - **`auto` prefers the living room over kitchen whenever the AppleTV is on.** `auto` resolves `master_bedroom` if `everyone_sleeping`, else `living_room` if the AppleTV is on (`playing`, `paused`, or `idle` — anything but `off`/`standby`/`unavailable`/`unknown`), else `kitchen`. An AppleTV that's on at all is a reliable signal someone is in the living room; reaching an empty kitchen instead wouldn't help them. `broadcast` deliberately has no living-room exception — it exists to reach the whole house (kitchen, master bedroom, office, Avery's room), and narrowing it to one room on some calls would silently reduce that coverage for automations that rely on it.
 - **The AppleTV's own state is checked directly, never its Sonos soundbar.** The living room soundbar (HDMI ARC) reports `playing` continuously based on the input being selected, not on whether the AppleTV is actually producing sound — it can't distinguish playing from paused, let alone idle. See `LESSONS.md` → TTS & Media.
-- **Pausing and resuming the AppleTV are both gated on it having actually been `playing`, not merely on** `auto` **routing there or the call ducking it.** Pausing an already-paused or idle AppleTV is a no-op that would also incorrectly mark it as this call's to resume; resuming is further gated on this call being the one that paused it, so a show the person had already left paused stays paused rather than auto-resuming.
-- **A rejected AppleTV stream falls back to the kitchen HomePod, then resumes.** The Apple TV integration intermittently refuses an AirPlay stream (pyatv busy/blocked/timeout, surfaced as "Failed to stream media to the Apple TV"). Without handling, that error aborts the script after the AppleTV is already paused and propagates up, killing the caller's run — including repeat loops like the laundry nag. The play step runs in its own `script.household_tts_play` run (see the next decision), so a failure can't abort this script; success is detected from the settle wait: it must have caught a `playing` edge whose `app_id` is `com.apple.TVAirPlay` (the AppleTV's app while the clip plays). Anything else — a timeout, or the show's own `playing → paused` edge from the preceding `media_pause`, which the AppleTV reports about a second late and a near-instant failed stream lands right on top of — counts as a failure. The kitchen is the fallback because it's the `auto` default when the living room isn't in play, and the pre-generated clip is reused as-is. Cost on failure: roughly `duration + 5` seconds of paused silence before the kitchen speaks.
-- **Playback runs in a separate script, and a HomePod that never starts playing gets one retry, then a push.** The Apple TV integration's decoder failure (`miniaudio.DecodeError`) isn't a `HomeAssistantError`, so `continue_on_error` can't catch it — inside this script it aborts the run before any fallback step. `script.household_tts_play` holds only the `play_media` call and is started with `script.turn_on` (not a blocking call), so a failure ends that run alone. The announce script then waits up to 15 seconds for a targeted HomePod to reach `playing` (about a second on success) or for the play run to end without it (about 11 seconds on the observed failure). If playback didn't start, it waits 3 seconds and retries the same clip once, and pushes only if the retry also fails. The failure is intermittent, so the retry usually lands. The kitchen fallback in the living-room branch goes through the same helper, but without a retry. See `LESSONS.md` → TTS & Media.
-- **Playback fetches the clip over loopback, not the Nabu Casa URL.** `chime_tts.say_url` always returns an external (Nabu Casa remote UI) URL — the integration has no setting to change that. Every target here is an Apple TV-integration device, where HA itself (pyatv) downloads and decodes the clip, so each playback call rewrites the URL's host to `http://127.0.0.1`. That removes the remote-UI round trip, one source of `miniaudio.DecodeError`; the error still occurs occasionally over loopback, which is what the retry above covers. Cloud TTS generation itself still needs the internet. See `LESSONS.md` → TTS & Media.
-- **`audio_conversion: "Volume 150%"` boosts the generated clip itself.** Cloud TTS masters noticeably quieter than TV/streaming audio even when the target speaker's own volume is untouched; this FFmpeg-level boost is independent of any speaker's `volume_level` and needs no restore step. See `LESSONS.md` → TTS & Media.
+- **Living room announcements play on the Sonos soundbar, not the AppleTV.** The AppleTV's AirPlay stream plays at a low level HA can't raise: neither `media_player.volume_set` on the AppleTV nor a louder clip made an audible difference. A native Sonos announce (`announce: true` with `extra.volume`) sets its own level and mixes over the show, so the AppleTV isn't paused or resumed. The trade-off is failure detection: the announce never changes the soundbar's state, so only an offline soundbar falls back to the kitchen. See `LESSONS.md` → TTS & Media.
+- **Ducking the AppleTV for HomePod announcements is gated on it actually being `playing`.** Pausing an already-paused or idle AppleTV is a no-op that would also incorrectly mark it as this call's to resume, so a show the person had already left paused stays paused rather than auto-resuming.
+- **Playback runs in a separate script, and a HomePod that never starts playing gets one retry, then a push.** The Apple TV integration's decoder failure (`miniaudio.DecodeError`) isn't a `HomeAssistantError`, so `continue_on_error` can't catch it — inside this script it aborts the run before any fallback step. `script.household_tts_play` holds only the `play_media` call and is started with `script.turn_on` (not a blocking call), so a failure ends that run alone. The announce script then waits up to 15 seconds for a targeted HomePod to reach `playing` (about a second on success) or for the play run to end without it (about 11 seconds on the observed failure). If playback didn't start, it waits 3 seconds and retries the same clip once, and pushes only if the retry also fails. The failure is intermittent, so the retry usually lands. The kitchen fallback for an offline soundbar goes through the same helper, but without a retry. See `LESSONS.md` → TTS & Media.
+- **Playback fetches the clip over loopback, not the Nabu Casa URL.** `chime_tts.say_url` always returns an external (Nabu Casa remote UI) URL — the integration has no setting to change that. For the HomePods, HA itself (pyatv) downloads and decodes the clip, so each HomePod playback call rewrites the URL's host to `http://127.0.0.1`. That removes the remote-UI round trip, one source of `miniaudio.DecodeError`; the error still occurs occasionally over loopback, which is what the retry above covers. Cloud TTS generation itself still needs the internet. See `LESSONS.md` → TTS & Media.
+- **`audio_conversion: "Volume 150%"` boosts the HomePod clip only.** The FFmpeg-level boost is independent of any speaker's `volume_level` and needs no restore step. The 150% clip already peaks at 0 dBFS, so a higher setting clips rather than getting louder. See `LESSONS.md` → TTS & Media.
 - **Config entry over YAML.** The custom integration is enabled via a config entry (**Settings → Devices & Services → Add Integration → Chime TTS**), not a `configuration.yaml` block. HA discovers the custom component automatically once its files exist in `custom_components/`; the config entry is what triggers service registration. No restart is required.
 
 ---
@@ -109,7 +106,9 @@ Volume is handled differently per branch: a single-room HomePod call keeps that 
 - HACS installed and active — `chime_tts` is a HACS default-store integration, no custom repository needed
 - Nabu Casa subscription active (cloud TTS)
 - `media_player.kitchen_homepod`, `media_player.master_bedroom_homepod`, `media_player.office_homepod`, `media_player.averys_room_homepod` — HomePods via the Apple TV integration
-- `media_player.living_room_appletv` — Apple TV integration; `media_player.living_room_soundbar` exists (Sonos, HDMI ARC) but is not used by this script — see Design Decisions
+- `media_player.living_room_appletv` — Apple TV integration; used only for `auto` routing and ducking
+- `media_player.living_room_soundbar` — Sonos (HDMI ARC); plays living room announcements
+- HA host on a DHCP reservation at `10.10.0.4` (the Sonos fetches clips from it)
 
 ---
 
@@ -171,7 +170,7 @@ data:
 
 **One `media_player.play_media` action targeting a list of entity_ids, not a loop.** Every HomePod resolved for a given call is spoken to with a single action carrying `target.entity_id` as a list — a real single dispatch, not one call per room. A `repeat` action executes its iterations sequentially, so a per-room loop would speak kitchen, then master bedroom, then office, then Avery's room one after another rather than together — audibly staggered, not a broadcast. A single multi-target action starts every resolved HomePod within under a second of each other.
 
-**A call silences routine announcements house-wide; urgent ones still play outside the office.** Every HomePod in the house carries into the office, so during a call a routine announcement is pushed instead of spoken anywhere — `call_quiet` marks every target room busy, including the living room AppleTV path. An urgent announcement (`chime_path: error` or `critical_fallback: true`, i.e. water leak, refrigerator fault, laundry fault) still plays everywhere except the office, which gets the push; a life-safety alert shouldn't wait for a call to end. `office_busy` is `true` when `binary_sensor.nates_work_laptop_audio_input_in_use` is `on` — the same MacBook Pro signal `automation.office_camera_lighting` relies on to detect an active call, deliberately audio-input rather than camera so an audio-only call (mic in use, no camera) still counts.
+**A call silences routine announcements house-wide; urgent ones still play outside the office.** Every HomePod in the house carries into the office, so during a call a routine announcement is pushed instead of spoken anywhere — `call_quiet` marks every target room busy, including the living room soundbar path. An urgent announcement (`chime_path: error` or `critical_fallback: true`, i.e. water leak, refrigerator fault, laundry fault) still plays everywhere except the office, which gets the push; a life-safety alert shouldn't wait for a call to end. `office_busy` is `true` when `binary_sensor.nates_work_laptop_audio_input_in_use` is `on` — the same MacBook Pro signal `automation.office_camera_lighting` relies on to detect an active call, deliberately audio-input rather than camera so an audio-only call (mic in use, no camera) still counts.
 
 **Fallback guard.** Any room that's unreachable — busy because of a call (see above), or that room's HomePod offline — is pulled out of the room list before the `media_player.play_media` call and covered by a single push to `notify.mobile_app_nates_iphone` instead (one push regardless of how many rooms were unreachable, since the message/title is identical either way). The remaining reachable rooms still get TTS in their own single action. `chime_tts` against a dead speaker fails silently at every log level, so detecting "offline" ahead of the call — rather than after — is what keeps the announcement from vanishing with no trace.
 
@@ -192,7 +191,8 @@ Do not call `chime_tts.say_url`, `media_player.play_media`, or `script.household
 | Master Bedroom HomePod | `media_player.master_bedroom_homepod` | Media player (Apple TV integration) |
 | Office HomePod | `media_player.office_homepod` | Media player (Apple TV integration) |
 | Avery's Room HomePod | `media_player.averys_room_homepod` | Media player (Apple TV integration) |
-| Living Room AppleTV | `media_player.living_room_appletv` | Media player (Apple TV integration) — spoken to directly or ducked, depending on routing |
+| Living Room AppleTV | `media_player.living_room_appletv` | Media player (Apple TV integration) — `auto` routing signal; ducked for HomePod announcements |
+| Living Room Soundbar | `media_player.living_room_soundbar` | Media player (Sonos) — plays living room announcements |
 
 ---
 
@@ -200,4 +200,4 @@ Do not call `chime_tts.say_url`, `media_player.play_media`, or `script.household
 
 - `standards/automations.md` — defines the `text_to_speech` label applied to automations that use `script.household_tts_announce`
 - `guides/laundry_automation.md` — first consumer of the script (kitchen/master_bedroom targets); also owns the family-room-busy push notification, handled independently of this script
-- `LESSONS.md` → TTS & Media — Sonos playback diagnostic trail (why family room isn't a script target); the pre-generation, wait_for_trigger, AppleTV-announce, volume-mastering, and HDMI ARC gotchas behind this script's current design
+- `LESSONS.md` → TTS & Media — Sonos playback diagnostic trail (why family room isn't a script target); the pre-generation, wait_for_trigger, AppleTV AirPlay volume, audio_conversion ceiling, and HDMI ARC gotchas behind this script's current design

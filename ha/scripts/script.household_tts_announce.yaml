@@ -16,16 +16,11 @@ description: >-
   from paused (see LESSONS.md).
 
   When the resolved target is the living room, the announcement plays
-  directly on media_player.living_room_appletv via chime_tts.say_url
-  (pre-generated) + media_player.play_media (announce: true) -- no
-  HomePod is involved, and no volume_level is set since the AppleTV
-  already has a real in-progress volume. It's paused first only if it
-  was actually playing (not just on), and resumed afterward only if
-  this call itself was the one that paused it -- a show the person had
-  already left paused stays paused rather than auto-resuming. If the
-  AppleTV rejects the stream, the same pre-generated clip plays on the
-  kitchen HomePod instead (or pushes if that's offline too), and the
-  AppleTV is resumed only after that finishes. For every
+  on the Sonos soundbar (media_player.living_room_soundbar) as a native
+  Sonos announce at volume 60 (or volume_override): it mixes over the
+  show and restores on its own, so the AppleTV isn't paused. If the
+  soundbar is offline, the clip plays on the kitchen HomePod instead (or
+  pushes if that's offline too). For every
   other call (any HomePod target, or a broadcast), the living room
   AppleTV is ducked -- paused before speaking, resumed after -- whenever
   it's actually playing, since its Sonos soundbar has no independent
@@ -54,9 +49,8 @@ description: >-
   before pausing (rather than calling chime_tts.say, which generates
   and plays in one blocking action) keeps the pause-to-playback gap to
   a fraction of a second instead of several seconds of dead air. And
-  the resume waits on the actual playing-to-idle (HomePods) or
-  playing-to-paused/idle (living room AppleTV) transition rather than a
-  fixed delay, because chime_tts.say_url's reported duration doesn't
+  the resume waits on the actual playing-to-idle HomePod transition
+  rather than a fixed delay, because chime_tts.say_url's reported duration doesn't
   reliably match real playback time. A templated entity_id inside a
   wait_for_trigger was tried first and rejected -- HA can only
   auto-track entities a trigger references by a literal string, so a
@@ -193,8 +187,8 @@ sequence:
     then:
       - stop: Unrecognized TTS target
   - alias: >-
-      Speak directly through the living room AppleTV if auto resolved
-      there, otherwise use the normal room list
+      Speak through the living room soundbar if auto resolved there,
+      otherwise use the normal room list
     choose:
       - alias: >-
           Auto resolved to the living room (asleep is false, the AppleTV
@@ -205,91 +199,23 @@ sequence:
         sequence:
           - alias: Pre-generate the announcement audio
             note: >-
-              Runs the Nabu Casa cloud TTS round trip up front, while
-              the AppleTV is untouched -- this is what closes the
-              dead-air gap between pausing it and the announcement
-              actually starting. audio_conversion boosts the generated
-              clip's own loudness, since cloud TTS masters noticeably
-              quieter than TV/streaming audio.
+              No audio_conversion boost here -- loudness on this path is
+              set by the Sonos announce volume below; a louder clip only
+              clips.
             action: chime_tts.say_url
             data:
               message: "{{ message }}"
               chime_path: "{{ chime_path_resolved }}"
               tts_platform: cloud
               cache: true
-              audio_conversion: "Volume 150%"
             response_variable: tts_audio
-          - alias: Pause the living room AppleTV if it's actively playing
-            note: >-
-              Only pause if there's actually something playing to
-              interrupt -- pausing an already-paused or idle AppleTV is
-              a no-op that would also incorrectly mark it as ours to
-              resume.
+          - alias: Soundbar offline -- speak in the kitchen instead
             if:
-              - condition: template
-                value_template: "{{ living_room_playing }}"
-            then:
-              - alias: Pause the AppleTV
-                action: media_player.media_pause
-                target:
-                  entity_id: media_player.living_room_appletv
-          - alias: Play the announcement directly on the living room AppleTV
-            note: >-
-              No volume_level set -- unlike the HomePods, which are idle announcement-only
-              speakers, the AppleTV has an actual in-progress volume already set.
-              The announce pipeline plays at that volume as-is and needs no explicit
-              restore. Runs in its own Household: TTS Play run so any playback failure
-              -- including a decoder error continue_on_error cannot catch -- leaves
-              this script running; the wait and app_id check below detect it and
-              fall through to the kitchen. The URL host is rewritten to loopback:
-              chime_tts always returns its Nabu Casa external URL, but HA itself
-              (pyatv) downloads the clip for these Apple TV-integration speakers,
-              so a local fetch skips the remote-UI round trip. Assumes HA serves
-              HTTP on port 80.
-            action: script.turn_on
-            target:
-              entity_id: script.household_tts_play
-            data:
-              variables:
-                speakers:
-                  - media_player.living_room_appletv
-                url: "{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}"
-          - alias: Wait for the announcement to actually finish
-            note: >-
-              The AppleTV shows playing for the duration of the
-              announcement regardless of what state it started in,
-              then settles back to paused (if a show was loaded) or
-              idle (if it wasn't) -- watch for either edge. The
-              duration-based timeout is kept only as a backstop in case
-              the state never settles.
-            wait_for_trigger:
-              - trigger: state
-                alias: AppleTV settles on a paused show
-                entity_id: media_player.living_room_appletv
-                from: playing
-                to: paused
-              - trigger: state
-                alias: AppleTV settles on idle
-                entity_id: media_player.living_room_appletv
-                from: playing
-                to: idle
-            timeout: "{{ tts_audio.duration + 5 }}"
-            continue_on_timeout: true
-          - alias: If the AppleTV never played the announcement, speak it in the kitchen instead
-            note: >-
-              Success means the wait above caught the announcement itself
-              settling: while the clip plays the AppleTV reports app_id
-              com.apple.TVAirPlay, so the playing edge it leaves must
-              carry that app_id. A plain 'did the wait complete' check
-              isn't enough -- the AppleTV reports the preceding
-              media_pause about a second late, so on a failed stream
-              (which returns almost instantly) the wait catches the
-              show's own playing -> paused edge from the TV app and looks
-              like success. A timed-out wait (no trigger at all) is also
-              a failure.
-            if:
-              - condition: template
-                value_template: "{{ wait.trigger is none or wait.trigger.from_state.attributes.get('app_id') != 'com.apple.TVAirPlay' }}"
+              - condition: state
+                entity_id: media_player.living_room_soundbar
+                state:
+                  - unavailable
+                  - unknown
             then:
               - alias: Kitchen HomePod offline too -- push instead
                 if:
@@ -299,7 +225,7 @@ sequence:
                       - unavailable
                       - unknown
                 then:
-                  - alias: Push fallback (AppleTV failed, kitchen offline)
+                  - alias: Push fallback (soundbar and kitchen offline)
                     action: notify.mobile_app_nates_iphone
                     data:
                       title: "{{ notification_title_resolved }}"
@@ -314,8 +240,8 @@ sequence:
                       volume_level: "{{ volume_override_resolved if volume_override_resolved is not none else 0.6 }}"
                   - alias: Play the pre-generated announcement in the kitchen
                     note: >-
-                      Own Household: TTS Play run, so a failure here cannot leave
-                      the AppleTV paused.
+                      Own Household: TTS Play run, so a playback failure
+                      cannot abort this script.
                     action: script.turn_on
                     target:
                       entity_id: script.household_tts_play
@@ -324,7 +250,7 @@ sequence:
                         speakers:
                           - media_player.kitchen_homepod
                         url: "{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}"
-                  - alias: Wait for the kitchen announcement to finish before resuming
+                  - alias: Wait for the kitchen announcement to finish
                     wait_for_trigger:
                       - trigger: state
                         alias: Kitchen HomePod finishes
@@ -333,20 +259,33 @@ sequence:
                         to: idle
                     timeout: "{{ tts_audio.duration + 5 }}"
                     continue_on_timeout: true
-          - alias: Resume the living room AppleTV only if it was ours to pause
-            note: >-
-              Gated on the original living_room_playing snapshot, not
-              the current state -- a show the person themselves had
-              already paused before this call stays paused rather than
-              auto-resuming.
-            if:
-              - condition: template
-                value_template: "{{ living_room_playing }}"
-            then:
-              - alias: Resume the AppleTV
-                action: media_player.media_play
+            else:
+              - alias: Play the announcement over the show on the living room soundbar
+                note: >-
+                  Sonos announce mixes the clip over whatever is playing at
+                  its own volume and restores afterward, so the AppleTV
+                  isn't paused. The Sonos fetches the clip itself, so the
+                  host is rewritten to HA's LAN address (DHCP-reserved), not
+                  loopback or the Nabu Casa URL. The AppleTV's own AirPlay
+                  path isn't used: it streams at a low fixed level HA can't
+                  raise.
+                action: media_player.play_media
                 target:
-                  entity_id: media_player.living_room_appletv
+                  entity_id: media_player.living_room_soundbar
+                data:
+                  media_content_id: "{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://10.10.0.4') }}"
+                  media_content_type: music
+                  announce: true
+                  extra:
+                    volume: "{{ ((volume_override_resolved if volume_override_resolved is not none else 0.6) * 100) | int }}"
+              - alias: Hold the queue until the announcement finishes
+                note: >-
+                  A Sonos announce returns immediately and never changes the
+                  soundbar's state, so there's no edge to wait on; the clip
+                  length plus a margin keeps the next queued announcement
+                  from talking over this one.
+                delay:
+                  seconds: "{{ (tts_audio.duration + 2) | round(0, \"ceil\") | int }}"
     default:
       - alias: Push once if any resolved room couldn't get TTS
         note: >-
