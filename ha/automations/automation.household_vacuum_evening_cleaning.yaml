@@ -63,12 +63,8 @@ actions:
                     for:
                       hours: 1
         sequence:
-          - alias: Start tonight's pass if the zone hasn't run yet, isn't paused, and the vacuum is free
+          - alias: Start tonight's pass if the routine isn't paused and the vacuum is free
             if:
-              - condition: state
-                entity_id: input_boolean.vacuum_ran_evening
-                state: "off"
-                alias: Evening zone has not run today
               - condition: state
                 entity_id: input_boolean.vacuum_routine_pause
                 state: "off"
@@ -139,6 +135,10 @@ actions:
                         entity_id: binary_sensor.living_room_vacuum_water_shortage
                         state: "off"
                         alias: Water tank is not empty
+                    note: >-
+                      Deliberately not gated on vacuum_ran_evening -- a noon
+                      whole-house vacuum sets that flag but does not mop, so
+                      the weekly mop still runs that night.
                     sequence:
                       - alias: Start the weekly mop pass via the shared mop script
                         action: script.household_vacuum_mop_now
@@ -160,39 +160,48 @@ actions:
                           not silently mark the night's ordinary vacuum pass
                           as done too. This branch sets it since tonight's
                           nightly pass is what actually ran.
-                default:
-                  - alias: Build the vacuum segment list -- add the Entrance only when Avery is away tonight
-                    variables:
-                      vacuum_segments: "{{ [22, 23, 24, 25] + ([17, 26] if is_state('input_boolean.vacuum_avery_home_tonight', 'off') else []) }}"
-                    note: >-
-                      Bathroom and Entrance both border Avery's room, so both
-                      are safe on any night she isn't home, not just mop
-                      night. Household: Last Leaves Home drops segments 17
-                      and 26 from that day's daytime pass whenever this gate
-                      adds them here, so neither room is cleaned twice.
-                  - alias: Start segment clean of common areas
-                    action: vacuum.send_command
-                    target:
-                      entity_id: vacuum.living_room_vacuum
-                    data:
-                      command: app_segment_clean
-                      params:
-                        - segments: "{{ vacuum_segments }}"
-                          repeat: 1
-                  - alias: Mark evening zone ran today
-                    action: input_boolean.turn_on
-                    target:
-                      entity_id: input_boolean.vacuum_ran_evening
-                    note: >-
-                      Set on command, not on verified completion -- nothing
-                      docks the evening run mid-way, so there is no partial
-                      run to distinguish. Cleared at 8am by Household:
-                      Vacuum Reset.
+                  - alias: Nightly vacuum pass -- evening zone hasn't run today
+                    conditions:
+                      - condition: state
+                        entity_id: input_boolean.vacuum_ran_evening
+                        state: "off"
+                        alias: Evening zone has not run today
+                        note: >-
+                          A noon whole-house pass sets this flag, so the nightly
+                          vacuum is skipped as redundant.
+                    sequence:
+                      - alias: Build the vacuum segment list -- add the Entrance only when Avery is away tonight
+                        variables:
+                          vacuum_segments: "{{ [22, 23, 24, 25] + ([17, 26] if is_state('input_boolean.vacuum_avery_home_tonight', 'off') else []) }}"
+                        note: >-
+                          Bathroom and Entrance both border Avery's room, so both
+                          are safe on any night she isn't home, not just mop
+                          night. Household: Last Leaves Home drops segments 17
+                          and 26 from that day's daytime pass whenever this gate
+                          adds them here, so neither room is cleaned twice.
+                      - alias: Start segment clean of common areas
+                        action: vacuum.send_command
+                        target:
+                          entity_id: vacuum.living_room_vacuum
+                        data:
+                          command: app_segment_clean
+                          params:
+                            - segments: "{{ vacuum_segments }}"
+                              repeat: 1
+                      - alias: Mark evening zone ran today
+                        action: input_boolean.turn_on
+                        target:
+                          entity_id: input_boolean.vacuum_ran_evening
+                        note: >-
+                          Set on command, not on verified completion -- nothing
+                          docks the evening run mid-way, so there is no partial
+                          run to distinguish. Cleared at 8am by Household:
+                          Vacuum Reset.
             else:
               - alias: If tonight was skipped for a leftover mop pad, say so quietly
                 note: >-
-                  The else branch fires for any failed condition (already ran,
-                  paused, mid-clean); only the leftover-pad case pushes. Passive
+                  The else branch fires for any failed condition (paused,
+                  mid-clean, leftover pad); only the leftover-pad case pushes. Passive
                   so it lands silently overnight, and tagged vacuum_mop_cleanup
                   so it replaces the cleanup banner and clears when the pad
                   comes off.

@@ -207,7 +207,7 @@ by testing whether `app_segment_clean` targeting it actually starts a job (`stat
 
 Nine helpers back the routine, all under the `int_vacuum_cleaning_routine` label:
 
-- `input_boolean.vacuum_ran_evening`, `input_boolean.vacuum_ran_daytime` — per-zone daily completion flags. `vacuum_ran_daytime` is set by *Vacuum Live Activity*'s daytime-completion check once live progress clears the threshold, or on command by *Vacuum Midday Prompt*; `vacuum_ran_evening` is set on command by *Vacuum Evening Cleaning* or *Vacuum Midday Prompt*'s whole-house branch. Both are daily, cleared at 08:00 — separate from the weekly mop-completion flags below.
+- `input_boolean.vacuum_ran_evening`, `input_boolean.vacuum_ran_daytime` — per-zone daily completion flags. `vacuum_ran_daytime` is set by *Vacuum Live Activity*'s daytime-completion check once live progress clears the threshold, or on command by *Vacuum Midday Prompt*; `vacuum_ran_evening` is set on command by *Vacuum Evening Cleaning* or *Vacuum Midday Prompt*'s whole-house branch; it skips only the nightly vacuum-only branch, never the weekly mop. Both are daily, cleared at 08:00 — separate from the weekly mop-completion flags below.
 - `input_select.vacuum_active_zone` (`evening` / `daytime` / `away` / `master_mop`) — set the moment a job is commanded. Only `daytime` gates a decision: *Vacuum Live Activity*'s daytime-completion check and its amber "will restart" branch both key off it specifically. `evening`, `away`, and `master_mop` are written on every job but never read back for anything — they exist as a debugging breadcrumb (which zone commanded the vacuum's current or most recent job), not as a control input.
 - `input_boolean.vacuum_routine_pause` — a per-trip "I'm stepping out briefly, don't start" flag. Nothing in HA arms it; it's a manual toggle (dashboard or Companion App) flipped on right before a departure that shouldn't start a job. On the next confirmed arrival, *Household: First Arrives Home* pushes **Keep paused** / **Resume**: Resume or no answer within 2 minutes clears it so it never survives to block a later real departure; Keep paused, or leaving again before answering (a quick stop), leaves it armed for the departure that follows. The question is dismissed either way.
 - `input_boolean.vacuum_mop_common_areas_done_this_week`, `input_boolean.vacuum_mop_master_suite_done_this_week` — the two weekly mop-completion flags. Since mop night floats to whatever night Avery is away rather than a fixed weekday, these (not a calendar condition) are what stop each half of the mop pass from running more than once a week. *Household: Vacuum Reset* clears both at 12:00 every Monday — deliberately not the daily 08:00 reset, so a Sunday-night mop's morning follow-up isn't cut short by a late wake; see [Step 3](#3-build-the-automations).
@@ -253,7 +253,9 @@ a night Avery is away (`input_boolean.vacuum_avery_home_tonight` is `off`), this
 common-area mop hasn't happened yet (`input_boolean.vacuum_mop_common_areas_done_this_week` is
 `off`), the mop pad is fitted (`binary_sensor.living_room_vacuum_mop_attached`), the 2-in-1
 dustbin + water module is seated (`binary_sensor.living_room_vacuum_water_box_attached`), and
-the tank is not empty (`binary_sensor.living_room_vacuum_water_shortage` is `off`). The pad
+the tank is not empty (`binary_sensor.living_room_vacuum_water_shortage` is `off`). `vacuum_ran_evening` is
+deliberately not on that list — it gates only the vacuum-only branch, since a noon whole-house
+clean sets it but doesn't mop. The pad
 sensor is the opt-in on a mop-eligible night — forget to prep and the run silently falls back
 to the vacuum-only branch, and that week's mop opportunity is gone until the next night Avery
 is away. The push message names which branch ran, so the notification itself confirms whether
