@@ -349,8 +349,8 @@ machine around the mop-attached sensor:
 |---|---|---|
 | Every 30 minutes, from 20:00 | mop-eligible night (Avery away tonight, week not yet mopped) + not bedtime yet + pad off + someone home + not skipped + not paused | TTS-only prep reminder → whoever's home (`target: auto`); no push |
 | `mop_attached` → `on` | — | stops the loop (next 30-minute check simply fails the "pad off" condition) |
-| Vacuum re-docks | this week's follow-up already ran + pad still on + vacuum docked + not everyone asleep | push `tag: vacuum_mop_cleanup`; kitchen HomePod TTS if 06:00–21:00 + someone home |
-| Hourly on the hour | same as re-dock | kitchen HomePod TTS only, same 06:00–21:00 / someone home gate (repeats until the pad comes off) |
+| Vacuum re-docks | this week's follow-up already ran + pad still on + vacuum docked + not everyone asleep | push `tag: vacuum_mop_cleanup`; TTS (`target: auto`) if 06:00–21:00 + someone home |
+| Hourly on the hour | same as re-dock | TTS only (`target: auto`), same 06:00–21:00 / someone home gate (repeats until the pad comes off) |
 | `mop_attached` → `off` | — | clears the `vacuum_mop_cleanup` banner (cleanup reminder and both pad-blocked skip pushes) and the `vacuum_master_mop_missed` 11:00 push |
 
 The prep half is TTS-only by design — no push, no banner, no action buttons — because

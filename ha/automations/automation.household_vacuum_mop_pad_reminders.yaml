@@ -150,7 +150,7 @@ actions:
                   message: Pull the mop pad off to rinse it.
                   data:
                     tag: vacuum_mop_cleanup
-          - alias: Speak the cleanup reminder in the kitchen during waking hours with someone home
+          - alias: Speak the cleanup reminder during waking hours with someone home
             if:
               - condition: time
                 after: "06:00:00"
@@ -162,10 +162,13 @@ actions:
                 alias: Someone is home
             then:
               - alias: Announce the cleanup reminder
+                note: >-
+                  auto, not kitchen -- reaches the living room AppleTV when it
+                  is on instead of pausing it for an hourly repeat.
                 action: script.household_tts_announce
                 data:
                   message: Pull the mop pad off the robot to rinse it.
-                  target: kitchen
+                  target: auto
                   notification_title: Vacuum Mop Cleanup
                   critical_fallback: false
       - alias: Cleanup done -- clear the cleanup and missed-master-mop banners
