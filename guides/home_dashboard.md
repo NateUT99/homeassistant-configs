@@ -151,9 +151,12 @@ switch by hand are quick actions; running appliances are Happening now.
 | **Media** | Always | "N on" / "Media off" — players with a room media card showing (their activity sensor is on) | Purple when any are on | `#media` | — |
 
 **`#lights`** lists every light by room (Living Room through Utility Room) as `apple_tile`
-tiles — tap toggles, hold opens more-info. **`#media`** lists every Apple TV and HomePod card
-by room, the same cards the room sections show. Both lists are static: a new light or player
-is added to the pop-up by hand.
+tiles — tap toggles, hold opens more-info. **`#media`** lists the active Apple TV and HomePod
+cards by room, the same cards the room sections show. Each card and room heading sits in a
+`conditional` card keyed on the player's activity sensor (the Media chip's rule), so idle
+players are hidden; with none active the pop-up shows a single "Nothing playing" line. Both
+lists are static: a new light or player is added to the pop-up by hand, along with its
+activity sensor in the conditions.
 
 **Quick actions** are a second chip row directly under the status row: a separate
 `sub-buttons` card with the same scrolling layout, for the AI check-in and the people and house modes you switch by hand. The chip group is
