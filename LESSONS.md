@@ -188,6 +188,14 @@ Any automation whose fixed-moment trigger ends a cycle (lights off at sunrise, a
 
 ---
 
+### An `is_closed` / `is_open` condition fails when the sensor is `unavailable` — write the off path as "not open"
+
+Purpose-specific conditions such as `door.is_closed` and `door.is_open` are both false while the sensor is `unavailable`. On 2026-10-10 the utility room door sensor dropped off the network at 02:44. Every off branch of `automation.utility_room_ceiling_lights` required the door to be either closed or open, so none matched, and the light stayed on from 16:25 until someone noticed.
+
+When a condition gates turning something off, write it as `condition: not` around the opposite check (`not door.is_open`). An offline sensor then falls back to the safe behaviour, here following motion alone, instead of leaving the device on. Offline devices now also show on the Maintenance view (`guides/device_availability.md`).
+
+---
+
 ### An automation can't veto a Generic Thermostat's heater — gate the heater switch instead
 
 When a Generic Thermostat is set to heat below target, it turns its heater switch on right away, inside its own mode-change handling. An automation triggered by that mode change or by the switch turning on always runs after the switch has already closed. So "block it while away" written as an automation turns the heater off again about a second later, rather than stopping it. For a gas fireplace that is a brief call-for-heat, which can begin an ignition sequence.
