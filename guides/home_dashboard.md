@@ -423,7 +423,7 @@ Navbar order: Home · Rooms · Climate · Chores · More. Rooms opens `/home-mai
 | Climate | `climate` | HVAC row (thermostat state line; tap opens `/home-main/home#hvac`), then collapsible Rooms (open by default): per-room temperature tiles with a 24 h trend, tinted blue or amber and labelled with the offset when 1.5° or more from the living-space average (`room_temp_style` in `dashboard.jinja`; utility room and Outside excluded); Humidity (collapsed): one 24 h history graph |
 | Energy | `energy` | Built-in energy cards: date selection, compare, Sankey, per-device detail graph; cost table; generator status, warning, maintenance, last ran, run time, battery, connection, status message |
 | Chores | `chores` | `chore-calendar-card` on `calendar.household_chores` |
-| Maintenance | `maintenance` | Collapsible sections (Expander Card; Batteries open by default, the rest collapsed): vacuum consumables (same cards as `#vacuum-care`); pending updates; network (WAN, Firewalla, speed test, latency, loss, alarms, modem resets, modem maintenance, Litra agent); batteries |
+| Maintenance | `maintenance` | Collapsible sections (Expander Card; Availability and Batteries open by default, the rest collapsed): availability (offline and partially unavailable devices from `sensor.household_devices_offline`, see `guides/device_availability.md`); vacuum consumables (same cards as `#vacuum-care`); pending updates; network (WAN, Firewalla, speed test, latency, loss, alarms, modem resets, modem maintenance, Litra agent); batteries |
 
 **Energy** reads the Energy settings: grid import from `sensor.household_energy_monitor_total_energy_delivered`
 with `sensor.household_energy_monitor_power_demand` as the grid power sensor, and the six
@@ -431,8 +431,9 @@ tracked devices. Small smart plugs are deliberately not tracked devices — they
 "untracked" in the Sankey. The live power cards (`power-total`, `power-sankey`) are not used
 here; they fail outside the built-in Energy dashboard, which keeps its own Now tab.
 
-**Navbar badges and visibility:** More shows a red badge while any `update.*` entity is on
-(Maintenance inside its menu carries the same badge) or while
+**Navbar badges and visibility:** More shows a red badge while any `update.*` entity is on or
+`sensor.household_devices_offline` is above 0 (Maintenance inside its menu carries the same
+badge), or while
 `binary_sensor.outside_home_generator_warning` or `_maintenance_alert` is on (Energy inside the
 menu carries that one) — generator
 problems surface there rather than as a Home chip. The Maintenance item is hidden for

@@ -1,0 +1,68 @@
+# Groups unavailable entities by device so an offline device stands out from
+# expected noise. Feeds the Availability section on the home-main Maintenance
+# view and the navbar badge. See guides/device_availability.md.
+#
+# - Skips hidden entities and anything labelled ignore_offline (entity or device).
+# - 5-minute grace: an entity counts only once it has been unavailable that
+#   long, so brief network drops and the minutes after a restart don't flash.
+# - offline = every visible entity on the device is unavailable;
+#   partial = only some are; orphans = unavailable entities with no device.
+# - Re-renders on a 1-minute time pattern rather than on every state change:
+#   walking states on each change would re-render constantly for no benefit.
+
+template:
+  - trigger:
+      - trigger: time_pattern
+        minutes: "/1"
+        alias: Recheck every minute
+      - trigger: homeassistant
+        event: start
+        alias: Home Assistant started
+    action:
+      - variables:
+          report: >-
+            {%- set grace = 300 -%}
+            {%- set ignored = label_entities('ignore_offline') -%}
+            {%- set ns = namespace(devs=[], orphans=[], offline=[], partial=[]) -%}
+            {%- for s in states | selectattr('state', 'eq', 'unavailable')
+                 if s.entity_id not in ignored
+                 and not is_hidden_entity(s.entity_id)
+                 and (now() - s.last_changed).total_seconds() >= grace -%}
+              {%- set d = device_id(s.entity_id) -%}
+              {%- if d is none -%}
+                {%- set ns.orphans = ns.orphans + [{
+                      'entity_id': s.entity_id,
+                      'name': s.name,
+                      'since': s.last_changed.isoformat()}] -%}
+              {%- elif d not in ns.devs and 'ignore_offline' not in labels(d) -%}
+                {%- set ns.devs = ns.devs + [d] -%}
+              {%- endif -%}
+            {%- endfor -%}
+            {%- for d in ns.devs -%}
+              {%- set live = expand(device_entities(d) | reject('in', ignored)
+                    | reject('is_hidden_entity') | list) -%}
+              {%- set down = live | selectattr('state', 'eq', 'unavailable') | list -%}
+              {%- set item = {
+                    'device_id': d,
+                    'name': device_attr(d, 'name_by_user') or device_attr(d, 'name'),
+                    'area': area_name(d) or '',
+                    'since': (down | map(attribute='last_changed') | min).isoformat()} -%}
+              {%- if down | count == live | count -%}
+                {%- set ns.offline = ns.offline + [item] -%}
+              {%- else -%}
+                {%- set ns.partial = ns.partial + [dict(item,
+                      entities=down | map(attribute='name') | sort | list)] -%}
+              {%- endif -%}
+            {%- endfor -%}
+            {{ {'offline': ns.offline | sort(attribute='area,name'),
+                'partial': ns.partial | sort(attribute='area,name'),
+                'orphans': ns.orphans | sort(attribute='name')} }}
+    sensor:
+      - name: "Household Devices Offline"
+        unique_id: household_devices_offline
+        icon: mdi:lan-disconnect
+        state: "{{ report.offline | count }}"
+        attributes:
+          offline: "{{ report.offline }}"
+          partial: "{{ report.partial }}"
+          orphans: "{{ report.orphans }}"

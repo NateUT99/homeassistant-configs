@@ -1,5 +1,5 @@
 # Home Assistant Device & Entity Naming Standard
-*Version 2.4 — September 2026*
+*Version 2.5 — October 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 2.5 | October 2026 | Added §7.6: the `ignore_offline` label for devices and entities expected to be unavailable |
 | 2.4 | September 2026 | Added a §7.1 bullet codifying the routine-scoped helper/template-entity convention already in use (`input_boolean.vacuum_*`, `binary_sensor.vacuum_stuck`) — no area prefix, named after the routine instead, since the helper describes routine state rather than a physical device |
 | 2.3 | September 2026 | Rewrite §9 again — chores moved from a native `local_todo` list with description metadata to the `ha-chore-calendar` HACS integration; naming is now just the `chore_name` field. Revised same day: trash pickup folded back in as a `oneshot` chore rather than staying a standalone helper |
 | 2.2 | September 2026 | Rewrite §9 for the `todo.household_chores` rebuild — reminders are now to-do items with description metadata, not per-reminder `input_datetime`/`input_number`/`sensor`/`binary_sensor` quartets |
@@ -311,6 +312,23 @@ When a light is connected via a smart plug, use the `switch_as_x` helper to expo
 2. The integration creates `switch.living_room_movie_poster`
 3. In HA, create a `switch_as_x` helper to expose it as `light.living_room_movie_poster`
 4. Disable the underlying `switch` entity — use the `light` entity everywhere
+
+### 7.6 Expected-Offline Devices and Entities (`ignore_offline`)
+
+`sensor.household_devices_offline` lists every device whose entities have been unavailable
+for 5 minutes (`guides/device_availability.md`). Apply the **Ignore Offline**
+(`ignore_offline`, grey, `mdi:eye-off`) label to keep expected outages off that list:
+
+| Apply to | When | Example |
+|---|---|---|
+| Entity | The sensor is only available some of the time, on an otherwise healthy device | `sensor.nates_iphone_current_pace` |
+| Entity | A template sensor is unavailable by design for part of the day | `sensor.household_hvac_cooling_average_cycle_today` |
+| Device | The whole device is expected to be offline for long stretches | A seasonal device that is unplugged |
+
+Prefer labelling the narrowest target: label the entity, not its device, so the rest of the
+device stays monitored. Hidden entities are already skipped, so don't label them. Grey is
+reserved for de-emphasizing labels like this one, kept apart from the amber and red used for
+warnings.
 
 ---
 

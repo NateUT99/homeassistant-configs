@@ -37,7 +37,7 @@ navbar-templates:
         action: open-popup
       badge:
         show: '[[[ return states[''binary_sensor.outside_home_generator_warning'']?.state === ''on'' || states[''binary_sensor.outside_home_generator_maintenance_alert'']?.state === ''on'' || Object.keys(states).some(k
-          => k.startsWith(''update.'') && states[k].state === ''on'') ]]]'
+          => k.startsWith(''update.'') && states[k].state === ''on'') || Number(states[''sensor.household_devices_offline'']?.state) > 0 ]]]'
         color: red
       popup:
       - url: /home-main/energy
@@ -51,7 +51,7 @@ navbar-templates:
         label: Maintenance
         hidden: '[[[ return !user.is_admin ]]]'
         badge:
-          show: '[[[ return Object.keys(states).some(k => k.startsWith(''update.'') && states[k].state === ''on'') ]]]'
+          show: '[[[ return Object.keys(states).some(k => k.startsWith(''update.'') && states[k].state === ''on'') || Number(states[''sensor.household_devices_offline'']?.state) > 0 ]]]'
           color: red
 views:
 - title: Home
@@ -4866,6 +4866,75 @@ views:
     cards:
     - type: custom:navbar-card
       template: main
+    - type: custom:expander-card
+      icon: mdi:chevron-down
+      expanded: true
+      storage-id: home-main-maintenance-availability
+      clear: true
+      padding: '0'
+      child-margin-top: 0.6em
+      grid_options:
+        columns: 12
+      cards:
+      - type: markdown
+        content: '{%- set e = ''sensor.household_devices_offline'' -%}
+
+          {%- macro ago(ts) -%}{%- set s = (now() - as_datetime(ts)).total_seconds() -%}{{ (s // 86400) | int ~ '' d'' if s >= 86400 else ((s // 3600) | int ~ '' h'' if s >= 3600 else (s // 60) | int ~
+          '' min'') }}{%- endmacro -%}
+
+          {%- set off = state_attr(e, ''offline'') or [] -%}
+
+          {%- set part = state_attr(e, ''partial'') or [] -%}
+
+          {%- set orph = state_attr(e, ''orphans'') or [] -%}
+
+          {%- if not has_value(e) -%}Checking…
+
+          {%- elif not (off or part or orph) -%}<ha-icon icon="mdi:check-circle"></ha-icon>All devices online
+
+          {%- else -%}
+
+          <table>
+
+          {%- for d in off %}<tr><td><ha-icon icon="mdi:close-circle"></ha-icon><a href="/config/devices/device/{{ d.device_id }}">{{ d.name }}</a></td><td>{{ (d.area ~ '' · '') if d.area }}{{ ago(d.since)
+          }}</td></tr>{% endfor %}
+
+          {%- for d in part %}<tr><td><ha-icon icon="mdi:alert-circle"></ha-icon><a href="/config/devices/device/{{ d.device_id }}">{{ d.name }}</a><br><em>{{ d.entities | join('', '') }}</em></td><td>{{
+          (d.area ~ '' · '') if d.area }}{{ ago(d.since) }}</td></tr>{% endfor %}
+
+          {%- for o in orph %}<tr><td><ha-icon icon="mdi:alert-circle"></ha-icon>{{ o.name }}</td><td>{{ ago(o.since) }}</td></tr>{% endfor %}
+
+          </table>
+
+          {%- endif -%}'
+        uix:
+          style:
+            ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: 2px; margin-right: 6px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
+              { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
+              none !important; } td { padding: 5px 6px 5px 0; vertical-align: top; } td:last-child { text-align: right; white-space: nowrap; color: var(--secondary-text-color); } a { color: inherit !important;
+              text-decoration: none !important; } em { font-size: 13px; color: var(--secondary-text-color); font-style: normal; margin-left: 24px; } p { margin: 0; }'
+            'ha-markdown $ ha-markdown-element:': 'ha-icon { --mdc-icon-size: 18px; vertical-align: 2px; margin-right: 6px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
+              { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
+              none !important; } td { padding: 5px 6px 5px 0; vertical-align: top; } td:last-child { text-align: right; white-space: nowrap; color: var(--secondary-text-color); } a { color: inherit !important;
+              text-decoration: none !important; } em { font-size: 13px; color: var(--secondary-text-color); font-style: normal; margin-left: 24px; } p { margin: 0; }'
+      title-card:
+        type: heading
+        heading: Availability
+        icon: mdi:lan-disconnect
+        badges:
+        - type: entity
+          entity: sensor.household_devices_offline
+          show_icon: true
+          show_state: true
+          color: red
+          visibility:
+          - condition: numeric_state
+            entity: sensor.household_devices_offline
+            above: 0
+          icon: mdi:close-circle
+      title-card-clickable: true
+  - type: grid
+    cards:
     - type: custom:expander-card
       icon: mdi:chevron-down
       expanded: false

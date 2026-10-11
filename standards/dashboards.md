@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.20.0 — October 2026*
+*Version 1.21.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.21.0 | October 2026 | Maintenance faults (updates, offline devices, generator) surface as red navbar badges, not Home chips |
 | 1.20.0 | October 2026 | Pop-ups drop the header row |
 | 1.19.0 | October 2026 | Home Flat theme replaces Frosted Glass; Home room sections use native section panels |
 | 1.18.0 | October 2026 | apexcharts-card approved for pop-up charts |
@@ -112,6 +113,11 @@ and an update to this table.
 placed in every view as `{type: custom:navbar-card, template: main}` as the first card of
 the view's first section. Desktop `position: left`; labels shown on both form factors. The
 `maintenance` route is hidden for non-admin users.
+
+**Maintenance faults badge the navbar, not Home.** A pending update, a fully offline device
+(`sensor.household_devices_offline` above 0), or a generator warning shows a red badge on
+More and on the menu item for the view that explains it (Maintenance or Energy). Home chips
+stay reserved for household status (§7).
 
 ---
 
