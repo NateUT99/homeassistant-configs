@@ -235,28 +235,25 @@ sequence:
                   entity_id: media_player.living_room_appletv
           - alias: Play the announcement directly on the living room AppleTV
             note: >-
-              No volume_level set -- unlike the HomePods, which are
-              idle announcement-only speakers, the AppleTV has an
-              actual in-progress volume already set. The announce
-              pipeline plays at that volume as-is and needs no
-              explicit restore. continue_on_error lets a failed AirPlay
-              stream (pyatv busy/blocked/timeout, raised as
-              HomeAssistantError) fall through to the kitchen fallback
-              below instead of aborting the script with the AppleTV left
-              paused and the caller's run killed.
-              The URL host is rewritten to loopback: chime_tts always
-              returns its Nabu Casa external URL, but HA itself (pyatv)
-              downloads the clip for these Apple TV-integration speakers,
-              so a local fetch skips the remote-UI round trip. Assumes HA
-              serves HTTP on port 80.
-            action: media_player.play_media
+              No volume_level set -- unlike the HomePods, which are idle announcement-only
+              speakers, the AppleTV has an actual in-progress volume already set.
+              The announce pipeline plays at that volume as-is and needs no explicit
+              restore. Runs in its own Household: TTS Play run so any playback failure
+              -- including a decoder error continue_on_error cannot catch -- leaves
+              this script running; the wait and app_id check below detect it and
+              fall through to the kitchen. The URL host is rewritten to loopback:
+              chime_tts always returns its Nabu Casa external URL, but HA itself
+              (pyatv) downloads the clip for these Apple TV-integration speakers,
+              so a local fetch skips the remote-UI round trip. Assumes HA serves
+              HTTP on port 80.
+            action: script.turn_on
             target:
-              entity_id: media_player.living_room_appletv
+              entity_id: script.household_tts_play
             data:
-              media_content_id: "{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}"
-              media_content_type: music
-              announce: true
-            continue_on_error: true
+              variables:
+                speakers:
+                  - media_player.living_room_appletv
+                url: "{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}"
           - alias: Wait for the announcement to actually finish
             note: >-
               The AppleTV shows playing for the duration of the
@@ -316,13 +313,17 @@ sequence:
                     data:
                       volume_level: "{{ volume_override_resolved if volume_override_resolved is not none else 0.6 }}"
                   - alias: Play the pre-generated announcement in the kitchen
-                    action: media_player.play_media
+                    note: >-
+                      Own Household: TTS Play run, so a failure here cannot leave
+                      the AppleTV paused.
+                    action: script.turn_on
                     target:
-                      entity_id: media_player.kitchen_homepod
+                      entity_id: script.household_tts_play
                     data:
-                      media_content_id: "{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}"
-                      media_content_type: music
-                      announce: true
+                      variables:
+                        speakers:
+                          - media_player.kitchen_homepod
+                        url: "{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}"
                   - alias: Wait for the kitchen announcement to finish before resuming
                     wait_for_trigger:
                       - trigger: state
@@ -415,20 +416,128 @@ sequence:
                   entity_id: media_player.living_room_appletv
           - alias: Play the pre-generated announcement
             note: >-
-              Starts immediately since the audio already exists -- no
-              post-pause wait for generation.
-              The URL host is rewritten to loopback: chime_tts always
-              returns its Nabu Casa external URL, but HA itself (pyatv)
-              downloads the clip for these Apple TV-integration speakers,
-              so a local fetch skips the remote-UI round trip. Assumes HA
-              serves HTTP on port 80.
-            action: media_player.play_media
+              Starts immediately since the audio already exists -- no post-pause
+              wait for generation. Runs in its own Household: TTS Play run (script.turn_on,
+              not a blocking call) because a playback failure raises an error continue_on_error
+              cannot catch and would otherwise abort this script before it could
+              retry or push. The URL host is rewritten to loopback: chime_tts always
+              returns its Nabu Casa external URL, but HA itself (pyatv) downloads
+              the clip for these Apple TV-integration speakers, so a local fetch
+              skips the remote-UI round trip. Assumes HA serves HTTP on port 80.
+            action: script.turn_on
             target:
-              entity_id: "{{ speaker_entities }}"
+              entity_id: script.household_tts_play
             data:
-              media_content_id: "{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}"
-              media_content_type: music
-              announce: true
+              variables:
+                speakers: "{{ speaker_entities }}"
+                url: "{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}"
+          - alias: Wait for a targeted HomePod to start playing
+            note: >-
+              Success shows up as the speaker reaching playing about a second in.
+              A failed playback never reaches playing and ends its Household: TTS
+              Play run (about 11s observed), which counts as failure straight away;
+              the timeout is a backstop. Literal HomePod triggers for the same auto-tracking
+              reason as the finish wait below.
+            wait_for_trigger:
+              - trigger: state
+                alias: Kitchen HomePod starts playing
+                entity_id: media_player.kitchen_homepod
+                to: playing
+                id: started
+              - trigger: state
+                alias: Master bedroom HomePod starts playing
+                entity_id: media_player.master_bedroom_homepod
+                to: playing
+                id: started
+              - trigger: state
+                alias: Office HomePod starts playing
+                entity_id: media_player.office_homepod
+                to: playing
+                id: started
+              - trigger: state
+                alias: Avery's room HomePod starts playing
+                entity_id: media_player.averys_room_homepod
+                to: playing
+                id: started
+              - trigger: state
+                alias: Playback run ended without playing
+                entity_id: script.household_tts_play
+                from: "on"
+                to: "off"
+                id: failed
+            timeout:
+              seconds: 15
+            continue_on_timeout: true
+          - alias: If playback didn't start, retry once, then push
+            note: >-
+              The decoder failure is intermittent -- the same clip has played fine
+              minutes later -- so one retry after a short pause covers most of them.
+            if:
+              - condition: template
+                alias: Playback didn't start
+                value_template: "{{ wait.trigger is none or wait.trigger.id != 'started' }}"
+            then:
+              - alias: Pause before retrying
+                delay:
+                  seconds: 3
+              - alias: Retry the announcement
+                note: Same clip, same speakers.
+                action: script.turn_on
+                target:
+                  entity_id: script.household_tts_play
+                data:
+                  variables:
+                    speakers: "{{ speaker_entities }}"
+                    url: "{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}"
+              - alias: Wait for a targeted HomePod to start playing
+                note: >-
+                  Success shows up as the speaker reaching playing about a second
+                  in. A failed playback never reaches playing and ends its Household:
+                  TTS Play run (about 11s observed), which counts as failure straight
+                  away; the timeout is a backstop. Literal HomePod triggers for
+                  the same auto-tracking reason as the finish wait below.
+                wait_for_trigger:
+                  - trigger: state
+                    alias: Kitchen HomePod starts playing
+                    entity_id: media_player.kitchen_homepod
+                    to: playing
+                    id: started
+                  - trigger: state
+                    alias: Master bedroom HomePod starts playing
+                    entity_id: media_player.master_bedroom_homepod
+                    to: playing
+                    id: started
+                  - trigger: state
+                    alias: Office HomePod starts playing
+                    entity_id: media_player.office_homepod
+                    to: playing
+                    id: started
+                  - trigger: state
+                    alias: Avery's room HomePod starts playing
+                    entity_id: media_player.averys_room_homepod
+                    to: playing
+                    id: started
+                  - trigger: state
+                    alias: Playback run ended without playing
+                    entity_id: script.household_tts_play
+                    from: "on"
+                    to: "off"
+                    id: failed
+                timeout:
+                  seconds: 15
+                continue_on_timeout: true
+              - alias: Push if the retry also failed
+                if:
+                  - condition: template
+                    alias: Playback didn't start
+                    value_template: "{{ wait.trigger is none or wait.trigger.id != 'started' }}"
+                then:
+                  - alias: Push fallback (playback failed twice)
+                    action: notify.mobile_app_nates_iphone
+                    data:
+                      title: "{{ notification_title_resolved }}"
+                      message: "{{ message }}"
+                      data: "{{ fallback_push_data }}"
           - alias: Wait for the announcement to actually finish before resuming
             note: >-
               Listing all four HomePods as literal state triggers

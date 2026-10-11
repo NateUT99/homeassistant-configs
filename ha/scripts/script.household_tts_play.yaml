@@ -1,0 +1,37 @@
+alias: "Household: TTS Play"
+description: >-
+  Plays one pre-generated announcement clip on the given Apple TV-integration
+  speakers. Only called by Household: TTS Announce, always via
+  script.turn_on, so a playback failure ends this run instead of the
+  announcement script. See guides/chime_tts.md.
+fields:
+  speakers:
+    name: Speakers
+    description: media_player entities to play the clip on.
+    required: true
+    selector:
+      entity:
+        domain: media_player
+        multiple: true
+  url:
+    name: URL
+    description: Clip URL, already rewritten to loopback by the caller.
+    required: true
+    selector:
+      text: {}
+sequence:
+  - alias: Play the clip as an announcement
+    note: >-
+      The Apple TV integration can raise miniaudio's DecodeError here, which
+      is not a HomeAssistantError, so continue_on_error can't catch it -- it
+      aborts whichever run it is in. Isolating it in this script keeps the
+      caller alive to retry or push.
+    action: media_player.play_media
+    target:
+      entity_id: "{{ speakers }}"
+    data:
+      media_content_id: "{{ url }}"
+      media_content_type: music
+      announce: true
+mode: parallel
+max: 10

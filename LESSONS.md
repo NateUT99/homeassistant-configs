@@ -608,6 +608,13 @@ For HomePods and the AppleTV (Apple TV integration), HA's own process downloads 
 
 Fix: rewrite the host before playback — `{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}`. `/local/` is served unauthenticated, and HA Core shares the host network on HA OS, so loopback reaches it directly. This instance serves HTTP on **port 80**, not 8123. Live-verified 2026-10-01 on the office HomePod. Don't apply this to a speaker that fetches the URL itself (e.g. Sonos) — loopback would point at the speaker.
 
+Loopback reduces the failure but doesn't eliminate it: on 2026-10-11 a loopback fetch to the master bedroom HomePod raised the same `DecodeError` about 11 seconds in, without the speaker ever reaching `playing`. See the next entry for how the script now survives it.
+
+### `continue_on_error` can't catch a non-`HomeAssistantError` — run the risky action in its own script started with `script.turn_on`
+
+`continue_on_error: true` only skips `HomeAssistantError` and its subclasses. Any other exception, such as `miniaudio.DecodeError` from the Apple TV integration's `play_media`, aborts the whole run, and every later fallback step is skipped.
+What works: put the action alone in a small script and start it with `script.turn_on`, which returns immediately and doesn't propagate the child's errors. Then detect success from state rather than from an error. For HomePods, wait for the target to reach `playing`; on success that took about a second, and on the failure it never did and the child run ended at about 11 seconds. Retry or fall back if neither happens. Used by `script.household_tts_announce` through `script.household_tts_play` (`guides/chime_tts.md`). Success path live-verified 2026-10-11 on the kitchen HomePod; the failure path can't be reproduced on demand.
+
 ### `chime_tts.say_url`'s reported `duration` doesn't reliably match real multi-speaker playback time
 
 The `duration` field in a `chime_tts.say_url` response reflects the generated file's own length, not how long it actually takes to finish playing once dispatched to one or more real `media_player` targets over AirPlay/Sonos. Live-verified 2026-09-26 across three broadcast tests: real playback ran anywhere from ~2s shorter to ~5s longer than the reported `duration`, in both directions across different calls. A `delay:` step sized on `duration` either cuts the announcement short or leaves several extra seconds of dead silence before resuming whatever it interrupted.
