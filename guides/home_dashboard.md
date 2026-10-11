@@ -50,21 +50,25 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   `input_select.household_hvac_mode_before_pause`; nothing is re-derived in the dashboard.
 - **Generator chip shows only while running.** Running means a utility outage — worth seeing
   at a glance. Exercising, warnings, and maintenance belong on the Energy view.
-- **Media lives in the room it plays in.** Each room section on Home carries a Bubble
-  `media-player` card for its Apple TV or HomePod, shown only while that player is in use —
-  no house-wide player card. Bubble's own volume button controls the Apple TV, not the
-  speaker it plays through, so Apple TV cards hide it and add an always-visible slider
-  sub-button on the real speaker (Sonos, or the bedroom TV). The slider shows its icon and volume (`show_button_info`), updates the
-  speaker while dragging (`slider_live_update`), and a card `styles` rule fills it with the
-  module's artwork colour (`--bmpe-accent`) and its text with the module's ink colour, so it
-  matches the play button and progress bar. Every media card — room
-  sections, `#media`, `#living-room` — uses the Bubble Media Player Enhanced module
-  (artwork background and colours; `background_opacity: 0.85` so bright artwork doesn't wash out the overlaid title and times; `idle_artwork: none` since the cards hide when idle), so
-  there is one media style and no separate media card dependency. Bubble's own icon is hidden
-  (`show_icon: false`) because the module already draws the cover. All media cards use the large
-  layout (`rows: 3`, full scrubbable progress bar above the controls,
-  `main_buttons_position: bottom`); Apple TV cards also use `artwork_fit: original` so wide
-  TV artwork is not cropped square.
+- **Media lives in the room it plays in.** Each room section on Home carries a compact
+  (`rows: 1`) Bubble `media-player` card for its Apple TV or HomePod, shown only while that
+  player is in use — no house-wide player card. The compact card is title, play/pause, and an
+  always-visible volume slider sub-button (`show_button_info`, `slider_live_update`); skip,
+  power, and Bubble's own volume button are hidden, and tapping the card opens `#media` for the
+  full card. Bubble's volume button controls the Apple TV, not the speaker it plays through,
+  so Apple TV sliders target the real speaker (Sonos, or the bedroom TV); HomePod sliders
+  target the HomePod. The compact cards carry no Media Player Enhanced module: its progress
+  bar and times draw over the title and slider at one row.
+- **Full media cards live in the pop-ups.** `#media` and the room pop-ups (`#living-room` and
+  the others) use the Bubble Media Player Enhanced module (artwork background and colours;
+  `background_opacity: 0.85` so bright artwork doesn't wash out the overlaid title and times;
+  `idle_artwork: none` since the cards hide when idle), so there is one media style and no
+  separate media card dependency. Bubble's own icon is hidden (`show_icon: false`) because the
+  module already draws the cover. These use the large layout (`rows: 3`, full scrubbable
+  progress bar above the controls, `main_buttons_position: bottom`); Apple TV cards also use
+  `artwork_fit: original` so wide TV artwork is not cropped square, and a card `styles` rule
+  fills the speaker slider with the module's artwork colour (`--bmpe-accent`) and its text with
+  the module's ink colour, so it matches the play button and progress bar.
 - **Media cards follow an "active" template sensor per player**
   (`ha/packages/media_activity.yaml`), and so does the Media chip's count. Apple TVs are
   active while playing or paused (a paused show is one you'll come back to) plus 30 seconds,
@@ -198,11 +202,11 @@ start collapsed.
 | Room | Media card (while in use) | Tiles |
 |---|---|---|
 | Living Room | Apple TV; volume slider → Soundbar | Ceiling Light, Fan |
-| Master Bedroom | Apple TV (slider → TV); HomePod | Ceiling Light, Fan, Nightstand |
-| Avery's Room | HomePod | Ceiling Light, Fan, Desk Lamp |
-| Office | HomePod | Ceiling Light, Fan, Key Light, Bourbon Lamp |
+| Master Bedroom | Apple TV (slider → TV); HomePod (slider → HomePod) | Ceiling Light, Fan, Nightstand |
+| Avery's Room | HomePod; volume slider → HomePod | Ceiling Light, Fan, Desk Lamp |
+| Office | HomePod; volume slider → HomePod | Ceiling Light, Fan, Key Light, Bourbon Lamp |
 | Family Room | Apple TV; volume slider → Theater | Ambient Lamp, Alice Glow, Peanuts Glow |
-| Kitchen | HomePod | Sink Light |
+| Kitchen | HomePod; volume slider → HomePod | Sink Light |
 | Outside | — | Porch, Front Door, Garage |
 
 
