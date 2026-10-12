@@ -80,6 +80,16 @@ iOS Lock Screen / Dynamic Island
   as "no chronometer" rather than passing a bad value into `as_timestamp()`. `started_at` exists
   in the script for the same purpose on a future consumer with a reliable start timestamp; the
   vacuum consumer tried one and dropped it — see its Design Decisions below.
+- **To re-alert a card, re-run its consumer instead of sending a separate push.** Another
+  automation that wants the phone to wake about something a card already shows calls
+  `automation.trigger` on that consumer (`skip_condition: true`). Being a reconciler, it rebuilds
+  the same card from live state, and since the run isn't the `coarse_tick`, `periodic_tick`
+  renders `false` and the update alerts. The card text stays defined only in the consumer. Callers
+  today: Utility Room: Laundry Announcement (`automation.utility_room_laundry_announcement`) when
+  the family room Sonos is busy, and Household: First Arrives Home
+  (`automation.household_first_arrives_home`) when the vacuum is stuck. A dismissed card comes back
+  on the re-alert, and the Companion App reports no dismissal to HA, so swiping a card away is not
+  an acknowledgement — acknowledgement has to come from a house signal, like laundry retrieval.
 
 ## Prerequisites
 

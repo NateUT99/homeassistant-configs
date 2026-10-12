@@ -1,12 +1,12 @@
 # Laundry Automation
 
-*Last updated: September 2026*
+*Last updated: October 2026*
 
 ---
 
 ## Overview
 
-Two LG appliances — a washer and dryer — are managed via the `lg_thinq` integration and surface as entity sets in HA. This integration adds a state machine helper per appliance, four template sensors for progress computation, three automations for state management and TTS announcements, and (deferred — see [Future Improvements](#future-improvements)) a dashboard section. When a cycle completes, the system announces on the kitchen HomePod (or master bedroom if Avery is sleeping) every 30 minutes until the laundry is retrieved, and re-announces immediately when the household re-engages after sleep or an absence. If the family room Sonos is playing at announcement time, a push notification also goes to Nate's phone — a busy Sonos there likely means a movie or game loud enough to miss the kitchen announcement over.
+Two LG appliances — a washer and dryer — are managed via the `lg_thinq` integration and surface as entity sets in HA. This integration adds a state machine helper per appliance, four template sensors for progress computation, three automations for state management and TTS announcements, and (deferred — see [Future Improvements](#future-improvements)) a dashboard section. When a cycle completes, the system announces on the kitchen HomePod (or master bedroom if Avery is sleeping) every 30 minutes until the laundry is retrieved, and re-announces immediately when the household re-engages after sleep or an absence. If the family room Sonos is playing at announcement time, the appliance's Live Activity card is re-sent as an alerting update so the phone wakes — a busy Sonos there likely means a movie or game loud enough to miss the kitchen announcement over.
 
 A cycle that errors out mid-run (door failed to lock, water supply issue, and similar) is handled as a distinct `fault` state, separate from a normal completion — see [Fault handling](#fault-handling) below.
 
@@ -45,9 +45,8 @@ LG ThinQ (lg_thinq integration)
              ├── combined message when both appliances alerting
              ├── fault message uses the reported error phrase when recent (see Fault handling)
              ├── kitchen HomePod (default)
-             ├── + push to phone if family_room_theater is playing (busy Sonos, unconditional)
-             ├── fault while away/asleep: single push instead of waiting, then stop
-             └── master bedroom HomePod only (avery_sleeping = on) — no kitchen, no push check
+             ├── + re-alert the Live Activity card if family_room_theater is playing (busy Sonos)
+             └── master bedroom HomePod only (avery_sleeping = on) — no kitchen, no family room check
 
 State machine inputs (per status manager):
   current_status → end                                    ──► idle → alerting  (state trigger)
@@ -90,7 +89,7 @@ Live Activity inputs (per appliance, independent of the TTS path above):
 
 - **Arrival entry-grace lives in the shared script's caller, not the script itself.** The garage/front-door wait before an arrival-triggered announcement is `standards/automations.md` §5.10, applied directly in this automation (not inside `script.household_tts_announce`) — any TTS-and-arrival automation gets the same block. The script's own job is only "speak this message at this target"; deciding *whether* and *when* to speak stays in the calling automation.
 
-- **Family room awareness is a push notification, not a TTS target.** `script.household_tts_announce` cannot reach the family room Sonos (`media_player.family_room_theater`) — the playback command produces no audio (see `LESSONS.md` → TTS & Media). The requirement is met more simply anyway: one `script.household_tts_announce` call to `kitchen`, then an unconditional check of `media_player.family_room_theater`'s `state` (no script involvement) that pushes to `notify.mobile_app_nates_iphone` if `playing` — a busy Sonos there likely means a movie or game loud enough to miss the kitchen announcement over. The check is skipped in the Avery-sleeping branch, where only master bedroom fires.
+- **Family room awareness is a Live Activity re-alert, not a TTS target or a push.** A playing family room Sonos (`media_player.family_room_theater`) means a movie or game, so nothing is spoken there. Instead, after the announcement, each appliance still `alerting` or in `fault` has its Live Activity automation re-run with `automation.trigger`, which resends the card already on the phone as an alerting update — the same information a separate push would carry, without a second notification to clear. The check is skipped in the Avery-sleeping branch, where only master bedroom fires. See `guides/live_activities.md` → Design decisions.
 
 - **Template helpers, not `configuration.yaml`.** Progress and remaining-time sensors are created as HA template helpers (config-flow API, equivalent to Settings → Helpers → Add Helper → Template), stored in HA storage and retrievable via MCP. Formula: `progress = (total_time − minutes_remaining) / total_time × 100`, clamped 0–100; `minutes_remaining = max(0, (remaining_time_timestamp − now()) / 60)`. Both guard against `unknown`/`unavailable` source states.
 
@@ -106,7 +105,7 @@ A cycle that aborts mid-run — a door that won't lock, a water supply problem, 
 
 **Ordering caveat:** the generic notification event lands roughly 0.5 seconds *before* the typed error event carrying the actual fault code. The announcement automation adds a 5-second settle delay before composing a fault message, specifically to let the typed event catch up — composing immediately risks reading no code at all. See `LESSONS.md`.
 
-**Fault code → phrase map** (used by `automation.utility_room_laundry_announcement` to speak/push a specific cause; single copy, in that automation's `variables:` block):
+**Fault code → phrase map** (used by `automation.utility_room_laundry_announcement` to speak a specific cause; single copy, in that automation's `variables:` block):
 
 | Appliance | `event_type` | Phrase |
 |---|---|---|
@@ -126,7 +125,7 @@ A cycle that aborts mid-run — a door that won't lock, a water supply problem, 
 
 Fallbacks, in order: if the error entity's timestamp is more than 5 minutes old (reached `fault` via the generic notification event only, or a restart replayed a stale value), the message drops to "The washer stopped with an error."; if a code is present but unmapped — a firmware-added error type — it's humanized (`replace('_', ' ')`) rather than left to fail.
 
-**Away or asleep: a single push, not the nag loop.** A fault bypasses the sleep/away gate that a plain completion respects — reaching for the phone matters more than waiting for someone to be home and awake. The announcement automation checks for this case before the arrival-wait block and before the repeat loop: if a fault is present and either nobody is home or everyone is asleep, it pushes once to `notify.mobile_app_nates_iphone` and stops, rather than entering the 30-minute repeat. This is a normal push, not a critical alert — a stalled laundry cycle isn't a safety hazard, and `binary_sensor.utility_room_washer_water_leak` already covers the case that would be (see [Related HA Config](#related-ha-config)).
+**Away or asleep: the Live Activity is the alert.** A fault respects the same sleep/away gate as a completion — the error card (below) already alerted the phone when the fault latched, so there is no separate push. The spoken announcement waits for the wake or arrival trigger like any other. Nothing here is a critical alert — a stalled laundry cycle isn't a safety hazard, and `binary_sensor.utility_room_washer_water_leak` already covers the case that would be (see [Related HA Config](#related-ha-config)).
 
 **Live Activity latches the fault.** `sensor.utility_room_<appliance>_current_status` sits in `error` for only 1–2 seconds before reverting — too brief for the existing sensor-keyed error branch in `automation.utility_room_<appliance>_live_activity` to reliably catch. A fault-latch branch, checked first in each automation's `choose`, keys on `input_select.utility_room_<appliance>_status == fault` instead and holds the card in `error` until the same three clearing paths above take it back to `idle`. The card's message stays generic ("Check the washer — error reported") rather than carrying the specific fault code, to avoid a third copy of the phrase map above; if the code is wanted on the card later, promote the map to a `custom_templates` Jinja macro first (see `standards/documentation.md` and the best-practices skill's guidance on repeated template logic).
 

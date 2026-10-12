@@ -5,9 +5,10 @@ description: >-
   automation.household_confirm_arrival, not the raw zone.home geofence (which
   fires ~100m out and can't tell a drive home from a walk around the block).
   Sets the living room thermostat to Home, clears the Immediate Departure
-  flag, docks the vacuum if it's mid-run and not stuck, and -- if the vacuum
-  routine is paused -- asks whether to keep the pause, clearing it after 2
-  minutes with no answer. Additional arrival actions will be added over time.
+  flag, docks the vacuum if it's mid-run and not stuck (re-alerting its Live
+  Activity card if it is stuck), and -- if the vacuum routine is paused --
+  asks whether to keep the pause, clearing it after 2 minutes with no answer.
+  Additional arrival actions will be added over time.
 triggers:
   - trigger: state
     entity_id: input_boolean.arrival_confirmed
@@ -53,20 +54,24 @@ actions:
         target:
           entity_id: vacuum.living_room_vacuum
     else:
-      - alias: If it looked like a dock was due but the vacuum is stuck, say so instead
+      - alias: If the vacuum is stuck instead, re-alert its Live Activity
         if:
           - condition: state
             entity_id: binary_sensor.vacuum_stuck
             state: "on"
             alias: Vacuum is stuck
         then:
-          - alias: Tell Nate the vacuum is stuck rather than docking it
-            action: notify.send_message
+          - alias: Resend the vacuum stuck card
+            note: >-
+              The stuck card has been up since the vacuum got stuck; re-running
+              its automation resends it as an alerting update (only the coarse
+              tick sends silently), so the phone wakes on arrival without a
+              separate push.
+            action: automation.trigger
             target:
-              entity_id: notify.nates_iphone
+              entity_id: automation.household_vacuum_live_activity
             data:
-              title: Vacuum
-              message: Vacuum looks stuck -- didn't send it to dock automatically. Go check on it.
+              skip_condition: true
   - alias: If the vacuum routine is paused, ask whether to keep the pause
     note: >-
       Last in the sequence so the 2-minute wait never delays the other arrival
