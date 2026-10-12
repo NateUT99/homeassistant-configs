@@ -1,0 +1,41 @@
+id: "1791812911928"
+alias: "Kitchen: Dishwasher Announcement"
+description: >-
+  Announces once when a dishwasher cycle finishes, about 3 minutes after the
+  last power draw, to the auto-resolved room. Skipped when the household is
+  asleep or nobody is home — a finished dishwasher isn't worth waking anyone
+  for.
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.kitchen_dishwasher_running
+    from: "on"
+    to: "off"
+    alias: "Dishwasher stopped running"
+conditions:
+  - condition: template
+    alias: "Ran at least 20 minutes"
+    note: >-
+      Filters a brief >10W spike (door opened, quick rinse) that isn't a real
+      cycle. No native condition measures how long the from-state lasted. A
+      restart or template reload re-stamps last_changed, so one in a cycle's
+      final 20 minutes suppresses that cycle's announcement.
+    value_template: >-
+      {{ (trigger.to_state.last_changed -
+      trigger.from_state.last_changed).total_seconds() >= 1200 }}
+  - condition: state
+    entity_id: input_boolean.everyone_sleeping
+    state: "off"
+    alias: "Household awake"
+  - condition: numeric_state
+    entity_id: zone.home
+    above: 0
+    alias: "Someone home"
+actions:
+  - alias: "Announce dishwasher done"
+    action: script.household_tts_announce
+    data:
+      message: The dishwasher is done.
+      notification_title: Dishwasher Done
+      target: auto
+mode: single
+category: 01M0SZBV5BGDGY2BQ2GBB5NA4C

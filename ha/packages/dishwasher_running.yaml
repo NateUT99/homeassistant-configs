@@ -1,16 +1,17 @@
 # Dishwasher cycle-running detection, derived from the Third Reality metering
-# plug's power-threshold binary_sensor (binary_sensor.kitchen_dishwasher_opening).
-# The raw signal flaps on/off dozens of times per cycle during low-draw pump
-# phases; delay_off debounces it into a single clean run span. A real cycle's
-# low-draw troughs run up to ~4min, so delay_off must clear that, not just the
-# common sub-1min case. Architecture and threshold calibration documented in
-# guides/energy_monitoring.md.
+# plug's instantaneous power (sensor.kitchen_dishwasher_power). The plug's
+# power-threshold flag (binary_sensor.kitchen_dishwasher_opening) is an edge
+# pulse, not a level, so it reads "off" for minutes at a time during full-load
+# heating and can't drive this sensor. Idle draw is <1W and the control panel
+# blips ~7W, so 10W separates "cycle in progress" from standby. Mid-cycle
+# sub-10W troughs (pump pauses, pulsed drying heat) run up to ~90s; delay_off
+# clears that with margin. Architecture documented in guides/energy_monitoring.md.
 
 template:
   - binary_sensor:
       - name: "Dishwasher Running"
         unique_id: dishwasher_running
         device_class: running
-        delay_off: "00:04:30"
-        availability: "{{ has_value('binary_sensor.kitchen_dishwasher_opening') }}"
-        state: "{{ is_state('binary_sensor.kitchen_dishwasher_opening', 'on') }}"
+        delay_off: "00:03:00"
+        availability: "{{ has_value('sensor.kitchen_dishwasher_power') }}"
+        state: "{{ states('sensor.kitchen_dishwasher_power') | float(0) > 10 }}"

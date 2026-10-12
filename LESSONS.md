@@ -870,6 +870,10 @@ Don't lower the global timeout to fix one device: it applies to every mains rout
 
 The `3RSP02064Z` sends `power` only when it changes meaningfully. During a steady compressor-off stretch, `sensor.kitchen_refrigerator_power` went 9+ minutes without an update, and its `last_reported` doesn't advance either. `voltage` and `current` keep reporting every few seconds regardless, because grid voltage drifts by a tenth of a volt constantly (worst gaps observed: 47 s voltage, 84 s current). A stale `power` reading is normal; a stale `voltage` reading means the plug has stopped talking.
 
+### Third Reality power-threshold flag is an edge pulse, not a level
+
+The `3RSP02064Z`'s `power_rise_threshold` / `power_drop_threshold` drive a ZHA binary sensor (registered as `_opening`) that looks like "load above threshold" but isn't. On the dishwasher it read `off` for 8 minutes while `power` read ~1000W (2026-10-11), splitting every cycle into two "running" spans with a false `off` about 45 minutes in. A debounce on top of it can't fix that: the gaps are the flag's, not the load's. Derive running state from `sensor.<plug>_power` with a numeric threshold and `delay_off` instead (`ha/packages/dishwasher_running.yaml`). The refrigerator plug shows the same behavior — see `guides/energy_monitoring.md`.
+
 ---
 
 ### A group helper's "Hide members" hides standalone sensors too
