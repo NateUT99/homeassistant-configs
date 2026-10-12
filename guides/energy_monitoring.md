@@ -83,7 +83,7 @@ not a level: it reads `off` for minutes at a time during full-load heating, so n
 it. See `LESSONS.md` → *Third Reality power-threshold flag is an edge pulse, not a level*.
 
 Kitchen: Dishwasher Announcement (`automation.kitchen_dishwasher_announcement`) speaks "The
-dishwasher is done" through `script.household_tts_announce` (`target: auto`) on the running
+dishwasher cycle has finished. Please unload it." through `script.household_tts_announce` (`target: auto`) on the running
 sensor's on→off. It announces once, with no repeat — a finished dishwasher isn't
 time-sensitive — and is skipped when the household is asleep or away, so an overnight cycle is
 silent. A minimum 20-minute run filters a brief spike that isn't a real cycle.

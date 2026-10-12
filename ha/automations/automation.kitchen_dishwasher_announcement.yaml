@@ -34,7 +34,7 @@ actions:
   - alias: "Announce dishwasher done"
     action: script.household_tts_announce
     data:
-      message: The dishwasher is done.
+      message: The dishwasher cycle has finished. Please unload it.
       notification_title: Dishwasher Done
       target: auto
 mode: single
