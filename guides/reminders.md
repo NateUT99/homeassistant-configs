@@ -53,13 +53,16 @@ Household: Task Mark Done
 calendar.family (Remote Calendar, read-only iCloud subscribe)
 └── "Trash Pickup" / "Trash & Recycling Pickup" alternating biweekly all-day events
 
-Household: Trash Pickup — one persistent oneshot chore (Take Out Trash & Recycling, persist: true)
+Household: Trash Pickup — one persistent oneshot chore (named per week, persist: true)
   Sync (18:00 daily / HA start / manual), only when the chore is unscheduled or completed:
     find the first calendar.family event matching "Trash" past the chore's current due
-    (or today, if unscheduled) → chore_calendar.update_item(oneshot.due_datetime, description)
+    (or today, if unscheduled) → chore_calendar.update_item(oneshot.due_datetime,
+    description, chore_name)
     An open (not-yet-completed) chore is left untouched -- restart-safe by construction.
-    The matched event's exact summary ("Trash Pickup" vs. "Trash & Recycling Pickup") is
-    what the escalation below reads to tell the two week types apart -- no separate helper.
+    description = the matched event's exact summary (spoken in the TTS);
+    chore_name = "Take Out Trash" or "Take Out Trash & Recycling" (does the event mention
+    recycling?) -- the name is what the escalation below reads to tell the two week types
+    apart, no separate helper.
   Escalate, reading the chore's own due/status via todo.get_items:
     Every 30 min, 19:00-23:30 → if due tomorrow, not completed, someone home, and nobody
                        asleep (everyone_sleeping and avery_sleeping both off)
@@ -97,17 +100,17 @@ Household: Trash Pickup — one persistent oneshot chore (Take Out Trash & Recyc
   only writes a new `due_datetime` when the chore is unscheduled or completed — an open chore's
   due is already correct, so there is no floor/bump logic to get right at restart boundaries,
   unlike an earlier design that queried the calendar live at every reminder.
-- *No helper for trash — the chore's own status and description are the state.* Marking it
+- *No helper for trash — the chore's own status and name are the state.* Marking it
   complete (by hand on the card, or automatically on a trash-only week) is what silences the
   rest of that cycle's reminders; `chore_calendar.update_item`'s `due_datetime` edit clears the
   completed oneshot's `terminal` flag automatically on the next sync, reopening it for the next
   cycle with no explicit "reopen" step.
 - *Trash-only weeks auto-complete after the first announcement; Trash & Recycling weeks don't.*
-  The sync already writes the matched calendar event's exact summary into the chore's
-  `description`, so a plain substring check on that field (does it mention "recycling"?) tells
-  the week types apart with no new helper or entity. The check's polarity is deliberate: only a
-  positively identified trash-only week auto-completes, so a missing or unparseable description
-  falls through to the full escalate-until-acknowledged behavior — over-reminding is the safe
+  The sync names the chore from the matched calendar event — "Take Out Trash" or "Take Out
+  Trash & Recycling" — so the card and the daily push show the right job, and a plain substring
+  check on the name (does it mention "recycling"?) tells the week types apart with no new
+  helper or entity. The check's polarity is deliberate: only a name without "recycling"
+  auto-completes, so anything unexpected falls through to the full escalate-until-acknowledged behavior — over-reminding is the safe
   failure, silently closing a real Trash & Recycling week is not. The 30-minute repeats need no
   suppression logic of their own; auto-completing right after the first successful announcement
   reuses the same `status != 'completed'` guard that already stops every later tick.
@@ -195,7 +198,7 @@ data:
 ```
 
 It starts unscheduled — the sync half of `automation.household_trash_pickup` (full YAML in the
-`ha/` mirror) gives it its first `due_datetime` on its next run, set to 19:00 the evening
+`ha/` mirror) renames it for the matched week and gives it its first `due_datetime` on its next run, set to 19:00 the evening
 *before* the matched pickup event (the actionable deadline), not the pickup morning itself —
 see Design Decisions above.
 
@@ -265,7 +268,7 @@ attribute on its `sensor.household_chores_<chore>` entity to see exactly when it
 
 **Trash reminders fire even though you already took it out**
 
-Confirm the "Take Out Trash & Recycling" chore actually shows `completed` on the card or via
+Confirm the trash chore actually shows `completed` on the card or via
 `sensor.household_chores_take_out_trash` — that status is the only gate; there is no separate
 helper. If it reads `completed` but a reminder still fired, check
 `automation.household_trash_pickup`'s trace for which branch ran.
@@ -295,9 +298,7 @@ branch on demand.
 
 **The trash reminder only fired once, even though it's a Trash & Recycling week**
 
-Check the chore's `description` attribute on `sensor.household_chores_take_out_trash` — that's
-the only signal the escalation reads to classify the week. If it reads a trash-only summary
-(e.g. `Trash Pickup`) for what should have been a recycling week, the sync matched the wrong
-calendar event; check `calendar.family` for a mislabeled or missing entry. If `description` is
-empty, the chore predates the sync ever running against it and should self-correct at the next
-sync.
+Check the chore's name on the card or in `todo.get_items` — that's the only signal the
+escalation reads to classify the week. If it reads `Take Out Trash` for what should have been a
+recycling week, the sync matched the wrong calendar event (its `description` shows which); check
+`calendar.family` for a mislabeled or missing entry.

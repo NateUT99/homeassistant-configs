@@ -1,17 +1,18 @@
 id: "1789947413384"
 alias: "Household: Trash Pickup"
 description: >-
-  Trash is a persistent oneshot chore on calendar.household_chores (summary:
-  Take Out Trash & Recycling; found by its uid, so a rename never breaks this), synced from calendar.family. Three jobs, split by trigger
-  id.
+  Trash is a persistent oneshot chore on calendar.household_chores (found
+  by its uid, so the per-week rename below never breaks this), synced from
+  calendar.family. Three jobs, split by trigger id.
 
 
   **Sync** (18:00 daily, HA start, manual run): only acts when the chore is
   unscheduled or completed -- finds the first calendar.family event matching
   Trash past the chore's current due (or today, if unscheduled), and writes
-  it via chore_calendar.update_item (oneshot.due_datetime plus description
+  it via chore_calendar.update_item (oneshot.due_datetime, description
   carrying the matched event's exact summary, e.g. Trash & Recycling
-  Pickup). An open chore is left untouched, which makes this restart-safe
+  Pickup, and chore_name -- Take Out Trash on a trash-only week, Take Out
+  Trash & Recycling otherwise). An open chore is left untouched, which makes this restart-safe
   with no floor/bump logic needed. If the search finds nothing, pushes a
   one-time tag-replaced warning; clears it once a match is found again.
 
@@ -20,8 +21,9 @@ description: >-
   evening-before deadline, not the truck's arrival time): announces via
   script.household_tts_announce only while someone is home and nobody is
   asleep (everyone_sleeping and avery_sleeping both off). The chore's own
-  description (written by Sync) tells a trash-only week from a Trash &
-  Recycling week apart -- no separate helper. On a trash-only week the
+  name (written by Sync) tells a trash-only week from a Trash & Recycling
+  week apart -- no separate helper; the description only supplies the
+  spoken event name. On a trash-only week the
   chore is marked complete right after the first successful announcement,
   silencing every later tick the same way the card's own mark-done does; a
   Trash & Recycling week keeps escalating every 30 minutes until marked
@@ -111,16 +113,16 @@ actions:
       on the card cannot silently orphan this automation.
     variables:
       trash: "{{ (all_result.get('todo.household_chores', {}).get('items', []) | selectattr('uid', 'eq', 'ab02f24c-f9f8-4def-9085-706634af2ef4') | list | first) | default(none) }}"
-  - alias: "Classify the week from the chore's description"
+  - alias: "Classify the week from the chore's name"
     note: >-
-      The sync writes the matched calendar event's exact summary here, so
-      no separate helper is needed. Polarity is deliberate: only a
-      positively identified trash-only week auto-completes. A missing or
-      unparseable description falls through to the full recycling-week
-      escalation, which is the safe failure -- it over-reminds rather than
-      silently closing a cycle that was never handled.
+      Sync names the chore Take Out Trash or Take Out Trash & Recycling
+      from the matched calendar event, so no separate helper is needed.
+      Polarity is deliberate: only a name without 'recycl' auto-completes,
+      so anything unexpected falls through to the full recycling-week
+      escalation -- it over-reminds rather than silently closing a cycle
+      that was never handled.
     variables:
-      trash_only: "{{ trash is not none and (trash.get('description','') ~ '') != '' and 'recycl' not in ((trash.get('description','') ~ '') | lower) }}"
+      trash_only: "{{ trash is not none and 'recycl' not in ((trash.get('summary','') ~ '') | lower) }}"
   - alias: "Route by trigger"
     choose:
       - alias: "Escalate -- due today (evening deadline)"
@@ -278,17 +280,20 @@ actions:
                     alias: "A matching pickup event was found"
                 then:
                   - action: chore_calendar.update_item
-                    alias: "Write the matched pickup date"
+                    alias: "Write the matched pickup date and week name"
                     note: >-
                       entity_id goes in data:, not target: -- this
                       service's schema wants a plain string, and
                       target: always expands to a list, which this
-                      service rejects.
+                      service rejects. chore_name uses the same
+                      'recycl' test as the week classification, so the
+                      card and the daily push name the right job.
                     data:
                       item: "{{ trash.uid }}"
                       oneshot:
                         due_datetime: "{{ (as_datetime(hit.start[:10]).replace(hour=19, minute=0, second=0) - timedelta(days=1)).isoformat() }}"
                       description: "{{ hit.summary }}"
+                      chore_name: "Take Out Trash{{ ' & Recycling' if 'recycl' in (hit.summary | lower) else '' }}"
                       entity_id: calendar.household_chores
                   - action: notify.mobile_app_nates_iphone
                     alias: "Clear any stale not-found warning"
