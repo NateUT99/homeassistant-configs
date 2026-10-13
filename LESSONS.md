@@ -196,6 +196,12 @@ When a condition gates turning something off, write it as `condition: not` aroun
 
 ---
 
+### Purpose-specific triggers match on `device_class` — re-check them when a sensor changes integration
+
+`occupancy.*` triggers and conditions only match `device_class: occupancy` entities, and `motion.*` only matches `motion`. ZHA exposes a Hue motion sensor as `occupancy`; the Hue bridge exposes the same hardware as `motion`. Swapping only the entity ID after moving the sensor leaves triggers that no longer match the sensor. Also check what the old integration did on the device itself. ZHA's 15s occupied-to-unoccupied delay is gone on the bridge, which reports raw motion with gaps of a few seconds, so an off trigger needs its own `for:`.
+
+---
+
 ### An automation can't veto a Generic Thermostat's heater — gate the heater switch instead
 
 When a Generic Thermostat is set to heat below target, it turns its heater switch on right away, inside its own mode-change handling. An automation triggered by that mode change or by the switch turning on always runs after the switch has already closed. So "block it while away" written as an automation turns the heater off again about a second later, rather than stopping it. For a gas fireplace that is a brief call-for-heat, which can begin an ignition sequence.
@@ -859,6 +865,10 @@ When migrating a device from one Zigbee network to another (ZHA → Z2M, Z2M →
 Hue bulbs and accessories work most reliably on the Hue bridge — they get firmware updates, entertainment sync, and the Hue app's native scene management. Non-Hue Zigbee devices live on Z2M, which has better diagnostic visibility and broader device support.
 
 The clean separation (Hue on channel 20, Z2M on channel 11) prevents interference and keeps each network simpler.
+
+### Hue motion sensors (SML001) drop off ZHA and don't rejoin
+
+The utility room SML001 fell off ZHA (Sonoff MG24 coordinator) twice in under a month, on 2026-09-19 and 2026-10-13. Both times it went silent overnight with 72% battery and a good link (LQI 132). Pulling the battery didn't bring it back; only a factory reset and re-pair did. On the Hue bridge it gets a parent it supports and firmware updates. Pair Hue sensors to the bridge, not ZHA.
 
 ### ZHA takes 2 hours to mark a silent mains-powered device `unavailable`
 

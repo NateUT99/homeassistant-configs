@@ -14,24 +14,28 @@ triggers:
     entity_id: binary_sensor.utility_room_door
   id: door_closed
   note: Fires when the door closes.
-- trigger: occupancy.cleared
+- trigger: motion.cleared
   target:
-    entity_id: binary_sensor.utility_room_motion_sensor_occupancy
+    entity_id: binary_sensor.utility_room_motion_sensor_motion
   id: motion_cleared
-  note: Fires when motion clears, respecting the sensor's onboard 15s occupied-to-unoccupied
-    delay.
-- trigger: occupancy.cleared
+  note: Fires after 15s of continuous no-motion. The Hue bridge reports raw motion
+    with gaps of a few seconds, so the hold lives here to keep a still occupant from
+    losing the lights.
+  options:
+    behavior: each
+    for: "00:00:15"
+- trigger: motion.cleared
   target:
-    entity_id: binary_sensor.utility_room_motion_sensor_occupancy
+    entity_id: binary_sensor.utility_room_motion_sensor_motion
   id: door_open_timeout
   note: Safety net for a door left open with nobody in the room -- fires after 1
     continuous minute of no motion; resets automatically if motion resumes.
   options:
     for:
       minutes: 1
-- trigger: occupancy.detected
+- trigger: motion.detected
   target:
-    entity_id: binary_sensor.utility_room_motion_sensor_occupancy
+    entity_id: binary_sensor.utility_room_motion_sensor_motion
   id: motion_detected
   note: Turns lights back on if someone walks in while the door was already open,
     or recovers from a false motion-clear.
@@ -53,9 +57,9 @@ actions:
   - conditions:
     - condition: trigger
       id: door_closed
-    - condition: occupancy.is_not_detected
+    - condition: motion.is_not_detected
       target:
-        entity_id: binary_sensor.utility_room_motion_sensor_occupancy
+        entity_id: binary_sensor.utility_room_motion_sensor_motion
     sequence:
     - action: light.turn_off
       target:

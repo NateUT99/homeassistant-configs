@@ -31,11 +31,11 @@ triggers:
     to: running
     id: cycle_start
     alias: "New cycle started"
-  - trigger: occupancy.detected
+  - trigger: motion.detected
     target:
-      entity_id: binary_sensor.utility_room_motion_sensor_occupancy
+      entity_id: binary_sensor.utility_room_motion_sensor_motion
     id: retrieved
-    alias: "Sustained occupancy (retrieved)"
+    alias: "Sustained motion (retrieved)"
     note: >-
       15s filters PIR noise (pet, glitch, HVAC draft) without the gap a
       stricter door-open+occupancy AND would have: this door gets left open

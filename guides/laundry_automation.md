@@ -54,7 +54,7 @@ State machine inputs (per status manager):
   notification event fires, event_type = error, < 5 min old  ──► any → fault  (generic fault signal)
   typed error event fires, < 5 min old                     ──► any → fault  (specific fault code)
   current_status → running                                ──► any → idle (new cycle)
-  utility_room_motion_sensor_occupancy sustained 15s        ──► any → idle (retrieved)
+  utility_room_motion_sensor_motion sustained 15s           ──► any → idle (retrieved)
   utility_room_door held open 60s                          ──► any → idle (retrieved, PIR backup)
 
 TTS inputs:
@@ -81,9 +81,9 @@ Live Activity inputs (per appliance, independent of the TTS path above):
 
 - **Dryer triggers on `end` only, not `cooling`.** Although clothes can technically be removed once cooling starts, triggering at `cooling` shows a "done" state while time remaining is still counting down — confusing. The done state appears only when the cycle fully completes.
 
-- **Retrieval clears on sustained occupancy, not a bare door edge.** Two constraints rule out a bare `binary_sensor.utility_room_door` edge: casual door opens (checking on something, walking through) last 3–24 seconds and look identical to a real visit, and the door gets left open for hours at a stretch — during which a cycle finishing produces no edge at all, so the alert would never clear. The primary retrieval signal is `occupancy.detected` on `binary_sensor.utility_room_motion_sensor_occupancy` with `for: 15s` — short enough to catch a quick retrieval, long enough to filter PIR noise. `door.opened` with `for: 60s` is an independent backup for when the PIR is unavailable, not combined with occupancy via AND: requiring a *fresh* door-open edge alongside occupancy would miss a retrieval where the door was already open when someone walked in.
+- **Retrieval clears on sustained motion, not a bare door edge.** Two constraints rule out a bare `binary_sensor.utility_room_door` edge: casual door opens (checking on something, walking through) last 3–24 seconds and look identical to a real visit, and the door gets left open for hours at a stretch — during which a cycle finishing produces no edge at all, so the alert would never clear. The primary retrieval signal is `motion.detected` on `binary_sensor.utility_room_motion_sensor_motion` with `for: 15s` — short enough to catch a quick retrieval, long enough to filter PIR noise. The Hue bridge reports raw motion with no hold-off, so a still pause of a few seconds restarts the 15s count. `door.opened` with `for: 60s` is an independent backup for when the PIR is unavailable, not combined with motion via AND: requiring a *fresh* door-open edge alongside motion would miss a retrieval where the door was already open when someone walked in.
 
-  > **Known limitation, not fixed by tuning the threshold.** Both status managers watch the same door and occupancy sensors — there's only one utility room for two appliances. Opening the door to tend one appliance clears an unrelated alert on the other, since neither automation can tell which appliance a visit was for. This exists independent of the occupancy duration; only per-appliance sensors (see [Not built — deferred](#not-built--deferred)) actually fix it.
+  > **Known limitation, not fixed by tuning the threshold.** Both status managers watch the same door and motion sensors — there's only one utility room for two appliances. Opening the door to tend one appliance clears an unrelated alert on the other, since neither automation can tell which appliance a visit was for. This exists independent of the motion duration; only per-appliance sensors (see [Not built — deferred](#not-built--deferred)) actually fix it.
 
 - **TTS re-triggers on re-engagement.** The announcement automation uses `mode: restart` and fires on three triggers: `input_select → alerting`, `everyone_sleeping → off`, and `zone.home` crossing 0→1. Sleep and away stop TTS but leave the visual (`input_select`) at `alerting`. When the household re-engages, the automation restarts and fires immediately rather than waiting up to 30 minutes for the next loop iteration.
 
@@ -101,7 +101,7 @@ Live Activity inputs (per appliance, independent of the TTS path above):
 
 A cycle that aborts mid-run — a door that won't lock, a water supply problem, a jammed motor — is a `fault`, not a completion. Each appliance's error event entity (`event.utility_room_washer_error` / `event.utility_room_dryer_error`) carries a typed `event_type` naming the specific failure; the generic notification event's `error_during_washing` / `drying_failed` type is a second, less specific signal for the same failure. Both land on the same `fault` option, and whichever arrives first wins — mirroring the `alerting` transition's dual-trigger pattern above.
 
-**A fault overrides `alerting`, and clears the same three ways `alerting` does:** a new cycle starting, sustained utility-room occupancy, or the door held open a minute. No separate fault-clearing logic exists — the status manager's existing retrieval branches set `idle` regardless of which non-idle state they're leaving.
+**A fault overrides `alerting`, and clears the same three ways `alerting` does:** a new cycle starting, sustained utility-room motion, or the door held open a minute. No separate fault-clearing logic exists — the status manager's existing retrieval branches set `idle` regardless of which non-idle state they're leaving.
 
 **Ordering caveat:** the generic notification event lands roughly 0.5 seconds *before* the typed error event carrying the actual fault code. The announcement automation adds a 5-second settle delay before composing a fault message, specifically to let the typed event catch up — composing immediately risks reading no code at all. See `LESSONS.md`.
 
@@ -135,7 +135,8 @@ Fallbacks, in order: if the error entity's timestamp is more than 5 minutes old 
 
 - LG ThinQ integration (`lg_thinq`) installed and authenticated
 - `script.household_tts_announce` configured and active (see `guides/chime_tts.md`)
-- `binary_sensor.utility_room_door` and `binary_sensor.utility_room_motion_sensor_occupancy` — Zigbee (ZHA)
+- `binary_sensor.utility_room_door` — Zigbee (ZHA)
+- `binary_sensor.utility_room_motion_sensor_motion` — Hue motion sensor (SML001) on the Hue bridge
 - `input_boolean.everyone_sleeping` and `input_boolean.avery_sleeping` — sleep state helpers
 - `binary_sensor.garage_interior_door` and `lock.entrance_front_door` — entry-detection for the §5.10 arrival grace window
 - `zone.home` — default HA home zone
@@ -190,7 +191,7 @@ All ten are assigned to the Utility Room area with the `int_laundry` label.
 
 ### 7. Live Activity automations
 
-`automation.utility_room_washer_live_activity` and `automation.utility_room_dryer_live_activity` — Maintenance category, Utility Room area, labels `int_laundry` + `notification` + `live_activity`, `mode: queued`. Each drives an iOS Lock Screen card by reconciling its appliance's `current_status` sensor and retrieval `input_select` on every status change and a 5-minute tick — reusing the retrieval `input_select` means the card clears on the same occupancy/door signal that stops the TTS nag, with no new state machine. A fault-latch branch (see [Fault handling](#fault-handling)) is checked first, ahead of the status-sensor error branch. Full field contract, status palette, and the phase-label conversion table are in `guides/live_activities.md`, which owns the shared dispatch script; this guide only owns the two automations' triggers and the ThinQ entities they read.
+`automation.utility_room_washer_live_activity` and `automation.utility_room_dryer_live_activity` — Maintenance category, Utility Room area, labels `int_laundry` + `notification` + `live_activity`, `mode: queued`. Each drives an iOS Lock Screen card by reconciling its appliance's `current_status` sensor and retrieval `input_select` on every status change and a 5-minute tick — reusing the retrieval `input_select` means the card clears on the same motion/door signal that stops the TTS nag, with no new state machine. A fault-latch branch (see [Fault handling](#fault-handling)) is checked first, ahead of the status-sensor error branch. Full field contract, status palette, and the phase-label conversion table are in `guides/live_activities.md`, which owns the shared dispatch script; this guide only owns the two automations' triggers and the ThinQ entities they read.
 
 ---
 
@@ -202,7 +203,7 @@ The dashboard was explicitly out of scope for this build pass. Nothing below exi
 - **`#laundry` pop-up** — status row, cycle info card, acknowledge action, washer stats tiles (cycles since cleaned, energy this/last month).
 - **`input_select` → `acknowledged` transition** — nothing currently writes this value. It's reserved for the dashboard hold-to-acknowledge action; the option exists on the helper today so it doesn't require a schema change later.
 - **Washer cycles-since-cleaned** — blocked, not just deferred. It needs a "washer was just cleaned" timestamp to snapshot `sensor.utility_room_washer_cycles` against; the natural source is `ha-chore-calendar`'s `input_datetime.washer_cleaned`, which is not installed in this instance (see `guides/reminders.md`). Needs either that integration or a standalone `input_datetime` + manual-trigger button first.
-- **Per-appliance door sensors** — hardware, not software. The status managers currently share one utility room door/occupancy sensor pair for two appliances (see the retrieval design decision above). Adding a contact sensor directly to each washer/dryer lid would let each status manager clear only on its own appliance being opened, closing the cross-appliance false-clear gap entirely. No structural automation change needed — it's a one-entity swap in each status manager's `retrieved` trigger.
+- **Per-appliance door sensors** — hardware, not software. The status managers currently share one utility room door/motion sensor pair for two appliances (see the retrieval design decision above). Adding a contact sensor directly to each washer/dryer lid would let each status manager clear only on its own appliance being opened, closing the cross-appliance false-clear gap entirely. No structural automation change needed — it's a one-entity swap in each status manager's `retrieved` trigger.
 
 When dashboard work starts, `sensor.utility_room_washer_cycles` and `sensor.utility_room_washer_energy_this_month` / `_last_month` are already live and ready to wire in.
 
@@ -229,7 +230,7 @@ When dashboard work starts, `sensor.utility_room_washer_cycles` and `sensor.util
 | Live Activity dispatch | `script.household_live_activity` | Script |
 | Laundry integration label | `int_laundry` | Label |
 | Utility room door | `binary_sensor.utility_room_door` | Entity |
-| Utility room occupancy | `binary_sensor.utility_room_motion_sensor_occupancy` | Entity |
+| Utility room motion | `binary_sensor.utility_room_motion_sensor_motion` | Entity |
 | Family room Sonos (busy check only, not a TTS target) | `media_player.family_room_theater` | Entity |
 | Washer error event | `event.utility_room_washer_error` | Entity |
 | Dryer error event | `event.utility_room_dryer_error` | Entity |
@@ -256,7 +257,7 @@ When dashboard work starts, `sensor.utility_room_washer_cycles` and `sensor.util
 
 **TTS not re-firing after returning home.** Confirm `zone.home` actually dropped to `0` before your return — if someone else stayed home, the count never hit zero and the re-trigger condition doesn't apply. Also confirm `automation.utility_room_laundry_announcement` is enabled.
 
-**Status never clears after retrieving laundry.** Check `binary_sensor.utility_room_motion_sensor_occupancy` state in **Developer Tools → States** — if it shows `unavailable`, the primary retrieval trigger can't fire and you're relying on the door-open backup (60s continuous). Both sensors have shown occasional `unavailable` gaps in this house; see `LESSONS.md` for the pattern.
+**Status never clears after retrieving laundry.** Check `binary_sensor.utility_room_motion_sensor_motion` state in **Developer Tools → States** — if it shows `unavailable`, the primary retrieval trigger can't fire and you're relying on the door-open backup (60s continuous). Both sensors have shown occasional `unavailable` gaps in this house; see `LESSONS.md` for the pattern.
 
 **Restart triggered a stale laundry alert.** This should not happen — the event-trigger branch has a 5-minute recency guard specifically for this. If it does, check `automation.utility_room_washer_status_manager`'s trace for which branch fired and whether the recency condition template evaluated correctly.
 
