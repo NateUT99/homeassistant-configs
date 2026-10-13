@@ -75,35 +75,7 @@ actions:
                     entity_id: vacuum.living_room_vacuum
                     state: cleaning
                 alias: Vacuum is not currently cleaning
-              - condition: not
-                alias: Pad isn't left on from this week's finished mop
-                note: >-
-                  A pad still on after this week's common-area mop has already
-                  run is a leftover, not tonight's mop prep -- skip rather than
-                  drag it through the common areas. The cleanup reminders cover
-                  getting it off.
-                conditions:
-                  - condition: and
-                    conditions:
-                      - condition: state
-                        entity_id: binary_sensor.living_room_vacuum_mop_attached
-                        state: "on"
-                      - condition: state
-                        entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
-                        state: "on"
             then:
-              - alias: Set active zone to evening
-                action: input_select.select_option
-                target:
-                  entity_id: input_select.vacuum_active_zone
-                data:
-                  option: evening
-              - alias: Set quiet fan speed for evening cleaning
-                action: vacuum.set_fan_speed
-                target:
-                  entity_id: vacuum.living_room_vacuum
-                data:
-                  fan_speed: quiet
               - choose:
                   - alias: >-
                       Weekly mop pass -- Avery away tonight, not yet mopped
@@ -160,7 +132,7 @@ actions:
                           not silently mark the night's ordinary vacuum pass
                           as done too. This branch sets it since tonight's
                           nightly pass is what actually ran.
-                  - alias: Nightly vacuum pass -- evening zone hasn't run today
+                  - alias: Nightly vacuum pass -- evening zone hasn't run today, mop pad off
                     conditions:
                       - condition: state
                         entity_id: input_boolean.vacuum_ran_evening
@@ -169,16 +141,40 @@ actions:
                         note: >-
                           A noon whole-house pass sets this flag, so the nightly
                           vacuum is skipped as redundant.
-                    sequence:
-                      - alias: Build the vacuum segment list -- add the Entrance only when Avery is away tonight
-                        variables:
-                          vacuum_segments: "{{ [22, 23, 24, 25] + ([17, 26] if is_state('input_boolean.vacuum_avery_home_tonight', 'off') else []) }}"
+                      - condition: state
+                        entity_id: binary_sensor.living_room_vacuum_mop_attached
+                        state: "off"
+                        alias: Mop pad is not attached
                         note: >-
-                          Bathroom and Entrance both border Avery's room, so both
-                          are safe on any night she isn't home, not just mop
-                          night. Household: Last Leaves Home drops segments 17
-                          and 26 from that day's daytime pass whenever this gate
-                          adds them here, so neither room is cleaned twice.
+                          With the pad on, the mop pass is the only job this run
+                          may start -- a leftover pad, or one prepped on a night
+                          the mop branch above cannot run, must not be dragged
+                          through the vacuum pass. Also what keeps the carpeted
+                          Office (18) safe in the segment list below.
+                    sequence:
+                      - alias: Set active zone to evening
+                        action: input_select.select_option
+                        target:
+                          entity_id: input_select.vacuum_active_zone
+                        data:
+                          option: evening
+                      - alias: Set quiet fan speed for evening cleaning
+                        action: vacuum.set_fan_speed
+                        target:
+                          entity_id: vacuum.living_room_vacuum
+                        data:
+                          fan_speed: quiet
+                      - alias: Build the vacuum segment list -- add the Bathroom and Entrance only when Avery is away tonight
+                        variables:
+                          vacuum_segments: "{{ [18, 22, 23, 24, 25] + ([17, 26] if is_state('input_boolean.vacuum_avery_home_tonight', 'off') else []) }}"
+                        note: >-
+                          Office (18) is carpeted, so it is not in the mop
+                          script's list and is skipped on mop night. Bathroom and
+                          Entrance both border Avery's room, so both are safe on
+                          any night she isn't home, not just mop night. Household:
+                          Last Leaves Home drops segments 17 and 26 from that
+                          day's daytime pass whenever this gate adds them here,
+                          so neither room is cleaned twice.
                       - alias: Start segment clean of common areas
                         action: vacuum.send_command
                         target:
@@ -197,33 +193,30 @@ actions:
                           docks the evening run mid-way, so there is no partial
                           run to distinguish. Cleared at 8am by Household:
                           Vacuum Reset.
-            else:
-              - alias: If tonight was skipped for a leftover mop pad, say so quietly
-                note: >-
-                  The else branch fires for any failed condition (paused,
-                  mid-clean, leftover pad); only the leftover-pad case pushes. Passive
-                  so it lands silently overnight, and tagged vacuum_mop_cleanup
-                  so it replaces the cleanup banner and clears when the pad
-                  comes off.
-                if:
-                  - condition: state
-                    entity_id: binary_sensor.living_room_vacuum_mop_attached
-                    state: "on"
-                    alias: Mop pad is still attached
-                  - condition: state
-                    entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
-                    state: "on"
-                    alias: This week's common-area mop already ran
-                then:
-                  - alias: Tell Nate the nightly clean was skipped for the mop pad
-                    action: notify.mobile_app_nates_iphone
-                    data:
-                      title: Vacuum
-                      message: Nightly clean skipped -- the mop pad is still attached.
-                      data:
-                        tag: vacuum_mop_cleanup
-                        push:
-                          interruption-level: passive
+                default:
+                  - alias: If tonight was skipped for the mop pad, say so quietly
+                    note: >-
+                      Covers a leftover pad (this week's mop already ran) and a
+                      pad prepped on a night the mop branch cannot run (Avery
+                      home, tank empty, module out). Passive so it lands
+                      silently overnight, and tagged vacuum_mop_cleanup so
+                      Household: Vacuum Mop Pad Reminders clears it when the
+                      pad comes off.
+                    if:
+                      - condition: state
+                        entity_id: binary_sensor.living_room_vacuum_mop_attached
+                        state: "on"
+                        alias: Mop pad is attached
+                    then:
+                      - alias: Tell Nate the nightly clean was skipped for the mop pad
+                        action: notify.mobile_app_nates_iphone
+                        data:
+                          title: Vacuum
+                          message: Nightly clean skipped -- the mop pad is attached.
+                          data:
+                            tag: vacuum_mop_cleanup
+                            push:
+                              interruption-level: passive
       - alias: Master suite mop follow-up -- next morning after a mop night, or the 11:00 push button
         conditions:
           - condition: trigger

@@ -4,7 +4,7 @@ description: >-
   Runs the whole-house departure routine: closes the garage, locks the front
   door, sets the living room thermostat to Away, turns off lights/fans/switches/media
   players labeled "No One Is Home", sleeps (locks) the Mac Mini display, and starts the daytime vacuum clean of the remaining
-  rooms (9am-7pm, if it hasn't run today) -- the Bathroom and Entrance drop out
+  rooms (9am-7pm, if it hasn't run today) -- the Office always runs in the evening pass instead, and the Bathroom and Entrance drop out
   of that list on a night Avery is away, since Household: Vacuum Evening
   Cleaning picks them up instead. Normally fires 5 minutes after
   zone.home drops to 0 -- long enough to absorb a walk to the community mailbox.
@@ -118,8 +118,8 @@ actions:
       idempotent re-run after an immediate departure a no-op here. Evening
       common-areas cleaning stays in
       automation.household_vacuum_evening_cleaning. The mop-attached gate keeps a
-      hand-fitted wet pad from being dragged across the carpeted Office and the
-      bedrooms -- the weekly mop pass covers hard floor only. The water-box gate
+      hand-fitted wet pad from being dragged across the carpeted bedrooms and Master
+      Closet -- the weekly mop pass covers hard floor only. The water-box gate
       doubles as the dustbin check -- on the Q8 Max the bin and water tank are
       one module, so a pulled module would otherwise start a job that
       immediately faults with no_dustbin.
@@ -157,9 +157,9 @@ actions:
           Entrance when Avery is away
         variables:
           daytime_segments: >-
-            {{ ([16, 18, 20] if
+            {{ ([16, 20] if
             states('input_datetime.vacuum_master_mop_last_run') ==
-            now().strftime('%Y-%m-%d') else [16, 18, 19, 20, 21]) + ([17, 26]
+            now().strftime('%Y-%m-%d') else [16, 19, 20, 21]) + ([17, 26]
             if is_state('binary_sensor.avery_home_today', 'on') else []) }}
         note: >-
           Compares input_datetime.vacuum_master_mop_last_run against today's
@@ -174,7 +174,8 @@ actions:
           when Avery is home -- both sit within earshot of the bedroom
           hall, so on a night she's away, Household: Vacuum Evening
           Cleaning adds them to the evening pass instead, so including
-          them here too would clean them twice the same vacuum-day.
+          them here too would clean them twice the same vacuum-day. The
+          Office (18) runs in the evening pass instead, not here.
       - alias: Set active zone to daytime
         action: input_select.select_option
         target:
