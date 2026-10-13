@@ -157,7 +157,7 @@ take identical values. The advanced options are behind collapsible sections in v
 | Initial transition | `1` | |
 | Min brightness | `35` | Evening / pre-sleep floor. |
 | Max brightness | `100` | The canopy light kit already caps physical output at ~70% (`guides/inovelli_switches.md` Step 2), so HA's full range is used. |
-| Sleep brightness | `5` | Also the middle-of-the-night wall-tap level, via pre-staging. |
+| Sleep brightness | `3` | Also the middle-of-the-night wall-tap level, via pre-staging. |
 | Brightness mode | `tanh` | S-curve; ramp shape decoupled from sun elevation. |
 | Brightness mode time dark | `1800` | |
 | Brightness mode time light | `5400` | |
