@@ -188,7 +188,7 @@ Sleep mode is not scheduled; it is driven by the two existing sleep automations.
 | Instance sleep switch | Driven by |
 |---|---|
 | `switch.adaptive_lighting_standard_sleep_mode` | `Household: Sleep Mode` — `switch.turn_on` in the night-prep parallel block, `switch.turn_off` in the wake block. Replaces the old hand-dim of the master bedroom ceiling to 25%; AL's `sleep_brightness` owns it now, and AL only commands lights that are already on, so the "only if on" guard is implicit. |
-| `switch.adaptive_lighting_avery_schedule_sleep_mode` | `Avery's Room: Sleep Mode` — enabled at bedtime after a 30s direct `light.turn_on` fades the ceiling to `5`%, matching `sleep_brightness` so the sleep-mode reapply is a no-op (it stays lit dim, turned off manually at the wall); cleared first thing on wake, before the sunrise below. |
+| `switch.adaptive_lighting_avery_schedule_sleep_mode` | `Avery's Room: Sleep Mode` — enabled at bedtime after a 30s direct `light.turn_on` fades the ceiling to `3`%, matching `sleep_brightness` so the sleep-mode reapply is a no-op (it stays lit dim, turned off manually at the wall); cleared first thing on wake, before the sunrise below. |
 
 On wake, `Avery's Room: Sleep Mode` runs an Adaptive Lighting sunrise on her ceiling:
 `set_manual_control(true)` → `adaptive_lighting.apply` over 120 s toward the morning target →
