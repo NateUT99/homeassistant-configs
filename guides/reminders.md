@@ -1,5 +1,5 @@
 # Reminder System
-*Last updated: September 2026*
+*Last updated: October 2026*
 
 ---
 
@@ -39,7 +39,8 @@ Per-chore lifecycle (ha-chore-calendar internal, not automated here):
   date the moment todo.update_item(status: completed) lands. No reschedule automation exists.
 
 Household: Chore Daily Notify
-  09:00 daily → todo.get_items(status=needs_action) → push per item already due/overdue
+  09:00 daily → todo.get_items(status=needs_action) → push per item already due/overdue,
+  skipping the trash chore (Household: Trash Pickup owns its reminders)
   (tag: chore_<uid>, action: CHORE_DONE_<uid>)
 
 Household: Task Mark Done

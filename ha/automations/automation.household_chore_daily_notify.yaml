@@ -11,11 +11,8 @@ description: >-
   Fires at 09:00 every day.
 
 
-  No per-item metadata to parse here -- ha-chore-calendar computes each
-  chore's due date itself (interval, pending/grace windows) and only
-  surfaces a chore as needs_action once it has actually entered its pending
-  window, so a plain due <= now filter over needs_action items is already
-  correct; a chore not yet due simply isn't in the needs_action set yet.
+  Take Out Trash & Recycling is excluded -- its deadline is 19:00 the
+  evening before pickup, and Household: Trash Pickup owns its reminders.
 triggers:
   - trigger: time
     at: "09:00:00"
@@ -42,15 +39,19 @@ actions:
     note: >-
       due[:10] normalizes both date-only and full-ISO-datetime forms
       todo.get_items can return, and ISO strings compare correctly with a
-      plain <=. An item with no due key (shouldn't happen for a
-      needs_action ha-chore-calendar item, but defensive) is skipped.
+      plain <=. Every open chore is needs_action regardless of how far out
+      it is, so this date filter is what decides what gets pushed. An item
+      with no due key is skipped. The trash chore is skipped by uid (same
+      match Household: Trash Pickup uses): a date-only compare would push it
+      at 09:00 for a 19:00 deadline.
     variables:
       due_chores: |-
         {%- set today = now().date() | string -%}
+        {%- set trash_uid = 'ab02f24c-f9f8-4def-9085-706634af2ef4' -%}
         {%- set ns = namespace(out=[]) -%}
         {%- for it in open_result.get('todo.household_chores', {}).get('items', []) -%}
           {%- set due = (it.get('due','') ~ '')[:10] -%}
-          {%- if due != '' and due <= today and it.get('uid','') != '' -%}
+          {%- if due != '' and due <= today and it.get('uid','') not in ['', trash_uid] -%}
             {%- set ns.out = ns.out + [{'uid': it.get('uid'), 'summary': it.get('summary','Chore'), 'overdue_days': (now().date() - as_datetime(due).date()).days}] -%}
           {%- endif -%}
         {%- endfor -%}
