@@ -5,7 +5,7 @@ description: >-
   (nightlight), turns off the desk lamp, turns off the Living Room Soundbar
   subwoofer, enables her Adaptive Lighting sleep mode (so a later wall tap on
   the ceiling light comes up at the sleep level), and fades the ceiling fan
-  light directly down to 10% over ~30s (it stays lit dim -- turned off
+  light directly down to 5% over ~30s (it stays lit dim -- turned off
   manually at the wall when she leaves). Turning it off turns the dresser
   lamp back off, turns the subwoofer back on, pauses the HomePod, turns on
   the Living Room Apple TV, clears AL sleep mode and runs a 120s Adaptive
@@ -56,12 +56,12 @@ actions:
                   entity_id: light.averys_room_ceiling_fan_light
                 data:
                   transition: 30
-                  brightness_pct: 10
+                  brightness_pct: 5
                 alias: Fade the ceiling fan light directly to the sleep level over 30s
                 note: >-
                   Drives the dimmer directly with light.turn_on instead of
                   adaptive_lighting.apply -- the AL apply call was not
-                  reliably producing a smooth fade on this fixture. 10% matches
+                  reliably producing a smooth fade on this fixture. 5% matches
                   AL's current sleep_brightness target -- see the note below on
                   why that match matters. See LESSONS.md if revisiting AL for
                   this step.
