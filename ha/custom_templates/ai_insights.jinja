@@ -86,7 +86,7 @@ Tomorrow vs today: tomorrow's forecast high {{ daily[1].temperature | round(0) |
 {% macro vs(now=0, before=0) -%}
 {%- set a = now | float(0) -%}{%- set b = before | float(0) -%}
 {%- if b == 0 -%}{{ 'none either time' if a == 0 else 'up from none' }}
-{%- elif a == 0 -%}none, down from {{ b }}
+{%- elif a == 0 -%}none, down from {{ b | round(1) }}
 {%- elif a >= b * 2 -%}{%- set x = a / b -%}about {{ x | round(1) if x < 3 else x | round(0) | int }} times as much
 {%- else -%}{%- set pct = ((a - b) / b * 100) | round(0) | int -%}
 {{- 'about the same' if pct | abs < 10 else (pct | abs ~ '% ' ~ ('more' if pct > 0 else 'less')) -}}
@@ -131,4 +131,203 @@ Vacuum yesterday: daytime clean {{ 'done' if is_state('input_boolean.vacuum_ran_
 Mopping this week (weekly, since Monday; today is {{ now().strftime('%A') }}): common areas {{ 'done' if is_state('input_boolean.vacuum_mop_common_areas_done_this_week','on') else 'not done yet' }}; master suite {{ 'done' if is_state('input_boolean.vacuum_mop_master_suite_done_this_week','on') else 'not done yet' }}.
 Laundry: washer {{ 'finished and waiting to be unloaded' if is_state('input_select.utility_room_washer_status','alerting') else 'nothing waiting' }}; dryer {{ 'finished and waiting to be unloaded' if is_state('input_select.utility_room_dryer_status','alerting') else 'nothing waiting' }}.
 Chores due today or overdue: {{ ns.today | join(', ') if ns.today else 'none' }}.
+{%- endmacro %}
+
+{#- ===== Climate and Energy insights (issue #18) =====
+    Each macro returns JSON {"flags": [...], "facts": "..."}. Flags come from
+    fixed rules here, never from the model: with no flag the script stores
+    "nothing notable" without calling Claude. stats: recorder.get_statistics,
+    period day, types mean/min/max/change, covering at least 35 days.
+    days_ago picks the day reported on (1 = yesterday) so past days can be
+    backtested. Occupancy (sensor.household_occupied_today, daily max hours)
+    splits days into home / partial / away; baselines use home days only, and
+    days with no occupancy data count as home. -#}
+
+{#- One statistics series as {"YYYY-MM-DD": value}. -#}
+{% macro _by_day(rows=[], field='change') -%}
+{%- set ns = namespace(d={}) -%}
+{%- for r in rows if r[field] is defined and r[field] is not none -%}
+{%- set ns.d = dict(ns.d, **{(as_local(as_datetime(r.start)).date() | string): r[field] | float(0)}) -%}
+{%- endfor -%}
+{{- ns.d | to_json -}}
+{%- endmacro %}
+
+{#- home: 12 h or more home (a workday out still counts); away: under 2 h. -#}
+{% macro _day_kind(occ={}, d='') -%}
+{%- set h = occ.get(d) -%}
+{{- 'home' if h is none or h >= 12 else ('away' if h < 2 else 'partial') -}}
+{%- endmacro %}
+
+{#- Each room's temperature minus the house median that day, when at least
+    four rooms reported. -#}
+{% macro _offsets(temps={}, d='') -%}
+{%- set v = namespace(l=[], o={}) -%}
+{%- for name, m in temps.items() if d in m %}{% set v.l = v.l + [m[d]] %}{% endfor -%}
+{%- if v.l | count >= 4 -%}
+{%- set l = v.l | sort -%}{%- set n = l | count -%}
+{%- set med = l[n // 2] if n % 2 == 1 else (l[n // 2 - 1] + l[n // 2]) / 2 -%}
+{%- for name, m in temps.items() if d in m %}{% set v.o = dict(v.o, **{name: m[d] - med}) %}{% endfor -%}
+{%- endif -%}
+{{- v.o | to_json -}}
+{%- endmacro %}
+
+{% macro _dates(days_ago=1) -%}
+{%- set base = today_at() - timedelta(days=days_ago) -%}
+{%- set ns = namespace(t28=[], w=[], wt=[]) -%}
+{%- for i in range(1, 29) %}{% set ns.t28 = ns.t28 + [(base - timedelta(days=i)).date() | string] %}{% endfor -%}
+{%- for i in range(0, 7) %}{% set ns.w = ns.w + [(base - timedelta(days=i)).date() | string] %}{% endfor -%}
+{%- for i in range(7, 35) %}{% set ns.wt = ns.wt + [(base - timedelta(days=i)).date() | string] %}{% endfor -%}
+{{- {'y': base.date() | string, 'label': base.strftime('%A, %B %-d'), 't28': ns.t28, 'w': ns.w, 'wt': ns.wt} | to_json -}}
+{%- endmacro %}
+
+{% macro _occupancy_line(occ={}, d='') -%}
+{%- set k = _day_kind(occ, d) -%}{%- set h = occ.get(d) -%}
+{{- 'no occupancy data' if h is none else ('someone home most of the day' if k == 'home' else ('away all day' if k == 'away' else 'home only ' ~ (h | round(0) | int) ~ ' h')) -}}
+{%- endmacro %}
+
+{#- Rules (thresholds from the Oct 2026 backtest; re-test tracked in #18):
+    HVAC: runtime >= 1.5 h and >= 1.5x + 1 h over what the trailing 28 home
+      days' hours per degree day predict (needs 10+ degree days of baseline);
+      only on a home day that follows a home day, so setback recovery after
+      time away never flags. Weekly: >= 3 h and >= 1.5x + 2 h.
+    Room temperature: a room's offset from the house median is 2.5 F or more
+      from its usual offset (trailing 14 home days). Utility Room excluded:
+      it always runs ~10 F warm and dry.
+    Humidity: a room's daily mean outside 40-60%. Weekly: 3+ such days. -#}
+{% macro climate_insight(stats={}, days_ago=1, weekly=false) -%}
+{%- set D = _dates(days_ago) | from_json -%}{%- set y = D.y -%}
+{%- set occ = _by_day(stats.get('sensor.household_occupied_today', []), 'max') | from_json -%}
+{%- set out = _by_day(stats.get('sensor.outside_temperature', []), 'mean') | from_json -%}
+{%- set hi = _by_day(stats.get('sensor.outside_temperature', []), 'max') | from_json -%}
+{%- set lo = _by_day(stats.get('sensor.outside_temperature', []), 'min') | from_json -%}
+{%- set hvac = {'heating': _by_day(stats.get('sensor.household_hvac_heating_runtime_today', [])) | from_json,
+                'cooling': _by_day(stats.get('sensor.household_hvac_cooling_runtime_today', [])) | from_json} -%}
+{%- set rooms = [['Living Room', 'living_room_thermostat'], ['Kitchen', 'kitchen_climate'], ['Family Room', 'family_room_climate'], ['Office', 'office_climate'], ['Master Bedroom', 'master_bedroom_climate'], ["Avery's Room", 'averys_room_climate']] -%}
+{%- set m = namespace(t={}, h={}) -%}
+{%- for r in rooms -%}
+{%- set m.t = dict(m.t, **{r[0]: _by_day(stats.get('sensor.' ~ r[1] ~ '_temperature', []), 'mean') | from_json}) -%}
+{%- set m.h = dict(m.h, **{r[0]: _by_day(stats.get('sensor.' ~ r[1] ~ '_humidity', []), 'mean') | from_json}) -%}
+{%- endfor -%}
+{%- set yk = _day_kind(occ, y) -%}{%- set prev_home = _day_kind(occ, D.t28[0]) == 'home' -%}
+{%- set f = namespace(flags=[], lines=[]) -%}
+{%- set f.lines = f.lines + ['Yesterday (' ~ D.label ~ '): outdoor average ' ~ (out.get(y, 0) | round(0) | int) ~ '°F, high ' ~ (hi.get(y, 0) | round(0) | int) ~ '°, low ' ~ (lo.get(y, 0) | round(0) | int) ~ '°; ' ~ _occupancy_line(occ, y) ~ '.'] -%}
+{%- set f.lines = f.lines + ['The thermostat holds the average of Living Room, Kitchen and Office by day, and of Avery\'s Room and Master Bedroom at night.'] -%}
+{%- for kind in ['heating', 'cooling'] -%}
+{%- set s = namespace(h=0, dd=0) -%}
+{%- for d in D.t28 if d in out and _day_kind(occ, d) == 'home' -%}
+{%- set s.h = s.h + hvac[kind].get(d, 0) -%}
+{%- set s.dd = s.dd + ([65 - out[d], 0] | max if kind == 'heating' else [out[d] - 65, 0] | max) -%}
+{%- endfor -%}
+{%- set ddy = [65 - out.get(y, 65), 0] | max if kind == 'heating' else [out.get(y, 65) - 65, 0] | max -%}
+{%- set act = hvac[kind].get(y, 0) -%}
+{%- set exp = (s.h / s.dd * ddy) if s.dd >= 10 else none -%}
+{%- set f.lines = f.lines + [kind | capitalize ~ ': did not run.' if act < 0.1 and (exp or 0) < 0.5 else kind | capitalize ~ ': ran ' ~ (act | round(1)) ~ ' h with ' ~ (ddy | round(0) | int) ~ ' ' ~ kind ~ ' degree days; ' ~ ('no recent baseline to compare.' if exp is none else 'the weather predicted about ' ~ (exp | round(1)) ~ ' h from recent home days (' ~ vs(act, exp) ~ ').')] -%}
+{%- if yk == 'home' and prev_home and exp is not none and act >= 1.5 and act >= exp * 1.5 + 1 -%}
+{%- set f.flags = f.flags + [kind | capitalize ~ ' ran ' ~ (act | round(1)) ~ ' h, more than the weather explains (about ' ~ (exp | round(1)) ~ ' h expected)'] -%}
+{%- endif -%}
+{%- endfor -%}
+{%- set oy = _offsets(m.t, y) | from_json -%}
+{%- set rl = namespace(l=[]) -%}
+{%- for r in rooms if r[0] in m.t and y in m.t[r[0]] -%}
+{%- set name = r[0] -%}
+{%- set rl.l = rl.l + [name ~ ' ' ~ (m.t[name][y] | round(0) | int) ~ '°' ~ ((' / ' ~ (m.h[name][y] | round(0) | int) ~ '%') if y in m.h[name] else '')] -%}
+{%- set u = namespace(l=[]) -%}
+{%- for d in D.t28[:14] if _day_kind(occ, d) == 'home' -%}
+{%- set od = _offsets(m.t, d) | from_json -%}
+{%- if name in od %}{% set u.l = u.l + [od[name]] %}{% endif -%}
+{%- endfor -%}
+{%- if yk == 'home' and name in oy and u.l | count >= 5 -%}
+{%- set usual = u.l | sum / (u.l | count) -%}
+{%- if (oy[name] - usual) | abs >= 2.5 -%}
+{%- set f.flags = f.flags + [name ~ ' averaged ' ~ (oy[name] | abs | round(1)) ~ '° ' ~ ('warmer' if oy[name] > 0 else 'colder') ~ ' than the middle of the house; it usually runs ' ~ (usual | abs | round(1)) ~ '° ' ~ ('warmer' if usual > 0 else 'colder')] -%}
+{%- endif -%}
+{%- endif -%}
+{%- if y in m.h[name] and (m.h[name][y] > 60 or m.h[name][y] < 40) -%}
+{%- set f.flags = f.flags + [name ~ ' humidity averaged ' ~ (m.h[name][y] | round(0) | int) ~ '%, ' ~ ('above' if m.h[name][y] > 60 else 'below') ~ ' the 40–60% comfort range'] -%}
+{%- endif -%}
+{%- endfor -%}
+{%- set f.lines = f.lines + ['Rooms yesterday (average temperature / humidity): ' ~ rl.l | join(', ') ~ '.'] -%}
+{%- if weekly -%}
+{%- set wk = namespace(home=0, thome=0) -%}
+{%- for d in D.w if _day_kind(occ, d) == 'home' %}{% set wk.home = wk.home + 1 %}{% endfor -%}
+{%- for d in D.wt if _day_kind(occ, d) == 'home' %}{% set wk.thome = wk.thome + 1 %}{% endfor -%}
+{%- set f.lines = f.lines + ['This week (the 7 days ending yesterday): someone home ' ~ wk.home ~ ' of 7 days; the 4 weeks before averaged ' ~ ((wk.thome / 4) | round(0) | int) ~ ' home days a week.'] -%}
+{%- for kind in ['heating', 'cooling'] -%}
+{%- set s = namespace(h=0, dd=0, wh=0, wdd=0) -%}
+{%- for d in D.wt if d in out and _day_kind(occ, d) == 'home' -%}
+{%- set s.h = s.h + hvac[kind].get(d, 0) -%}
+{%- set s.dd = s.dd + ([65 - out[d], 0] | max if kind == 'heating' else [out[d] - 65, 0] | max) -%}
+{%- endfor -%}
+{%- for d in D.w if d in out -%}
+{%- set s.wh = s.wh + hvac[kind].get(d, 0) -%}
+{%- set s.wdd = s.wdd + ([65 - out[d], 0] | max if kind == 'heating' else [out[d] - 65, 0] | max) -%}
+{%- endfor -%}
+{%- set exp = (s.h / s.dd * s.wdd) if s.dd >= 20 else none -%}
+{%- set f.lines = f.lines + ['Week ' ~ kind ~ ': did not run.' if s.wh < 0.1 and (exp or 0) < 0.5 else 'Week ' ~ kind ~ ': ' ~ (s.wh | round(1)) ~ ' h with ' ~ (s.wdd | round(0) | int) ~ ' degree days; ' ~ ('no recent baseline to compare.' if exp is none else 'the 4 weeks before predict about ' ~ (exp | round(1)) ~ ' h for that weather (' ~ vs(s.wh, exp) ~ ').')] -%}
+{%- if exp is not none and s.wh >= 3 and s.wh >= exp * 1.5 + 2 -%}
+{%- set f.flags = f.flags + ['This week ' ~ kind ~ ' ran ' ~ (s.wh | round(1)) ~ ' h, more than the weather explains (about ' ~ (exp | round(1)) ~ ' h expected)'] -%}
+{%- endif -%}
+{%- endfor -%}
+{%- for r in rooms -%}
+{%- set c = namespace(n=0) -%}
+{%- for d in D.w if d in m.h[r[0]] and (m.h[r[0]][d] > 60 or m.h[r[0]][d] < 40) %}{% set c.n = c.n + 1 %}{% endfor -%}
+{%- if c.n >= 3 %}{% set f.flags = f.flags + [r[0] ~ ' humidity was outside 40–60% on ' ~ c.n ~ ' of the last 7 days'] %}{% endif -%}
+{%- endfor -%}
+{%- endif -%}
+{{- {'flags': f.flags, 'facts': f.lines | join('\n')} | to_json -}}
+{%- endmacro %}
+
+{#- Rules (thresholds from the Oct 2026 backtest; re-test tracked in #18):
+    Electricity: yesterday >= 1.4x and >= 6 kWh above the trailing 28 home
+      days' average, on a home day. Weekly: the week's home-day average
+      >= 1.15x the trailing 4 weeks' and >= 15 kWh more over a week.
+    Refrigerator: weekly only (daily swings of 25% are normal); the week
+      15% and 1 kWh or more off the trailing 4 weeks, scaled to a week. -#}
+{% macro energy_insight(stats={}, days_ago=1, weekly=false, rate=0.2033) -%}
+{%- set D = _dates(days_ago) | from_json -%}{%- set y = D.y -%}
+{%- set occ = _by_day(stats.get('sensor.household_occupied_today', []), 'max') | from_json -%}
+{%- set e = _by_day(stats.get('sensor.household_energy_monitor_total_energy_delivered', [])) | from_json -%}
+{%- set fr = _by_day(stats.get('sensor.kitchen_refrigerator_summation_delivered', [])) | from_json -%}
+{%- set heat = _by_day(stats.get('sensor.household_hvac_heating_runtime_today', [])) | from_json -%}
+{%- set cool = _by_day(stats.get('sensor.household_hvac_cooling_runtime_today', [])) | from_json -%}
+{%- set yk = _day_kind(occ, y) -%}
+{%- set f = namespace(flags=[], lines=[]) -%}
+{%- set t = namespace(l=[]) -%}
+{%- for d in D.t28 if d in e and _day_kind(occ, d) == 'home' %}{% set t.l = t.l + [e[d]] %}{% endfor -%}
+{%- set ey = e.get(y, 0) -%}
+{%- set typ = (t.l | sum / (t.l | count)) if t.l | count >= 7 else none -%}
+{%- set f.lines = f.lines + ['Yesterday (' ~ D.label ~ '): ' ~ (ey | round(1)) ~ ' kWh (about $' ~ '%.2f' | format(ey * rate) ~ '); ' ~ _occupancy_line(occ, y) ~ '; heating ran ' ~ (heat.get(y, 0) | round(1)) ~ ' h, cooling ' ~ (cool.get(y, 0) | round(1)) ~ ' h.'] -%}
+{%- if typ is not none -%}
+{%- set f.lines = f.lines + ['A typical home day over the past 4 weeks used ' ~ (typ | round(1)) ~ ' kWh (yesterday: ' ~ vs(ey, typ) ~ ').'] -%}
+{%- if yk == 'home' and ey >= typ * 1.4 and ey - typ >= 6 -%}
+{%- set f.flags = f.flags + ['Yesterday used ' ~ (ey | round(1)) ~ ' kWh, well above a typical home day (' ~ (typ | round(1)) ~ ' kWh)'] -%}
+{%- endif -%}
+{%- endif -%}
+{%- if weekly -%}
+{%- set w = namespace(sum=0, home=[], thome=[], fw=0, ft=0, fn=0, wh=0, wc=0, th=0, tc=0) -%}
+{%- for d in D.w if d in e -%}
+{%- set w.sum = w.sum + e[d] -%}
+{%- if _day_kind(occ, d) == 'home' %}{% set w.home = w.home + [e[d]] %}{% endif -%}
+{%- endfor -%}
+{%- for d in D.wt if d in e and _day_kind(occ, d) == 'home' %}{% set w.thome = w.thome + [e[d]] %}{% endfor -%}
+{%- for d in D.w %}{% set w.fw = w.fw + fr.get(d, 0) %}{% set w.wh = w.wh + heat.get(d, 0) %}{% set w.wc = w.wc + cool.get(d, 0) %}{% endfor -%}
+{%- for d in D.wt if d in fr %}{% set w.ft = w.ft + fr[d] %}{% set w.fn = w.fn + 1 %}{% endfor -%}
+{%- for d in D.wt %}{% set w.th = w.th + heat.get(d, 0) %}{% set w.tc = w.tc + cool.get(d, 0) %}{% endfor -%}
+{%- set f.lines = f.lines + ['This week (the 7 days ending yesterday): ' ~ (w.sum | round(1)) ~ ' kWh (about $' ~ '%.2f' | format(w.sum * rate) ~ '); someone home ' ~ w.home | count ~ ' of 7 days; heating ran ' ~ (w.wh | round(1)) ~ ' h and cooling ' ~ (w.wc | round(1)) ~ ' h (the 4 weeks before averaged ' ~ ((w.th / 4) | round(1)) ~ ' h and ' ~ ((w.tc / 4) | round(1)) ~ ' h a week).'] -%}
+{%- if w.home | count >= 3 and w.thome | count >= 14 -%}
+{%- set a = w.home | sum / (w.home | count) -%}{%- set b = w.thome | sum / (w.thome | count) -%}
+{%- set f.lines = f.lines + ['Per home day: ' ~ (a | round(1)) ~ ' kWh this week, ' ~ (b | round(1)) ~ ' kWh over the 4 weeks before (' ~ vs(a, b) ~ ').'] -%}
+{%- if a >= b * 1.15 and (a - b) * 7 >= 15 -%}
+{%- set f.flags = f.flags + ['This week averaged ' ~ (a | round(1)) ~ ' kWh per home day, above the recent ' ~ (b | round(1)) ~ ' kWh'] -%}
+{%- endif -%}
+{%- endif -%}
+{%- if w.fn >= 14 -%}
+{%- set fa = w.ft / w.fn * 7 -%}
+{%- set f.lines = f.lines + ['Refrigerator: ' ~ (w.fw | round(1)) ~ ' kWh this week; the 4 weeks before averaged ' ~ (fa | round(1)) ~ ' kWh a week (' ~ vs(w.fw, fa) ~ ').'] -%}
+{%- if (w.fw - fa) | abs >= fa * 0.15 and (w.fw - fa) | abs >= 1 -%}
+{%- set f.flags = f.flags + ['The refrigerator used ' ~ (w.fw | round(1)) ~ ' kWh this week, ' ~ vs(w.fw, fa) ~ ' than its usual ' ~ (fa | round(1)) ~ ' kWh'] -%}
+{%- endif -%}
+{%- endif -%}
+{%- endif -%}
+{{- {'flags': f.flags, 'facts': f.lines | join('\n')} | to_json -}}
 {%- endmacro %}

@@ -340,7 +340,7 @@ Cost: Claude Haiku 5.5, 3 calls a day plus one a week — under 10¢ a month; th
 | Repo path | Deployed location | Purpose |
 |---|---|---|
 | `ha/packages/ai_insights.yaml` | `/config/packages/ai_insights.yaml` | Result-storing sensors, occupancy and overnight counters |
-| `ha/custom_templates/ai_insights.jinja` | `/config/custom_templates/ai_insights.jinja` | `weather_facts()`, `house_facts()`, `window_total()`, `vs()` allowlist macros |
+| `ha/custom_templates/ai_insights.jinja` | `/config/custom_templates/ai_insights.jinja` | `weather_facts()`, `house_facts()`, `window_total()`, `vs()` allowlist macros; `climate_insight()` and `energy_insight()` facts and flags for issue #18 (deployed, not yet called) |
 
 ---
 
