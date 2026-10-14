@@ -528,6 +528,15 @@ this. When a change renders in the preview but not on a device, check the viewer
 
 From Navbar Card 1.7 a route `badge` takes `icon` and `icon_color` besides `color`, `count` and `show`, all JavaScript-templatable. With an icon the badge renders as a 16 px circle in `color` with a 12 px icon inside, which reads at navbar size (`home-main` uses an amber circle with `mdi:creation` for unreviewed AI insights). Templating `color` and `icon` lets one route switch between a red fault dot (`icon` returning `''`, which falls back to the plain dot) and the amber sparkle.
 
+### A picture card with `aspect_ratio` draws its image as a background, not the `<img>`
+
+With `aspect_ratio` set, `hui-image` paints the picture as a `background-image` on a
+`.container` div inside its shadow root. The `<img>` is still in the DOM but isn't the visible
+copy, so a UIX rule on `img` (a `transform: scale()`, `object-fit`) measures as applied and
+changes nothing on screen. To zoom or crop the picture, style the div instead:
+`hui-image$: '.container { background-size: 135% auto !important; }'`, as the vacuum map in
+`home-main` does.
+
 ---
 
 ## TTS & Media
