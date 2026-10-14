@@ -61,6 +61,20 @@ template:
           generated_at: "{{ now().isoformat() }}"
 
 sensor:
+  # Hours anyone was home today, reset at midnight. Its long-term statistics
+  # (daily max) let the Climate and Energy insights tell home days from away
+  # days, so baselines compare like with like and a return day's catch-up
+  # HVAC runtime never raises a flag. Raw history only lasts 10 days, so
+  # this sensor is the only lasting record of occupancy. See issue #18.
+  - platform: history_stats
+    name: Household Occupied Today
+    unique_id: household_occupied_today
+    entity_id: zone.home
+    state: ["1", "2", "3", "4", "5", "6"]
+    type: time
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+
   # Overnight activity for the morning briefing's house recap: counts since the
   # most recent 10 PM. history_stats counts transitions into the state, so a
   # door left open all night counts once.

@@ -117,7 +117,9 @@ scp ha/packages/ai_insights.yaml ha:/config/packages/ai_insights.yaml
 ```
 
 Then call `template.reload` and `history_stats.reload`. The two AI sensors read `unknown`
-until their first event. Four `history_stats` counters count door openings, garage
+until their first event. **Household Occupied Today** counts hours anyone was home since
+midnight; its long-term statistics (daily max) are the lasting record of home and away days
+for the Climate and Energy insights (issue #18). Four `history_stats` counters count door openings, garage
 openings, internet drops, and generator runs since the most recent 10 PM, for the morning
 recap.
 
@@ -185,6 +187,20 @@ template:
           generated_at: "{{ now().isoformat() }}"
 
 sensor:
+  # Hours anyone was home today, reset at midnight. Its long-term statistics
+  # (daily max) let the Climate and Energy insights tell home days from away
+  # days, so baselines compare like with like and a return day's catch-up
+  # HVAC runtime never raises a flag. Raw history only lasts 10 days, so
+  # this sensor is the only lasting record of occupancy. See issue #18.
+  - platform: history_stats
+    name: Household Occupied Today
+    unique_id: household_occupied_today
+    entity_id: zone.home
+    state: ["1", "2", "3", "4", "5", "6"]
+    type: time
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+
   # Overnight activity for the morning briefing's house recap: counts since the
   # most recent 10 PM. history_stats counts transitions into the state, so a
   # door left open all night counts once.
@@ -304,6 +320,7 @@ Cost: Claude Haiku 5.5, 3 calls a day plus one a week — under 10¢ a month; th
 |---|---|---|
 | Household AI Briefing | `sensor.household_ai_briefing` | Trigger-based template sensor (package) |
 | Household AI Weekly Digest | `sensor.household_ai_weekly_digest` | Trigger-based template sensor (package) |
+| Household Occupied Today | `sensor.household_occupied_today` | `history_stats` hours home since midnight (package) |
 | Household Doors Opened Overnight | `sensor.household_doors_opened_overnight` | `history_stats` count since 10 PM (package) |
 | Household Garage Opened Overnight | `sensor.household_garage_opened_overnight` | `history_stats` count since 10 PM (package) |
 | Household Internet Drops Overnight | `sensor.household_internet_drops_overnight` | `history_stats` count since 10 PM (package) |
@@ -322,7 +339,7 @@ Cost: Claude Haiku 5.5, 3 calls a day plus one a week — under 10¢ a month; th
 
 | Repo path | Deployed location | Purpose |
 |---|---|---|
-| `ha/packages/ai_insights.yaml` | `/config/packages/ai_insights.yaml` | Result-storing sensors, overnight counters |
+| `ha/packages/ai_insights.yaml` | `/config/packages/ai_insights.yaml` | Result-storing sensors, occupancy and overnight counters |
 | `ha/custom_templates/ai_insights.jinja` | `/config/custom_templates/ai_insights.jinja` | `weather_facts()`, `house_facts()`, `window_total()`, `vs()` allowlist macros |
 
 ---
