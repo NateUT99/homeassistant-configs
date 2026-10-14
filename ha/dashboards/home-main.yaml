@@ -21,6 +21,12 @@ navbar-templates:
     - url: /home-main/climate
       icon: mdi:thermometer
       label: Climate
+      badge:
+        show: '[[[ return (() => { const h = states[''sensor.household_ai_climate_insight'']?.attributes?.history || []; const seen = Date.parse(states[''input_button.household_ai_climate_seen'']?.state);
+          return h.length > 0 && !!h[0].at && !(Date.parse(h[0].at) <= seen); })() ]]]'
+        color: var(--amber-color)
+        icon: mdi:creation
+        icon_color: var(--card-background-color)
     - url: /home-main/chores
       icon: mdi:clipboard-check-outline
       icon_selected: mdi:clipboard-check
@@ -36,16 +42,27 @@ navbar-templates:
       tap_action:
         action: open-popup
       badge:
-        show: '[[[ return states[''binary_sensor.outside_home_generator_warning'']?.state === ''on'' || states[''binary_sensor.outside_home_generator_maintenance_alert'']?.state === ''on'' || Object.keys(states).some(k
-          => k.startsWith(''update.'') && states[k].state === ''on'') || Number(states[''sensor.household_devices_offline'']?.state) > 0 ]]]'
-        color: red
+        show: '[[[ return (states[''binary_sensor.outside_home_generator_warning'']?.state === ''on'' || states[''binary_sensor.outside_home_generator_maintenance_alert'']?.state === ''on'' || Object.keys(states).some(k
+          => k.startsWith(''update.'') && states[k].state === ''on'') || Number(states[''sensor.household_devices_offline'']?.state) > 0) || (() => { const h = states[''sensor.household_ai_energy_insight'']?.attributes?.history
+          || []; const seen = Date.parse(states[''input_button.household_ai_energy_seen'']?.state); return h.length > 0 && !!h[0].at && !(Date.parse(h[0].at) <= seen); })() ]]]'
+        color: '[[[ return (states[''binary_sensor.outside_home_generator_warning'']?.state === ''on'' || states[''binary_sensor.outside_home_generator_maintenance_alert'']?.state === ''on'' || Object.keys(states).some(k
+          => k.startsWith(''update.'') && states[k].state === ''on'') || Number(states[''sensor.household_devices_offline'']?.state) > 0) ? ''red'' : ''var(--amber-color)'' ]]]'
+        icon: '[[[ return (states[''binary_sensor.outside_home_generator_warning'']?.state === ''on'' || states[''binary_sensor.outside_home_generator_maintenance_alert'']?.state === ''on'' || Object.keys(states).some(k
+          => k.startsWith(''update.'') && states[k].state === ''on'') || Number(states[''sensor.household_devices_offline'']?.state) > 0) ? '''' : ''mdi:creation'' ]]]'
+        icon_color: var(--card-background-color)
       popup:
       - url: /home-main/energy
         icon: mdi:lightning-bolt
         label: Energy
         badge:
-          show: '[[[ return states[''binary_sensor.outside_home_generator_warning'']?.state === ''on'' || states[''binary_sensor.outside_home_generator_maintenance_alert'']?.state === ''on'' ]]]'
-          color: red
+          show: '[[[ return (states[''binary_sensor.outside_home_generator_warning'']?.state === ''on'' || states[''binary_sensor.outside_home_generator_maintenance_alert'']?.state === ''on'') || (() =>
+            { const h = states[''sensor.household_ai_energy_insight'']?.attributes?.history || []; const seen = Date.parse(states[''input_button.household_ai_energy_seen'']?.state); return h.length > 0
+            && !!h[0].at && !(Date.parse(h[0].at) <= seen); })() ]]]'
+          color: '[[[ return (states[''binary_sensor.outside_home_generator_warning'']?.state === ''on'' || states[''binary_sensor.outside_home_generator_maintenance_alert'']?.state === ''on'') ? ''red''
+            : ''var(--amber-color)'' ]]]'
+          icon: '[[[ return (states[''binary_sensor.outside_home_generator_warning'']?.state === ''on'' || states[''binary_sensor.outside_home_generator_maintenance_alert'']?.state === ''on'') ? '''' :
+            ''mdi:creation'' ]]]'
+          icon_color: var(--card-background-color)
       - url: /home-main/maintenance
         icon: mdi:wrench
         label: Maintenance
@@ -2714,6 +2731,22 @@ views:
         text_only: true
         grid_options:
           columns: 12
+        content: '{{ state_attr(''sensor.household_ai_briefing'', ''tip'') or '''' }}'
+        visibility:
+        - condition: state
+          entity: sensor.household_ai_briefing
+          state_not: unknown
+        - condition: state
+          entity: sensor.household_ai_briefing
+          state_not: unavailable
+        uix:
+          style:
+            ha-markdown$: 'p { margin: 0 4px 4px !important; font-size: 14px; }'
+            'ha-markdown $ ha-markdown-element:': 'p { margin: 0 4px 4px !important; font-size: 14px; }'
+      - type: markdown
+        text_only: true
+        grid_options:
+          columns: 12
         content: '{% set n = state_attr(''sensor.outside_forecast'', ''next_rain'') %}{% if n %}Rain likely from {{ as_timestamp(n) | timestamp_custom(''%a %-I %p'') }} · up to {{ state_attr(''sensor.outside_forecast'',
           ''rain_max_24h'') }}%{% else %}No rain expected in the next 24 hours{% endif %}'
         uix:
@@ -4798,6 +4831,60 @@ views:
       button_action:
         tap_action:
           action: more-info
+    - type: heading
+      heading: Insight
+      icon: mdi:creation
+      grid_options:
+        columns: 12
+      badges:
+      - type: entity
+        entity: sensor.household_ai_climate_insight
+        show_state: true
+        show_icon: false
+        state_content: last_updated
+      - type: button
+        icon: mdi:check
+        tap_action:
+          action: perform-action
+          perform_action: input_button.press
+          target:
+            entity_id: input_button.household_ai_climate_seen
+        visibility:
+        - condition: state
+          entity: sensor.household_ai_climate_insight
+          state_not: Nothing notable
+    - type: markdown
+      grid_options:
+        columns: 12
+      content: '{% set s = ''sensor.household_ai_climate_insight'' %}{% if is_state(''script.household_ai_climate_insight'', ''on'') %}*Working on it…*{% elif state_attr(s, ''flagged'') %}**{{ states(s)
+        }}**<br>{{ state_attr(s, ''story'') }}{% elif has_value(s) %}Nothing notable yesterday.{% else %}The first note arrives at 7 AM.{% endif %}'
+      uix:
+        style:
+          ha-markdown$: 'p { margin: 0 0 6px 0; } b { font-size: 12px; letter-spacing: 0.06em; opacity: 0.7; }'
+          'ha-markdown $ ha-markdown-element:': 'p { margin: 0 0 6px 0; } b { font-size: 12px; letter-spacing: 0.06em; opacity: 0.7; }'
+    - type: custom:expander-card
+      title-card:
+        type: heading
+        heading: Past week
+        heading_style: subtitle
+      title-card-clickable: true
+      icon: mdi:chevron-down
+      expanded: false
+      storage-id: home-main-climate-insight-week
+      clear: true
+      padding: '0'
+      child-margin-top: 0.6em
+      grid_options:
+        columns: 12
+      cards:
+      - type: markdown
+        content: '{% set s = ''sensor.household_ai_climate_insight'' %}{% set cur = state_attr(s, ''date'') if state_attr(s, ''flagged'') else '''' %}{% set h = (state_attr(s, ''history'') or []) | rejectattr(''date'',
+          ''eq'', cur) | list %}{% for e in h %}<b>{{ strptime(e.date, ''%Y-%m-%d'').strftime(''%a %b %-d'') | upper }}</b><br>**{{ e.headline }}**<br>{{ e.story }}{% if not loop.last %}<br><br>{% endif
+          %}{% else %}Nothing else flagged in the past week.{% endfor %}'
+        uix:
+          style:
+            ha-markdown$: 'p { margin: 0 0 6px 0; } b { font-size: 12px; letter-spacing: 0.06em; opacity: 0.7; }'
+            'ha-markdown $ ha-markdown-element:': 'p { margin: 0 0 6px 0; } b { font-size: 12px; letter-spacing: 0.06em; opacity: 0.7; }'
     - type: custom:expander-card
       title-card:
         type: heading
@@ -5152,6 +5239,60 @@ views:
     - type: heading
       heading: Energy
       icon: mdi:lightning-bolt
+    - type: heading
+      heading: Insight
+      icon: mdi:creation
+      grid_options:
+        columns: 12
+      badges:
+      - type: entity
+        entity: sensor.household_ai_energy_insight
+        show_state: true
+        show_icon: false
+        state_content: last_updated
+      - type: button
+        icon: mdi:check
+        tap_action:
+          action: perform-action
+          perform_action: input_button.press
+          target:
+            entity_id: input_button.household_ai_energy_seen
+        visibility:
+        - condition: state
+          entity: sensor.household_ai_energy_insight
+          state_not: Nothing notable
+    - type: markdown
+      grid_options:
+        columns: 12
+      content: '{% set s = ''sensor.household_ai_energy_insight'' %}{% if is_state(''script.household_ai_energy_insight'', ''on'') %}*Working on it…*{% elif state_attr(s, ''flagged'') %}**{{ states(s) }}**<br>{{
+        state_attr(s, ''story'') }}{% elif has_value(s) %}Nothing notable yesterday.{% else %}The first note arrives at 7 AM.{% endif %}'
+      uix:
+        style:
+          ha-markdown$: 'p { margin: 0 0 6px 0; } b { font-size: 12px; letter-spacing: 0.06em; opacity: 0.7; }'
+          'ha-markdown $ ha-markdown-element:': 'p { margin: 0 0 6px 0; } b { font-size: 12px; letter-spacing: 0.06em; opacity: 0.7; }'
+    - type: custom:expander-card
+      title-card:
+        type: heading
+        heading: Past week
+        heading_style: subtitle
+      title-card-clickable: true
+      icon: mdi:chevron-down
+      expanded: false
+      storage-id: home-main-energy-insight-week
+      clear: true
+      padding: '0'
+      child-margin-top: 0.6em
+      grid_options:
+        columns: 12
+      cards:
+      - type: markdown
+        content: '{% set s = ''sensor.household_ai_energy_insight'' %}{% set cur = state_attr(s, ''date'') if state_attr(s, ''flagged'') else '''' %}{% set h = (state_attr(s, ''history'') or []) | rejectattr(''date'',
+          ''eq'', cur) | list %}{% for e in h %}<b>{{ strptime(e.date, ''%Y-%m-%d'').strftime(''%a %b %-d'') | upper }}</b><br>**{{ e.headline }}**<br>{{ e.story }}{% if not loop.last %}<br><br>{% endif
+          %}{% else %}Nothing else flagged in the past week.{% endfor %}'
+        uix:
+          style:
+            ha-markdown$: 'p { margin: 0 0 6px 0; } b { font-size: 12px; letter-spacing: 0.06em; opacity: 0.7; }'
+            'ha-markdown $ ha-markdown-element:': 'p { margin: 0 0 6px 0; } b { font-size: 12px; letter-spacing: 0.06em; opacity: 0.7; }'
     - type: energy-date-selection
       grid_options:
         columns: 12
