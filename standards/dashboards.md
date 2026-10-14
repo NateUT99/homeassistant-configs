@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.21.0 — October 2026*
+*Version 1.22.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.22.0 | October 2026 | Bubble Graphs module approved for single-sensor history cards (Climate view rooms and humidity) |
 | 1.21.0 | October 2026 | Maintenance faults (updates, offline devices, generator) surface as red navbar badges, not Home chips |
 | 1.20.0 | October 2026 | Pop-ups drop the header row |
 | 1.19.0 | October 2026 | Home Flat theme replaces Frosted Glass; Home room sections use native section panels |
@@ -89,6 +90,7 @@ and an update to this table.
 | Expander Card | HACS frontend | Collapsible sections on long secondary views |
 | apexcharts-card | HACS frontend | Time-series charts in pop-ups (the `#hvac` charts). Colours as theme variables (`color: var(--amber-color)`) |
 | Bubble Media Player Enhanced, Bubble Weather | Bubble Module Store (author: Clooos) | Media cards and the `#weather` card. Store-installed third-party modules: not mirrored in `ha/bubble_modules/` (§13); update them from the Module Store |
+| Bubble Graphs | Clooos Patreon (paid, licence forbids redistribution) | History graph inside a Bubble button for one numeric sensor (Climate view rooms and humidity, `card_layout: stacked`). Multi-series, attribute, binary-sensor and forecast charts stay on apexcharts-card. Not mirrored in `ha/bubble_modules/`: the repo is public; reinstall from Patreon or an HA backup |
 
 > Mushroom is not approved. The view-level `badges` row is not used, which removes the only
 > case Mushroom ever covered.

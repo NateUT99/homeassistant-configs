@@ -4768,66 +4768,172 @@ views:
         columns: 2
         square: false
         cards:
-        - type: tile
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
           entity: sensor.living_room_thermostat_temperature
           name: Living Room
-          features:
-          - type: trend-graph
-            hours_to_show: 24
-          uix:
-            style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.living_room_thermostat_temperature'') }}'
-        - type: tile
+          show_icon: false
+          show_state: true
+          modules:
+          - bubble_graphs
+          bubble_graphs:
+            graph_style: area
+            hours: 24
+            color: var(--room-tint, var(--primary-text-color))
+            opacity: 0.35
+            card_layout: stacked
+          tap_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
+          styles: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.living_room_thermostat_temperature'') }}'
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
           entity: sensor.kitchen_climate_temperature
           name: Kitchen
-          features:
-          - type: trend-graph
-            hours_to_show: 24
-          uix:
-            style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.kitchen_climate_temperature'') }}'
-        - type: tile
+          show_icon: false
+          show_state: true
+          modules:
+          - bubble_graphs
+          bubble_graphs:
+            graph_style: area
+            hours: 24
+            color: var(--room-tint, var(--primary-text-color))
+            opacity: 0.35
+            card_layout: stacked
+          tap_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
+          styles: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.kitchen_climate_temperature'') }}'
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
           entity: sensor.family_room_climate_temperature
           name: Family Room
-          features:
-          - type: trend-graph
-            hours_to_show: 24
-          uix:
-            style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.family_room_climate_temperature'') }}'
-        - type: tile
+          show_icon: false
+          show_state: true
+          modules:
+          - bubble_graphs
+          bubble_graphs:
+            graph_style: area
+            hours: 24
+            color: var(--room-tint, var(--primary-text-color))
+            opacity: 0.35
+            card_layout: stacked
+          tap_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
+          styles: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.family_room_climate_temperature'') }}'
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
           entity: sensor.office_climate_temperature
           name: Office
-          features:
-          - type: trend-graph
-            hours_to_show: 24
-          uix:
-            style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.office_climate_temperature'') }}'
-        - type: tile
+          show_icon: false
+          show_state: true
+          modules:
+          - bubble_graphs
+          bubble_graphs:
+            graph_style: area
+            hours: 24
+            color: var(--room-tint, var(--primary-text-color))
+            opacity: 0.35
+            card_layout: stacked
+          tap_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
+          styles: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.office_climate_temperature'') }}'
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
           entity: sensor.master_bedroom_climate_temperature
           name: Master Bedroom
-          features:
-          - type: trend-graph
-            hours_to_show: 24
-          uix:
-            style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.master_bedroom_climate_temperature'') }}'
-        - type: tile
+          show_icon: false
+          show_state: true
+          modules:
+          - bubble_graphs
+          bubble_graphs:
+            graph_style: area
+            hours: 24
+            color: var(--room-tint, var(--primary-text-color))
+            opacity: 0.35
+            card_layout: stacked
+          tap_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
+          styles: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.master_bedroom_climate_temperature'') }}'
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
           entity: sensor.averys_room_climate_temperature
           name: Avery's Room
-          features:
-          - type: trend-graph
-            hours_to_show: 24
-          uix:
-            style: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.averys_room_climate_temperature'') }}'
-        - type: tile
+          show_icon: false
+          show_state: true
+          modules:
+          - bubble_graphs
+          bubble_graphs:
+            graph_style: area
+            hours: 24
+            color: var(--room-tint, var(--primary-text-color))
+            opacity: 0.35
+            card_layout: stacked
+          tap_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
+          styles: '{% from ''dashboard.jinja'' import room_temp_style %}{{ room_temp_style(''sensor.averys_room_climate_temperature'') }}'
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
           entity: sensor.utility_room_climate_temperature
           name: Utility Room
-          features:
-          - type: trend-graph
-            hours_to_show: 24
-        - type: tile
+          show_icon: false
+          show_state: true
+          modules:
+          - bubble_graphs
+          bubble_graphs:
+            graph_style: area
+            hours: 24
+            color: var(--room-tint, var(--primary-text-color))
+            opacity: 0.35
+            card_layout: stacked
+          tap_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
           entity: sensor.outside_temperature
           name: Outside
-          features:
-          - type: trend-graph
-            hours_to_show: 24
+          show_icon: false
+          show_state: true
+          modules:
+          - bubble_graphs
+          bubble_graphs:
+            graph_style: area
+            hours: 24
+            color: var(--room-tint, var(--primary-text-color))
+            opacity: 0.35
+            card_layout: stacked
+          tap_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
   - type: grid
     cards:
     - type: custom:expander-card
@@ -4845,25 +4951,178 @@ views:
       grid_options:
         columns: 12
       cards:
-      - type: history-graph
-        hours_to_show: 24
-        entities:
-        - entity: sensor.living_room_thermostat_humidity
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          entity: sensor.living_room_thermostat_humidity
           name: Living Room
-        - entity: sensor.kitchen_climate_humidity
+          show_icon: false
+          show_state: true
+          modules:
+          - bubble_graphs
+          bubble_graphs:
+            graph_style: area
+            hours: 24
+            color: blue
+            opacity: 0.35
+            card_layout: stacked
+          tap_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
+          state_content: '{{ states(''sensor.living_room_thermostat_humidity'') | float(0) | round(0) | int }}%'
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          entity: sensor.kitchen_climate_humidity
           name: Kitchen
-        - entity: sensor.family_room_climate_humidity
+          show_icon: false
+          show_state: true
+          modules:
+          - bubble_graphs
+          bubble_graphs:
+            graph_style: area
+            hours: 24
+            color: blue
+            opacity: 0.35
+            card_layout: stacked
+          tap_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
+          state_content: '{{ states(''sensor.kitchen_climate_humidity'') | float(0) | round(0) | int }}%'
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          entity: sensor.family_room_climate_humidity
           name: Family Room
-        - entity: sensor.office_climate_humidity
+          show_icon: false
+          show_state: true
+          modules:
+          - bubble_graphs
+          bubble_graphs:
+            graph_style: area
+            hours: 24
+            color: blue
+            opacity: 0.35
+            card_layout: stacked
+          tap_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
+          state_content: '{{ states(''sensor.family_room_climate_humidity'') | float(0) | round(0) | int }}%'
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          entity: sensor.office_climate_humidity
           name: Office
-        - entity: sensor.master_bedroom_climate_humidity
+          show_icon: false
+          show_state: true
+          modules:
+          - bubble_graphs
+          bubble_graphs:
+            graph_style: area
+            hours: 24
+            color: blue
+            opacity: 0.35
+            card_layout: stacked
+          tap_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
+          state_content: '{{ states(''sensor.office_climate_humidity'') | float(0) | round(0) | int }}%'
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          entity: sensor.master_bedroom_climate_humidity
           name: Master Bedroom
-        - entity: sensor.averys_room_climate_humidity
+          show_icon: false
+          show_state: true
+          modules:
+          - bubble_graphs
+          bubble_graphs:
+            graph_style: area
+            hours: 24
+            color: blue
+            opacity: 0.35
+            card_layout: stacked
+          tap_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
+          state_content: '{{ states(''sensor.master_bedroom_climate_humidity'') | float(0) | round(0) | int }}%'
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          entity: sensor.averys_room_climate_humidity
           name: Avery's Room
-        - entity: sensor.utility_room_climate_humidity
+          show_icon: false
+          show_state: true
+          modules:
+          - bubble_graphs
+          bubble_graphs:
+            graph_style: area
+            hours: 24
+            color: blue
+            opacity: 0.35
+            card_layout: stacked
+          tap_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
+          state_content: '{{ states(''sensor.averys_room_climate_humidity'') | float(0) | round(0) | int }}%'
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          entity: sensor.utility_room_climate_humidity
           name: Utility Room
-        - entity: sensor.outside_humidity
+          show_icon: false
+          show_state: true
+          modules:
+          - bubble_graphs
+          bubble_graphs:
+            graph_style: area
+            hours: 24
+            color: blue
+            opacity: 0.35
+            card_layout: stacked
+          tap_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
+          state_content: '{{ states(''sensor.utility_room_climate_humidity'') | float(0) | round(0) | int }}%'
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          entity: sensor.outside_humidity
           name: Outside
+          show_icon: false
+          show_state: true
+          modules:
+          - bubble_graphs
+          bubble_graphs:
+            graph_style: area
+            hours: 24
+            color: blue
+            opacity: 0.35
+            card_layout: stacked
+          tap_action:
+            action: more-info
+          button_action:
+            tap_action:
+              action: more-info
+          state_content: '{{ states(''sensor.outside_humidity'') | float(0) | round(0) | int }}%'
 - title: Energy
   path: energy
   type: sections
