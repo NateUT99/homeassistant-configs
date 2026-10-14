@@ -180,6 +180,12 @@ After creating any area-assigned helper, check the generated entity ID and renam
 
 ---
 
+### Renaming an entity ID does not update the Energy dashboard's device list
+
+Renaming `sensor.family_room_home_theater_summation_delivered` (and its `_power` sibling) to `family_room_av_equipment_*` carried the recorder history and long-term statistics across, but the Energy preferences kept pointing at the old IDs (2026-10-14). The device stays listed but stops accumulating. After renaming any entity that feeds the Energy dashboard, re-read the prefs (`ha_manage_energy_prefs` mode `get`) and repoint `stat_consumption` / `stat_rate` to the new IDs.
+
+---
+
 ### Sun and time triggers that land during a restart are skipped, not replayed
 
 A `sun`, `sun.sunrise`/`sun.sunset` or `time` trigger fires only if HA is running at that moment. On 2026-10-09 an update reboot ran 07:38–07:42 and sunrise was 07:40:13; `automation.outside_garage_bulbs_night_cycle` never ran its sunrise branch, and the bulbs came back `on` (restored state) and stayed on.
