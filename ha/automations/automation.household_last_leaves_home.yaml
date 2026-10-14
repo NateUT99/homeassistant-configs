@@ -4,7 +4,7 @@ description: >-
   Runs the whole-house departure routine: closes the garage, locks the front
   door, sets the living room thermostat to Away, turns off lights/fans/switches/media
   players labeled "No One Is Home", sleeps (locks) the Mac Mini display, and starts the daytime vacuum clean of the remaining
-  rooms (9am-7pm, if it hasn't run today) -- the Office always runs in the evening pass instead, and the Bathroom and Entrance drop out
+  rooms plus the Pantry and Utility Room (9am-7pm, if it hasn't run today) -- the Office always runs in the evening pass instead, and the Bathroom and Entrance drop out
   of that list on a night Avery is away, since Household: Vacuum Evening
   Cleaning picks them up instead. Normally fires 5 minutes after
   zone.home drops to 0 -- long enough to absorb a walk to the community mailbox.
@@ -159,8 +159,8 @@ actions:
           daytime_segments: >-
             {{ ([16, 20] if
             states('input_datetime.vacuum_master_mop_last_run') ==
-            now().strftime('%Y-%m-%d') else [16, 19, 20, 21]) + ([17, 26]
-            if is_state('binary_sensor.avery_home_today', 'on') else []) }}
+            now().strftime('%Y-%m-%d') else [16, 19, 20, 21]) + [23, 24] +
+            ([17, 26] if is_state('binary_sensor.avery_home_today', 'on') else []) }}
         note: >-
           Compares input_datetime.vacuum_master_mop_last_run against today's
           date rather than reading input_select.vacuum_active_zone -- that
@@ -174,8 +174,11 @@ actions:
           when Avery is home -- both sit within earshot of the bedroom
           hall, so on a night she's away, Household: Vacuum Evening
           Cleaning adds them to the evening pass instead, so including
-          them here too would clean them twice the same vacuum-day. The
-          Office (18) runs in the evening pass instead, not here.
+          them here too would clean them twice the same vacuum-day.
+          Segments 23 (Utility room) and 24 (Pantry) always run here and
+          are not in the nightly vacuum-only pass; on mop night the mop
+          script still mops them. The Office (18) runs in the evening pass
+          instead, not here.
       - alias: Set active zone to daytime
         action: input_select.select_option
         target:
