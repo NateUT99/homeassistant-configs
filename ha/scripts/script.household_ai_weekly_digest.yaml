@@ -73,7 +73,7 @@ sequence:
 
       What to look for, in order:
       1. Electricity against last week and against the 4-week average. A change under 10% is "about the same".
-      2. Heating and cooling hours against last week, and whether the weather explains it. Degree days measure how much heating or cooling the weather called for (heating degree days rise as it gets colder). If runtime moved roughly with degree days, the weather explains it; if runtime rose clearly more than degree days did, say so plainly, without guessing a cause.
+      2. Heating and cooling hours against last week, and whether the weather explains it. Degree days measure how much heating or cooling the weather called for (heating degree days rise as it gets colder). If runtime moved roughly with degree days, the weather explains it; if runtime rose clearly more than degree days did, say so plainly, without guessing a cause. A runtime of a couple of hours or less is small either week, however large the change; mention it briefly in hours.
       3. The refrigerator, only if it used 15% more or less than its average.
       This is about consumption only; never mention cleaning, chores, or anything else.
 

@@ -80,7 +80,8 @@ AI Insights Schedule ──06:30/12:00/17:00──▶ script.household_ai_briefi
 - Anthropic integration with an AI Task subentry on `claude-haiku-5-5` (**Claude Haiku AI
   Task**, `ai_task.claude_haiku_ai_task`; thinking effort `medium`, prompt caching off since
   calls are hours apart, max tokens 3000; web search, web fetch, code execution and user
-  location off)
+  location off). **Claude Sonnet AI Task** (`ai_task.claude_sonnet_ai_task`, `claude-sonnet-5-5`,
+  same settings) is a fallback no script calls: swap the `entity_id` in both scripts to use it
 - `/config/packages/` included from `configuration.yaml` (see `guides/vacuum_cleaning_routine.md`)
 - `weather.outside_waterville_oh_usa`, `sensor.outside_temperature` (long-term statistics),
   the Chore Calendar integration, the Eagle energy sensor, the refrigerator plug, and
@@ -242,7 +243,9 @@ the headline left out and what it means in practice. The tip is the practical ca
 wear, when to go out). Its drama stays in proportion to the season: strong words (cold snap,
 bundle up) are reserved for frost, a 15° drop, a heat advisory, or heavy rain. A temperature comparison appears only when the gap is 8° or more and
 fits the period (today vs yesterday, or tomorrow vs today in the evening), and calls out only what matters: rain 30%+, gusts 25 mph+, UV 6+, AQI over
-100, frost (34° or below), feels-like 90°+.
+100, frost (34° or below), feels-like 90°+. Rain timing comes only from the hourly lines,
+the icon is the weather that dominates the period, and the style examples set the tone
+without lending their wording.
 
 **Morning house recap.** Runs before 11:00 (or with the script's `morning: true` field, for
 testing). It looks back first (doors and garage opened since 10 PM and the last door time,
@@ -257,7 +260,8 @@ evening runs, so `#ai` shows it under Morning Recap until the next morning.
 the 28 days before this week, scaled to 7 days by how many days have data (so a sensor
 younger than five weeks still averages fairly). The story leads with the most notable of:
 electricity against last week and the average; heating and cooling hours against degree
-days; the refrigerator, only when 15% off its average. It covers consumption only;
+days; the refrigerator, only when 15% off its average. A runtime of a couple of hours or
+less gets a brief mention in hours, however large its percentage change. It covers consumption only;
 cleaning and chores belong to the morning recap.
 
 **Voice** (both prompts): a sharp, good-humored local — conversational, a light touch of wit,
@@ -309,6 +313,7 @@ Cost: Claude Haiku 5.5, 3 calls a day plus one a week — under 10¢ a month; th
 | Household: AI Insights Schedule | `automation.household_ai_insights_schedule` | Automation |
 | Household AI Seen | `input_button.household_ai_seen` | Helper |
 | Claude Haiku AI Task | `ai_task.claude_haiku_ai_task` | AI Task (Anthropic) |
+| Claude Sonnet AI Task | `ai_task.claude_sonnet_ai_task` | AI Task (Anthropic), unused fallback |
 | AI Insights | `int_ai_insights` | Label |
 
 ---

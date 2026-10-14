@@ -90,6 +90,7 @@ sequence:
 
       What makes it useful:
       - The shape of the period, not a list of numbers: a cold start that turns warm, when rain arrives and when it clears, a windy stretch, a frosty night.
+      - Rain timing comes only from the hourly lines. A daily rain chance means rain at some point that day, not all day.
       - A temperature comparison only when the gap is 8° or more, and only one that fits the period: today vs yesterday for today; tomorrow vs today for tonight and tomorrow. Use the comparisons exactly as given in the facts; never work out a new one.
       - Only call out what matters: rain chances of 30% or more, gusts of 25 mph or more, UV 6 or higher, air quality over 100, frost (low of 34° or below), heat (feels-like 90° or above). A plain, pleasant day gets a plain, pleasant line.
       - Times as people say them ("by 3", "after dinner", "around sunset"), 12-hour clock, °F.
@@ -99,10 +100,10 @@ sequence:
       - tip: one or two sentences, 200 characters or fewer: the practical call, said like a friend would (a jacket for the early hours, the dry window for a walk, a good night to open the windows, bring the plants in). Add what the headline left out; never repeat it. Never generic advice.
       {% if is_morning %}- house: one or two sentences, 200 characters or fewer, looking both ways: first what happened overnight and yesterday (anything opened overnight, an internet drop, a leak, energy or heating well off a typical day, laundry left waiting, a scheduled vacuum run that didn't happen), then what the house needs today (chores due, trash, and the weekly mop passes if still not done, more pointedly as the week goes on). Skip anything normal; a quiet night is just "quiet night". Same voice, a little attitude for anything ignored. The headline and tip are weather only; the house goes here.
       {% else %}- house: leave empty.
-      {% endif %}- icon: exactly one value from this list: {{ icons | join(', ') }}.
+      {% endif %}- icon: exactly one value from this list, for the weather that dominates {{ focus }}: {{ icons | join(', ') }}.
       - Use only the facts below. Never invent anything, including when wind or rain stops if the facts don't say. Plain text.
 
-      Style examples only (never reuse their facts):
+      Style examples. They show the tone only; never reuse their facts or their wording:
       Headlines: "Chilly start at 41°, but you'll be at 68° by 3." / "Dry until about 4, then a soggy evening." / "Ten degrees colder than yesterday, and the wind makes it feel worse."
       House: "Quiet night, and yesterday ran about normal. The coffee grinder is now a week overdue; it's not cleaning itself." / "Someone opened the patio door at 2:14 AM. Recycling goes out tonight."
       Tips: "Grab a light jacket for the early hours, but you'll shed it by midday." / "Get the walk in before 4; after that you're dodging puddles." / "Leave the windows open tonight and let the house cool off for free."
