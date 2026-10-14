@@ -29,7 +29,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 │   │                         ── Happening now (heading + 2-up grid, shown while an appliance runs)
 │   ├── Sections 2–8       ── Room sections × 7 (Expander: heading + media card + tiles)
 │   └── Section 9          ── Pop-ups: #rooms (room tiles by floor, 2-up) + 6 rooms
-│                             + #security #hvac #weather #vacuum #vacuum-care #laundry #ai
+│                             + #security #hvac #weather #vacuum #vacuum-care #laundry
 │
 └── Chores view ── Navbar Card ── chore-calendar-card
          │
@@ -85,10 +85,10 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 ## Prerequisites
 
 - Home Assistant 2026.9 or later
-- HACS frontend: Bubble Card ≥ 3.4, Navbar Card, Kiosk Mode, Battery State Card, Expander Card, apexcharts-card; theme: Home Flat (repo, `ha/themes/home_flat.yaml`)
+- HACS frontend: Bubble Card ≥ 3.4, Navbar Card ≥ 1.7 (badge icons), Kiosk Mode, Battery State Card, Expander Card, apexcharts-card; theme: Home Flat (repo, `ha/themes/home_flat.yaml`)
 - HACS integrations: Bubble Card Tools and UIX, each added under **Settings → Devices &
   Services** (installing from HACS alone isn't enough)
-- AI insights (`guides/ai_insights.md`) for the greeting line, AI chip, and `#ai`
+- AI insights (`guides/ai_insights.md`) for the greeting line, the `#weather` tip, and the AI Insight cards
 - Chore Calendar integration (provides `todo.household_chores`, the chore sensors, and
   `chore-calendar-card`) — see `guides/reminders.md`
 - Adaptive Lighting (owns brightness; the dashboard exposes no sliders)
@@ -163,22 +163,21 @@ lists are static: a new light or player is added to the pop-up by hand, along wi
 activity sensor in the conditions.
 
 **Quick actions** are a second chip row directly under the status row: a separate
-`sub-buttons` card with the same scrolling layout, for the AI check-in and the people and house modes you switch by hand. The chip group is
+`sub-buttons` card with the same scrolling layout, for the HVAC and vacuum and the people and house modes you switch by hand. The chip group is
 `width: max-content` with `min-width: 100%` and `justify-content: center`, so the row centres
 when it fits and scrolls from the first chip when it doesn't (`safe center` clips the first chip on iOS — see LESSONS.md).
-Chips are grouped devices first, then people (AI, HVAC, Vacuum, then Nate, Avery, Guest).
+Chips are grouped devices first, then people (HVAC, Vacuum, then Nate, Avery, Guest).
 Tap opens more-info, hold toggles (`standards/dashboards.md` §12):
 
 | Chip | Icon and colour | Hold toggles |
 |---|---|---|
-| AI (icon only) | `mdi:creation`, amber while there is a weekly digest you haven't opened (`generated_at` newer than `input_button.household_ai_seen`, which `#ai` presses on open and close), grey otherwise | — (tap `#ai`) |
 | HVAC (icon only) | `mdi:fire` amber while heating, `mdi:snowflake` blue while cooling, `mdi:hvac-off` amber while an open door or window has paused it, otherwise grey `mdi:hvac` (idle or switched off) | — (tap `#hvac`, hold opens more-info) |
 | Vacuum (icon only) | `mdi:robot-vacuum-alert` (red, stuck or a vacuum or dock error), `mdi:robot-vacuum-off` (amber, routine paused), or `mdi:robot-vacuum` (amber paused mid-clean, purple cleaning or returning, grey otherwise); tap opens `#vacuum` | `input_boolean.vacuum_routine_pause` |
 | Nate | Sleep (indigo) while `input_boolean.everyone_sleeping` is on; otherwise home (green) or away (grey) from `person.nate` | `input_boolean.everyone_sleeping` |
 | Avery | Sleep (indigo) while `input_boolean.avery_sleeping` is on; otherwise home (green) on her scheduled days (`binary_sensor.avery_home_today`), away (grey) on others | `input_boolean.avery_sleeping` |
 | Guest | Green while guest mode is on, matching the status lamps | `input_boolean.guest_mode` |
 
-Sleep wins over location, so a stale sleep flag is visible at a glance. Quick actions are icon-only so the row keeps a fixed width; every state that matters has its own icon, so none relies on colour alone, and tap opens the detail.
+Sleep wins over location, so a stale sleep flag is visible at a glance. HVAC and Vacuum are icon-only and the people chips carry their name, so the row keeps a steady width; every state that matters has its own icon, so none relies on colour alone, and tap opens the detail.
 
 Chores other than trash are not a chip: the navbar's Chores tab carries a red badge — a dot
 for one due or overdue chore, the count for two or more.
@@ -282,7 +281,7 @@ and fault line come from `laundry_phase`, `laundry_color`, and `laundry_fault` i
 
 **Greeting** sits below the chip strip: a text-only markdown card, "Good morning/afternoon/
 evening, <first name>!" (05:00–11:59 / 12:00–16:59 / otherwise, the logged-in user's first
-name) over the latest briefing headline in italics. Markdown sizes itself to its content, so
+name) over the latest briefing headline in italics (it covers only what is left of today). Markdown sizes itself to its content, so
 the line never overlaps the chips. A UIX style trims the heading's bottom margin.
 
 ### 4. Room tiles
@@ -325,19 +324,10 @@ tile, until they get a room hero (#13 step 4).
 | `#averys-room` | Ceiling light, desk and dresser lamps, fan speed, HomePod |
 | `#security` | Doorbell camera (square crop, first); lock, garage door, garage interior door, doors & windows; Water (the 4 leak sensors); outside lights |
 | `#hvac` | Hero (indoor temperature; Heating to / Cooling to / Holding range / Paused, and preset; humidity; amber or blue tint while running), heat and cool setpoint steppers, segmented presets (Home · Away · Sleep), fireplace (hold toggles off ↔ heat; amber while on), Today: three metric tiles for whichever mode has run more today (runtime, cycles, average cycle — amber under 10 min, an early short-cycling sign), Last 12 hours chart (apexcharts: indoor temperature, dashed setpoints, outside temperature, heating/cooling bands), Last 14 days chart (apexcharts on long-term statistics: daily heating/cooling hours as stacked columns via `change`, daily mean outside temperature on the right axis; `extend_to: false` so the live point doesn't narrow the columns) |
-| `#weather` | Hero (outside temperature, condition icon, condition with today's high and low, feels-like), rain line (first hour in the next 24 with a 40%+ chance, or "No rain expected"), six `metric_tile` tiles (wind and direction, humidity, rain chance over 24 h, AQI and dominant pollutant in the EPA colour above 50, UV index, next sunset or sunrise), Next 24 hours chart (apexcharts from `sensor.outside_forecast`: temperature line, rain-chance columns), Next 5 days (Bubble Weather `weather_forecast` module, `card_layout: weather_only`), Air quality pollutant tiles only while AQI > 50 |
+| `#weather` | Hero (outside temperature, condition icon, condition with today's high and low, feels-like), the AI briefing tip (text-only markdown, hidden until the briefing exists), rain line (first hour in the next 24 with a 40%+ chance, or "No rain expected"), six `metric_tile` tiles (wind and direction, humidity, rain chance over 24 h, AQI and dominant pollutant in the EPA colour above 50, UV index, next sunset or sunrise), Next 24 hours chart (apexcharts from `sensor.outside_forecast`: temperature line, rain-chance columns), Next 5 days (Bubble Weather `weather_forecast` module, `card_layout: weather_only`), Air quality pollutant tiles only while AQI > 50 |
 | `#vacuum` | Status hero (state; room, area and time while out, last clean when docked; battery), primary action (amber Pause while cleaning, Start/Resume otherwise, with Dock and Stop), How: segmented Mode, Suction and Water (Water only in vacuum + mop with the pad on), routine pause, Mop now (confirm), map (only when out or ran today), Care & settings row (icon amber/red when a consumable is low or due) |
 | `#vacuum-care` | Mop pass (segmented Fast / Standard), mop pad and water status, robot status, 5 consumables |
-| `#ai` | Three heading cards (Forecast, Morning Recap, Weekly Insights); Forecast and Weekly Insights carry an age badge (`state_content: last_updated`), and Forecast adds a refresh button badge that starts the briefing script. Each heading is followed by a markdown body; see below. `open_action` and `close_action` press `input_button.household_ai_seen` |
 | `#laundry` | Washer and dryer status, remaining, progress, start/finish; "stop reminders" acknowledge (only while `alerting`); dishwasher; washer stats; utility room light |
-
-**`#ai` bodies** are markdown cards, not Bubble cards, because their length varies and Bubble
-cards have a fixed height. Each shows *Working on it…* while its script entity is `on`.
-
-- **Forecast:** the briefing headline in bold, then the tip.
-- **Morning Recap:** the morning house recap (the briefing sensor's `house` attribute), or
-  "Arrives with the 6:30 AM briefing" until the first one.
-- **Weekly Insights:** the digest headline in bold, then its story.
 
 `#laundry` is reachable only while a washer, dryer, or dishwasher chip is showing; it is about
 the current cycle.
@@ -430,8 +420,8 @@ Navbar order: Home · Rooms · Climate · Chores · More. Rooms opens `/home-mai
 | View | Path | Contents |
 |---|---|---|
 | Home | `home` | Steps 3–5 |
-| Climate | `climate` | HVAC row (thermostat state line; tap opens `/home-main/home#hvac`); Inside and Outside cards (Bubble button + Bubble Graphs, 24 h temperature graph, value line "74.1° · 55%"; Inside reads the Main Floor averages); then two collapsible sections, both collapsed by default: Rooms — per-room temperature cards (24 h area graph under the name and value), each labelled with its offset from `sensor.main_floor_temperature` and tinted blue or amber, graph included, at 1.5° or more (`room_temp_style` in `dashboard.jinja` sets `--room-tint`, which the graph `color` reads; utility room has no offset); Humidity — the same card per room, value rounded to a whole percent, tinted amber (graph included) at 40% or below or above 60% (`room_humidity_style` in `dashboard.jinja`; 40% is when the bedroom humidifiers go on) |
-| Energy | `energy` | Built-in energy cards: date selection, compare, Sankey, per-device detail graph; cost table; generator status, warning, maintenance, last ran, run time, battery, connection, status message |
+| Climate | `climate` | HVAC row (thermostat state line; tap opens `/home-main/home#hvac`); Inside and Outside cards (Bubble button + Bubble Graphs, 24 h temperature graph, value line "74.1° · 55%"; Inside reads the Main Floor averages); the AI Insight card (below); then two collapsible sections, both collapsed by default: Rooms — per-room temperature cards (24 h area graph under the name and value), each labelled with its offset from `sensor.main_floor_temperature` and tinted blue or amber, graph included, at 1.5° or more (`room_temp_style` in `dashboard.jinja` sets `--room-tint`, which the graph `color` reads; utility room has no offset); Humidity — the same card per room, value rounded to a whole percent, tinted amber (graph included) at 40% or below or above 60% (`room_humidity_style` in `dashboard.jinja`; 40% is when the bedroom humidifiers go on) |
+| Energy | `energy` | The AI Insight card (below); built-in energy cards: date selection, compare, Sankey, per-device detail graph; cost table; generator status, warning, maintenance, last ran, run time, battery, connection, status message |
 | Chores | `chores` | `chore-calendar-card` on `calendar.household_chores` |
 | Maintenance | `maintenance` | Collapsible sections (Expander Card; Availability and Batteries open by default, the rest collapsed): availability (offline and partially unavailable devices from `sensor.household_devices_offline`, see `guides/device_availability.md`); vacuum consumables (same cards as `#vacuum-care`); pending updates; network (WAN, Firewalla, speed test, latency, loss, alarms, modem resets, modem maintenance, Litra agent); batteries |
 
@@ -441,6 +431,15 @@ tracked devices. Small smart plugs are deliberately not tracked devices — they
 "untracked" in the Sankey. The live power cards (`power-total`, `power-sankey`) are not used
 here; they fail outside the built-in Energy dashboard, which keeps its own Now tab.
 
+**AI Insight** (Climate and Energy): a heading "AI Insight" (`mdi:creation`) with an age badge
+(`state_content: last_updated`) and, while a note is flagged, a ✓ button badge that presses
+`input_button.household_ai_climate_seen` / `_energy_seen`; then one markdown card with the note
+in italics (no headline), "Nothing notable yesterday." on a quiet day, *Working on it…* while
+the script runs, and a native `<details>` fold-out, **History (past week)**, listing the week's
+earlier flagged notes by day. The fold-out sits inside the same card so it reads as part of
+the insight, and appears only when there are earlier notes. Content comes from
+`sensor.household_ai_climate_insight` / `_energy_insight` (`guides/ai_insights.md`).
+
 **Navbar badges and visibility:** More shows a red badge while any `update.*` entity is on or
 `sensor.household_devices_offline` is above 0 (Maintenance inside its menu carries the same
 badge), or while
@@ -448,6 +447,11 @@ badge), or while
 menu carries that one) — generator
 problems surface there rather than as a Home chip. The Maintenance item is hidden for
 non-admin users (`hidden: [[[ return !user.is_admin ]]]`).
+
+**AI Insight badges:** Climate, and Energy inside More, show an amber badge with the
+`mdi:creation` icon (badge `icon` and `icon_color`) while the newest `history`
+entry's `at` is newer than that section's seen marker. On More and Energy the red fault badge
+wins: `color` and `icon` are templated to red with no icon whenever a fault is showing.
 
 **Batteries** use Battery State Card (HACS): every `device_class: battery` sensor except the
 Companion App devices (`sensor.nates_*`), lowest first. Batteries under 30 % are listed
@@ -471,8 +475,8 @@ row showing the lowest level. New devices appear automatically.
 | Household: Vacuum Reset Consumable | `script.household_vacuum_reset_consumable` | Script |
 | Household: Vacuum Mop Now | `script.household_vacuum_mop_now` | Script |
 | Household: Secure Doors | `script.household_secure_doors` | Script (lock front door if closed, close garage) |
-| Household AI Briefing / Weekly Digest | `sensor.household_ai_briefing`, `sensor.household_ai_weekly_digest` | Template sensors (`guides/ai_insights.md`) |
-| Household AI Seen | `input_button.household_ai_seen` | Helper (`guides/ai_insights.md`) |
+| Household AI Briefing / Climate Insight / Energy Insight | `sensor.household_ai_briefing`, `sensor.household_ai_climate_insight`, `sensor.household_ai_energy_insight` | Template sensors (`guides/ai_insights.md`) |
+| Household AI Climate Seen / Energy Seen | `input_button.household_ai_climate_seen`, `input_button.household_ai_energy_seen` | Helpers (`guides/ai_insights.md`) |
 | Living Room Vacuum Filter Clean Time Left | `sensor.living_room_vacuum_filter_clean_time_left` | Template helper |
 | HVAC Mode Before Pause | `input_select.household_hvac_mode_before_pause` | Helper |
 | Main Floor Temperature / Humidity | `sensor.main_floor_temperature`, `sensor.main_floor_humidity` | Combine helpers (`min_max`, mean) over Living Room, Kitchen, Office, Master Bedroom, Avery's Room |

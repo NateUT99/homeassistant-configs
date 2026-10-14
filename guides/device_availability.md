@@ -156,8 +156,8 @@ The Availability section is the first expander on the `home-main` Maintenance vi
 `close-circle` row per offline device, an amber `alert-circle` row per partial device (the
 unavailable entity names underneath) and per orphan, and the area and time offline on the
 right. Each device name links to `/config/devices/device/<id>`. When nothing is offline it
-shows one green "All devices online" line. Icon colours come from UIX attribute selectors,
-the same pattern as the `#ai` pop-up. The heading carries a red count badge while the state
+shows one green "All devices online" line. Icon colours come from UIX attribute selectors
+(`ha-icon[icon='mdi:alert-circle'] { color: var(--amber-color); }` inside `ha-markdown$`). The heading carries a red count badge while the state
 is above 0.
 
 ## Triage

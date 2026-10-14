@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.23.0 — October 2026*
+*Version 1.24.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.24.0 | October 2026 | AI content moves into its sections: AI Insight cards on Climate and Energy with an amber sparkle navbar badge until reviewed; briefing tip in `#weather`; AI chip and `#ai` pop-up removed |
 | 1.23.0 | October 2026 | Happening now bars follow the card's state: amber when done or paused, red on a fault |
 | 1.22.0 | October 2026 | Bubble Graphs module approved for single-sensor history cards (Climate view rooms and humidity) |
 | 1.21.0 | October 2026 | Maintenance faults (updates, offline devices, generator) surface as red navbar badges, not Home chips |
@@ -319,22 +320,27 @@ The `apple_tile` module applies this automatically to any `lock` or `cover` enti
 
 ## 11. AI-Generated Content
 
-Cards that show Claude-generated text (weather briefing, weekly digest):
+Cards that show Claude-generated text (weather briefing, Climate and Energy insights):
 
 - Read from the `ai_insights` sensors; never call `ai_task` from a card. Generation is
   owned by scripts (see `guides/ai_insights.md`).
-- Home shows only the briefing headline (in the greeting); the full briefing and the weekly
-  digest live in the `#ai` pop-up, reached by the always-visible AI chip, which is amber
-  while there is a digest you haven't opened.
+- AI text lives beside the data it describes: the briefing headline in the Home greeting and
+  its tip in `#weather`; each insight as an **AI Insight** card on its own view. There is no
+  separate AI chip or pop-up.
+- Fixed rules decide whether an insight has anything to say; the card shows "Nothing notable
+  yesterday." on a quiet day rather than model-written filler.
+- An unreviewed flagged insight raises an **amber** navbar badge with the `mdi:creation` icon on
+  its view (inside More for Energy). Red fault badges win over it. A ✓ button badge on the
+  card's heading presses the section's seen marker and clears the badge.
 - Don't ask a model to restate house status the dashboard already shows exactly; use it to
   summarize data too large to read at a glance (a forecast, weeks of statistics).
 - Show the content's age (a heading entity badge with `state_content: last_updated`).
-- Render AI text in markdown cards (they auto-size), and structure it: lists and tables
-  from typed fields, not paragraphs of prose.
+- Render AI text in markdown cards (they auto-size). Insight notes are short italic prose
+  without a headline; earlier notes sit in a `<details>` fold-out, **History (past week)**,
+  inside the same card.
 - Numbers come from HA, never from the model. Any figure that can be computed live
   (counts, flags) renders live rather than from a stored snapshot.
-- Refresh buttons (heading button badges) call the script with `script.turn_on` (no
-  confirmation); the body shows "Working…" while the script entity is `on`. The script enforces its own cooldown.
+- While the script entity is `on`, the body shows *Working on it…*.
 - When the sensor is `unknown` or unavailable, show a neutral placeholder, never an error.
 
 ---
