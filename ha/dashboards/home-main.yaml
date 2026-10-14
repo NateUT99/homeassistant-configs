@@ -4993,7 +4993,7 @@ views:
           bubble_graphs:
             graph_style: area
             hours: 24
-            color: primary-text
+            color: var(--room-tint, var(--primary-text-color))
             opacity: 0.35
             card_layout: stacked
           tap_action:
@@ -5002,6 +5002,7 @@ views:
             tap_action:
               action: more-info
           state_content: '{{ states(''sensor.living_room_thermostat_humidity'') | float(0) | round(0) | int }}%'
+          styles: '{% from ''dashboard.jinja'' import room_humidity_style %}{{ room_humidity_style(''sensor.living_room_thermostat_humidity'') }}'
         - type: custom:bubble-card
           card_type: button
           button_type: state
@@ -5014,7 +5015,7 @@ views:
           bubble_graphs:
             graph_style: area
             hours: 24
-            color: primary-text
+            color: var(--room-tint, var(--primary-text-color))
             opacity: 0.35
             card_layout: stacked
           tap_action:
@@ -5023,6 +5024,7 @@ views:
             tap_action:
               action: more-info
           state_content: '{{ states(''sensor.kitchen_climate_humidity'') | float(0) | round(0) | int }}%'
+          styles: '{% from ''dashboard.jinja'' import room_humidity_style %}{{ room_humidity_style(''sensor.kitchen_climate_humidity'') }}'
         - type: custom:bubble-card
           card_type: button
           button_type: state
@@ -5035,7 +5037,7 @@ views:
           bubble_graphs:
             graph_style: area
             hours: 24
-            color: primary-text
+            color: var(--room-tint, var(--primary-text-color))
             opacity: 0.35
             card_layout: stacked
           tap_action:
@@ -5044,6 +5046,7 @@ views:
             tap_action:
               action: more-info
           state_content: '{{ states(''sensor.family_room_climate_humidity'') | float(0) | round(0) | int }}%'
+          styles: '{% from ''dashboard.jinja'' import room_humidity_style %}{{ room_humidity_style(''sensor.family_room_climate_humidity'') }}'
         - type: custom:bubble-card
           card_type: button
           button_type: state
@@ -5056,7 +5059,7 @@ views:
           bubble_graphs:
             graph_style: area
             hours: 24
-            color: primary-text
+            color: var(--room-tint, var(--primary-text-color))
             opacity: 0.35
             card_layout: stacked
           tap_action:
@@ -5065,6 +5068,7 @@ views:
             tap_action:
               action: more-info
           state_content: '{{ states(''sensor.office_climate_humidity'') | float(0) | round(0) | int }}%'
+          styles: '{% from ''dashboard.jinja'' import room_humidity_style %}{{ room_humidity_style(''sensor.office_climate_humidity'') }}'
         - type: custom:bubble-card
           card_type: button
           button_type: state
@@ -5077,7 +5081,7 @@ views:
           bubble_graphs:
             graph_style: area
             hours: 24
-            color: primary-text
+            color: var(--room-tint, var(--primary-text-color))
             opacity: 0.35
             card_layout: stacked
           tap_action:
@@ -5086,6 +5090,7 @@ views:
             tap_action:
               action: more-info
           state_content: '{{ states(''sensor.master_bedroom_climate_humidity'') | float(0) | round(0) | int }}%'
+          styles: '{% from ''dashboard.jinja'' import room_humidity_style %}{{ room_humidity_style(''sensor.master_bedroom_climate_humidity'') }}'
         - type: custom:bubble-card
           card_type: button
           button_type: state
@@ -5098,7 +5103,7 @@ views:
           bubble_graphs:
             graph_style: area
             hours: 24
-            color: primary-text
+            color: var(--room-tint, var(--primary-text-color))
             opacity: 0.35
             card_layout: stacked
           tap_action:
@@ -5107,6 +5112,7 @@ views:
             tap_action:
               action: more-info
           state_content: '{{ states(''sensor.averys_room_climate_humidity'') | float(0) | round(0) | int }}%'
+          styles: '{% from ''dashboard.jinja'' import room_humidity_style %}{{ room_humidity_style(''sensor.averys_room_climate_humidity'') }}'
         - type: custom:bubble-card
           card_type: button
           button_type: state
@@ -5119,7 +5125,7 @@ views:
           bubble_graphs:
             graph_style: area
             hours: 24
-            color: primary-text
+            color: var(--room-tint, var(--primary-text-color))
             opacity: 0.35
             card_layout: stacked
           tap_action:
@@ -5128,6 +5134,7 @@ views:
             tap_action:
               action: more-info
           state_content: '{{ states(''sensor.utility_room_climate_humidity'') | float(0) | round(0) | int }}%'
+          styles: '{% from ''dashboard.jinja'' import room_humidity_style %}{{ room_humidity_style(''sensor.utility_room_climate_humidity'') }}'
 - title: Energy
   path: energy
   type: sections

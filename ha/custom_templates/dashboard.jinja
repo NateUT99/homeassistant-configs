@@ -153,3 +153,14 @@ living_room,master_bedroom,averys_room,office,entertainment_room,kitchen,entranc
 .bubble-name-container { padding-right: 44px; }
 .bubble-button-card-container::after { content: '{{ '%+.1f' | format(d) if d else '0.0' }}°'; position: absolute; top: 10px; right: 14px; font-size: 12px; font-weight: 600; color: {{ c if c else 'var(--secondary-text-color)' }}; }
 {%- endmacro %}
+
+{#-
+  Bubble styles for a Climate view humidity card: amber at 40% or below (when the bedroom
+  humidifiers go on) or above 60% (mold and condensation risk), neutral in between.
+-#}
+{% macro room_humidity_style(entity) -%}
+{%- set h = states(entity) | float(-1) -%}
+{%- if h >= 0 and (h <= 40 or h > 60) -%}
+.bubble-button-card-container { --room-tint: var(--amber-color); background: color-mix(in srgb, var(--amber-color) 16%, transparent) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber-color) 40%, transparent) !important; }
+{%- endif -%}
+{%- endmacro %}
