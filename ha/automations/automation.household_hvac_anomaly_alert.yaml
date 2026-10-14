@@ -101,14 +101,16 @@ actions:
               - condition: template
                 alias: "Cooling has been off less than 20 minutes"
                 value_template: "{{ (as_timestamp(now()) - as_timestamp(states.binary_sensor.household_hvac_cooling.last_changed)) < 1200 }}"
+              - condition: numeric_state
+                entity_id: sensor.household_hvac_cooling_runtime_today
+                above: 0
+                alias: "Cooling actually ran today"
                 note: >-
-                  Known limitation: last_changed re-stamps to boot time on an
-                  HA restart, so a heating start shortly after a restart can
-                  read as a false rapid-changeover if cooling last ran before
-                  the restart. Accepted for now -- this is a maintenance
-                  heads-up, not a safety alert, and a persistent-timestamp
-                  fix (input_datetime) adds a helper this doesn't yet need.
-                  Revisit if false positives cluster around restarts.
+                  A restart re-stamps last_changed to boot time, so the
+                  20-minute check alone can false-fire after a restart.
+                  Requiring the other mode to have actually run today blocks
+                  that; a genuine changeover straddling midnight is missed,
+                  accepted for a maintenance heads-up.
         sequence:
           - alias: "Push rapid changeover alert (cool to heat)"
             action: notify.send_message
@@ -137,6 +139,16 @@ actions:
               - condition: template
                 alias: "Heating has been off less than 20 minutes"
                 value_template: "{{ (as_timestamp(now()) - as_timestamp(states.binary_sensor.household_hvac_heating.last_changed)) < 1200 }}"
+              - condition: numeric_state
+                entity_id: sensor.household_hvac_heating_runtime_today
+                above: 0
+                alias: "Heating actually ran today"
+                note: >-
+                  A restart re-stamps last_changed to boot time, so the
+                  20-minute check alone can false-fire after a restart.
+                  Requiring the other mode to have actually run today blocks
+                  that; a genuine changeover straddling midnight is missed,
+                  accepted for a maintenance heads-up.
         sequence:
           - alias: "Push rapid changeover alert (heat to cool)"
             action: notify.send_message
