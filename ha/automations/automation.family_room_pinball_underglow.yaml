@@ -1,0 +1,85 @@
+id: "1791987275848"
+alias: "Family Room: Pinball Underglow"
+description: >-
+  Keeps each pinball machine's underglow in step with the machine: on in a
+  saturated signature colour when it powers on (Alice magenta, Peanuts
+  electric blue), off when it powers off. Only the off ↔ on edges trigger, so
+  a plug recovering from unavailable doesn't touch the strip.
+triggers:
+  - alias: Alice Pinball turns on
+    trigger: state
+    entity_id: switch.family_room_alice_pinball
+    from: "off"
+    to: "on"
+    id: alice_on
+  - alias: Alice Pinball turns off
+    trigger: state
+    entity_id: switch.family_room_alice_pinball
+    from: "on"
+    to: "off"
+    id: alice_off
+  - alias: Peanuts Pinball turns on
+    trigger: state
+    entity_id: switch.family_room_peanuts_pinball
+    from: "off"
+    to: "on"
+    id: peanuts_on
+  - alias: Peanuts Pinball turns off
+    trigger: state
+    entity_id: switch.family_room_peanuts_pinball
+    from: "on"
+    to: "off"
+    id: peanuts_off
+conditions: []
+actions:
+  - alias: Route by machine and state
+    choose:
+      - alias: "Alice on: magenta underglow"
+        conditions:
+          - alias: Alice turned on
+            condition: trigger
+            id: alice_on
+        sequence:
+          - alias: Turn on Alice Pinball underglow
+            action: light.turn_on
+            target:
+              entity_id: light.family_room_alice_pinball_underglow
+            data:
+              hs_color: [300, 100]
+              brightness_pct: 100
+      - alias: "Alice off: underglow off"
+        conditions:
+          - alias: Alice turned off
+            condition: trigger
+            id: alice_off
+        sequence:
+          - alias: Turn off Alice Pinball underglow
+            action: light.turn_off
+            target:
+              entity_id: light.family_room_alice_pinball_underglow
+      - alias: "Peanuts on: electric blue underglow"
+        conditions:
+          - alias: Peanuts turned on
+            condition: trigger
+            id: peanuts_on
+        sequence:
+          - alias: Turn on Peanuts Pinball underglow
+            action: light.turn_on
+            target:
+              entity_id: light.family_room_peanuts_pinball_underglow
+            data:
+              hs_color: [230, 100]
+              brightness_pct: 100
+      - alias: "Peanuts off: underglow off"
+        conditions:
+          - alias: Peanuts turned off
+            condition: trigger
+            id: peanuts_off
+        sequence:
+          - alias: Turn off Peanuts Pinball underglow
+            action: light.turn_off
+            target:
+              entity_id: light.family_room_peanuts_pinball_underglow
+mode: queued
+max: 4
+category: 01M08MMBZ719V4GZ2FT10RPTJ2
