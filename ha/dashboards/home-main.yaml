@@ -4993,7 +4993,7 @@ views:
           bubble_graphs:
             graph_style: area
             hours: 24
-            color: blue
+            color: primary-text
             opacity: 0.35
             card_layout: stacked
           tap_action:
@@ -5014,7 +5014,7 @@ views:
           bubble_graphs:
             graph_style: area
             hours: 24
-            color: blue
+            color: primary-text
             opacity: 0.35
             card_layout: stacked
           tap_action:
@@ -5035,7 +5035,7 @@ views:
           bubble_graphs:
             graph_style: area
             hours: 24
-            color: blue
+            color: primary-text
             opacity: 0.35
             card_layout: stacked
           tap_action:
@@ -5056,7 +5056,7 @@ views:
           bubble_graphs:
             graph_style: area
             hours: 24
-            color: blue
+            color: primary-text
             opacity: 0.35
             card_layout: stacked
           tap_action:
@@ -5077,7 +5077,7 @@ views:
           bubble_graphs:
             graph_style: area
             hours: 24
-            color: blue
+            color: primary-text
             opacity: 0.35
             card_layout: stacked
           tap_action:
@@ -5098,7 +5098,7 @@ views:
           bubble_graphs:
             graph_style: area
             hours: 24
-            color: blue
+            color: primary-text
             opacity: 0.35
             card_layout: stacked
           tap_action:
@@ -5119,7 +5119,7 @@ views:
           bubble_graphs:
             graph_style: area
             hours: 24
-            color: blue
+            color: primary-text
             opacity: 0.35
             card_layout: stacked
           tap_action:
