@@ -2,7 +2,8 @@ alias: 'Household: AI Energy Insight'
 description: 'Daily energy note for the Energy view: yesterday''s electricity against recent home days,
   with a week-over-week pass on Sundays that adds the refrigerator. Fixed rules in energy_insight() (/config/custom_templates/ai_insights.jinja)
   decide what is notable; with nothing flagged it stores "Nothing notable" without calling Claude, otherwise
-  Claude (ai_task.claude_haiku_ai_task) writes a headline and a short story. Cost uses the $0.2033/kWh
+  Claude writes a headline and a short story: Haiku (ai_task.claude_haiku_ai_task) on daily runs, Sonnet
+  (ai_task.claude_sonnet_ai_task) on the Sunday weekly pass, which has more to weigh. Cost uses the $0.2033/kWh
   rate in the Energy settings. Fired as household_ai_energy_insight_ready and stored by sensor.household_ai_energy_insight.
   Runs on the AI Insights Schedule. See guides/ai_insights.md and issue #18.'
 icon: mdi:lightning-bolt
@@ -51,7 +52,8 @@ sequence:
     action: ai_task.generate_data
     data:
       task_name: household_ai_energy_insight
-      entity_id: ai_task.claude_haiku_ai_task
+      entity_id: '{{ ''ai_task.claude_sonnet_ai_task'' if is_weekly else ''ai_task.claude_haiku_ai_task''
+        }}'
       instructions: 'You write the energy note on a family''s home dashboard in Waterville, Ohio: what
         in yesterday''s{{ '' and this week\''s'' if is_weekly }} electricity{{ '' and refrigerator'' if
         is_weekly }} use is worth a look, and what it likely means.

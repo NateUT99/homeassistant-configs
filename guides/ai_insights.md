@@ -6,8 +6,9 @@
 
 ## Overview
 
-Claude writes three pieces of text for the `home-main` dashboard, all on Claude Haiku
-(`ai_task.claude_haiku_ai_task`). A **weather briefing** three times a day covers what is
+Claude writes three pieces of text for the `home-main` dashboard, on Claude Haiku
+(`ai_task.claude_haiku_ai_task`) except the Sunday weekly pass, which runs on Claude Sonnet
+(`ai_task.claude_sonnet_ai_task`). A **weather briefing** three times a day covers what is
 left of today: its headline sits in the greeting, its tip in the `#weather` pop-up. A
 **Climate insight** and an **Energy insight** run every morning and say what in yesterday's
 data (and, on Sundays, the past week's) is worth a look; they show as the AI Insight card on
@@ -67,10 +68,11 @@ AI Insights Schedule ──06:30/12:00/17:00──▶ script.household_ai_briefi
 - **The briefing stays inside today.** It is read as "what's today like", so the facts carry
   only the hours left in today and no tomorrow figures. The daily forecast line is left out
   because today's rain chance still counts hours already past.
-- **Haiku is enough.** On the same facts Haiku 5.5 matches Sonnet 5.5 on timings and
-  comparisons at a twentieth of the price, and effort `medium` buys the judgment calls. The
-  AI task has a version-free entity ID, so a model upgrade is a settings change, not a script
-  edit.
+- **Haiku daily, Sonnet on Sundays.** On the same facts Haiku 5.5 matches Sonnet 5.5 on
+  timings and comparisons at a twentieth of the price. The weekly pass weighs a week of
+  flags and the daily notes, and there Sonnet reliably sees the shape of the week (a damp
+  spell that has since cleared); it runs only on a flagged Sunday, so it costs cents. The AI
+  tasks have version-free entity IDs, so a model upgrade is a settings change.
 - **Typed output, enforced twice.** `structure:` asks for named fields; the store step also
   truncates every field and checks the icon against an allowed list.
 
@@ -81,9 +83,8 @@ AI Insights Schedule ──06:30/12:00/17:00──▶ script.household_ai_briefi
 - Anthropic integration with an AI Task subentry on `claude-haiku-5-5` (**Claude Haiku AI
   Task**, `ai_task.claude_haiku_ai_task`; thinking effort `medium`, prompt caching off since
   calls are hours apart, max tokens 3000; web search, web fetch, code execution and user
-  location off). **Claude Sonnet AI Task** (`ai_task.claude_sonnet_ai_task`,
-  `claude-sonnet-5-5`, same settings) is a fallback no script calls: swap the `entity_id` in a
-  script to use it
+  location off), and **Claude Sonnet AI Task** (`ai_task.claude_sonnet_ai_task`,
+  `claude-sonnet-5-5`, same settings) for the Sunday weekly pass
 - `/config/packages/` included from `configuration.yaml` (see `guides/vacuum_cleaning_routine.md`)
 - `weather.outside_waterville_oh_usa`, `sensor.outside_temperature` (long-term statistics),
   the room climate sensors and thermostat (see `guides/hvac_monitoring.md`), the Eagle energy
@@ -220,8 +221,8 @@ Create from the mirrors in `ha/scripts/` and `ha/automations/`:
 | Script / automation | Writes | Runs |
 |---|---|---|
 | Household: AI Briefing (`script.household_ai_briefing`) | `headline` (≤ 90), `tip` (≤ 200), `icon` (weather list) | 06:30, 12:00, 17:00 |
-| Household: AI Climate Insight (`script.household_ai_climate_insight`) | `headline` (≤ 70), `story` (≤ 300), only when flagged | 07:00; weekly pass on Sundays |
-| Household: AI Energy Insight (`script.household_ai_energy_insight`) | `headline` (≤ 70), `story` (≤ 300), only when flagged | 07:00; weekly pass on Sundays |
+| Household: AI Climate Insight (`script.household_ai_climate_insight`) | `headline` (≤ 70), `story` (≤ 300), only when flagged | 07:00 on Haiku; Sunday weekly pass on Sonnet |
+| Household: AI Energy Insight (`script.household_ai_energy_insight`) | `headline` (≤ 70), `story` (≤ 300), only when flagged | 07:00 on Haiku; Sunday weekly pass on Sonnet |
 | Household: AI Insights Schedule (`automation.household_ai_insights_schedule`) | — | Starts the scripts with `script.turn_on` (category Routines) |
 
 All three scripts are `mode: single` with `max_exceeded: silent`. The insight scripts take a
@@ -294,8 +295,8 @@ navbar badge.
 | Credential | The Anthropic API key lives in the integration's config entry, not in this repo |
 | Worst case | A leaked key exposes only API spend; the facts sent are weather and household totals |
 
-Cost: Claude Haiku 5.5 — three briefing calls a day plus an insight call only on a flagged
-day; well under 10¢ a month.
+Cost: three Haiku briefing calls a day, a Haiku insight call only on a flagged day, and a
+Sonnet call only on a flagged Sunday; well under 15¢ a month.
 
 ---
 
@@ -314,7 +315,7 @@ day; well under 10¢ a month.
 | Household AI Climate Seen | `input_button.household_ai_climate_seen` | Helper |
 | Household AI Energy Seen | `input_button.household_ai_energy_seen` | Helper |
 | Claude Haiku AI Task | `ai_task.claude_haiku_ai_task` | AI Task (Anthropic) |
-| Claude Sonnet AI Task | `ai_task.claude_sonnet_ai_task` | AI Task (Anthropic), unused fallback |
+| Claude Sonnet AI Task | `ai_task.claude_sonnet_ai_task` | AI Task (Anthropic), Sunday weekly pass |
 | AI Insights | `int_ai_insights` | Label |
 
 ---
