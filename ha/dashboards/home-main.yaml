@@ -476,11 +476,12 @@ views:
         hold_action:
           action: more-info
         entity: input_select.utility_room_washer_status
-        name: Washer
+        name: '{% from ''dashboard.jinja'' import laundry_phase %}Washer ({{ laundry_phase(''washer'') }})'
         icon: mdi:washing-machine
-        state_content: '{% set st = states(''input_select.utility_room_washer_status'') %}{{ ''Done · unload'' if st == ''alerting'' else (''Fault'' if st == ''fault'' else (states(''sensor.utility_room_washer_minutes_remaining'')
-          | int(0) ~ '' min left'')) }}'
-        styles: '.bubble-button-card-container { --fill: {{ 100 if is_state(''input_select.utility_room_washer_status'',''alerting'') else states(''sensor.utility_room_washer_progress'') | int(0) }}; }'
+        state_content: '{% from ''dashboard.jinja'' import laundry_phase, laundry_fault %}{% set p = laundry_phase(''washer'') %}{{ ''Unload'' if p == ''Done'' else (laundry_fault(''washer'') if p == ''Fault''
+          else states(''sensor.utility_room_washer_minutes_remaining'') | int(0) ~ '' min left'') }}'
+        styles: '{% from ''dashboard.jinja'' import laundry_color %}.bubble-button-card-container { --fill: {{ 100 if is_state(''input_select.utility_room_washer_status'',''alerting'') else states(''sensor.utility_room_washer_progress'')
+          | int(0) }}; --fill-color: var(--{{ laundry_color(''washer'') }}-color); }'
         visibility:
         - condition: or
           conditions:
@@ -514,11 +515,12 @@ views:
         hold_action:
           action: more-info
         entity: input_select.utility_room_dryer_status
-        name: Dryer
+        name: '{% from ''dashboard.jinja'' import laundry_phase %}Dryer ({{ laundry_phase(''dryer'') }})'
         icon: mdi:tumble-dryer
-        state_content: '{% set st = states(''input_select.utility_room_dryer_status'') %}{{ ''Done · unload'' if st == ''alerting'' else (''Fault'' if st == ''fault'' else (states(''sensor.utility_room_dryer_minutes_remaining'')
-          | int(0) ~ '' min left'')) }}'
-        styles: '.bubble-button-card-container { --fill: {{ 100 if is_state(''input_select.utility_room_dryer_status'',''alerting'') else states(''sensor.utility_room_dryer_progress'') | int(0) }}; }'
+        state_content: '{% from ''dashboard.jinja'' import laundry_phase, laundry_fault %}{% set p = laundry_phase(''dryer'') %}{{ ''Unload'' if p == ''Done'' else (laundry_fault(''dryer'') if p == ''Fault''
+          else states(''sensor.utility_room_dryer_minutes_remaining'') | int(0) ~ '' min left'') }}'
+        styles: '{% from ''dashboard.jinja'' import laundry_color %}.bubble-button-card-container { --fill: {{ 100 if is_state(''input_select.utility_room_dryer_status'',''alerting'') else states(''sensor.utility_room_dryer_progress'')
+          | int(0) }}; --fill-color: var(--{{ laundry_color(''dryer'') }}-color); }'
         visibility:
         - condition: or
           conditions:
@@ -586,7 +588,8 @@ views:
           labels = {''returning_home'': ''Returning to dock'', ''docking'': ''Docking'', ''paused'': ''Paused''} %}{% set action = ''Error'' if s == ''error'' else (labels.get(st) or (''Cleaning'' if ''clean''
           in st else st | replace(''_'', '' '') | capitalize)) %}{% set pct = states(''sensor.living_room_vacuum_cleaning_progress'') | int(0) ~ ''%'' %}{{ (states(''sensor.living_room_vacuum_vacuum_error'')
           | replace(''_'', '' '') | capitalize) if s == ''error'' else ((states(''sensor.living_room_vacuum_current_room'') ~ '' · '' ~ pct) if action in [''Cleaning'', ''Paused''] else pct) }}'
-        styles: '.bubble-button-card-container { --fill: {{ states(''sensor.living_room_vacuum_cleaning_progress'') | int(0) }}; --fill-color: var(--purple-color); }'
+        styles: '{% set s = states(''vacuum.living_room_vacuum'') %}.bubble-button-card-container { --fill: {{ states(''sensor.living_room_vacuum_cleaning_progress'') | int(0) }}; --fill-color: var(--{{
+          ''red'' if s == ''error'' else (''amber'' if s == ''paused'' else ''purple'') }}-color); }'
         visibility:
         - condition: state
           entity: vacuum.living_room_vacuum

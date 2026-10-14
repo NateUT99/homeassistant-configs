@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.22.0 — October 2026*
+*Version 1.23.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.23.0 | October 2026 | Happening now bars follow the card's state: amber when done or paused, red on a fault |
 | 1.22.0 | October 2026 | Bubble Graphs module approved for single-sensor history cards (Climate view rooms and humidity) |
 | 1.21.0 | October 2026 | Maintenance faults (updates, offline devices, generator) surface as red navbar badges, not Home chips |
 | 1.20.0 | October 2026 | Pop-ups drop the header row |
@@ -290,6 +291,7 @@ options nobody picks rather than wrapping the row.
 | Alert — asleep, away, leak, fault | Red | `--red-color` |
 | Active / running | Amber (heating, lights, other devices on), blue (cooling) | `--amber-color`, `--blue-color` |
 | In progress (Happening now) | Cyan (laundry, dishwasher), purple (vacuum) | `--cyan-color`, `--purple-color` |
+| Happening now, needs a person | Amber (done, paused), red (fault or error) — overrides the in-progress colour | `--amber-color`, `--red-color` |
 | Neutral / informational | Theme default | `--primary-text-color` at low opacity |
 
 Amber is the attention colour; `--orange-color` is not used, except where an external scale

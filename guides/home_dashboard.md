@@ -269,13 +269,15 @@ template:
 both shown only while at least one card is visible. Each card is a Bubble `button` with the
 `progress_fill` module, which fills the card left to right with progress; the card's `styles`
 set `--fill` (percent), `--fill-color`, and `--fill-tint`. The fill starts at the icon's right
-edge so a low percentage isn't hidden behind the icon.
+edge so a low percentage isn't hidden behind the icon. The laundry cards' phase, fill colour,
+and fault line come from `laundry_phase`, `laundry_color`, and `laundry_fault` in
+`dashboard.jinja`.
 
 | Card | Visible while | Line under the name | Fill | Tap |
 |---|---|---|---|---|
-| Washer / Dryer | Running, done (`alerting`), or faulted | "23 min left" / "Done · unload" / "Fault" | Teal, cycle progress (full when done) | `#laundry` |
-| Dishwasher | `binary_sensor.kitchen_dishwasher_running` on | "Running · N min" | Even tint (no progress reported) | `#laundry` |
-| Vacuum (name shows the action: "Vacuum (Cleaning)", "(Paused)", "(Returning to dock)", "(Docking)", "(Error)") | Cleaning, returning, paused, or error | "Room · 27%" while cleaning or paused; "27%" otherwise; the error text on error | Lavender, cleaning progress | `#vacuum` |
+| Washer / Dryer (name shows the phase: "Washer (Rinsing)", "Dryer (Cooling)", "(Done)", "(Fault)"; LG `running` reads "Washing" / "Drying") | Running, done (`alerting`), or faulted | "23 min left"; "Unload" when done; on a fault the LG error code ("Unable to lock") if its error event fired within 5 minutes of the fault, else "Check the washer" | Cyan, cycle progress; amber when paused or done (full); red on a fault | `#laundry` |
+| Dishwasher | `binary_sensor.kitchen_dishwasher_running` on | "Running · N min" | Cyan, even tint (no progress reported) | `#laundry` |
+| Vacuum (name shows the action: "Vacuum (Cleaning)", "(Paused)", "(Returning to dock)", "(Docking)", "(Error)") | Cleaning, returning, paused, or error | "Room · 27%" while cleaning or paused; "27%" otherwise; the error text on error | Purple, cleaning progress; amber when paused; red on error | `#vacuum` |
 
 **Greeting** sits below the chip strip: a text-only markdown card, "Good morning/afternoon/
 evening, <first name>!" (05:00–11:59 / 12:00–16:59 / otherwise, the logged-in user's first

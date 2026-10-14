@@ -164,3 +164,42 @@ living_room,master_bedroom,averys_room,office,entertainment_room,kitchen,entranc
 .bubble-button-card-container { --room-tint: var(--amber-color); background: color-mix(in srgb, var(--amber-color) 16%, transparent) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber-color) 40%, transparent) !important; }
 {%- endif -%}
 {%- endmacro %}
+
+{#-
+  Happening now laundry cards (standards/dashboards.md §10). `which` is 'washer' or
+  'dryer'. Done and fault come from the alert helper, which outlasts the LG status
+  dropping to power_off after a cycle.
+-#}
+{% macro laundry_phase(which) -%}
+{%- set helper = states('input_select.utility_room_' ~ which ~ '_status') -%}
+{%- set st = states('sensor.utility_room_' ~ which ~ '_current_status') -%}
+{%- set labels = {'running': 'Washing' if which == 'washer' else 'Drying',
+  'prewash': 'Prewash', 'rinsing': 'Rinsing', 'spinning': 'Spinning', 'drying': 'Drying',
+  'detecting': 'Starting', 'detergent_amount': 'Starting', 'add_drain': 'Draining',
+  'rinse_hold': 'Rinse hold', 'refreshing': 'Refreshing', 'reserved': 'Delayed start',
+  'pause': 'Paused', 'cooling': 'Cooling', 'wrinkle_care': 'Wrinkle care', 'end': 'Done'} -%}
+{%- if helper == 'alerting' %}Done
+{%- elif helper == 'fault' or st == 'error' %}Fault
+{%- elif st.startswith('frozen') %}Freeze guard
+{%- else %}{{ labels.get(st) or st | replace('_', ' ') | capitalize }}{% endif -%}
+{%- endmacro %}
+
+{#- Fill colour: red on a fault, amber when done or paused (needs a person), cyan running. -#}
+{% macro laundry_color(which) -%}
+{%- set p = laundry_phase(which) -%}
+{{- 'red' if p == 'Fault' else ('amber' if p in ['Done', 'Paused'] else 'cyan') -}}
+{%- endmacro %}
+
+{#-
+  Fault line: the LG error code when its event fired with this fault (the same 5-minute
+  window the status manager uses), else a generic prompt. Event entities keep their last
+  value forever, and a fault can also come from the untyped error notification.
+-#}
+{% macro laundry_fault(which) -%}
+{%- set ev = 'event.utility_room_' ~ which ~ '_error' -%}
+{%- set since = states['input_select.utility_room_' ~ which ~ '_status'].last_changed -%}
+{%- set code = state_attr(ev, 'event_type') -%}
+{%- if code and has_value(ev) and states(ev) | as_datetime >= since - timedelta(minutes=5) -%}
+{{- code | replace('_error', '') | replace('_', ' ') | capitalize -}}
+{%- else %}Check the {{ which }}{% endif -%}
+{%- endmacro %}
