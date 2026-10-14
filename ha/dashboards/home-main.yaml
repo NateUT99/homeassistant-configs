@@ -312,18 +312,6 @@ views:
           - fill_width: false
             state_background: false
             light_background: false
-            entity: sensor.household_ai_weekly_digest
-            css_class: ai
-            icon: mdi:creation
-            tap_action:
-              action: navigate
-              navigation_path: '#ai'
-            custom_height: 40
-            show_name: false
-            name: AI
-          - fill_width: false
-            state_background: false
-            light_background: false
             show_name: false
             custom_height: 40
             entity: climate.living_room_thermostat
@@ -420,9 +408,6 @@ views:
         or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable''] else (''var(--amber-color)'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') or is_state(''vacuum.living_room_vacuum'',''paused'')
         else (''var(--purple-color)'' if states(''vacuum.living_room_vacuum'') in [''cleaning'',''returning''] else ''var(--secondary-text-color)'')) }} !important; }
 
-
-        {% set g = state_attr(''sensor.household_ai_weekly_digest'',''generated_at'') %}{% set seen = states(''input_button.household_ai_seen'') %}.ai ha-icon { color: {{ ''var(--amber-color)'' if g is
-        not none and (as_datetime(seen) is none or as_datetime(g) > as_datetime(seen)) else ''var(--secondary-text-color)'' }} !important; }
 
         '
     - type: markdown
@@ -3803,95 +3788,6 @@ views:
         grid_options:
           columns: 6
       show_header: false
-    - type: custom:bubble-card
-      card_type: pop-up
-      hash: '#ai'
-      name: House Assistant
-      icon: mdi:creation
-      button_type: name
-      popup_mode: adaptive-dialog
-      popup_style: bubble
-      cards:
-      - type: heading
-        heading: Forecast
-        icon: mdi:weather-partly-cloudy
-        heading_style: title
-        badges:
-        - type: entity
-          entity: sensor.household_ai_briefing
-          show_state: true
-          show_icon: false
-          state_content: last_updated
-        - type: button
-          icon: mdi:refresh
-          tap_action:
-            action: perform-action
-            perform_action: script.turn_on
-            target:
-              entity_id: script.household_ai_briefing
-      - type: markdown
-        content: '{% if is_state(''script.household_ai_briefing'',''on'') %}*Working on it…*{% elif has_value(''sensor.household_ai_briefing'') %}**{{ states(''sensor.household_ai_briefing'') }}**<br>{{
-          state_attr(''sensor.household_ai_briefing'',''tip'') }}{% else %}No forecast yet.{% endif %}'
-        uix:
-          style:
-            ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
-              { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
-              none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
-              0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
-            'ha-markdown $ ha-markdown-element:': 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
-              { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
-              none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
-              0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
-      - type: heading
-        heading: Morning Recap
-        icon: mdi:home-clock
-        heading_style: title
-      - type: markdown
-        content: '{% set house = state_attr(''sensor.household_ai_briefing'',''house'') %}{% if house %}{{ house }}{% else %}Arrives with the 6:30 AM briefing.{% endif %}'
-        uix:
-          style:
-            ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
-              { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
-              none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
-              0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
-            'ha-markdown $ ha-markdown-element:': 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
-              { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
-              none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
-              0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
-      - type: heading
-        heading: Weekly Insights
-        icon: mdi:chart-line
-        heading_style: title
-        badges:
-        - type: entity
-          entity: sensor.household_ai_weekly_digest
-          show_state: true
-          show_icon: false
-          state_content: last_updated
-      - type: markdown
-        content: '{% if state_attr(''sensor.household_ai_weekly_digest'',''headline'') %}**{{ state_attr(''sensor.household_ai_weekly_digest'',''headline'') }}**<br>{{ state_attr(''sensor.household_ai_weekly_digest'',''story'')
-          }}{% else %}The first digest arrives Sunday evening.{% endif %}'
-        uix:
-          style:
-            ha-markdown$: 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
-              { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
-              none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
-              0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
-            'ha-markdown $ ha-markdown-element:': 'ha-icon { --mdc-icon-size: 18px; vertical-align: -3px; margin-right: 4px; } ha-icon[icon=''mdi:alert-circle''] { color: var(--amber-color); } ha-icon[icon=''mdi:check-circle'']
-              { color: var(--green-color); } ha-icon[icon=''mdi:close-circle''] { color: var(--red-color); } table { width: 100%; border-collapse: collapse; border: none !important; } td, th, tr { border:
-              none !important; } td { padding: 5px 6px 5px 0; vertical-align: middle; } td:first-child { white-space: nowrap; } td:last-child { text-align: right; } b { font-size: 12px; letter-spacing:
-              0.06em; opacity: 0.7; } p { margin: 0 0 6px 0; } em { opacity: 0.85; }'
-      show_header: false
-      open_action:
-        action: perform-action
-        perform_action: input_button.press
-        target:
-          entity_id: input_button.household_ai_seen
-      close_action:
-        action: perform-action
-        perform_action: input_button.press
-        target:
-          entity_id: input_button.household_ai_seen
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#lights'
