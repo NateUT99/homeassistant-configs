@@ -1,8 +1,9 @@
 id: '1791227473971'
 alias: 'Household: AI Insights Schedule'
 description: 'Refreshes the Claude-generated dashboard text on a schedule: the daily briefing at 06:30,
-  12:00, and 17:00, and the weekly digest on Sundays at 18:00. The scripts are started without waiting
-  so a slow API call never holds the automation. See guides/ai_insights.md.'
+  12:00, and 17:00, the Climate and Energy insights at 07:00 (with a week-over-week pass on Sundays),
+  and the weekly digest on Sundays at 18:00. The scripts are started without waiting so a slow API call
+  never holds the automation. See guides/ai_insights.md.'
 triggers:
 - alias: Morning briefing
   trigger: time
@@ -16,6 +17,10 @@ triggers:
   trigger: time
   at: '17:00:00'
   id: briefing
+- alias: Daily section insights
+  trigger: time
+  at: '07:00:00'
+  id: insights
 - alias: Sunday evening digest
   trigger: time
   at: '18:00:00'
@@ -46,4 +51,16 @@ actions:
       action: script.turn_on
       target:
         entity_id: script.household_ai_weekly_digest
+  - alias: Section insights
+    conditions:
+    - alias: Insights time
+      condition: trigger
+      id: insights
+    sequence:
+    - alias: Start the Climate and Energy insight scripts
+      action: script.turn_on
+      target:
+        entity_id:
+        - script.household_ai_climate_insight
+        - script.household_ai_energy_insight
 mode: queued

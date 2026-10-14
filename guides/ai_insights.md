@@ -186,6 +186,48 @@ template:
           fridge_avg_kwh: "{{ trigger.event.data.fridge_avg_kwh | default(0) }}"
           generated_at: "{{ now().isoformat() }}"
 
+  # Section insights (issue #18): one sensor per section, written by
+  # script.household_ai_climate_insight / _energy_insight. The state is the
+  # latest headline, or "Nothing notable" on a day the fixed rules in
+  # ai_insights.jinja flagged nothing. `history` keeps the flagged entries of
+  # the last 7 days, newest first (a re-run replaces that day's entry); the
+  # scripts send it back to Claude so a continuing item reads as continuing.
+  - trigger:
+      - trigger: event
+        event_type: household_ai_climate_insight_ready
+        alias: A new climate insight was generated
+    sensor:
+      - name: Household AI Climate Insight
+        unique_id: household_ai_climate_insight
+        icon: mdi:home-thermometer
+        state: &insight_state >-
+          {{ (trigger.event.data.headline | default('') | string)[:250]
+             if trigger.event.data.flagged | default(false) else 'Nothing notable' }}
+        attributes: &insight_attributes
+          story: "{{ trigger.event.data.story | default('') if trigger.event.data.flagged | default(false) else '' }}"
+          flagged: "{{ trigger.event.data.flagged | default(false) }}"
+          flags: "{{ trigger.event.data.flags | default([]) }}"
+          weekly: "{{ trigger.event.data.weekly | default(false) }}"
+          date: "{{ trigger.event.data.date | default('') }}"
+          history: >-
+            {% set d = trigger.event.data %}
+            {% set old = this.attributes.history | default([]) if this is defined and this.attributes is defined else [] %}
+            {% set cutoff = (now() - timedelta(days=7)).date() | string %}
+            {% set new = [{'date': d.date, 'headline': (d.headline | default('') | string)[:80], 'story': (d.story | default('') | string)[:320]}] if d.flagged | default(false) else [] %}
+            {{ new + (old | selectattr('date', '>', cutoff) | rejectattr('date', 'eq', d.date) | list) }}
+          generated_at: "{{ now().isoformat() }}"
+
+  - trigger:
+      - trigger: event
+        event_type: household_ai_energy_insight_ready
+        alias: A new energy insight was generated
+    sensor:
+      - name: Household AI Energy Insight
+        unique_id: household_ai_energy_insight
+        icon: mdi:lightning-bolt
+        state: *insight_state
+        attributes: *insight_attributes
+
 sensor:
   # Hours anyone was home today, reset at midnight. Its long-term statistics
   # (daily max) let the Climate and Energy insights tell home days from away
@@ -247,7 +289,9 @@ Create from the mirrors in `ha/scripts/` and `ha/automations/`:
 |---|---|---|
 | Household: AI Briefing (`script.household_ai_briefing`) | `headline` (≤ 90), `tip` (≤ 200), `icon` (weather list); mornings also `house` (≤ 200) | Schedule; Refresh button in `#ai` |
 | Household: AI Weekly Digest (`script.household_ai_weekly_digest`) | `headline` (≤ 70), `story` (≤ 300); the figures are computed by the script | Sundays 18:00 |
-| Household: AI Insights Schedule (`automation.household_ai_insights_schedule`) | — | 06:30, 12:00, 17:00 briefing; Sun 18:00 digest (category Routines) |
+| Household: AI Climate Insight (`script.household_ai_climate_insight`) | `headline` (≤ 70), `story` (≤ 300), only when `climate_insight()` flags something | Daily 07:00; weekly pass on Sundays |
+| Household: AI Energy Insight (`script.household_ai_energy_insight`) | `headline` (≤ 70), `story` (≤ 300), only when `energy_insight()` flags something | Daily 07:00; weekly pass on Sundays |
+| Household: AI Insights Schedule (`automation.household_ai_insights_schedule`) | — | 06:30, 12:00, 17:00 briefing; 07:00 section insights; Sun 18:00 digest (category Routines) |
 
 Both scripts are `mode: single` with `max_exceeded: silent`. The schedule starts them with
 `script.turn_on` so a slow API call never holds the automation.
@@ -320,6 +364,8 @@ Cost: Claude Haiku 5.5, 3 calls a day plus one a week — under 10¢ a month; th
 |---|---|---|
 | Household AI Briefing | `sensor.household_ai_briefing` | Trigger-based template sensor (package) |
 | Household AI Weekly Digest | `sensor.household_ai_weekly_digest` | Trigger-based template sensor (package) |
+| Household AI Climate Insight | `sensor.household_ai_climate_insight` | Trigger-based template sensor with 7-day `history` (package) |
+| Household AI Energy Insight | `sensor.household_ai_energy_insight` | Trigger-based template sensor with 7-day `history` (package) |
 | Household Occupied Today | `sensor.household_occupied_today` | `history_stats` hours home since midnight (package) |
 | Household Doors Opened Overnight | `sensor.household_doors_opened_overnight` | `history_stats` count since 10 PM (package) |
 | Household Garage Opened Overnight | `sensor.household_garage_opened_overnight` | `history_stats` count since 10 PM (package) |
@@ -327,6 +373,8 @@ Cost: Claude Haiku 5.5, 3 calls a day plus one a week — under 10¢ a month; th
 | Household Generator Runs Overnight | `sensor.household_generator_runs_overnight` | `history_stats` count since 10 PM (package) |
 | Household: AI Briefing | `script.household_ai_briefing` | Script |
 | Household: AI Weekly Digest | `script.household_ai_weekly_digest` | Script |
+| Household: AI Climate Insight | `script.household_ai_climate_insight` | Script |
+| Household: AI Energy Insight | `script.household_ai_energy_insight` | Script |
 | Household: AI Insights Schedule | `automation.household_ai_insights_schedule` | Automation |
 | Household AI Seen | `input_button.household_ai_seen` | Helper |
 | Claude Haiku AI Task | `ai_task.claude_haiku_ai_task` | AI Task (Anthropic) |
@@ -340,7 +388,7 @@ Cost: Claude Haiku 5.5, 3 calls a day plus one a week — under 10¢ a month; th
 | Repo path | Deployed location | Purpose |
 |---|---|---|
 | `ha/packages/ai_insights.yaml` | `/config/packages/ai_insights.yaml` | Result-storing sensors, occupancy and overnight counters |
-| `ha/custom_templates/ai_insights.jinja` | `/config/custom_templates/ai_insights.jinja` | `weather_facts()`, `house_facts()`, `window_total()`, `vs()` allowlist macros; `climate_insight()` and `energy_insight()` facts and flags for issue #18 (deployed, not yet called) |
+| `ha/custom_templates/ai_insights.jinja` | `/config/custom_templates/ai_insights.jinja` | `weather_facts()`, `house_facts()`, `window_total()`, `vs()` allowlist macros; `climate_insight()` and `energy_insight()` facts and flags for the section insights (issue #18) |
 
 ---
 
