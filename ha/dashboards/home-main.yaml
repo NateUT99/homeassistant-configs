@@ -322,6 +322,25 @@ views:
           - fill_width: false
             state_background: false
             light_background: false
+            show_name: false
+            custom_height: 40
+            entity: vacuum.living_room_vacuum
+            css_class: qa-vac
+            name: Vacuum
+            icon: '{{ ''mdi:robot-vacuum-alert'' if is_state(''binary_sensor.vacuum_stuck'',''on'') or states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable''] or
+              states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable''] else (''mdi:robot-vacuum-off'' if is_state(''input_boolean.vacuum_routine_pause'',''on'')
+              else ''mdi:robot-vacuum'') }}'
+            tap_action:
+              action: navigate
+              navigation_path: '#vacuum'
+            hold_action:
+              action: perform-action
+              perform_action: input_boolean.toggle
+              target:
+                entity_id: input_boolean.vacuum_routine_pause
+          - fill_width: false
+            state_background: false
+            light_background: false
             show_name: true
             custom_height: 40
             entity: input_boolean.everyone_sleeping
@@ -351,25 +370,6 @@ views:
             light_background: false
             show_name: false
             custom_height: 40
-            entity: vacuum.living_room_vacuum
-            css_class: qa-vac
-            name: Vacuum
-            icon: '{{ ''mdi:robot-vacuum-alert'' if is_state(''binary_sensor.vacuum_stuck'',''on'') or states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable''] or
-              states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable''] else (''mdi:robot-vacuum-off'' if is_state(''input_boolean.vacuum_routine_pause'',''on'')
-              else ''mdi:robot-vacuum'') }}'
-            tap_action:
-              action: navigate
-              navigation_path: '#vacuum'
-            hold_action:
-              action: perform-action
-              perform_action: input_boolean.toggle
-              target:
-                entity_id: input_boolean.vacuum_routine_pause
-          - fill_width: false
-            state_background: false
-            light_background: false
-            show_name: false
-            custom_height: 40
             entity: input_boolean.guest_mode
             name: Guest
             icon: mdi:account-star
@@ -388,7 +388,7 @@ views:
         .bubble-sub-button { flex-shrink: 0 !important; border-radius: 16px !important; padding: 0 12px !important; }
 
 
-        .qa-guest ha-icon { color: {{ ''var(--amber-color)'' if is_state(''input_boolean.guest_mode'',''on'') else ''var(--secondary-text-color)'' }} !important; }
+        .qa-guest ha-icon { color: {{ ''var(--green-color)'' if is_state(''input_boolean.guest_mode'',''on'') else ''var(--secondary-text-color)'' }} !important; }
 
         .qa-nate ha-icon { color: {{ ''var(--indigo-color)'' if is_state(''input_boolean.everyone_sleeping'',''on'') else (''var(--green-color)'' if is_state(''person.nate'',''home'') else ''var(--secondary-text-color)'')
         }} !important; }

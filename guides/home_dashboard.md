@@ -166,16 +166,17 @@ activity sensor in the conditions.
 `sub-buttons` card with the same scrolling layout, for the AI check-in and the people and house modes you switch by hand. The chip group is
 `width: max-content` with `min-width: 100%` and `justify-content: center`, so the row centres
 when it fits and scrolls from the first chip when it doesn't (`safe center` clips the first chip on iOS — see LESSONS.md).
+Chips are grouped devices first, then people (AI, HVAC, Vacuum, then Nate, Avery, Guest).
 Tap opens more-info, hold toggles (`standards/dashboards.md` §12):
 
 | Chip | Icon and colour | Hold toggles |
 |---|---|---|
 | AI (icon only) | `mdi:creation`, amber while there is a weekly digest you haven't opened (`generated_at` newer than `input_button.household_ai_seen`, which `#ai` presses on open and close), grey otherwise | — (tap `#ai`) |
 | HVAC (icon only) | `mdi:fire` amber while heating, `mdi:snowflake` blue while cooling, `mdi:hvac-off` amber while an open door or window has paused it, otherwise grey `mdi:hvac` (idle or switched off) | — (tap `#hvac`, hold opens more-info) |
+| Vacuum (icon only) | `mdi:robot-vacuum-alert` (red, stuck or a vacuum or dock error), `mdi:robot-vacuum-off` (amber, routine paused), or `mdi:robot-vacuum` (amber paused mid-clean, purple cleaning or returning, grey otherwise); tap opens `#vacuum` | `input_boolean.vacuum_routine_pause` |
 | Nate | Sleep (indigo) while `input_boolean.everyone_sleeping` is on; otherwise home (green) or away (grey) from `person.nate` | `input_boolean.everyone_sleeping` |
 | Avery | Sleep (indigo) while `input_boolean.avery_sleeping` is on; otherwise home (green) on her scheduled days (`binary_sensor.avery_home_today`), away (grey) on others | `input_boolean.avery_sleeping` |
-| Vacuum (icon only) | `mdi:robot-vacuum-alert` (red, stuck or a vacuum or dock error), `mdi:robot-vacuum-off` (amber, routine paused), or `mdi:robot-vacuum` (amber paused mid-clean, purple cleaning or returning, grey otherwise); tap opens `#vacuum` | `input_boolean.vacuum_routine_pause` |
-| Guest (icon only) | Amber while guest mode is on | `input_boolean.guest_mode` |
+| Guest (icon only) | Green while guest mode is on, matching the status lamps | `input_boolean.guest_mode` |
 
 Sleep wins over location, so a stale sleep flag is visible at a glance. Quick actions are icon-only so the row keeps a fixed width; every state that matters has its own icon, so none relies on colour alone, and tap opens the detail.
 
