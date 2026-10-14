@@ -431,7 +431,9 @@ tracked devices. Small smart plugs are deliberately not tracked devices — they
 "untracked" in the Sankey. The live power cards (`power-total`, `power-sankey`) are not used
 here; they fail outside the built-in Energy dashboard, which keeps its own Now tab.
 
-**AI Insight** (Climate and Energy): a heading "AI Insight" (`mdi:creation`) with an age badge
+**AI Insight** (Climate and Energy): an Expander Card, open by default (`storage-id` remembers a
+collapse per device) and toggled only by its chevron (`title-card-clickable: false`, so the ✓
+badge doesn't collapse it). Its title card is a heading "AI Insight" (`mdi:creation`) with an age badge
 (`state_content: last_updated`) and, while a note is flagged, a ✓ button badge that presses
 `input_button.household_ai_climate_seen` / `_energy_seen`; then one markdown card with the note
 in italics (no headline), "Nothing notable yesterday." on a quiet day, *Working on it…* while
