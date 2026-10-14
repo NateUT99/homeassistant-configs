@@ -1,5 +1,5 @@
 alias: 'Household: AI Briefing'
-description: 'Asks Claude (ai_task.claude_sonnet_ai_task) for the briefing at the top of the home-main
+description: 'Asks Claude (ai_task.claude_haiku_ai_task) for the briefing at the top of the home-main
   dashboard: a one-sentence headline, a practical tip, and an icon, all about the weather for the coming
   hours. The morning run (before 11:00) also looks back: it adds a separate house recap of overnight and
   yesterday plus what the house needs today. The headline and tip stay about the weather. Facts come only
@@ -80,7 +80,7 @@ sequence:
   action: ai_task.generate_data
   data:
     task_name: household_ai_briefing
-    entity_id: ai_task.claude_sonnet_ai_task
+    entity_id: ai_task.claude_haiku_ai_task
     instructions: |-
       You write the briefing at the top of a family's home dashboard in Waterville, Ohio. Someone glances at it on their phone before heading out, so it has to tell them what {{ focus }} will be like, and what to do about it, in one breath.
 

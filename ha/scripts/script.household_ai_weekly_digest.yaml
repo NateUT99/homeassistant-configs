@@ -2,7 +2,7 @@ alias: 'Household: AI Weekly Digest'
 description: 'Sunday-evening consumption review: the last 7 days against the 7 before and the 4-week average.
   The numbers are computed here from long-term statistics, not by Claude: electricity (with cost at the
   $0.2033/kWh rate in the Energy settings), heating and cooling runtime, refrigerator energy, and heating/cooling
-  degree days (base 65°F, from the daily mean outdoor temperature). Claude (ai_task.claude_sonnet_ai_task)
+  degree days (base 65°F, from the daily mean outdoor temperature). Claude (ai_task.claude_haiku_ai_task)
   writes a one-line headline and a short paragraph on what changed and whether the weather explains it.
   Fired as household_ai_weekly_digest_ready and stored by sensor.household_ai_weekly_digest. Runs on the
   AI Insights Schedule. See guides/ai_insights.md.'
@@ -65,7 +65,7 @@ sequence:
   action: ai_task.generate_data
   data:
     task_name: household_ai_weekly_digest
-    entity_id: ai_task.claude_sonnet_ai_task
+    entity_id: ai_task.claude_haiku_ai_task
     instructions: |-
       {% from 'ai_insights.jinja' import vs %}Write the weekly consumption recap for a family's house in Waterville, Ohio: how the last 7 days of electricity and heating/cooling compare with the week before and with recent history. Say what the numbers mean, not just what they are.
 

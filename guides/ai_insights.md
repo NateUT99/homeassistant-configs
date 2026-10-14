@@ -9,7 +9,7 @@
 Claude writes two pieces of text for the `home-main` dashboard: a **briefing** three times
 a day (the headline shows under the chip strip) and a Sunday **weekly digest** on consumption: the last 7
 days of electricity and HVAC against the week before and recent history. Every briefing covers the weather ahead; the morning one also looks back, with a
-house recap of overnight and yesterday and what the house needs today. Both run on Claude Sonnet (`ai_task.claude_sonnet_ai_task`).
+house recap of overnight and yesterday and what the house needs today. Both run on Claude Haiku (`ai_task.claude_haiku_ai_task`).
 Scripts gather an explicit allowlist of facts, call `ai_task.generate_data` with a typed
 `structure`, and fire a `*_ready` event; trigger-based template sensors in a package store
 the result. The dashboard only reads those sensors — it never calls Claude.
@@ -55,7 +55,9 @@ AI Insights Schedule ──06:30/12:00/17:00──▶ script.household_ai_briefi
   never sent, and the file is the single place to review or extend.
 - **Jinja does the arithmetic, Claude writes.** Highs and lows with their times, rain
   windows (30% or more), the gap to yesterday, weekly totals, degree days, and every
-  comparison ("47% less", "about the same", within 10%) are computed before the call. A
+  comparison ("47% less", "about the same" within 10%, "about 3 times as much" from doubling
+  up, "none" for a drop to zero) are computed before the call. The daily rain figure is
+  labelled as the chance of any rain that day, so timing comes from the hourly lines. A
   model left to compare raw numbers will sometimes reverse a direction.
 - **Degree days explain HVAC.** Heating and cooling degree days (base 65°F, from the daily
   mean outdoor temperature) say how much the weather called for, so the digest can tell a
@@ -63,15 +65,21 @@ AI Insights Schedule ──06:30/12:00/17:00──▶ script.household_ai_briefi
 - **Typed output, enforced twice.** `structure:` asks for named fields; the store step
   also truncates every field and checks the icon against an allowed list, so a model that
   ignores the limits can't break a card.
-- **Sonnet over Haiku.** Compared on the same forecast and prompt, Sonnet got timings right
-  where Haiku guessed, for about 80¢ a month more (three short calls a day and one a week).
+- **Haiku is enough.** On the same facts and prompts, Claude Haiku 5.5 got the timings and
+  comparisons as right as Sonnet 5.5, at a twentieth of the price; Sonnet's edge is only tone.
+  Effort `medium` buys the judgment calls (the icon, how long rain lasts) for a fraction of a
+  cent a month.
+- **A version-free AI task.** The scripts call `ai_task.claude_haiku_ai_task`, not an entity
+  named for a model version, so a model upgrade is a change in the AI task's settings and
+  never touches the scripts.
 
 ---
 
 ## Prerequisites
 
-- Anthropic integration with an AI Task subentry on `claude-sonnet-5` (**Claude Sonnet AI
-  Task**, `ai_task.claude_sonnet_ai_task`; web search, web fetch, code execution and user
+- Anthropic integration with an AI Task subentry on `claude-haiku-5-5` (**Claude Haiku AI
+  Task**, `ai_task.claude_haiku_ai_task`; thinking effort `medium`, prompt caching off since
+  calls are hours apart, max tokens 3000; web search, web fetch, code execution and user
   location off)
 - `/config/packages/` included from `configuration.yaml` (see `guides/vacuum_cleaning_routine.md`)
 - `weather.outside_waterville_oh_usa`, `sensor.outside_temperature` (long-term statistics),
@@ -276,13 +284,13 @@ button), Morning Recap, and Weekly Insights (the digest).
 | Data minimization | Only the macro allowlist is sent — never all states |
 | Never sent | Coordinates, lock codes, network/Firewalla details, camera images, calendars, house status |
 | Sent | Briefing: the forecast, current outdoor conditions and AQI, yesterday's outdoor high and low, sunset time. Morning recap: overnight counts of door and garage openings (and the last door time), internet drops and generator runs, the front door lock and garage state, leaks, yesterday's energy and HVAC hours vs typical, laundry waiting, chore names due today. Digest: weekly energy, HVAC runtime, refrigerator and degree-day totals, vacuum counts, chore names |
-| Model tools | The Sonnet AI task has web search, web fetch, code execution and user location turned off |
+| Model tools | The AI task has web search, web fetch, code execution and user location turned off |
 | Abuse/cost limit | Both scripts `mode: single`; the only on-demand trigger is the briefing Refresh button |
 | Failure | A failed call fires no event; the sensors keep the last text and the dashboard shows its age |
 | Credential | The Anthropic API key lives in the integration's config entry, not in this repo |
 | Worst case | A leaked key exposes only API spend; the facts sent are weather and household totals |
 
-Cost: Claude Sonnet, 3 calls a day plus one a week — around $1.30/month; the morning recap rides on the 06:30 call.
+Cost: Claude Haiku 5.5, 3 calls a day plus one a week — under 10¢ a month; the morning recap rides on the 06:30 call.
 
 ---
 
@@ -300,7 +308,7 @@ Cost: Claude Sonnet, 3 calls a day plus one a week — around $1.30/month; the m
 | Household: AI Weekly Digest | `script.household_ai_weekly_digest` | Script |
 | Household: AI Insights Schedule | `automation.household_ai_insights_schedule` | Automation |
 | Household AI Seen | `input_button.household_ai_seen` | Helper |
-| Claude Sonnet AI Task | `ai_task.claude_sonnet_ai_task` | AI Task (Anthropic) |
+| Claude Haiku AI Task | `ai_task.claude_haiku_ai_task` | AI Task (Anthropic) |
 | AI Insights | `int_ai_insights` | Label |
 
 ---

@@ -54,7 +54,9 @@ Rain chance 30% or more: {{ ns.windows | join('; ') if ns.windows else 'none in 
 Gusts of 20 mph or more: {{ ns.winds | join('; ') if ns.winds else 'none in the next 24 hours' }}.
 Every 3 hours: {% for h in hrs[::3] %}{{ as_local(as_datetime(h.datetime)).strftime('%-I %p') }} {{ h.condition }} {{ h.temperature | round(0) | int }}° (feels {{ h.apparent_temperature | default(h.temperature) | round(0) | int }}°) rain {{ h.precipitation_probability | default(0) | round(0) | int }}%{{ '; ' if not loop.last }}{% endfor %}.
 {% endif -%}
-Daily: {% for d in daily[:3] %}{{ as_local(as_datetime(d.datetime)).strftime('%A') }} {{ d.condition }}, high {{ d.temperature | round(0) | int }}°, low {{ d.templow | default('?') }}°, rain {{ d.precipitation_probability | default(0) | round(0) | int }}%{{ '; ' if not loop.last }}{% endfor %}.
+{#- The daily rain figure is the chance of any rain that day; labelled so the
+    model takes rain timing from the hourly lines, not "rain all day". -#}
+Daily (rain = chance of any rain at some point that day): {% for d in daily[:3] %}{{ as_local(as_datetime(d.datetime)).strftime('%A') }} {{ d.condition }}, high {{ d.temperature | round(0) | int }}°, low {{ d.templow | default('?') }}°, rain {{ d.precipitation_probability | default(0) | round(0) | int }}%{{ '; ' if not loop.last }}{% endfor %}.
 {% if yday is not none and yday.max is defined and daily | count > 0 -%}
 Today vs yesterday: today's forecast high {{ daily[0].temperature | round(0) | int }}° is {{ (daily[0].temperature - yday.max) | abs | round(0) | int }}° {{ 'warmer' if daily[0].temperature >= yday.max else 'colder' }} than yesterday's {{ yday.max | round(0) | int }}°.
 {% endif -%}
@@ -78,10 +80,14 @@ Tomorrow vs today: tomorrow's forecast high {{ daily[1].temperature | round(0) |
 {%- endmacro %}
 
 {#- Describes `now` against `before` in words ("47% less", "about the same"),
-    so the model states comparisons instead of computing them. -#}
+    so the model states comparisons instead of computing them. Doubling or more
+    reads as a multiple ("24 times as much"), and a drop to zero as "none",
+    because "2300% more" or "100% less" off a tiny baseline reads as alarm. -#}
 {% macro vs(now=0, before=0) -%}
 {%- set a = now | float(0) -%}{%- set b = before | float(0) -%}
 {%- if b == 0 -%}{{ 'none either time' if a == 0 else 'up from none' }}
+{%- elif a == 0 -%}none, down from {{ b }}
+{%- elif a >= b * 2 -%}{%- set x = a / b -%}about {{ x | round(1) if x < 3 else x | round(0) | int }} times as much
 {%- else -%}{%- set pct = ((a - b) / b * 100) | round(0) | int -%}
 {{- 'about the same' if pct | abs < 10 else (pct | abs ~ '% ' ~ ('more' if pct > 0 else 'less')) -}}
 {%- endif -%}
