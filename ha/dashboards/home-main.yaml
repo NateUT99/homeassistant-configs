@@ -3382,6 +3382,11 @@ views:
           - condition: state
             entity: input_boolean.vacuum_ran_evening
             state: 'on'
+        aspect_ratio: '3:2'
+        fit_mode: cover
+        uix:
+          style:
+            hui-image$: '.container { background-size: 135% auto !important; }'
       - type: custom:bubble-card
         card_type: button
         button_type: name
