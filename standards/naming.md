@@ -1,5 +1,5 @@
 # Home Assistant Device & Entity Naming Standard
-*Version 2.5 — October 2026*
+*Version 2.6 — October 2026*
 
 ---
 
@@ -7,6 +7,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 2.6 | October 2026 | Added a §7.1 bullet and §8 row for floor-scoped entities (`main_floor_` / `basement_` prefix from the floor ID) |
 | 2.5 | October 2026 | Added §7.6: the `ignore_offline` label for devices and entities expected to be unavailable |
 | 2.4 | September 2026 | Added a §7.1 bullet codifying the routine-scoped helper/template-entity convention already in use (`input_boolean.vacuum_*`, `binary_sensor.vacuum_stuck`) — no area prefix, named after the routine instead, since the helper describes routine state rather than a physical device |
 | 2.3 | September 2026 | Rewrite §9 again — chores moved from a native `local_todo` list with description metadata to the `ha-chore-calendar` HACS integration; naming is now just the `chore_name` field. Revised same day: trash pickup folded back in as a `oneshot` chore rather than staying a standalone helper |
@@ -276,6 +277,7 @@ When devices are physically oriented (facing the object), use `_left` / `_right`
 - Exterior devices use `outside` as the area prefix: `outside_porch`, `outside_patio`
 - Portable/roaming devices that genuinely have no fixed location use a functional prefix: `portable_speaker`
 - Household-scoped entities (not tied to a room) use the `household` prefix: `household_energy_monitor`
+- **Floor-scoped entities** (an aggregate over one floor's rooms, such as a `min_max` average) use the floor ID as the prefix: `sensor.main_floor_temperature`. Not `household_`, which would claim the whole house when the other floor is left out
 - **Routine-scoped helpers and template entities** — `input_boolean`/`input_select`/`input_number`/`input_datetime` helpers and template `binary_sensor`s that track a multi-automation routine's own state, rather than a physical device — use the routine's name as the prefix, not an area: `input_boolean.vacuum_ran_daytime`, `input_select.vacuum_active_zone`, `binary_sensor.vacuum_stuck`. An area prefix would misdescribe these; the helper belongs to the routine, not to whatever room the device it tracks happens to sit in. See `guides/vacuum_cleaning_routine.md` for a worked set.
 
 ### 7.2 Integration-Generated Entity IDs
@@ -351,6 +353,7 @@ warnings.
 | Media player (single per room) | `media_player.[area]_[brand/type]` | `media_player.living_room_sonos` |
 | Vacuum | `vacuum.[area]_vacuum` | `vacuum.living_room_vacuum` |
 | Household entity (no area) | `[domain].household_[purpose]` | `sensor.household_energy_monitor_power` |
+| Floor aggregate | `[domain].[floor_id]_[measurement]` | `sensor.main_floor_temperature` |
 
 ---
 

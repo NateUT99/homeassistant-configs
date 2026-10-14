@@ -4749,6 +4749,52 @@ views:
           navigation_path: /home-main/home#hvac
       grid_options:
         columns: 12
+    - type: custom:bubble-card
+      card_type: button
+      button_type: state
+      entity: sensor.main_floor_temperature
+      name: Inside
+      show_icon: false
+      show_state: true
+      state_content: '{{ states(''sensor.main_floor_temperature'') | float(0) | round(1) }}° · {{ states(''sensor.main_floor_humidity'') | float(0) | round(0) | int }}%'
+      modules:
+      - bubble_graphs
+      bubble_graphs:
+        graph_style: area
+        card_layout: stacked
+        hours: 24
+        color: primary-text
+        opacity: 0.35
+      grid_options:
+        columns: 6
+      tap_action:
+        action: more-info
+      button_action:
+        tap_action:
+          action: more-info
+    - type: custom:bubble-card
+      card_type: button
+      button_type: state
+      entity: sensor.outside_temperature
+      name: Outside
+      show_icon: false
+      show_state: true
+      state_content: '{{ states(''sensor.outside_temperature'') | float(0) | round(1) }}° · {{ states(''sensor.outside_humidity'') | float(0) | round(0) | int }}%'
+      modules:
+      - bubble_graphs
+      bubble_graphs:
+        graph_style: area
+        card_layout: stacked
+        hours: 24
+        color: primary-text
+        opacity: 0.35
+      grid_options:
+        columns: 6
+      tap_action:
+        action: more-info
+      button_action:
+        tap_action:
+          action: more-info
     - type: custom:expander-card
       title-card:
         type: heading
@@ -4756,7 +4802,7 @@ views:
         icon: mdi:home-thermometer
       title-card-clickable: true
       icon: mdi:chevron-down
-      expanded: true
+      expanded: false
       storage-id: home-main-climate-rooms
       clear: true
       padding: '0'
@@ -4899,26 +4945,6 @@ views:
           button_type: state
           entity: sensor.utility_room_climate_temperature
           name: Utility Room
-          show_icon: false
-          show_state: true
-          modules:
-          - bubble_graphs
-          bubble_graphs:
-            graph_style: area
-            hours: 24
-            color: var(--room-tint, var(--primary-text-color))
-            opacity: 0.35
-            card_layout: stacked
-          tap_action:
-            action: more-info
-          button_action:
-            tap_action:
-              action: more-info
-        - type: custom:bubble-card
-          card_type: button
-          button_type: state
-          entity: sensor.outside_temperature
-          name: Outside
           show_icon: false
           show_state: true
           modules:
@@ -5102,27 +5128,6 @@ views:
             tap_action:
               action: more-info
           state_content: '{{ states(''sensor.utility_room_climate_humidity'') | float(0) | round(0) | int }}%'
-        - type: custom:bubble-card
-          card_type: button
-          button_type: state
-          entity: sensor.outside_humidity
-          name: Outside
-          show_icon: false
-          show_state: true
-          modules:
-          - bubble_graphs
-          bubble_graphs:
-            graph_style: area
-            hours: 24
-            color: blue
-            opacity: 0.35
-            card_layout: stacked
-          tap_action:
-            action: more-info
-          button_action:
-            tap_action:
-              action: more-info
-          state_content: '{{ states(''sensor.outside_humidity'') | float(0) | round(0) | int }}%'
 - title: Energy
   path: energy
   type: sections
