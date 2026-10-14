@@ -214,6 +214,18 @@ When a Generic Thermostat is set to heat below target, it turns its heater switc
 
 To actually prevent it, point the thermostat's `heater` at a template switch whose `turn_on` action starts with `condition:` steps. A failed condition ends the sequence before the real switch is touched. Keep any reacting automation for notification and UI state only. See `guides/fireplace.md`.
 
+### Compare timestamps as datetimes, never as ISO strings
+
+Forecast entries from `weather.get_forecasts` carry UTC timestamps (`2026-10-15T03:00:00+00:00`), while `today_at()`, `now()` and `isoformat()` are local (`-04:00`). Comparing them as strings, for example with `selectattr('datetime', 'lt', cutoff.isoformat())`, compares characters, not instants: 11 PM local (`03:00` UTC the next day) sorts after local midnight and gets dropped. Parse first and compare datetimes: `as_datetime(h.datetime) < today_at() + timedelta(days=1)`. The same applies in JavaScript templates: compare `Date.parse()` values, not the strings.
+
+### A day's forecast rain chance still counts hours that have already passed
+
+The daily forecast's `precipitation_probability` covers the whole calendar day. At noon, today's "98%" can be the rain that fell at 6 AM, while every remaining hour reads 0%. A model given both believed the daily figure and recommended an umbrella for a dry afternoon. For anything about the rest of today, use the hourly forecast and leave today's daily line out (`ai_insights.jinja` `weather_facts()`).
+
+### The ha-mcp `python_transform` sandbox has no `str.find`
+
+`python_transform` (dashboards, scripts, automations) allows only a fixed set of string methods: `startswith`, `endswith`, `lower`, `upper`, `strip`, `split`, `join`, `replace`, plus list and dict methods. `find`, `index` on strings, slicing by computed offsets from `find`, and `assert` are rejected. Cut a known segment with `replace(exact_text, '')`, or locate it with `split()`: `head, rest = s.split(marker, 1)`.
+
 ---
 
 ## Dashboards
@@ -511,6 +523,10 @@ every Bubble background fill (Happening now progress bars, tile tints) for that 
 `scripts/dashboard_preview.py` runs as a user with no profile theme, so it can't reproduce
 this. When a change renders in the preview but not on a device, check the viewer's
 **Profile → Theme** first; it should be Home Flat or Backend-selected.
+
+### Navbar Card badges can carry an icon
+
+From Navbar Card 1.7 a route `badge` takes `icon` and `icon_color` besides `color`, `count` and `show`, all JavaScript-templatable. With an icon the badge renders as a 16 px circle in `color` with a 12 px icon inside, which reads at navbar size (`home-main` uses an amber circle with `mdi:creation` for unreviewed AI insights). Templating `color` and `icon` lets one route switch between a red fault dot (`icon` returning `''`, which falls back to the plain dot) and the amber sparkle.
 
 ---
 
