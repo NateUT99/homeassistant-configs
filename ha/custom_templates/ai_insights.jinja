@@ -1,6 +1,6 @@
 {#-
-  Facts sent to Claude by script.household_ai_briefing and _weekly_digest
-  (guides/ai_insights.md). These macros ARE the allowlist: anything not listed
+  Facts sent to Claude by script.household_ai_briefing, _climate_insight and
+  _energy_insight (guides/ai_insights.md). These macros ARE the allowlist: anything not listed
   here is never sent. Never add coordinates, lock codes, network details, camera
   images, or calendars.
 
@@ -62,20 +62,6 @@ Every 3 hours: {% for h in hrs[::3] %}{{ as_local(as_datetime(h.datetime)).strft
 Today vs yesterday: today's forecast high {{ daily[0].temperature | round(0) | int }}° is {{ (daily[0].temperature - yday.max) | abs | round(0) | int }}° {{ 'warmer' if daily[0].temperature >= yday.max else 'colder' }} than yesterday's {{ yday.max | round(0) | int }}°.
 {% endif -%}
 
-{%- endmacro %}
-
-{#- Sums one recorder.get_statistics series over [start, end): `key` is change
-    for meters, or heat / cool for degree days (base 65°F) from daily means.
-    per_week scales the sum to 7 days by the number of days that have data, so
-    a series younger than the window still gives a fair weekly average. -#}
-{% macro window_total(rows=[], start=none, end=none, key='change', per_week=false) -%}
-{%- set ns = namespace(total=0, days=0) -%}
-{%- for r in rows if start <= as_datetime(r.start) < end -%}
-{%- if key == 'heat' %}{% set v = [65 - r.mean | float(65), 0] | max %}{% elif key == 'cool' %}{% set v = [r.mean | float(65) - 65, 0] | max %}{% else %}{% set v = r[key] | float(0) %}{% endif -%}
-{%- set ns.total = ns.total + v -%}
-{%- set ns.days = ns.days + 1 -%}
-{%- endfor -%}
-{{- ((ns.total / ns.days * 7) if per_week and ns.days > 0 else ns.total) | round(1) -}}
 {%- endmacro %}
 
 {#- Describes `now` against `before` in words ("47% less", "about the same"),
