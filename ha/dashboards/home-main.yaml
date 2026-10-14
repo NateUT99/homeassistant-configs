@@ -4752,16 +4752,18 @@ views:
     - type: markdown
       grid_options:
         columns: 12
-      content: '{% set s = ''sensor.household_ai_climate_insight'' %}{% if is_state(''script.household_ai_climate_insight'', ''on'') %}<i>Working on it…</i>{% elif state_attr(s, ''flagged'') %}<i>{{ state_attr(s,
-        ''story'') }}</i>{% elif has_value(s) %}<i>Nothing notable yesterday.</i>{% else %}<i>The first note arrives at 7 AM.</i>{% endif %}{% set cur = state_attr(s, ''date'') if state_attr(s, ''flagged'')
-        else '''' %}{% set h = (state_attr(s, ''history'') or []) | rejectattr(''date'', ''eq'', cur) | list %}{% if h %}<details><summary>History (past week)</summary>{% for e in h %}<b>{{ strptime(e.date,
-        ''%Y-%m-%d'').strftime(''%a %b %-d'') | upper }}</b><br><i>{{ e.story }}</i>{% if not loop.last %}<br><br>{% endif %}{% endfor %}</details>{% endif %}'
+      content: '{% set s = ''sensor.household_ai_climate_insight'' %}{% if is_state(''script.household_ai_climate_insight'', ''on'') %}<i>Working on it…</i>{% elif state_attr(s, ''flagged'') and state_attr(s,
+        ''weekly'') %}<em>{{ state_attr(s, ''story'') }}</em>{% elif state_attr(s, ''flagged'') %}<i>{{ state_attr(s, ''story'') }}</i>{% elif has_value(s) %}<i>Nothing notable yesterday.</i>{% else %}<i>The
+        first note arrives at 7 AM.</i>{% endif %}{% set cur = state_attr(s, ''date'') if state_attr(s, ''flagged'') else '''' %}{% set h = (state_attr(s, ''history'') or []) | rejectattr(''date'', ''eq'',
+        cur) | list %}{% if h %}<details><summary>History (past month)</summary>{% for e in h %}{% set day = strptime(e.date, ''%Y-%m-%d'').strftime(''%a %b %-d'') | upper %}{% if e.weekly %}<strong>{{
+        day }}</strong><br><em>{{ e.story }}</em>{% else %}<b>{{ day }}</b><br><i>{{ e.story }}</i>{% endif %}{% if not loop.last %}<br><br>{% endif %}{% endfor %}</details>{% endif %}'
       uix:
         style:
           ha-markdown$: 'p { margin: 0 0 6px 0; } details { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--divider-color); } summary { cursor: pointer; font-size: 13px; color: var(--secondary-text-color);
-            } details[open] summary { margin-bottom: 8px; } b { font-size: 12px; letter-spacing: 0.06em; opacity: 0.7; }'
+            } details[open] summary { margin-bottom: 8px; } b, strong { font-size: 12px; letter-spacing: 0.06em; opacity: 0.7; } strong, em { color: var(--teal-color); }'
           'ha-markdown $ ha-markdown-element:': 'p { margin: 0 0 6px 0; } details { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--divider-color); } summary { cursor: pointer; font-size:
-            13px; color: var(--secondary-text-color); } details[open] summary { margin-bottom: 8px; } b { font-size: 12px; letter-spacing: 0.06em; opacity: 0.7; }'
+            13px; color: var(--secondary-text-color); } details[open] summary { margin-bottom: 8px; } b, strong { font-size: 12px; letter-spacing: 0.06em; opacity: 0.7; } strong, em { color: var(--teal-color);
+            }'
     - type: custom:expander-card
       title-card:
         type: heading
@@ -5141,16 +5143,18 @@ views:
     - type: markdown
       grid_options:
         columns: 12
-      content: '{% set s = ''sensor.household_ai_energy_insight'' %}{% if is_state(''script.household_ai_energy_insight'', ''on'') %}<i>Working on it…</i>{% elif state_attr(s, ''flagged'') %}<i>{{ state_attr(s,
-        ''story'') }}</i>{% elif has_value(s) %}<i>Nothing notable yesterday.</i>{% else %}<i>The first note arrives at 7 AM.</i>{% endif %}{% set cur = state_attr(s, ''date'') if state_attr(s, ''flagged'')
-        else '''' %}{% set h = (state_attr(s, ''history'') or []) | rejectattr(''date'', ''eq'', cur) | list %}{% if h %}<details><summary>History (past week)</summary>{% for e in h %}<b>{{ strptime(e.date,
-        ''%Y-%m-%d'').strftime(''%a %b %-d'') | upper }}</b><br><i>{{ e.story }}</i>{% if not loop.last %}<br><br>{% endif %}{% endfor %}</details>{% endif %}'
+      content: '{% set s = ''sensor.household_ai_energy_insight'' %}{% if is_state(''script.household_ai_energy_insight'', ''on'') %}<i>Working on it…</i>{% elif state_attr(s, ''flagged'') and state_attr(s,
+        ''weekly'') %}<em>{{ state_attr(s, ''story'') }}</em>{% elif state_attr(s, ''flagged'') %}<i>{{ state_attr(s, ''story'') }}</i>{% elif has_value(s) %}<i>Nothing notable yesterday.</i>{% else %}<i>The
+        first note arrives at 7 AM.</i>{% endif %}{% set cur = state_attr(s, ''date'') if state_attr(s, ''flagged'') else '''' %}{% set h = (state_attr(s, ''history'') or []) | rejectattr(''date'', ''eq'',
+        cur) | list %}{% if h %}<details><summary>History (past month)</summary>{% for e in h %}{% set day = strptime(e.date, ''%Y-%m-%d'').strftime(''%a %b %-d'') | upper %}{% if e.weekly %}<strong>{{
+        day }}</strong><br><em>{{ e.story }}</em>{% else %}<b>{{ day }}</b><br><i>{{ e.story }}</i>{% endif %}{% if not loop.last %}<br><br>{% endif %}{% endfor %}</details>{% endif %}'
       uix:
         style:
           ha-markdown$: 'p { margin: 0 0 6px 0; } details { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--divider-color); } summary { cursor: pointer; font-size: 13px; color: var(--secondary-text-color);
-            } details[open] summary { margin-bottom: 8px; } b { font-size: 12px; letter-spacing: 0.06em; opacity: 0.7; }'
+            } details[open] summary { margin-bottom: 8px; } b, strong { font-size: 12px; letter-spacing: 0.06em; opacity: 0.7; } strong, em { color: var(--teal-color); }'
           'ha-markdown $ ha-markdown-element:': 'p { margin: 0 0 6px 0; } details { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--divider-color); } summary { cursor: pointer; font-size:
-            13px; color: var(--secondary-text-color); } details[open] summary { margin-bottom: 8px; } b { font-size: 12px; letter-spacing: 0.06em; opacity: 0.7; }'
+            13px; color: var(--secondary-text-color); } details[open] summary { margin-bottom: 8px; } b, strong { font-size: 12px; letter-spacing: 0.06em; opacity: 0.7; } strong, em { color: var(--teal-color);
+            }'
     - type: energy-date-selection
       grid_options:
         columns: 12

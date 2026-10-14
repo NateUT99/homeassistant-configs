@@ -30,8 +30,11 @@ template:
   # script.household_ai_climate_insight / _energy_insight. The state is the
   # latest headline, or "Nothing notable" on a day the fixed rules in
   # ai_insights.jinja flagged nothing. `history` keeps the flagged entries of
-  # the last 7 days, newest first (a re-run replaces that day's entry); the
-  # scripts send it back to Claude so a continuing item reads as continuing.
+  # the last 30 days, newest first, at most 12 (a re-run replaces that day's
+  # entry; `weekly` marks the Sunday pass). Flagged days are sparse, so a month
+  # shows whether something recurs, and the cap keeps the attribute far below
+  # the recorder's 16 KB limit. The scripts send back only the last 7 days, so
+  # a continuing item reads as continuing.
   # Each entry's `at` is compared with input_button.household_ai_*_seen to
   # show the amber navbar badge until the note is reviewed.
   - trigger:
@@ -54,9 +57,9 @@ template:
           history: >-
             {% set d = trigger.event.data %}
             {% set old = this.attributes.history | default([]) if this is defined and this.attributes is defined else [] %}
-            {% set cutoff = (now() - timedelta(days=7)).date() | string %}
-            {% set new = [{'date': d.date, 'at': now().isoformat(), 'headline': (d.headline | default('') | string)[:80], 'story': (d.story | default('') | string)[:320]}] if d.flagged | default(false) else [] %}
-            {{ new + (old | selectattr('date', '>', cutoff) | rejectattr('date', 'eq', d.date) | list) }}
+            {% set cutoff = (now() - timedelta(days=30)).date() | string %}
+            {% set new = [{'date': d.date, 'at': now().isoformat(), 'weekly': d.weekly | default(false) | bool, 'headline': (d.headline | default('') | string)[:80], 'story': (d.story | default('') | string)[:320]}] if d.flagged | default(false) else [] %}
+            {{ (new + (old | selectattr('date', '>', cutoff) | rejectattr('date', 'eq', d.date) | list))[:12] }}
           generated_at: "{{ now().isoformat() }}"
 
   - trigger:

@@ -38,7 +38,7 @@ AI Insights Schedule ──06:30/12:00/17:00──▶ script.household_ai_briefi
                                                    │
                          event household_ai_*_ready
                                                    │
-           ha/packages/ai_insights.yaml (trigger-based sensors, 7-day history)
+           ha/packages/ai_insights.yaml (trigger-based sensors, 30-day history)
                                                    │
   home-main: greeting + #weather (briefing) · AI Insight cards (Climate, Energy)
              · amber navbar badge until ✓ presses input_button.household_ai_*_seen
@@ -158,8 +158,11 @@ template:
   # script.household_ai_climate_insight / _energy_insight. The state is the
   # latest headline, or "Nothing notable" on a day the fixed rules in
   # ai_insights.jinja flagged nothing. `history` keeps the flagged entries of
-  # the last 7 days, newest first (a re-run replaces that day's entry); the
-  # scripts send it back to Claude so a continuing item reads as continuing.
+  # the last 30 days, newest first, at most 12 (a re-run replaces that day's
+  # entry; `weekly` marks the Sunday pass). Flagged days are sparse, so a month
+  # shows whether something recurs, and the cap keeps the attribute far below
+  # the recorder's 16 KB limit. The scripts send back only the last 7 days, so
+  # a continuing item reads as continuing.
   # Each entry's `at` is compared with input_button.household_ai_*_seen to
   # show the amber navbar badge until the note is reviewed.
   - trigger:
@@ -182,9 +185,9 @@ template:
           history: >-
             {% set d = trigger.event.data %}
             {% set old = this.attributes.history | default([]) if this is defined and this.attributes is defined else [] %}
-            {% set cutoff = (now() - timedelta(days=7)).date() | string %}
-            {% set new = [{'date': d.date, 'at': now().isoformat(), 'headline': (d.headline | default('') | string)[:80], 'story': (d.story | default('') | string)[:320]}] if d.flagged | default(false) else [] %}
-            {{ new + (old | selectattr('date', '>', cutoff) | rejectattr('date', 'eq', d.date) | list) }}
+            {% set cutoff = (now() - timedelta(days=30)).date() | string %}
+            {% set new = [{'date': d.date, 'at': now().isoformat(), 'weekly': d.weekly | default(false) | bool, 'headline': (d.headline | default('') | string)[:80], 'story': (d.story | default('') | string)[:320]}] if d.flagged | default(false) else [] %}
+            {{ (new + (old | selectattr('date', '>', cutoff) | rejectattr('date', 'eq', d.date) | list))[:12] }}
           generated_at: "{{ now().isoformat() }}"
 
   - trigger:
@@ -239,8 +242,8 @@ that dominates the period, and the style examples set the tone without lending t
 
 **Insights.** Each script fetches 36 days of daily statistics and renders its macro for
 yesterday. With no flags it fires `flagged: false` and the sensor reads "Nothing notable".
-With flags, Claude gets the flags (the news), the facts (context only), and the earlier
-flagged notes of the week, so a continuing item reads as continuing. The prompt allows a
+With flags, Claude gets the flags (the news), the facts (context only), and the flagged
+notes of the last 7 days, so a continuing item reads as continuing. The prompt allows a
 cause only when the facts support it: weather, time away, or which rooms the thermostat
 follows (Living Room, Kitchen and Office by day; Avery's Room and Master Bedroom at night),
 where a drifting controlled room is offered as a possible vent, door or window.
@@ -277,8 +280,8 @@ while the newest entry is newer than the button's last press.
 
 See `guides/home_dashboard.md`: the greeting shows the briefing headline, `#weather` the tip,
 and the Climate and Energy views an **AI Insight** card (italic note, age badge, ✓ button that
-presses the seen marker, and a **History (past week)** fold-out) with the amber `mdi:creation`
-navbar badge.
+presses the seen marker, and a **History (past month)** fold-out, Sunday weekly notes in teal)
+with the amber `mdi:creation` navbar badge.
 
 ---
 
@@ -305,8 +308,8 @@ Sonnet call only on a flagged Sunday; well under 15¢ a month.
 | Artifact | Entity / ID | Type |
 |---|---|---|
 | Household AI Briefing | `sensor.household_ai_briefing` | Trigger-based template sensor (package) |
-| Household AI Climate Insight | `sensor.household_ai_climate_insight` | Trigger-based template sensor with 7-day `history` (package) |
-| Household AI Energy Insight | `sensor.household_ai_energy_insight` | Trigger-based template sensor with 7-day `history` (package) |
+| Household AI Climate Insight | `sensor.household_ai_climate_insight` | Trigger-based template sensor with 30-day `history` (package) |
+| Household AI Energy Insight | `sensor.household_ai_energy_insight` | Trigger-based template sensor with 30-day `history` (package) |
 | Household Occupied Today | `sensor.household_occupied_today` | `history_stats` hours home since midnight (package) |
 | Household: AI Briefing | `script.household_ai_briefing` | Script |
 | Household: AI Climate Insight | `script.household_ai_climate_insight` | Script |

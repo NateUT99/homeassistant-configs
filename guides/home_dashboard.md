@@ -435,8 +435,10 @@ here; they fail outside the built-in Energy dashboard, which keeps its own Now t
 (`state_content: last_updated`) and, while a note is flagged, a ✓ button badge that presses
 `input_button.household_ai_climate_seen` / `_energy_seen`; then one markdown card with the note
 in italics (no headline), "Nothing notable yesterday." on a quiet day, *Working on it…* while
-the script runs, and a native `<details>` fold-out, **History (past week)**, listing the week's
-earlier flagged notes by day. The fold-out sits inside the same card so it reads as part of
+the script runs, and a native `<details>` fold-out, **History (past month)**, listing the last
+30 days' earlier flagged notes by day (at most 12). Sunday weekly notes render as
+`<strong>`/`<em>` instead of `<b>`/`<i>`, which the card's UIX style colours `--teal-color`, so a
+week-in-review stands apart without a label; the same applies to the main note on a Sunday. The fold-out sits inside the same card so it reads as part of
 the insight, and appears only when there are earlier notes. Content comes from
 `sensor.household_ai_climate_insight` / `_energy_insight` (`guides/ai_insights.md`).
 

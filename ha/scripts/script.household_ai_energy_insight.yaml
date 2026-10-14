@@ -38,8 +38,9 @@ sequence:
     insight: '{% from ''ai_insights.jinja'' import energy_insight %}{{ energy_insight(stats.statistics,
       1, is_weekly, 0.2033) }}'
     report_date: '{{ (today_at() - timedelta(days=1)).date() | string }}'
-    earlier: '{% set h = state_attr(''sensor.household_ai_energy_insight'', ''history'') or [] %}{% for
-      e in h if e.date != report_date %}{{ e.date }}: {{ e.headline }} {{ e.story }}
+    earlier: '{% set h = state_attr(''sensor.household_ai_energy_insight'', ''history'') or [] %}{% set
+      week = (today_at() - timedelta(days=7)).date() | string %}{% for e in h if e.date != report_date
+      and e.date >= week %}{{ e.date }}: {{ e.headline }} {{ e.story }}
 
       {% else %}none{% endfor %}'
 - alias: Write it up if anything was flagged
