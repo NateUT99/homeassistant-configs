@@ -1853,7 +1853,7 @@ views:
           - power
         match_theme: true
         card_height: 320
-        volume_mode: slider
+        volume_mode: stepper
         artwork_object_fit: cover
         details_alignment: left
         uix:
@@ -1870,14 +1870,16 @@ views:
             '
         display_timestamps: false
         media_artwork_overrides:
-        - app_name: YouTube
-          missing_art_url: /local/media_art/youtube.svg
-        - app_name: TV
-          missing_art_url: /local/media_art/tv.svg
-        - app_name: Disney+
-          missing_art_url: /local/media_art/disney_plus.svg
-        - app_name: Prime Video
-          missing_art_url: /local/media_art/prime_video.svg
+        - entity_id: media_player.living_room_appletv
+          image_url: '{% set d = state_attr(''sensor.living_room_appletv_info'', ''details'') %}{% set ok = d is mapping and d.get(''poster'') and (state_attr(''sensor.living_room_appletv_info'', ''content_id'')
+            | string) == (state_attr(''media_player.living_room_appletv'', ''media_content_id'') | string) %}{% set fb = {''YouTube'': ''/local/media_art/youtube.svg'', ''TV'': ''/local/media_art/tv.svg'',
+            ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg''} %}{{ d.poster | replace(''1000x1000bb'', ''2000x2000bb'') if ok else (state_attr(''media_player.living_room_appletv'',
+            ''entity_picture'') or fb.get(state_attr(''media_player.living_room_appletv'', ''app_name''), '''')) }}'
+          size_percentage: 100
+          object_fit: cover
+          object_position: top center
+        volume_step: 0.02
+        artwork_position: top center
       - type: custom:bubble-card
         card_type: button
         button_type: slider
@@ -1886,8 +1888,9 @@ views:
         show_name: false
         show_icon: false
         show_state: true
-        state_content: '{% set p = states(''number.living_room_appletv_position'') | int(0) %}{% set d = state_attr(''number.living_room_appletv_position'', ''max'') | int(0) %}{{ ''%d:%02d'' | format(p
-          // 60, p % 60) }} / {{ ''%d:%02d'' | format(d // 60, d % 60) }}'
+        state_content: '{% set p = states(''number.living_room_appletv_position'') | int(0) %}{% set d = state_attr(''number.living_room_appletv_position'', ''max'') | int(0) %}{% if d >= 3600 %}{{ ''%d:%02d:%02d''
+          | format(p // 3600, p % 3600 // 60, p % 60) }} / {{ ''%d:%02d:%02d'' | format(d // 3600, d % 3600 // 60, d % 60) }}{% else %}{{ ''%d:%02d'' | format(p // 60, p % 60) }} / {{ ''%d:%02d'' | format(d
+          // 60, d % 60) }}{% endif %}'
         slider_live_update: false
         rows: 0.6
         tap_action:
@@ -2146,7 +2149,7 @@ views:
               action: repeat
           styles: ':host { width: 190px; }
 
-            toucharea { height: 200px; border-radius: 32px; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); }
+            toucharea { height: 170px; border-radius: 32px; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); }
 
             '
         - type: button
@@ -2611,7 +2614,7 @@ views:
           - power
         match_theme: true
         card_height: 320
-        volume_mode: slider
+        volume_mode: stepper
         artwork_object_fit: cover
         details_alignment: left
         uix:
@@ -2628,14 +2631,16 @@ views:
             '
         display_timestamps: false
         media_artwork_overrides:
-        - app_name: YouTube
-          missing_art_url: /local/media_art/youtube.svg
-        - app_name: TV
-          missing_art_url: /local/media_art/tv.svg
-        - app_name: Disney+
-          missing_art_url: /local/media_art/disney_plus.svg
-        - app_name: Prime Video
-          missing_art_url: /local/media_art/prime_video.svg
+        - entity_id: media_player.master_bedroom_appletv
+          image_url: '{% set d = state_attr(''sensor.master_bedroom_appletv_info'', ''details'') %}{% set ok = d is mapping and d.get(''poster'') and (state_attr(''sensor.master_bedroom_appletv_info'',
+            ''content_id'') | string) == (state_attr(''media_player.master_bedroom_appletv'', ''media_content_id'') | string) %}{% set fb = {''YouTube'': ''/local/media_art/youtube.svg'', ''TV'': ''/local/media_art/tv.svg'',
+            ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg''} %}{{ d.poster | replace(''1000x1000bb'', ''2000x2000bb'') if ok else (state_attr(''media_player.master_bedroom_appletv'',
+            ''entity_picture'') or fb.get(state_attr(''media_player.master_bedroom_appletv'', ''app_name''), '''')) }}'
+          size_percentage: 100
+          object_fit: cover
+          object_position: top center
+        artwork_position: top center
+        volume_step: 0.02
       - type: custom:bubble-card
         card_type: button
         button_type: slider
@@ -2644,8 +2649,9 @@ views:
         show_name: false
         show_icon: false
         show_state: true
-        state_content: '{% set p = states(''number.master_bedroom_appletv_position'') | int(0) %}{% set d = state_attr(''number.master_bedroom_appletv_position'', ''max'') | int(0) %}{{ ''%d:%02d'' | format(p
-          // 60, p % 60) }} / {{ ''%d:%02d'' | format(d // 60, d % 60) }}'
+        state_content: '{% set p = states(''number.master_bedroom_appletv_position'') | int(0) %}{% set d = state_attr(''number.master_bedroom_appletv_position'', ''max'') | int(0) %}{% if d >= 3600 %}{{
+          ''%d:%02d:%02d'' | format(p // 3600, p % 3600 // 60, p % 60) }} / {{ ''%d:%02d:%02d'' | format(d // 3600, d % 3600 // 60, d % 60) }}{% else %}{{ ''%d:%02d'' | format(p // 60, p % 60) }} / {{ ''%d:%02d''
+          | format(d // 60, d % 60) }}{% endif %}'
         slider_live_update: false
         rows: 0.6
         tap_action:
@@ -2852,7 +2858,7 @@ views:
               action: repeat
           styles: ':host { width: 190px; }
 
-            toucharea { height: 200px; border-radius: 32px; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); }
+            toucharea { height: 170px; border-radius: 32px; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); }
 
             '
         - type: button
@@ -5155,7 +5161,7 @@ views:
               - power
               volume_entity: media_player.living_room_soundbar
             match_theme: true
-            volume_mode: slider
+            volume_mode: stepper
             artwork_object_fit: cover
             uix:
               style: ':host { --accent-color: var(--primary-text-color); }
@@ -5164,16 +5170,18 @@ views:
 
                 .more-info-menu { display: none !important; }
 
+                .progress-bar { background: color-mix(in srgb, var(--primary-text-color) 25%, transparent) !important; }
+
                 '
             media_artwork_overrides:
-            - app_name: YouTube
-              missing_art_url: /local/media_art/youtube.svg
-            - app_name: TV
-              missing_art_url: /local/media_art/tv.svg
-            - app_name: Disney+
-              missing_art_url: /local/media_art/disney_plus.svg
-            - app_name: Prime Video
-              missing_art_url: /local/media_art/prime_video.svg
+            - entity_id: media_player.living_room_appletv
+              image_url: '{% set d = state_attr(''sensor.living_room_appletv_info'', ''details'') %}{% set ok = d is mapping and d.get(''poster'') and (state_attr(''sensor.living_room_appletv_info'', ''content_id'')
+                | string) == (state_attr(''media_player.living_room_appletv'', ''media_content_id'') | string) %}{% set fb = {''YouTube'': ''/local/media_art/youtube.svg'', ''TV'': ''/local/media_art/tv.svg'',
+                ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg''} %}{{ d.poster | replace(''1000x1000bb'', ''2000x2000bb'') if ok else (state_attr(''media_player.living_room_appletv'',
+                ''entity_picture'') or fb.get(state_attr(''media_player.living_room_appletv'', ''app_name''), '''')) }}'
+              size_percentage: 100
+              object_fit: cover
+              object_position: top center
             actions:
             - name: Remote
               icon: mdi:remote-tv
@@ -5181,8 +5189,10 @@ views:
               navigation_path: '#living-room-remote'
               placement: hidden
               card_trigger: tap
-            card_height: 340
+            card_height: '{% set d = state_attr(''sensor.living_room_appletv_info'', ''details'') %}{% set ok = d is mapping and d.get(''poster'') and (state_attr(''sensor.living_room_appletv_info'', ''content_id'')
+              | string) == (state_attr(''media_player.living_room_appletv'', ''media_content_id'') | string) %}{{ 535 if ok else 340 }}'
             details_alignment: left
+            volume_step: 0.02
       - type: conditional
         conditions:
         - condition: state
@@ -5208,7 +5218,7 @@ views:
               - power
               volume_entity: media_player.master_bedroom_tv
             match_theme: true
-            volume_mode: slider
+            volume_mode: stepper
             artwork_object_fit: cover
             uix:
               style: ':host { --accent-color: var(--primary-text-color); }
@@ -5217,16 +5227,18 @@ views:
 
                 .more-info-menu { display: none !important; }
 
+                .progress-bar { background: color-mix(in srgb, var(--primary-text-color) 25%, transparent) !important; }
+
                 '
             media_artwork_overrides:
-            - app_name: YouTube
-              missing_art_url: /local/media_art/youtube.svg
-            - app_name: TV
-              missing_art_url: /local/media_art/tv.svg
-            - app_name: Disney+
-              missing_art_url: /local/media_art/disney_plus.svg
-            - app_name: Prime Video
-              missing_art_url: /local/media_art/prime_video.svg
+            - entity_id: media_player.master_bedroom_appletv
+              image_url: '{% set d = state_attr(''sensor.master_bedroom_appletv_info'', ''details'') %}{% set ok = d is mapping and d.get(''poster'') and (state_attr(''sensor.master_bedroom_appletv_info'',
+                ''content_id'') | string) == (state_attr(''media_player.master_bedroom_appletv'', ''media_content_id'') | string) %}{% set fb = {''YouTube'': ''/local/media_art/youtube.svg'', ''TV'': ''/local/media_art/tv.svg'',
+                ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg''} %}{{ d.poster | replace(''1000x1000bb'', ''2000x2000bb'') if ok else (state_attr(''media_player.master_bedroom_appletv'',
+                ''entity_picture'') or fb.get(state_attr(''media_player.master_bedroom_appletv'', ''app_name''), '''')) }}'
+              size_percentage: 100
+              object_fit: cover
+              object_position: top center
             actions:
             - name: Remote
               icon: mdi:remote-tv
@@ -5234,8 +5246,10 @@ views:
               navigation_path: '#master-bedroom-remote'
               placement: hidden
               card_trigger: tap
-            card_height: 340
+            card_height: '{% set d = state_attr(''sensor.master_bedroom_appletv_info'', ''details'') %}{% set ok = d is mapping and d.get(''poster'') and (state_attr(''sensor.master_bedroom_appletv_info'',
+              ''content_id'') | string) == (state_attr(''media_player.master_bedroom_appletv'', ''media_content_id'') | string) %}{{ 535 if ok else 340 }}'
             details_alignment: left
+            volume_step: 0.02
       - type: conditional
         conditions:
         - condition: state
@@ -5375,7 +5389,7 @@ views:
               - power
               volume_entity: media_player.family_room_theater
             match_theme: true
-            volume_mode: slider
+            volume_mode: stepper
             artwork_object_fit: cover
             uix:
               style: ':host { --accent-color: var(--primary-text-color); }
@@ -5384,18 +5398,22 @@ views:
 
                 .more-info-menu { display: none !important; }
 
+                .progress-bar { background: color-mix(in srgb, var(--primary-text-color) 25%, transparent) !important; }
+
                 '
             media_artwork_overrides:
-            - app_name: YouTube
-              missing_art_url: /local/media_art/youtube.svg
-            - app_name: TV
-              missing_art_url: /local/media_art/tv.svg
-            - app_name: Disney+
-              missing_art_url: /local/media_art/disney_plus.svg
-            - app_name: Prime Video
-              missing_art_url: /local/media_art/prime_video.svg
-            card_height: 340
+            - entity_id: media_player.family_room_appletv
+              image_url: '{% set d = state_attr(''sensor.family_room_appletv_info'', ''details'') %}{% set ok = d is mapping and d.get(''poster'') and (state_attr(''sensor.family_room_appletv_info'', ''content_id'')
+                | string) == (state_attr(''media_player.family_room_appletv'', ''media_content_id'') | string) %}{% set fb = {''YouTube'': ''/local/media_art/youtube.svg'', ''TV'': ''/local/media_art/tv.svg'',
+                ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg''} %}{{ d.poster | replace(''1000x1000bb'', ''2000x2000bb'') if ok else (state_attr(''media_player.family_room_appletv'',
+                ''entity_picture'') or fb.get(state_attr(''media_player.family_room_appletv'', ''app_name''), '''')) }}'
+              size_percentage: 100
+              object_fit: cover
+              object_position: top center
+            card_height: '{% set d = state_attr(''sensor.family_room_appletv_info'', ''details'') %}{% set ok = d is mapping and d.get(''poster'') and (state_attr(''sensor.family_room_appletv_info'', ''content_id'')
+              | string) == (state_attr(''media_player.family_room_appletv'', ''media_content_id'') | string) %}{{ 535 if ok else 340 }}'
             details_alignment: left
+            volume_step: 0.02
       - type: conditional
         conditions:
         - condition: state

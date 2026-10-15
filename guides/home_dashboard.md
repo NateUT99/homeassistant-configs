@@ -162,7 +162,7 @@ switch by hand are quick actions; running appliances are Happening now.
 **`#lights`** lists every light by room (Living Room through Utility Room) as `apple_tile`
 tiles — tap toggles, hold opens more-info. **`#media`** is the house-wide "Speakers & TVs"
 list: one Yet Another Media Player card per active player, under its room heading. Apple TVs
-get a full-width square card (`card_height: 340`, artwork first) with play/pause and volume on
+get a full-width card, poster-shaped (`card_height` 535, a 2:3 card the poster fills exactly) when Apple's poster is available and square (340) otherwise, artwork first, with play/pause, the volume stepper, a dimmed progress-bar track, and volume on
 the real speaker (Soundbar, bedroom TV, Theater) and the favourite-app fallback artwork; tapping
 one opens its remote pop-up (a hidden YAMP navigate action on `card_trigger: tap`; Family Room
 has no remote yet). HomePods get a compact card (`always_collapsed`: title, previous/play/next and
@@ -274,6 +274,210 @@ template:
         unique_id: master_bedroom_appletv_active
         state: "{{ is_state('media_player.master_bedroom_appletv', ['playing', 'paused']) }}"
         delay_off: "00:00:30"
+```
+
+**Media info package** — `ha/packages/media_info.yaml`, deployed to
+`/config/packages/media_info.yaml`, reload with `template.reload` (`rest_command.reload` for the
+lookup command; the first deploy needed a restart because the instance had no `rest_command`).
+HA derives `sensor.*_apple_tv_info`; rename to `*_appletv_info`. The sensor's `content_id` is
+stored as a number, so cards compare it with the player's ID as strings:
+
+```yaml
+# Now-playing details for the Apple TVs, from Apple's public iTunes lookup service.
+#
+# Content bought or rented from Apple reports its iTunes store ID as media_content_id (a plain
+# number, e.g. 271991087 for The Terminator), which the lookup resolves exactly: year, content
+# rating, genre, runtime, director, description and a poster. Other apps (YouTube, Disney+,
+# live TV) report non-numeric IDs and get no details. The lookup runs only when the content ID
+# changes (or HA starts / templates reload), not on a timer, and needs no account or key. The home-main remote pop-ups show the
+# details under the timeline. See guides/home_dashboard.md.
+#
+# Top-level variables can't see `this`, so `changed` reads the sensor by entity ID (the
+# renamed sensor.<room>_appletv_info).
+#
+# Deployed to /config/packages/media_info.yaml; reload with template.reload (rest_command.reload
+# for the command; adding rest_command to an instance that had none needs a restart).
+
+rest_command:
+  itunes_lookup:
+    url: "https://itunes.apple.com/lookup?id={{ id }}&country=us"
+    method: GET
+    timeout: 10
+
+template:
+  - triggers:
+      - trigger: state
+        entity_id: media_player.living_room_appletv
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: event_template_reloaded
+    variables:
+      new_id: "{{ state_attr('media_player.living_room_appletv', 'media_content_id') | default('', true) | string }}"
+      active: "{{ is_state('media_player.living_room_appletv', ['playing', 'paused']) }}"
+      owned: "{{ new_id is match('^[0-9]+$') }}"
+      changed: "{{ new_id != (state_attr('sensor.living_room_appletv_info', 'content_id') | default('', true) | string) }}"
+    actions:
+      - if:
+          - condition: template
+            value_template: "{{ active and owned and changed }}"
+        then:
+          - action: rest_command.itunes_lookup
+            data:
+              id: "{{ new_id }}"
+            response_variable: itunes
+            continue_on_error: true
+    sensor:
+      - name: Living Room Apple TV Info
+        unique_id: living_room_appletv_info
+        icon: mdi:movie-open-outline
+        # The title while details are available, otherwise "none" (the card hides).
+        state: >
+          {% if active and owned and itunes is defined and itunes.status == 200 %}
+            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
+            {{ (c.results | first | default({})).trackName | default('none') }}
+          {% elif active and owned and not changed %}
+            {{ this.state }}
+          {% else %}
+            none
+          {% endif %}
+        attributes:
+          content_id: "{{ new_id if (active and owned) else '' }}"
+          details: >
+            {% if active and owned and itunes is defined and itunes.status == 200 %}
+              {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
+              {% set r = c.results | first | default({}) %}
+              {% set mins = ((r.trackTimeMillis | default(0) | int) / 60000) | round(0) | int %}
+              {{ {
+                'year': (r.releaseDate | default(''))[:4],
+                'rating': r.contentAdvisoryRating | default(''),
+                'genre': r.primaryGenreName | default(''),
+                'runtime': ((mins // 60) ~ 'h ' ~ (mins % 60) ~ 'm') if mins >= 60 else ((mins ~ 'm') if mins else ''),
+                'director': r.artistName | default(''),
+                'description': r.longDescription | default(r.shortDescription | default('')),
+                'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb')
+              } }}
+            {% elif active and owned and not changed %}
+              {{ this.attributes.details | default({}) }}
+            {% else %}
+              {{ {} }}
+            {% endif %}
+
+  - triggers:
+      - trigger: state
+        entity_id: media_player.master_bedroom_appletv
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: event_template_reloaded
+    variables:
+      new_id: "{{ state_attr('media_player.master_bedroom_appletv', 'media_content_id') | default('', true) | string }}"
+      active: "{{ is_state('media_player.master_bedroom_appletv', ['playing', 'paused']) }}"
+      owned: "{{ new_id is match('^[0-9]+$') }}"
+      changed: "{{ new_id != (state_attr('sensor.master_bedroom_appletv_info', 'content_id') | default('', true) | string) }}"
+    actions:
+      - if:
+          - condition: template
+            value_template: "{{ active and owned and changed }}"
+        then:
+          - action: rest_command.itunes_lookup
+            data:
+              id: "{{ new_id }}"
+            response_variable: itunes
+            continue_on_error: true
+    sensor:
+      - name: Master Bedroom Apple TV Info
+        unique_id: master_bedroom_appletv_info
+        icon: mdi:movie-open-outline
+        # The title while details are available, otherwise "none" (the card hides).
+        state: >
+          {% if active and owned and itunes is defined and itunes.status == 200 %}
+            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
+            {{ (c.results | first | default({})).trackName | default('none') }}
+          {% elif active and owned and not changed %}
+            {{ this.state }}
+          {% else %}
+            none
+          {% endif %}
+        attributes:
+          content_id: "{{ new_id if (active and owned) else '' }}"
+          details: >
+            {% if active and owned and itunes is defined and itunes.status == 200 %}
+              {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
+              {% set r = c.results | first | default({}) %}
+              {% set mins = ((r.trackTimeMillis | default(0) | int) / 60000) | round(0) | int %}
+              {{ {
+                'year': (r.releaseDate | default(''))[:4],
+                'rating': r.contentAdvisoryRating | default(''),
+                'genre': r.primaryGenreName | default(''),
+                'runtime': ((mins // 60) ~ 'h ' ~ (mins % 60) ~ 'm') if mins >= 60 else ((mins ~ 'm') if mins else ''),
+                'director': r.artistName | default(''),
+                'description': r.longDescription | default(r.shortDescription | default('')),
+                'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb')
+              } }}
+            {% elif active and owned and not changed %}
+              {{ this.attributes.details | default({}) }}
+            {% else %}
+              {{ {} }}
+            {% endif %}
+
+  - triggers:
+      - trigger: state
+        entity_id: media_player.family_room_appletv
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: event_template_reloaded
+    variables:
+      new_id: "{{ state_attr('media_player.family_room_appletv', 'media_content_id') | default('', true) | string }}"
+      active: "{{ is_state('media_player.family_room_appletv', ['playing', 'paused']) }}"
+      owned: "{{ new_id is match('^[0-9]+$') }}"
+      changed: "{{ new_id != (state_attr('sensor.family_room_appletv_info', 'content_id') | default('', true) | string) }}"
+    actions:
+      - if:
+          - condition: template
+            value_template: "{{ active and owned and changed }}"
+        then:
+          - action: rest_command.itunes_lookup
+            data:
+              id: "{{ new_id }}"
+            response_variable: itunes
+            continue_on_error: true
+    sensor:
+      - name: Family Room Apple TV Info
+        unique_id: family_room_appletv_info
+        icon: mdi:movie-open-outline
+        # The title while details are available, otherwise "none" (the card hides).
+        state: >
+          {% if active and owned and itunes is defined and itunes.status == 200 %}
+            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
+            {{ (c.results | first | default({})).trackName | default('none') }}
+          {% elif active and owned and not changed %}
+            {{ this.state }}
+          {% else %}
+            none
+          {% endif %}
+        attributes:
+          content_id: "{{ new_id if (active and owned) else '' }}"
+          details: >
+            {% if active and owned and itunes is defined and itunes.status == 200 %}
+              {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
+              {% set r = c.results | first | default({}) %}
+              {% set mins = ((r.trackTimeMillis | default(0) | int) / 60000) | round(0) | int %}
+              {{ {
+                'year': (r.releaseDate | default(''))[:4],
+                'rating': r.contentAdvisoryRating | default(''),
+                'genre': r.primaryGenreName | default(''),
+                'runtime': ((mins // 60) ~ 'h ' ~ (mins % 60) ~ 'm') if mins >= 60 else ((mins ~ 'm') if mins else ''),
+                'director': r.artistName | default(''),
+                'description': r.longDescription | default(r.shortDescription | default('')),
+                'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb')
+              } }}
+            {% elif active and owned and not changed %}
+              {{ this.attributes.details | default({}) }}
+            {% else %}
+              {{ {} }}
+            {% endif %}
 ```
 
 **Media seek package** — `ha/packages/media_seek.yaml`, deployed to
@@ -538,7 +742,7 @@ tile, until they get a room hero (#13 step 4).
 | Hash | Contents |
 |---|---|
 | `#living-room` | Apple TV card at the top, the same card as on Home (only while active; tap opens `#living-room-remote`, where volume, apps and sound settings live), otherwise a compact Apple TV card showing its state that opens the remote, with a power button (`media_player.turn_on`) only while it is `off`; 4 lights, thermostat + fireplace (Bubble climate) |
-| `#living-room-remote` | No header. Now playing: Yet Another Media Player, artwork-first (`card_height: 320`, the smallest height at which YAMP keeps its power, mute and volume row; `volume_entity` is the Soundbar; classic controls in a bar under the art, since the modern layout floats a large pause button and the title over the middle of it; artwork fills the card behind the controls (`cover`); a UIX `--accent-color` override keeps controls neutral instead of HA's default orange accent, plus dark text on the volume percentage label, which otherwise draws white on that now-white accent). Sound row: Speech, Night and Sub (`phu:sonos-sub-mini`, `switch.living_room_soundbar_subwoofer_enabled`) toggles, filled while on. App favourites (segmented, `phu:` brand icons: TV, YouTube, Disney+, Prime Video; the current app is the filled pill). Remote (Universal Remote Card, `config_entry_id` = the Living Room AppleTV entry): back = `menu`, hold = `top_menu`, with play/pause (`play_pause` key) below it; a 190 × 200 px swipe touchpad (tap = `select`, swipes repeat on hold) in the middle, with the card's padding removed so the whole pop-up fits an iPhone screen without scrolling; home, with power below it (hold-only, `media_player.toggle`, so a stray tap can't turn the TV off). Below: skip back / forward 10 s (`skip_backward` / `skip_forward`), kept here rather than in the timeline so they stay put and keep working on live TV, where the timeline hides; between them a keyboard button that is visible only while `binary_sensor.living_room_appletv_keyboard_focus` is on; it types into the focused field with `apple_tv.set_keyboard_text`. YAMP's own power and play/pause are hidden, and its menu button is hidden with a UIX `display: none` (YAMP has no option for it), so the artwork carries only mute and the volume slider; When a favourite app sends no artwork, `media_artwork_overrides` supplies a branded fallback from `ha/www/media_art/` (YouTube, TV, Disney+, Prime Video: the app's logo on a dark glow in its brand colour). Each entry pairs `app_name` with `missing_art_url`, not `image_url`, so real artwork still wins when the app sends it; YouTube never does (the Apple TV gives HA no thumbnail or video ID for it). YAMP's own timeline is hidden (it seeks only on a tap on a 6 px bar). Under the YAMP card, a Bubble slider on `number.<room>_appletv_position` (from `ha/packages/media_seek.yaml`; refreshed every 2 s while playing, holding a dragged value for 6 s (advancing while playing) because the Apple TV keeps reporting the pre-seek position for a few seconds, excluded from the recorder) is the timeline: it fills (purple, the media colour) to the playback position, reads e.g. "8:58 / 30:25", seeks when released (`slider_live_update: false`), labels the drag target as m:ss through the `time_slider` module (Bubble would show raw seconds, "1630 s"), and is a slim 32 px bar as wide as the YAMP card above it, with the 7% fill of the rows below it, with 10 px corners (16 px would make a 32 px bar a pill) and a square-ended fill clipped by the bar; it is hidden while the number is unavailable, which is whenever the app reports no duration (live TV) |
+| `#living-room-remote` | No header. Now playing: Yet Another Media Player, artwork-first (`card_height: 320`, the smallest height at which YAMP keeps its power, mute and volume row, shown as a − / level / + stepper, `volume_step: 0.02`; `volume_entity` is the Soundbar; classic controls in a bar under the art, since the modern layout floats a large pause button and the title over the middle of it; artwork fills the card behind the controls (`cover`, anchored `top center` so a poster keeps its title art); a UIX `--accent-color` override keeps controls neutral instead of HA's default orange accent, plus dark text on the volume percentage label, which otherwise draws white on that now-white accent). Sound row: Speech, Night and Sub (`phu:sonos-sub-mini`, `switch.living_room_soundbar_subwoofer_enabled`) toggles, filled while on. App favourites (segmented, `phu:` brand icons: TV, YouTube, Disney+, Prime Video; the current app is the filled pill). Remote (Universal Remote Card, `config_entry_id` = the Living Room AppleTV entry): back = `menu`, hold = `top_menu`, with play/pause (`play_pause` key) below it; a 190 × 170 px swipe touchpad (tap = `select`, swipes repeat on hold) in the middle, with the card's padding removed so the whole pop-up fits an iPhone screen without scrolling; home, with power below it (hold-only, `media_player.toggle`, so a stray tap can't turn the TV off). Below: skip back / forward 10 s (`skip_backward` / `skip_forward`), kept here rather than in the timeline so they stay put and keep working on live TV, where the timeline hides; between them a keyboard button that is visible only while `binary_sensor.living_room_appletv_keyboard_focus` is on; it types into the focused field with `apple_tv.set_keyboard_text`. YAMP's own power and play/pause are hidden, and its menu button is hidden with a UIX `display: none` (YAMP has no option for it), so the artwork carries only mute and the volume slider; Artwork comes from one `media_artwork_overrides` rule per Apple TV whose `image_url` is a template: Apple's store poster (2000 px, from `sensor.<room>_appletv_info`) when the info sensor matches the playing content ID, otherwise what the Apple TV sends, otherwise a branded fallback from `ha/www/media_art/` (YouTube, TV, Disney+, Prime Video: the app's logo on a dark glow in its brand colour). The Apple TV's own artwork is a ~294 × 166 banner, too soft at card width; the poster is the sharp version for anything bought from Apple. YouTube sends no artwork at all (and no thumbnail or video ID to fetch one with). YAMP's own timeline is hidden (it seeks only on a tap on a 6 px bar). Under the YAMP card, a Bubble slider on `number.<room>_appletv_position` (from `ha/packages/media_seek.yaml`; refreshed every 2 s while playing, holding a dragged value for 6 s (advancing while playing) because the Apple TV keeps reporting the pre-seek position for a few seconds, excluded from the recorder) is the timeline: it fills (purple, the media colour) to the playback position, reads e.g. "8:58 / 30:25", seeks when released (`slider_live_update: false`), labels the drag target as m:ss through the `time_slider` module (Bubble would show raw seconds, "1630 s"), and is a slim 32 px bar as wide as the YAMP card above it, with the 7% fill of the rows below it, with 10 px corners (16 px would make a 32 px bar a pill) and a square-ended fill clipped by the bar; it is hidden while the number is unavailable, which is whenever the app reports no duration (live TV) |
 | `#kitchen` | Sink light, dishwasher and refrigerator tiles, HomePod |
 | `#family-room` | Ambient lamp, 2 pinball underglows, 3 game power switches, Apple TV player (only while active; Theater volume slider; Apps, Speech and Night sub-buttons) |
 | `#office` | 7 lights, fan speed (tile `fan-speed` feature), HomePod |
@@ -727,6 +931,7 @@ row showing the lowest level. New devices appear automatically.
 | `ha/themes/home_flat.yaml` | `/config/themes/home_flat.yaml` | Dashboard theme; `frontend.reload_themes` after a change (repo authoritative) |
 | `ha/packages/media_activity.yaml` | `/config/packages/media_activity.yaml` | HomePod and Apple TV "recently active" sensors for room media cards and the Media chip (repo authoritative) |
 | `ha/www/media_art/*.svg` | `/config/www/media_art/` | Fallback artwork for the favourite Apple TV apps (YouTube, TV, Disney+, Prime Video) in the remote pop-ups (repo authoritative) |
+| `ha/packages/media_info.yaml` | `/config/packages/media_info.yaml` | Apple TV now-playing details and poster from the iTunes lookup (repo authoritative) |
 | `ha/packages/media_seek.yaml` | `/config/packages/media_seek.yaml` | Apple TV playback-position numbers behind the remote pop-ups' timeline sliders (repo authoritative) |
 
 ---
