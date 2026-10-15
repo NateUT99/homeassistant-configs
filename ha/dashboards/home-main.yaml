@@ -1865,6 +1865,13 @@ views:
 
             .more-info-menu { display: none !important; }
 
+            .progress-bar { position: relative !important; height: 24px !important; cursor: pointer; overflow: visible !important; background: linear-gradient(transparent 9px, color-mix(in srgb, var(--primary-text-color)
+            25%, transparent) 9px, color-mix(in srgb, var(--primary-text-color) 25%, transparent) 15px, transparent 15px) !important; }
+
+            .progress-inner { position: absolute !important; top: 9px !important; left: 0; height: 6px !important; margin: 0 !important; border-radius: 3px; pointer-events: none; }
+
+            .timestamps-container { pointer-events: none !important; }
+
             '
         display_timestamps: true
       - type: custom:bubble-card
@@ -2567,6 +2574,13 @@ views:
             .volume-percentage-indicator { color: var(--primary-background-color) !important; }
 
             .more-info-menu { display: none !important; }
+
+            .progress-bar { position: relative !important; height: 24px !important; cursor: pointer; overflow: visible !important; background: linear-gradient(transparent 9px, color-mix(in srgb, var(--primary-text-color)
+            25%, transparent) 9px, color-mix(in srgb, var(--primary-text-color) 25%, transparent) 15px, transparent 15px) !important; }
+
+            .progress-inner { position: absolute !important; top: 9px !important; left: 0; height: 6px !important; margin: 0 !important; border-radius: 3px; pointer-events: none; }
+
+            .timestamps-container { pointer-events: none !important; }
 
             '
         display_timestamps: true
