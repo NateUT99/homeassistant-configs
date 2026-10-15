@@ -99,7 +99,7 @@ actions:
                 {%- set ns = namespace(formatted=[]) -%}
                 {%- for a in areas -%}{%- set ns.formatted = ns.formatted + [fmt(a)] -%}{%- endfor -%}
                 {%- if ns.formatted | length == 0 -%}
-                the door
+                a
                 {%- elif ns.formatted | length == 1 -%}
                 {{ ns.formatted[0] }}
                 {%- else -%}
@@ -108,7 +108,9 @@ actions:
           - alias: Announce the advance warning
             action: script.household_tts_announce
             data:
-              message: "Thermostat pausing soon — {{ open_doors_text }} door's open."
+              message: >-
+                Thermostat pausing soon — {{ open_doors_text }} {{ 'doors are' if
+                ' and ' in open_doors_text else "door's" }} open.
               target: auto
               notification_title: "🚪 Door Open Warning"
       - alias: Opened 3 minutes ago and thermostat not already off
@@ -169,12 +171,13 @@ actions:
             action: script.household_tts_announce
             data:
               message: >-
-                Thermostat paused — {{ open_areas_text }} is open.{%- if
+                Thermostat paused — {{ open_areas_text }} {{ 'are' if ' and '
+                in open_areas_text else 'is' }} open.{%- if
                 is_state('binary_sensor.outside_air_quality_index_high',
-                'on') %} Air quality's poor too — {% if
+                'on') %} Air quality's poor, so {% if
                 states('sensor.erie_ohio_usa_air_quality_index') |
-                int(0) > 150 %}please keep{% else %}consider
-                keeping{% endif %} things closed.{%- endif %}
+                int(0) > 150 %}keep{% else %}consider keeping{% endif %}
+                things closed.{%- endif %}
               target: auto
               notification_title: "❌ Thermostat Paused"
       - alias: Closed 3 minutes ago, thermostat off, and a mode was stored
