@@ -102,6 +102,7 @@ job ending, a fixed clock time, the vacuum getting stuck) rather than one room s
   `_water_shortage`, `_cleaning`; `sensor.living_room_vacuum_cleaning_progress`;
   `switch.living_room_vacuum_dock_dust_emptying`; `select.living_room_vacuum_mop_intensity`
 - `input_boolean.everyone_sleeping` from the household sleep/presence system
+- `binary_sensor.utility_room_door` (contact sensor) for the mop-prep reminders
 - `binary_sensor.avery_home_today` — template sensor over `calendar.avery`'s "Avery @ Nate's"
   all-day events
 - `zone.home` as the presence source, matching the rest of this instance's household
@@ -416,12 +417,19 @@ and 30-minute ticks coincide on the hour):
 
 | Trigger | Conditions | Action |
 |---|---|---|
-| Every 30 min, from 20:00 | Mop-eligible night (Avery away tonight, week not mopped), not bedtime, pad off, someone home, not skipped, not paused | TTS prep reminder (`target: auto`); no push |
+| Every 30 min, from 20:00 | Mop-eligible night (Avery away tonight, week not mopped), not bedtime, prep unfinished, someone home, not skipped, not paused | TTS prep reminder (`target: auto`); no push |
+| `everyone_sleeping` → `on`, after 20:00 | Mop-eligible night, prep unfinished, not skipped, not paused | One last-call TTS on the master bedroom HomePod |
 | Vacuum docked for 1 min | Follow-up ran this week, pad still on, docked, not everyone asleep | Cleanup push (tag `vacuum_mop_cleanup`), plus TTS 06:00–21:00 with someone home |
 | Hourly on the hour | Same as re-dock | TTS only, same window |
 | Pad removed | — | Clears `vacuum_mop_cleanup` and `vacuum_master_mop_missed` |
 
-Prep is TTS-only because clipping the pad on is the acknowledgement that ends the loop.
+Prep is unfinished while the pad is off or `binary_sensor.utility_room_door` is closed; the
+robot can't reach the Pantry or Utility Room with their doors shut. Both messages name only
+what's left — the full prep reminder is *"Mop night. Fill the tank, clip on the pad, and open
+the pantry and utility doors."* The pantry door has no sensor yet, so it's named while
+anything else is outstanding but can't end the loop (#21), and there is no tank-full signal,
+so the tank rides along with the pad. Prep is TTS-only because finishing it is the
+acknowledgement that ends the loop. The last call lands an hour before the mop starts.
 Cleanup repeats hourly until the pad comes off, since a pad left on blocks every later pass.
 The `docked` condition matters because `vacuum_mop_master_suite_done_this_week` turns on when
 the follow-up starts, not when it finishes. The same 30-minute tick latches

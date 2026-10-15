@@ -1,9 +1,11 @@
 id: "1789070771813"
 alias: "Household: Vacuum Mop Pad Reminders"
 description: >-
-  Brackets the weekly mop pass with prep and cleanup reminders, since the pad
-  and 350 ml tank are fitted by hand. Also latches tonight's Avery-home
-  answer for Vacuum Evening Cleaning to read, piggybacked on this
+  Brackets the weekly mop pass with prep and cleanup reminders, since the pad,
+  tank, and pantry/utility doors are handled by hand. Prep repeats every 30
+  minutes from 20:00 naming only what's left, plus one last call in the master
+  bedroom at bedtime if anything is still undone. Also latches tonight's
+  Avery-home answer for Vacuum Evening Cleaning to read, piggybacked on this
   automation's own 30-minute trigger. See guides/vacuum_cleaning_routine.md.
 triggers:
   - trigger: time_pattern
@@ -30,6 +32,14 @@ triggers:
     to: "off"
     id: cleanup_done
     alias: Mop pad was removed
+  - trigger: state
+    entity_id: input_boolean.everyone_sleeping
+    to: "on"
+    id: bedtime
+    alias: Everyone went to bed
+    note: >-
+      Vacuum Evening Cleaning starts the mop an hour after this, so the last
+      call leaves an hour to finish prep.
 conditions: []
 actions:
   - alias: Latch tonight's Avery-home answer
@@ -62,7 +72,7 @@ actions:
                 target:
                   entity_id: input_boolean.vacuum_avery_home_tonight
   - choose:
-      - alias: Prep nudge -- mop-eligible night, someone home, pad not yet on, not skipped
+      - alias: Prep nudge -- mop-eligible night, someone home, pad off or utility door closed, not skipped
         conditions:
           - condition: trigger
             id: prep_check
@@ -81,10 +91,21 @@ actions:
             entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
             state: "off"
             alias: Common-area mop hasn't run yet this week
-          - condition: state
-            entity_id: binary_sensor.living_room_vacuum_mop_attached
-            state: "off"
-            alias: Mop pad is not already attached
+          - condition: or
+            alias: Prep is not finished
+            conditions:
+              - condition: state
+                entity_id: binary_sensor.living_room_vacuum_mop_attached
+                state: "off"
+                alias: Mop pad is off
+              - condition: state
+                entity_id: binary_sensor.utility_room_door
+                state: "off"
+                alias: Utility room door is closed
+            note: >-
+              The pantry door has no sensor yet, so it is named in the message
+              but cannot end the loop. There is no tank-full signal, so the
+              tank rides along with the pad.
           - condition: numeric_state
             entity_id: zone.home
             above: 0
@@ -101,10 +122,70 @@ actions:
           - alias: Announce the prep reminder
             action: script.household_tts_announce
             data:
-              message: Tonight is mop night. Fill the robot's water tank and clip on the mop pad.
+              message: >-
+                {% set doors = 'open the pantry and utility doors' if
+                is_state('binary_sensor.utility_room_door', 'off') else 'open
+                the pantry door' %}{% if
+                is_state('binary_sensor.living_room_vacuum_mop_attached', 'off')
+                %}Mop night. Fill the tank, clip on the pad, and {{ doors }}.{%
+                else %}Mop night. {{ doors | capitalize }}.{% endif %}
               target: auto
               notification_title: Vacuum Mop Prep
               critical_fallback: false
+            note: Names only what's left.
+      - alias: Bedtime last call -- mop night and prep still not finished
+        conditions:
+          - condition: trigger
+            id: bedtime
+          - condition: time
+            after: "20:00:00"
+            alias: 20:00 or later
+            note: Matches the prep window; the Avery-tonight latch is only fresh from 19:55.
+          - condition: state
+            entity_id: input_boolean.vacuum_avery_home_tonight
+            state: "off"
+            alias: Avery is not home tonight
+          - condition: state
+            entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
+            state: "off"
+            alias: Common-area mop hasn't run yet this week
+          - condition: state
+            entity_id: input_boolean.vacuum_mop_skip_today
+            state: "off"
+            alias: Not canceled for today
+          - condition: state
+            entity_id: input_boolean.vacuum_routine_pause
+            state: "off"
+            alias: Vacuum routine is not paused
+          - condition: or
+            alias: Prep is not finished
+            conditions:
+              - condition: state
+                entity_id: binary_sensor.living_room_vacuum_mop_attached
+                state: "off"
+                alias: Mop pad is off
+              - condition: state
+                entity_id: binary_sensor.utility_room_door
+                state: "off"
+                alias: Utility room door is closed
+        sequence:
+          - alias: Announce the last call in the master bedroom
+            action: script.household_tts_announce
+            data:
+              message: >-
+                Mop night. {% set pad =
+                is_state('binary_sensor.living_room_vacuum_mop_attached', 'off')
+                %}{% set door = is_state('binary_sensor.utility_room_door',
+                'off') %}{% if pad and door %}The pad's still off and the
+                utility door is closed.{% elif pad %}The pad's still off.{% else
+                %}The utility door is closed.{% endif %}
+              target: master_bedroom
+              notification_title: Vacuum Mop Prep
+              critical_fallback: false
+            note: >-
+              Master bedroom explicitly -- that is where everyone is once
+              everyone_sleeping turns on. Avery is away on every mop night, so
+              nobody else is woken.
       - alias: Cleanup nudge -- re-docked or hourly repeat after the master-suite follow-up, pad still on
         conditions:
           - condition: trigger
