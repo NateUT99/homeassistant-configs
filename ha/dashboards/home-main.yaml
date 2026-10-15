@@ -1914,6 +1914,8 @@ views:
         sub_button:
           main: []
           bottom: []
+        modules:
+        - time_slider
       - type: custom:bubble-card
         card_type: sub-buttons
         hide_main_background: true
@@ -2664,6 +2666,8 @@ views:
         sub_button:
           main: []
           bottom: []
+        modules:
+        - time_slider
       - type: custom:bubble-card
         card_type: sub-buttons
         entity: media_player.master_bedroom_appletv

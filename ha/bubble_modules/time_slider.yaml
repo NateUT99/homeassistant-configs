@@ -1,0 +1,34 @@
+# Bubble Card module: time slider value.
+# Deployed to /config/bubble_card/modules/time_slider.yaml (standards/dashboards.md §13).
+# Apply with `modules: [time_slider]` on a `button_type: slider` card whose entity is a number
+# in seconds (unit `s`), such as the Apple TV playback positions from ha/packages/media_seek.yaml.
+# While dragging, Bubble labels the slider "<number> <unit>" with no way to format it, so a
+# 30-minute video reads "1630 s". A MutationObserver on that label rewrites it as m:ss, or
+# h:mm:ss past an hour. It attaches once per label element and leaves any other text alone.
+time_slider:
+  name: Time slider value
+  version: "1.0"
+  creator: home-main
+  description: Shows a seconds-valued slider's drag label as m:ss or h:mm:ss.
+  supported:
+    - button
+  code: |
+    ${(() => {
+      const label = this.elements?.rangeValue;
+      if (!label || label.__timeSlider) return '';
+      label.__timeSlider = true;
+      const rewrite = () => {
+        const m = (label.textContent || '').match(/^\s*([\d.,\s]+?)\s*s\s*$/);
+        if (!m) return;
+        const total = Math.max(0, Math.round(parseFloat(m[1].replace(/[,\s]/g, ''))));
+        if (Number.isNaN(total)) return;
+        const h = Math.floor(total / 3600);
+        const min = Math.floor((total % 3600) / 60);
+        const sec = String(total % 60).padStart(2, '0');
+        const text = h ? `${h}:${String(min).padStart(2, '0')}:${sec}` : `${min}:${sec}`;
+        if (label.textContent !== text) label.textContent = text;
+      };
+      new MutationObserver(rewrite).observe(label, { childList: true, characterData: true, subtree: true });
+      rewrite();
+      return '';
+    })()}
