@@ -1890,6 +1890,7 @@ views:
           - repeat
           - favorite
           - play_pause
+          - power
         match_theme: true
         card_height: 320
         volume_mode: slider
@@ -1903,6 +1904,7 @@ views:
             .volume-percentage-indicator { color: var(--primary-background-color) !important; }
 
             '
+        display_timestamps: true
       - type: custom:bubble-card
         card_type: sub-buttons
         hide_main_background: true
@@ -2058,7 +2060,7 @@ views:
             - play_pause
           - circlepad
           - - home
-            - null
+            - power
         custom_actions:
         - type: button
           name: back
@@ -2134,6 +2136,20 @@ views:
           tap_action:
             action: key
             key: play_pause
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }'
+          hold_action:
+            action: none
+        - type: button
+          name: power
+          icon: mdi:power
+          tap_action:
+            action: none
+          hold_action:
+            action: perform-action
+            perform_action: media_player.toggle
+            target:
+              entity_id: media_player.living_room_appletv
           styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
             }'
         styles: 'ha-card { background: none !important; box-shadow: none !important; }
