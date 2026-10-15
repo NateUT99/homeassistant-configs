@@ -1971,6 +1971,7 @@ views:
             volume_button: true
             previous_button: true
             next_button: true
+            play_pause_button: true
           sub_button:
             main: []
             bottom: []
