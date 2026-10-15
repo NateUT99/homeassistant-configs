@@ -2034,21 +2034,9 @@ views:
                   entity_id: media_player.living_room_appletv
                 data:
                   source: Prime Video
-            - entity: media_player.living_room_appletv
-              sub_button_type: select
-              select_attribute: source_list
-              icon: mdi:apps
-              name: All apps
-              show_name: false
-              css_class: seg-all
-              state_background: false
-              light_background: false
-              custom_height: 40
         styles: '.bubble-sub-button-group:has(> .bubble-sub-button:nth-child(4)) .bubble-sub-button { flex-direction: row !important; height: 40px !important; }
 
-          .seg-all { flex: 0 0 48px !important; }
-
-          .bubble-sub-button:not(.seg-all) { --mdc-icon-size: 30px; }
+          .bubble-sub-button { --mdc-icon-size: 30px; }
 
           '
       - type: custom:universal-remote-card
