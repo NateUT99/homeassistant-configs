@@ -2483,8 +2483,8 @@ views:
               buttons_layout: inline
               group:
               - name: CBS
-                show_name: true
-                show_icon: false
+                show_name: false
+                show_icon: true
                 css_class: rc-ch
                 state_background: false
                 light_background: false
@@ -2497,9 +2497,10 @@ views:
                   data:
                     media_content_type: channel
                     media_content_id: 11-1
+                icon: phu:cbs
               - name: ABC
-                show_name: true
-                show_icon: false
+                show_name: false
+                show_icon: true
                 css_class: rc-ch
                 state_background: false
                 light_background: false
@@ -2512,9 +2513,10 @@ views:
                   data:
                     media_content_type: channel
                     media_content_id: 13-1
+                icon: phu:abc
               - name: NBC
-                show_name: true
-                show_icon: false
+                show_name: false
+                show_icon: true
                 css_class: rc-ch
                 state_background: false
                 light_background: false
@@ -2527,9 +2529,10 @@ views:
                   data:
                     media_content_type: channel
                     media_content_id: 24-1
+                icon: phu:nbc
               - name: Fox
-                show_name: true
-                show_icon: false
+                show_name: false
+                show_icon: true
                 css_class: rc-ch
                 state_background: false
                 light_background: false
@@ -2542,6 +2545,7 @@ views:
                   data:
                     media_content_type: channel
                     media_content_id: 36-1
+                icon: phu:fox
           styles: '.bubble-sub-button-bottom-container { justify-content: stretch !important; }
 
             .bubble-sub-button-group { width: 100% !important; gap: 8px !important; flex-wrap: nowrap !important; }
@@ -2550,6 +2554,8 @@ views:
             }
 
             .bubble-sub-button .bubble-sub-button-name-container { font-size: 15px !important; font-weight: 600 !important; }
+
+            .bubble-sub-button { --mdc-icon-size: 34px; }
 
             '
         - type: custom:universal-remote-card
