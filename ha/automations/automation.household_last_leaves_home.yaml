@@ -4,9 +4,7 @@ description: >-
   Runs the whole-house departure routine: closes the garage, locks the front
   door, sets the living room thermostat to Away, turns off lights/fans/switches/media
   players labeled "No One Is Home", sleeps (locks) the Mac Mini display, and starts the daytime vacuum clean of the remaining
-  rooms plus the Pantry and Utility Room (9am-7pm, if it hasn't run today; skipped the day after an overnight mop pass) -- the Office always runs in the evening pass instead, and the Bathroom and Entrance drop out
-  of that list on a night Avery is away, since Household: Vacuum Evening
-  Cleaning picks them up instead. Normally fires 5 minutes after
+  rooms plus the Pantry and Utility Room (9am-7pm, if it hasn't run today; skipped the day after an overnight mop pass) -- the Office, Kitchen, and Living Room run in the evening pass instead. Normally fires 5 minutes after
   zone.home drops to 0 -- long enough to absorb a walk to the community mailbox.
   When the Immediate Departure override (input_boolean.immediate_departure) is
   armed before leaving -- typically via Siri for a longer absence -- it fires
@@ -151,23 +149,6 @@ actions:
         state: "on"
         alias: Dustbin module is seated
     then:
-      - alias: Build the daytime segment list -- drop the Bathroom and Entrance when Avery is away
-        variables:
-          daytime_segments: >-
-            {{ [16, 19, 20, 21, 23, 24] + ([17, 26] if
-            is_state('binary_sensor.avery_home_today', 'on') else []) }}
-        note: >-
-          Segments 17 (Bathroom) and 26 (Entrance) only stay in this list
-          when Avery is home -- both sit within earshot of the bedroom
-          hall, so on a night she's away, Household: Vacuum Evening
-          Cleaning adds them to the evening pass instead, so including
-          them here too would clean them twice the same vacuum-day.
-          Segments 23 (Utility room) and 24 (Pantry) always run here and
-          are not in the nightly vacuum-only pass; on mop night the mop
-          script still mops them. The Office (18) runs in the evening pass
-          instead, not here. No mop-day adjustment is needed: the day after
-          a mop night, Household: Vacuum Reset marks vacuum_ran_daytime on at
-          08:00, so this pass doesn't run at all.
       - alias: Set active zone to daytime
         action: input_select.select_option
         target:
@@ -192,8 +173,16 @@ actions:
         data:
           command: app_segment_clean
           params:
-            - segments: "{{ daytime_segments }}"
+            - segments: [16, 17, 19, 20, 21, 23, 24, 26]
               repeat: 1
+        note: >-
+          Avery's Room, Bathroom, Master Bedroom, Master Closet, Master
+          Bathroom, Utility Room, Pantry, Entrance -- a fixed list. Office,
+          Kitchen, and Living Room run in the evening pass instead. No
+          mop-day adjustment is needed: the day after a mop night,
+          Household: Vacuum Reset marks vacuum_ran_daytime on at 08:00, so
+          this pass doesn't run at all. Segment 28 (Stairs) is never
+          included.
     else:
       - alias: If the daytime clean was blocked by the mop pad, say so
         note: >-

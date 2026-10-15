@@ -174,20 +174,6 @@ actions:
                           entity_id: vacuum.living_room_vacuum
                         data:
                           fan_speed: quiet
-                      - alias: Build the vacuum segment list -- add the Bathroom and Entrance only when Avery is away tonight
-                        variables:
-                          vacuum_segments: "{{ [18, 22, 25] + ([17, 26] if is_state('input_boolean.vacuum_avery_home_tonight', 'off') else []) }}"
-                        note: >-
-                          Office (18) is carpeted, so it is not in the mop
-                          script's list and is skipped on mop night. Utility Room
-                          (23) and Pantry (24) are vacuumed in Household: Last
-                          Leaves Home's daytime pass instead, but stay in the mop
-                          script's list. Bathroom and
-                          Entrance both border Avery's room, so both are safe on
-                          any night she isn't home, not just mop night. Household:
-                          Last Leaves Home drops segments 17 and 26 from that
-                          day's daytime pass whenever this gate adds them here,
-                          so neither room is cleaned twice.
                       - alias: Start segment clean of common areas
                         action: vacuum.send_command
                         target:
@@ -195,8 +181,16 @@ actions:
                         data:
                           command: app_segment_clean
                           params:
-                            - segments: "{{ vacuum_segments }}"
+                            - segments: [18, 22, 25]
                               repeat: 1
+                        note: >-
+                          Office, Kitchen, Living Room -- a fixed list, the same
+                          every vacuum-only night. Office (18) is carpeted, so it
+                          is not in the mop script list and is skipped on mop
+                          night. Bathroom (17), Entrance (26), Utility Room (23),
+                          and Pantry (24) are vacuumed in Household: Last Leaves
+                          Home daytime pass instead, but stay in the mop script
+                          list. Segment 28 (Stairs) is never included.
                       - alias: Mark evening zone ran today
                         action: input_boolean.turn_on
                         target:
