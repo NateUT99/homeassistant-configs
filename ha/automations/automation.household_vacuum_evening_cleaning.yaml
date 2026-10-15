@@ -79,7 +79,8 @@ actions:
               - choose:
                   - alias: >-
                       Weekly mop pass -- Avery away tonight, not yet mopped
-                      this week, pad on, water module seated, tank not empty
+                      this week, pad on, water module seated, tank not empty,
+                      utility door open
                     conditions:
                       - condition: state
                         entity_id: input_boolean.vacuum_avery_home_tonight
@@ -107,6 +108,15 @@ actions:
                         entity_id: binary_sensor.living_room_vacuum_water_shortage
                         state: "off"
                         alias: Water tank is not empty
+                      - condition: state
+                        entity_id: binary_sensor.utility_room_door
+                        state: "on"
+                        alias: Utility room door is open
+                        note: >-
+                          A shut door leaves the room unmopped for the week,
+                          so the mop waits for the next eligible night
+                          instead. The pantry door joins this once it has a
+                          sensor (#21).
                     note: >-
                       Deliberately not gated on vacuum_ran_evening -- a noon
                       whole-house vacuum sets that flag but does not mop, so
@@ -195,35 +205,72 @@ actions:
                           run to distinguish. Reset at 8am by Household:
                           Vacuum Reset.
                 default:
-                  - alias: If tonight was skipped for the mop pad, say so quietly
-                    note: >-
-                      Covers a leftover pad (this week's mop already ran) and a
-                      pad prepped on a night the mop branch cannot run (Avery
-                      home, tank empty, module out). Only when a pass was
-                      actually due -- the night after a mop pass is skipped on
-                      purpose and stays silent. Passive so it lands silently
-                      overnight, and tagged vacuum_mop_cleanup so Household:
-                      Vacuum Mop Pad Reminders clears it when the pad comes
-                      off.
-                    if:
-                      - condition: state
-                        entity_id: binary_sensor.living_room_vacuum_mop_attached
-                        state: "on"
-                        alias: Mop pad is attached
-                      - condition: state
-                        entity_id: input_boolean.vacuum_ran_evening
-                        state: "off"
-                        alias: A nightly pass was due tonight
-                    then:
-                      - alias: Tell Nate the nightly clean was skipped for the mop pad
-                        action: notify.mobile_app_nates_iphone
-                        data:
-                          title: Vacuum
-                          message: Nightly clean skipped -- the mop pad is attached.
-                          data:
-                            tag: vacuum_mop_cleanup
-                            push:
-                              interruption-level: passive
+                  - alias: Say quietly why tonight was skipped
+                    choose:
+                      - alias: Mop night blocked by a closed utility door
+                        conditions:
+                          - condition: state
+                            entity_id: input_boolean.vacuum_avery_home_tonight
+                            state: "off"
+                            alias: Avery is not home tonight
+                          - condition: state
+                            entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
+                            state: "off"
+                            alias: Common-area mop hasn't run yet this week
+                          - condition: state
+                            entity_id: binary_sensor.living_room_vacuum_mop_attached
+                            state: "on"
+                            alias: Mop pad is attached
+                          - condition: state
+                            entity_id: binary_sensor.utility_room_door
+                            state: "off"
+                            alias: Utility room door is closed
+                        sequence:
+                          - alias: Tell Nate the mop was skipped for the utility door
+                            action: notify.mobile_app_nates_iphone
+                            data:
+                              title: Vacuum
+                              message: >-
+                                Mop skipped tonight -- the utility door is
+                                closed. It'll try again the next night Avery
+                                is away.
+                              data:
+                                tag: vacuum_mop_cleanup
+                                push:
+                                  interruption-level: passive
+                            note: >-
+                              Passive so it lands silently overnight; tagged
+                              vacuum_mop_cleanup so pulling the pad clears it.
+                    default:
+                      - alias: If tonight was skipped for the mop pad, say so quietly
+                        note: >-
+                          Covers a leftover pad (this week's mop already ran) and a
+                          pad prepped on a night the mop branch cannot run (Avery
+                          home, tank empty, module out). Only when a pass was
+                          actually due -- the night after a mop pass is skipped on
+                          purpose and stays silent. Passive so it lands silently
+                          overnight, and tagged vacuum_mop_cleanup so Household:
+                          Vacuum Mop Pad Reminders clears it when the pad comes
+                          off.
+                        if:
+                          - condition: state
+                            entity_id: binary_sensor.living_room_vacuum_mop_attached
+                            state: "on"
+                            alias: Mop pad is attached
+                          - condition: state
+                            entity_id: input_boolean.vacuum_ran_evening
+                            state: "off"
+                            alias: A nightly pass was due tonight
+                        then:
+                          - alias: Tell Nate the nightly clean was skipped for the mop pad
+                            action: notify.mobile_app_nates_iphone
+                            data:
+                              title: Vacuum
+                              message: Nightly clean skipped -- the mop pad is attached.
+                              data:
+                                tag: vacuum_mop_cleanup
+                                push:
+                                  interruption-level: passive
       - alias: Master suite mop follow-up -- next morning after a mop night, or the 11:00 push button
         conditions:
           - condition: trigger

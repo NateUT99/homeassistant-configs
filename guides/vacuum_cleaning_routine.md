@@ -302,9 +302,11 @@ Both branches require the routine not paused and the vacuum not already `cleanin
 - **Mop branch** — taken on a [mop-eligible night](#weekly-mop-pass).
 - **Vacuum-only branch** — `vacuum_ran_evening` off and the pad off: starts `nightly`, then
   turns `vacuum_ran_evening` on. Marked on start, since nothing docks the nightly pass partway.
-- **Neither** — with the pad on and a pass due, the night is skipped rather than dragging a wet
-  pad through the vacuum pass, with a passive push *"Nightly clean skipped — the mop pad is
-  attached"* (tag `vacuum_mop_cleanup`, cleared when the pad comes off).
+- **Neither** — with the pad on, the night is skipped rather than dragging a wet pad through
+  the vacuum pass, with a passive push (tag `vacuum_mop_cleanup`, cleared when the pad comes
+  off). On a mop-eligible night blocked only by a closed utility door it reads *"Mop skipped
+  tonight — the utility door is closed"*, and the mop waits for the next night Avery is away;
+  otherwise, when a pass was due, *"Nightly clean skipped — the mop pad is attached."*
 
 ### Daytime pass
 
@@ -367,6 +369,8 @@ branch of *Household: Vacuum Evening Cleaning* runs only when all of these hold:
 - This week's nightly mop hasn't run (`vacuum_mop_common_areas_done_this_week` off)
 - The pad is fitted, the dustbin + water module is seated, and the tank isn't empty
   (`mop_attached` on, `water_box_attached` on, `water_shortage` off)
+- The utility room door is open (`binary_sensor.utility_room_door` on); the pantry door joins
+  once it has a sensor (#21)
 
 `vacuum_ran_evening` is not on the list, so a noon whole-house clean doesn't cancel the mop.
 The fitted pad is the opt-in: without it the night falls back to the vacuum-only branch and the
