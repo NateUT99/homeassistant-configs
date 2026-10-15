@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- Fallback artwork for the Apple TV YouTube app, which sends no artwork to HA.
+       Used by the YAMP cards in the home-main remote pop-ups (media_artwork_overrides).
+       Logo path: custom-brand-icons phu:youtube. -->
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="38%" r="65%">
+      <stop offset="0%" stop-color="#5a0a12"/>
+      <stop offset="55%" stop-color="#1c0b0e"/>
+      <stop offset="100%" stop-color="#0c0e11"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#glow)"/>
+  <g transform="translate(800 340) scale(11) translate(-12 -12)">
+    <rect x="7" y="7.5" width="10" height="9" fill="#ffffff"/>
+    <path fill="#ff0033" d="M17.845 4.924H6.155A4.155 4.155 0 0 0 2 9.078v5.845a4.155 4.155 0 0 0 4.155 4.153h11.69A4.155 4.155 0 0 0 22 14.922V9.078a4.155 4.155 0 0 0-4.155-4.153Zm-2.809 7.361-5.468 2.608a.218.218 0 0 1-.314-.198v-5.38a.22.22 0 0 1 .319-.196l5.469 2.771a.22.22 0 0 1-.005.395Z"/>
+  </g>
+</svg>
