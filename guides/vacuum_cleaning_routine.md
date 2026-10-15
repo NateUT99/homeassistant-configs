@@ -320,9 +320,12 @@ and not-mid-job guards. It announces a 15-minute grace window on the master bedr
 asking both to refill the water tank and to clear the floor, since this is the only branch in
 the routine that starts while people are awake — via `script.turn_on` rather than a blocking
 call, so a playback error inside the TTS script can't abort the branch before the mop starts.
-It then re-checks pad, water module, and water
-state (not just before the delay, since fifteen minutes is enough time for someone to pull the
-pad off) and starts a segment clean at `fan: balanced` / `mop: high`. Master Closet (segment
+It also always pushes the same notice with a **Start now** button (`VACUUM_MASTER_MOP_START_NOW`,
+tag `vacuum_master_mop_grace`), since a TTS fallback push can't carry an action; tapping it
+ends the wait early, and the push is cleared when the wait ends either way. If the TTS fails
+and falls back to a push, that push arrives alongside this one. It then re-checks pad, water
+module, and water state (not just before the wait, since fifteen minutes is enough time for
+someone to pull the pad off) and starts a segment clean at `fan: balanced` / `mop: high`. Master Closet (segment
 20) is never included — it's carpeted.
 
 The branch sets `input_select.vacuum_active_zone` to `master_mop` and turns on

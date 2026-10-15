@@ -294,9 +294,38 @@ actions:
                   a playback failure inside the TTS script would otherwise
                   abort this branch before the delay, and the mop would
                   never start.
-              - alias: Wait 15 minutes for the water tank to be refilled and the floor cleared
-                delay:
+              - alias: Push the grace window with a Start now button
+                note: >-
+                  Sent even when the TTS plays -- a TTS fallback push cannot
+                  carry a button, and this reaches whoever is up but out of
+                  the bedroom. Legacy notify service for the actionable data.
+                action: notify.mobile_app_nates_iphone
+                data:
+                  title: Vacuum Master Mop
+                  message: >-
+                    Mopping the master bedroom and bathroom in 15 minutes.
+                    Refill the water tank and clear the floor.
+                  data:
+                    tag: vacuum_master_mop_grace
+                    actions:
+                      - action: VACUUM_MASTER_MOP_START_NOW
+                        title: Start now
+              - alias: Wait 15 minutes, or until Start now is tapped
+                wait_for_trigger:
+                  - trigger: event
+                    event_type: mobile_app_notification_action
+                    event_data:
+                      action: VACUUM_MASTER_MOP_START_NOW
+                    alias: Start now tapped
+                timeout:
                   minutes: 15
+                continue_on_timeout: true
+              - alias: Clear the grace-window push
+                action: notify.mobile_app_nates_iphone
+                data:
+                  message: clear_notification
+                  data:
+                    tag: vacuum_master_mop_grace
               - alias: Start the follow-up if the pad, water module, tank, and pause state still allow it
                 note: >-
                   Re-checked here, not just before the delay -- 15 minutes is
