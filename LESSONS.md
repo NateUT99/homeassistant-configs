@@ -645,7 +645,7 @@ For HomePods and the AppleTV, HA's own process plays the clip through pyatv's RA
 
 `chime_tts.say_url` also always returns the Nabu Casa external URL (`helpers/filesystem.py:get_external_address()`, v1.3.0 — no option for the internal URL), but rewriting that host doesn't help: loopback and remote URLs hit the same buffer.
 
-Fix: pass the clip's local path — `{{ tts_audio.url | regex_replace('^https?://[^/]+/local/', '/config/www/') }}`. Given a path, pyatv uses `FileSource`, which decodes the whole file up front with no buffer limit. Live-verified 2026-10-15: a 9.3 s / 75 KB clip that had failed on every attempt played on the office HomePod, and an 11.6 s clip played on the kitchen HomePod through `script.household_tts_announce`. Don't apply this to a speaker that fetches the URL itself (e.g. Sonos) — it needs a URL it can reach on the LAN.
+Fix: pass the clip's local path — `{{ tts_audio.url | regex_replace('^https?://[^/]+/local/', '/config/www/') }}`. Given a path, pyatv uses `FileSource`, which decodes the whole file up front with no buffer limit. Live-verified 2026-10-15: a 9.3 s / 75 KB clip that had failed on every attempt played on the office HomePod, an 11.6 s clip played on the kitchen HomePod through `script.household_tts_announce`, and a 10.5 s broadcast started on all four HomePods within 0.3 s of each other from one `play_media` call. Don't apply this to a speaker that fetches the URL itself (e.g. Sonos) — it needs a URL it can reach on the LAN.
 
 ### `continue_on_error` can't catch a non-`HomeAssistantError` — run the risky action in its own script started with `script.turn_on`
 
