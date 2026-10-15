@@ -837,7 +837,7 @@ views:
           cover_background: false
           hide:
             power_button: true
-            volume_button: true
+            volume_button: false
             previous_button: false
             next_button: false
           show_icon: false
@@ -960,7 +960,7 @@ views:
           cover_background: false
           hide:
             power_button: true
-            volume_button: true
+            volume_button: false
             previous_button: false
             next_button: false
           show_icon: false
@@ -1083,7 +1083,7 @@ views:
           cover_background: false
           hide:
             power_button: true
-            volume_button: true
+            volume_button: false
             previous_button: false
             next_button: false
           rows: 2
@@ -1349,7 +1349,7 @@ views:
           cover_background: false
           hide:
             power_button: true
-            volume_button: true
+            volume_button: false
             previous_button: false
             next_button: false
           show_icon: false
