@@ -29,7 +29,7 @@ sequence:
       whole up front (LESSONS.md -> TTS & Media). The Apple TV integration can
       still raise miniaudio's DecodeError, which is not a HomeAssistantError, so continue_on_error can't catch it -- it
       aborts whichever run it is in. Isolating it in this script keeps the
-      caller alive to retry or push.
+      caller alive to push.
     action: media_player.play_media
     target:
       entity_id: "{{ speakers }}"

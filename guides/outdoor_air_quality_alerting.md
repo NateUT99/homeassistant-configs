@@ -149,7 +149,7 @@ Assign to the **Climate** category with labels **Notification**, **Text to Speec
 
 ### TTS announcements use Chime TTS, not tts.speak or media_player.play_media
 
-`tts.speak` targeting HomePods fails with `miniaudio.DecodeError` (pyatv decode issue). `media_player.play_media` with `announce: true` works but delivers a bare spoken message without a chime. The correct pattern for this instance is `script.household_tts_announce` — this routes to the appropriate Chime TTS service, prepends a soft chime before speaking, and handles the video call suppression check. See `guides/chime_tts.md` for the script's fields and `LESSONS.md` for background on the pyatv failure.
+`tts.speak` targeting HomePods fails with `miniaudio.DecodeError` on any clip over about 7 seconds, since pyatv can't stream a URL larger than 56 KiB (`LESSONS.md` → TTS & Media). `media_player.play_media` with `announce: true` works but delivers a bare spoken message without a chime. The correct pattern for this instance is `script.household_tts_announce` — this routes to the appropriate Chime TTS service, prepends a soft chime before speaking, and handles the video call suppression check. See `guides/chime_tts.md` for the script's fields and `LESSONS.md` for the pyatv size limit.
 
 ---
 

@@ -543,7 +543,7 @@ changes nothing on screen. To zoom or crop the picture, style the div instead:
 
 ### `tts.speak` fails on HomePods via the Apple TV integration
 
-Calling `tts.speak` with `tts.home_assistant_cloud` targeting a HomePod managed by the Apple TV integration fails with `miniaudio.DecodeError: ('failed to init decoder', -1)`. The Apple TV integration's pyatv RAOP streaming layer downloads the Nabu Casa audio URL and passes it through miniaudio for decoding — the format Nabu Casa generates is incompatible.
+Calling `tts.speak` with `tts.home_assistant_cloud` targeting a HomePod managed by the Apple TV integration fails with `miniaudio.DecodeError: ('failed to init decoder', -1)`. The Apple TV integration's pyatv RAOP streaming layer downloads the Nabu Casa audio URL and passes it through miniaudio for decoding. This was first put down to an incompatible audio format, which was never confirmed; pyatv's 56 KiB limit on streaming from a URL produces this exact error and is the likelier cause (see *Apple TV-integration speakers can't stream a clip over 56 KiB from a URL*).
 
 Use `media_player.play_media` with `announce: true` and the `media-source://tts/cloud?message=...` URI scheme instead. This routes through HA's announce pipeline and avoids the pyatv decode path entirely:
 
@@ -650,7 +650,7 @@ Fix: pass the clip's local path — `{{ tts_audio.url | regex_replace('^https?:/
 ### `continue_on_error` can't catch a non-`HomeAssistantError` — run the risky action in its own script started with `script.turn_on`
 
 `continue_on_error: true` only skips `HomeAssistantError` and its subclasses. Any other exception, such as `miniaudio.DecodeError` from the Apple TV integration's `play_media`, aborts the whole run, and every later fallback step is skipped.
-What works: put the action alone in a small script and start it with `script.turn_on`, which returns immediately and doesn't propagate the child's errors. Then detect success from state rather than from an error. For HomePods, wait for the target to reach `playing`; on success that took about a second, and on the failure it never did and the child run ended at about 11 seconds. Retry or fall back if neither happens. Used by `script.household_tts_announce` through `script.household_tts_play` (`guides/chime_tts.md`). Success path live-verified 2026-10-11 on the kitchen HomePod. The one reproducible failure, an oversized clip, is now avoided by passing a local path (previous entry), so this path is a safety net for transient failures.
+What works: put the action alone in a small script and start it with `script.turn_on`, which returns immediately and doesn't propagate the child's errors. Then detect success from state rather than from an error. For HomePods, wait for the target to reach `playing`; on success that took about a second, and on the failure it never did and the child run ended at about 11 seconds. Fall back if neither happens. Used by `script.household_tts_announce` through `script.household_tts_play` (`guides/chime_tts.md`). Success path live-verified 2026-10-11 on the kitchen HomePod. The one reproducible failure, an oversized clip, is now avoided by passing a local path (previous entry), so this path is now a safety net; `script.household_tts_announce` pushes rather than retrying.
 
 ### `chime_tts.say_url`'s reported `duration` doesn't reliably match real multi-speaker playback time
 
