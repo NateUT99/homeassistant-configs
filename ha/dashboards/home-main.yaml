@@ -713,7 +713,7 @@ views:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
             card_layout: default
-            progress_bar: full
+            progress_bar: none
             idle_artwork: none
             artwork_fit: original
             progress_position: above
@@ -819,7 +819,7 @@ views:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
             card_layout: default
-            progress_bar: full
+            progress_bar: none
             idle_artwork: none
             artwork_fit: original
             progress_position: above
@@ -857,7 +857,7 @@ views:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
             card_layout: default
-            progress_bar: full
+            progress_bar: none
             idle_artwork: none
             artwork_fit: cover
             progress_position: above
@@ -982,7 +982,7 @@ views:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
             card_layout: default
-            progress_bar: full
+            progress_bar: none
             idle_artwork: none
             artwork_fit: cover
             progress_position: above
@@ -1107,7 +1107,7 @@ views:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
             card_layout: default
-            progress_bar: full
+            progress_bar: none
             idle_artwork: none
             artwork_fit: cover
             progress_position: above
@@ -1250,7 +1250,7 @@ views:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
             card_layout: default
-            progress_bar: full
+            progress_bar: none
             idle_artwork: none
             artwork_fit: original
             progress_position: above
@@ -1375,7 +1375,7 @@ views:
           - bubble_media_player_enhanced
           bubble_media_player_enhanced:
             card_layout: default
-            progress_bar: full
+            progress_bar: none
             idle_artwork: none
             artwork_fit: cover
             progress_position: above
