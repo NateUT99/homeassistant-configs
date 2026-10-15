@@ -427,9 +427,11 @@ and the dustbin module is seated. The 7-minute departure trigger lands after *La
 Home*'s 5-minute daytime start: if that pass starts, the vacuum is busy, and the job-end
 trigger empties the bin when it finishes with nobody home.
 
-The empty isn't confirmed inline — HA sees it a minute or more late (`LESSONS.md` →
-*Vacuum & Roborock*). The `→ on` trigger clears the flag whenever it lands; if an empty never
-happens, the flag stays on and the next trigger retries.
+The empty isn't confirmed inline — HA can see it anywhere from instantly to a minute or more
+late (`LESSONS.md` → *Vacuum & Roborock*). The `→ on` trigger clears the flag whenever it
+lands; if an empty never happens, the flag stays on and the next trigger retries. The
+automation runs `mode: queued` so that trigger isn't dropped when it fires before the run
+that started the empty has finished.
 
 In practice, a daytime pass empties when it finishes; nightly passes and runs that finish
 while someone is home leave the flag set until the next departure. If nobody leaves for

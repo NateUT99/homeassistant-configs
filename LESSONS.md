@@ -844,12 +844,12 @@ Confirmed 2026-09-28: the vacuum can drop directly from `cleaning` to `idle` whi
 
 ---
 
-### Do Not Disturb skips the dock's auto-empty outright, and a manual empty reaches HA a minute or more late
+### Do Not Disturb skips the dock's auto-empty outright, and a manual empty reaches HA at an unpredictable delay
 
 Two dock behaviors on the Q8 Max Plus, both seen in live history (October 2026):
 
 - **DND skips auto-empty; it does not defer it.** Every job that re-docked inside the 20:00–08:00 DND window went straight from `returning_home` to `charging` with no `emptying_the_bin`, and nothing emptied when the window ended. A job that re-docked after 08:00 emptied normally. Commanded starts are not blocked by DND — the nightly pass starts inside the window every night.
-- **`switch.<vacuum>_dock_dust_emptying` → `turn_on` starts a manual empty, but HA sees it late.** The service call returns with the switch still `off`; the empty runs on the dock immediately, and `switch.*_dock_dust_emptying` / `sensor.*_status: emptying_the_bin` only appear on the next coordinator poll — about a minute later, and they read `on` after the dock has already gone quiet. This works with the app's auto-empty turned off. Don't `wait_for_trigger` on the switch right after commanding it with a short timeout; trigger off its later `→ on` edge instead (see `guides/vacuum_cleaning_routine.md`).
+- **`switch.<vacuum>_dock_dust_emptying` → `turn_on` starts a manual empty, but HA sees it late.** The service call returns with the switch still `off`; the empty runs on the dock immediately, and `switch.*_dock_dust_emptying` / `sensor.*_status: emptying_the_bin` only appear on the next coordinator poll — about a minute later, and they read `on` after the dock has already gone quiet. This works with the app's auto-empty turned off. The delay isn't fixed, though: when an automation commanded it, the switch read `on` about a second later while the `turn_on` call was still returning. Don't `wait_for_trigger` on the switch right after commanding it with a short timeout; trigger off its `→ on` edge instead, and run that automation `mode: queued`, because `single` drops the edge when it lands during the run that sent the command (see `guides/vacuum_cleaning_routine.md`).
 
 ## Zigbee & Lighting Groups
 
