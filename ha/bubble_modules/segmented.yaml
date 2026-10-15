@@ -2,15 +2,17 @@
 # Deployed to /config/bubble_card/modules/segmented.yaml (standards/dashboards.md §13).
 # Apply with `modules: [segmented]` on a `sub-buttons` card whose `entity` is the thing being
 # chosen: a `select` (its state), a `vacuum` (its fan speed), a `climate` entity (its preset), or a
-# `media_player` (its current app, lowercased with `+` dropped: Disney+ matches `seg-disney`).
+# `media_player` (its current app, or its input when it reports no app as an LG TV does, lowercased
+# with `+` dropped and spaces as `-`: Disney+ matches `seg-disney`, HDMI 3 matches `seg-hdmi-3`).
 # Each sub-button is one option, with `css_class: seg-<option>` and a tap action that selects it;
 # the module draws the track and fills the pill whose class matches the current value. Bubble
-# writes `_` in a css_class as `-`, so `seg-vac_and_mop` is matched as `seg-vac-and-mop`.
+# writes `_` in a css_class as `-`, so `seg-vac_and_mop` is matched as `seg-vac-and-mop`. Values are
+# lowercased with spaces as `-`, so an input_select option "Apple TV" matches `seg-apple-tv`.
 # Set `sub_button_type: default` on every option: a sub-button whose entity (its own or the
 # card's) is a `select` otherwise renders as a dropdown.
 segmented:
   name: Segmented control
-  version: "1.2"
+  version: "1.4"
   creator: home-main
   description: Pill row for a select, vacuum fan speed, climate preset, or media player app; the current option is a solid pill.
   supported:
@@ -19,8 +21,8 @@ segmented:
     {% set d = entity.split('.')[0] if entity else '' %}
     {% set v = (state_attr(entity, 'fan_speed') if d == 'vacuum'
        else (state_attr(entity, 'preset_mode') if d == 'climate'
-       else ((state_attr(entity, 'app_name') | string | lower | replace('+', '') | replace(' ', '-')) if d == 'media_player'
-       else states(entity)))) | string | replace('_', '-') %}
+       else (((state_attr(entity, 'app_name') or state_attr(entity, 'source')) | string | lower | replace('+', '') | replace(' ', '-')) if d == 'media_player'
+       else states(entity)))) | string | lower | replace('_', '-') | replace(' ', '-') %}
     .bubble-sub-button-bottom-container {
       justify-content: stretch !important;
     }
