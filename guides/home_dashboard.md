@@ -154,7 +154,7 @@ switch by hand are quick actions; running appliances are Happening now.
 | Fridge | Plug off or power sensor unavailable | "Fridge" | Red | — | — |
 | **Water** | A leak | "Leak: <sensor>" | Red | `#security` | — |
 | Recycling | Trash chore due/overdue | "Recycling" | Amber, red overdue | Chores view | Mark "Take Out Trash & Recycling" done |
-| **Weather** | Always | Outside temp and condition ("58° Sunny"), plus "AQI n" when above 50 | AQI on the EPA scale: yellow > 50, orange > 100, red > 150; neutral otherwise | `#weather` | — |
+| **Weather** | Always | Current temperature and today's high, Apple Weather style ("58° H:70°"; the high is `sensor.outside_forecast`), plus "AQI n" when above 50; the condition is the icon | AQI on the EPA scale: yellow > 50, orange > 100, red > 150; neutral otherwise | `#weather` | — |
 | **Lights** | Always | "N on" / "All off" (visible lights in the areas listed in `house_light_areas()`) | Amber when any are on | `#lights` | — |
 | **Security** | Always | Apple Home-style, higher risk first: "N Open" (front door, patio door, or garage physically open), else "N Unlocked" (front door lock), else "Secure". Interior doors and windows are not counted | Green secure, else `alert_level()` (amber / red); icon open door, open lock, or check-shield | `#security` | `script.household_secure_doors` |
 | **Media** | Always | "N playing" / "Media off" — players with a room media card showing (their activity sensor is on) | Purple when any are playing | `#media` | — |

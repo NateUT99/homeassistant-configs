@@ -63,10 +63,12 @@ living_room,master_bedroom,averys_room,office,entertainment_room,kitchen,entranc
 {{- ns.n -}}
 {%- endmacro %}
 
+{#- Weather chip text, Apple Weather style: current temperature and today's high ("58° H:70°").
+    The condition is left to the chip's icon (weather_icon). -#}
 {% macro weather_status() -%}
-{%- set labels = {'clear-night': 'Clear', 'cloudy': 'Cloudy', 'exceptional': 'Alert', 'fog': 'Fog', 'hail': 'Hail', 'lightning': 'Storms', 'lightning-rainy': 'Storms', 'partlycloudy': 'Partly cloudy', 'pouring': 'Heavy rain', 'rainy': 'Rain', 'snowy': 'Snow', 'snowy-rainy': 'Sleet', 'sunny': 'Sunny', 'windy': 'Windy', 'windy-variant': 'Windy'} -%}
-{%- set w = states('weather.outside_waterville_oh_usa') -%}
-{%- set parts = [states('sensor.outside_temperature') | float(0) | round(0) | int ~ '° ' ~ labels.get(w, w | replace('-', ' ') | capitalize)] -%}
+{%- set now_t = states('sensor.outside_temperature') | float(0) | round(0) | int ~ '°' -%}
+{%- set high = states('sensor.outside_forecast') -%}
+{%- set parts = [now_t ~ ((' H:' ~ (high | float | round(0) | int) ~ '°') if is_number(high) else '')] -%}
 {%- set aqi = states('sensor.erie_ohio_usa_air_quality_index') | int(0) -%}
 {%- if aqi > 50 %}{% set parts = parts + ['AQI ' ~ aqi] %}{% endif -%}
 {{- parts | join(' · ') -}}
