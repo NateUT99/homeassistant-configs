@@ -1961,20 +1961,35 @@ views:
               - unknown
               - unavailable
         cards:
-        - type: markdown
-          content: '{% set e = ''media_player.living_room_appletv'' %}{% set s = ''sensor.living_room_appletv_info'' %}{% set d = state_attr(s, ''details'') %}{% set ok = d is mapping and d.get(''poster'')
-            and (state_attr(s, ''content_id'') | string) == (state_attr(e, ''media_content_id'') | string) %}{% set fb = {''YouTube'': ''/local/media_art/youtube.svg'', ''TV'': ''/local/media_art/tv.svg'',
-            ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg''} %}{% set art = d.poster | replace(''1000x1000bb'', ''600x600bb'') if ok else (state_attr(e,
-            ''entity_picture'') or fb.get(state_attr(e, ''app_name''), '''')) %}{% if art %}<img src="{{ art }}">
-
-
-            {% endif %}## {{ state_attr(e, ''media_title'') or state_attr(e, ''app_name'') or ''Apple TV'' }}'
-          uix:
-            style:
-              ha-markdown$: 'p:has(> img) { margin: 0 0 10px !important; line-height: 0; } img { display: block; height: 150px; width: auto; max-width: 100%; object-fit: contain; margin: 0 auto; border-radius:
-                12px; } h2 { margin: 0 !important; text-align: center; font-size: 17px; line-height: 1.3; }'
-              'ha-markdown $ ha-markdown-element:': 'p:has(> img) { margin: 0 0 10px !important; line-height: 0; } img { display: block; height: 150px; width: auto; max-width: 100%; object-fit: contain;
-                margin: 0 auto; border-radius: 12px; } h2 { margin: 0 !important; text-align: center; font-size: 17px; line-height: 1.3; }'
+        - type: custom:bubble-card
+          card_type: button
+          button_type: name
+          name: Artwork
+          show_name: false
+          show_icon: false
+          show_state: false
+          tap_action:
+            action: perform-action
+            perform_action: input_select.select_option
+            target:
+              entity_id: input_select.living_room_remote_view
+            data:
+              option: Now Playing
+          button_action:
+            tap_action:
+              action: perform-action
+              perform_action: input_select.select_option
+              target:
+                entity_id: input_select.living_room_remote_view
+              data:
+                option: Now Playing
+          styles: "${(() => {\n  const a = hass.states['media_player.living_room_appletv']?.attributes || {};\n  const sa = hass.states['sensor.living_room_appletv_info']?.attributes || {};\n  const d =\
+            \ sa.details || {};\n  const cid = String(a.media_content_id ?? '');\n  const done = String(sa.content_id ?? '') === cid;\n  const fb = ({ 'YouTube': '/local/media_art/youtube.svg', 'TV': '/local/media_art/tv.svg',\
+            \ 'Disney+': '/local/media_art/disney_plus.svg', 'Prime Video': '/local/media_art/prime_video.svg' })[a.app_name] || '';\n  const art = done && d.poster ? d.poster.replace('1000x1000bb', '600x600bb')\
+            \ : (/^[0-9]+$/.test(cid) && !done ? fb : (a.entity_picture || fb));\n  return art ? `.bubble-button-card-container { background-image: url(\"${art}\") !important; }` : '';\n})()}\n.bubble-button-card-container\
+            \ { background-size: contain !important; background-position: center !important; background-repeat: no-repeat !important; background-origin: content-box !important; padding: 12px !important;\
+            \ box-sizing: border-box !important; }\nha-card, .bubble-button-card-container, .bubble-button-container { height: 174px !important; }\n.bubble-icon-container, .bubble-name-container { display:\
+            \ none !important; }\n"
         - type: custom:bubble-card
           card_type: button
           button_type: slider
