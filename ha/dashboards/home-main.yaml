@@ -1910,7 +1910,10 @@ views:
         content: '{% set d = state_attr(''sensor.living_room_appletv_info'', ''details'') or {} %}<img src="{{ (d.get(''poster'', '''')) | replace(''1000x1000bb'', ''2000x2000bb'') }}">
 
 
-          ## {{ states(''sensor.living_room_appletv_info'') }}
+          {% if d.get(''series'') %}### {{ d.get(''series'') }}
+
+
+          {% endif %}## {{ states(''sensor.living_room_appletv_info'') }}
 
 
           **{{ d.get(''rating'', '''') }}** · {{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', '''')] | select | join('' · '') }}
@@ -1933,10 +1936,12 @@ views:
         uix:
           style:
             ha-markdown$: 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px 4px !important; color: var(--secondary-text-color);
-              line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding: 0 5px; font-size: 12px; }'
+              line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding: 0 5px; font-size: 12px; } h3 { margin: 14px 4px
+              0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3 + h2 { margin-top: 2px !important; }'
             'ha-markdown $ ha-markdown-element:': 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px
               4px !important; color: var(--secondary-text-color); line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding:
-              0 5px; font-size: 12px; }'
+              0 5px; font-size: 12px; } h3 { margin: 14px 4px 0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3
+              + h2 { margin-top: 2px !important; }'
       - type: vertical-stack
         visibility:
         - condition: or
@@ -1956,37 +1961,43 @@ views:
               - unknown
               - unavailable
         cards:
-        - type: custom:bubble-card
-          card_type: media-player
-          entity: media_player.living_room_appletv
-          name: Apple TV
-          cover_background: false
-          hide:
-            power_button: true
-            volume_button: true
-            previous_button: true
-            next_button: true
-          sub_button:
-            main: []
-            bottom: []
-          show_icon: false
-          rows: 2
-          main_buttons_position: bottom
-          modules:
-          - bubble_media_player_enhanced
-          bubble_media_player_enhanced:
-            card_layout: default
-            progress_bar: none
-            idle_artwork: none
-            artwork_fit: original
-            progress_position: above
-            background_opacity: 0.85
-          tap_action:
-            action: none
-          button_action:
-            tap_action:
-              action: none
-          styles: ''
+        - type: custom:yet-another-media-player
+          entities:
+          - entity_id: media_player.living_room_appletv
+            name: Apple TV
+            hidden_controls:
+            - previous
+            - play_pause
+            - next
+            - stop
+            - shuffle
+            - repeat
+            - favorite
+            - power
+            entity_volume_mode: hidden
+          match_theme: true
+          card_height: 200
+          volume_mode: hidden
+          artwork_object_fit: cover
+          artwork_position: top center
+          details_alignment: left
+          media_artwork_overrides:
+          - entity_id: media_player.living_room_appletv
+            image_url: '{% set d = state_attr(''sensor.living_room_appletv_info'', ''details'') %}{% set ok = d is mapping and d.get(''poster'') and (state_attr(''sensor.living_room_appletv_info'', ''content_id'')
+              | string) == (state_attr(''media_player.living_room_appletv'', ''media_content_id'') | string) %}{% set fb = {''YouTube'': ''/local/media_art/youtube.svg'', ''TV'': ''/local/media_art/tv.svg'',
+              ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg''} %}{{ d.poster | replace(''1000x1000bb'', ''2000x2000bb'') if ok else (state_attr(''media_player.living_room_appletv'',
+              ''entity_picture'') or fb.get(state_attr(''media_player.living_room_appletv'', ''app_name''), '''')) }}'
+            size_percentage: 100
+            object_fit: cover
+            object_position: top center
+          uix:
+            style: ':host { --accent-color: var(--primary-text-color); }
+
+              .details .title, .details .artist { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.7); }
+
+              .more-info-menu, .progress-bar-container, .timestamps-container, .controls-row, .volume-row { display: none !important; }
+
+              '
         - type: custom:bubble-card
           card_type: button
           button_type: slider

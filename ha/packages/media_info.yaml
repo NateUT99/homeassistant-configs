@@ -2,10 +2,12 @@
 #
 # Content bought or rented from Apple reports its iTunes store ID as media_content_id (a plain
 # number, e.g. 271991087 for The Terminator), which the lookup resolves exactly: year, content
-# rating, genre, runtime, director, description and a poster. Other apps (YouTube, Disney+,
-# live TV) report non-numeric IDs and get no details. The lookup runs only when the content ID
-# changes (or HA starts / templates reload), not on a timer, and needs no account or key. The home-main remote pop-ups show the
-# details under the timeline. See guides/home_dashboard.md.
+# rating, genre, runtime, description and a poster, plus the director for a movie or the series
+# for a TV episode (Apple's artistName is the director on a movie and the series on an
+# episode). Other apps (YouTube, Disney+, live TV) report non-numeric IDs and get no details.
+# The lookup runs only when the content ID changes (or HA starts / templates reload), not on a
+# timer, and needs no account or key. The home-main remote pop-ups and #media show the details.
+# See guides/home_dashboard.md.
 #
 # Top-level variables can't see `this`, so `changed` reads the sensor by entity ID (the
 # renamed sensor.<room>_appletv_info).
@@ -31,7 +33,8 @@ template:
       new_id: "{{ state_attr('media_player.living_room_appletv', 'media_content_id') | default('', true) | string }}"
       active: "{{ is_state('media_player.living_room_appletv', ['playing', 'paused']) }}"
       owned: "{{ new_id is match('^[0-9]+$') }}"
-      changed: "{{ new_id != (state_attr('sensor.living_room_appletv_info', 'content_id') | default('', true) | string) }}"
+      # Also re-fetch details stored before the kind/series fields existed.
+      changed: "{{ new_id != (state_attr('sensor.living_room_appletv_info', 'content_id') | default('', true) | string) or 'kind' not in (state_attr('sensor.living_room_appletv_info', 'details') or {}) }}"
     actions:
       - if:
           - condition: template
@@ -68,7 +71,9 @@ template:
                 'rating': r.contentAdvisoryRating | default(''),
                 'genre': r.primaryGenreName | default(''),
                 'runtime': ((mins // 60) ~ 'h ' ~ (mins % 60) ~ 'm') if mins >= 60 else ((mins ~ 'm') if mins else ''),
-                'director': r.artistName | default(''),
+                'kind': r.kind | default(''),
+                'series': r.artistName | default('') if r.kind | default('') == 'tv-episode' else '',
+                'director': r.artistName | default('') if r.kind | default('') == 'feature-movie' else '',
                 'description': r.longDescription | default(r.shortDescription | default('')),
                 'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb')
               } }}
@@ -89,7 +94,8 @@ template:
       new_id: "{{ state_attr('media_player.master_bedroom_appletv', 'media_content_id') | default('', true) | string }}"
       active: "{{ is_state('media_player.master_bedroom_appletv', ['playing', 'paused']) }}"
       owned: "{{ new_id is match('^[0-9]+$') }}"
-      changed: "{{ new_id != (state_attr('sensor.master_bedroom_appletv_info', 'content_id') | default('', true) | string) }}"
+      # Also re-fetch details stored before the kind/series fields existed.
+      changed: "{{ new_id != (state_attr('sensor.master_bedroom_appletv_info', 'content_id') | default('', true) | string) or 'kind' not in (state_attr('sensor.master_bedroom_appletv_info', 'details') or {}) }}"
     actions:
       - if:
           - condition: template
@@ -126,7 +132,9 @@ template:
                 'rating': r.contentAdvisoryRating | default(''),
                 'genre': r.primaryGenreName | default(''),
                 'runtime': ((mins // 60) ~ 'h ' ~ (mins % 60) ~ 'm') if mins >= 60 else ((mins ~ 'm') if mins else ''),
-                'director': r.artistName | default(''),
+                'kind': r.kind | default(''),
+                'series': r.artistName | default('') if r.kind | default('') == 'tv-episode' else '',
+                'director': r.artistName | default('') if r.kind | default('') == 'feature-movie' else '',
                 'description': r.longDescription | default(r.shortDescription | default('')),
                 'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb')
               } }}
@@ -147,7 +155,8 @@ template:
       new_id: "{{ state_attr('media_player.family_room_appletv', 'media_content_id') | default('', true) | string }}"
       active: "{{ is_state('media_player.family_room_appletv', ['playing', 'paused']) }}"
       owned: "{{ new_id is match('^[0-9]+$') }}"
-      changed: "{{ new_id != (state_attr('sensor.family_room_appletv_info', 'content_id') | default('', true) | string) }}"
+      # Also re-fetch details stored before the kind/series fields existed.
+      changed: "{{ new_id != (state_attr('sensor.family_room_appletv_info', 'content_id') | default('', true) | string) or 'kind' not in (state_attr('sensor.family_room_appletv_info', 'details') or {}) }}"
     actions:
       - if:
           - condition: template
@@ -184,7 +193,9 @@ template:
                 'rating': r.contentAdvisoryRating | default(''),
                 'genre': r.primaryGenreName | default(''),
                 'runtime': ((mins // 60) ~ 'h ' ~ (mins % 60) ~ 'm') if mins >= 60 else ((mins ~ 'm') if mins else ''),
-                'director': r.artistName | default(''),
+                'kind': r.kind | default(''),
+                'series': r.artistName | default('') if r.kind | default('') == 'tv-episode' else '',
+                'director': r.artistName | default('') if r.kind | default('') == 'feature-movie' else '',
                 'description': r.longDescription | default(r.shortDescription | default('')),
                 'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb')
               } }}
