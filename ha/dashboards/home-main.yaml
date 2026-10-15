@@ -710,6 +710,10 @@ views:
           tap_action:
             action: navigate
             navigation_path: '#living-room-remote'
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#living-room-remote'
       - type: grid
         columns: 2
         square: false
@@ -808,6 +812,10 @@ views:
           tap_action:
             action: navigate
             navigation_path: '#media'
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#media'
       - type: conditional
         conditions:
         - condition: state
@@ -838,6 +846,10 @@ views:
               width: 130
               show_button_info: true
               slider_live_update: true
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#media'
       - type: grid
         columns: 2
         square: false
@@ -955,6 +967,10 @@ views:
               width: 130
               show_button_info: true
               slider_live_update: true
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#media'
       - type: grid
         columns: 2
         square: false
@@ -1072,6 +1088,10 @@ views:
               width: 130
               show_button_info: true
               slider_live_update: true
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#media'
       - type: grid
         columns: 2
         square: false
@@ -1207,6 +1227,10 @@ views:
           tap_action:
             action: navigate
             navigation_path: '#media'
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#media'
       - type: grid
         columns: 2
         square: false
@@ -1324,6 +1348,10 @@ views:
               width: 130
               show_button_info: true
               slider_live_update: true
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#media'
       - type: grid
         columns: 2
         square: false
@@ -1735,6 +1763,10 @@ views:
           tap_action:
             action: navigate
             navigation_path: '#living-room-remote'
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#living-room-remote'
       - type: conditional
         conditions:
         - condition: state
@@ -4773,6 +4805,10 @@ views:
           tap_action:
             action: navigate
             navigation_path: '#living-room-remote'
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#living-room-remote'
       - type: conditional
         conditions:
         - condition: or
