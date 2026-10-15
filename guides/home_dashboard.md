@@ -53,7 +53,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 - **Media lives in the room it plays in.** Each room section on Home carries a Bubble
   `media-player` card for its Apple TV or HomePod, shown only while that player is in use, with
   no house-wide player card. It is the two-row layout with the Media Player Enhanced artwork
-  background (`progress_bar: none`; the timeline lives in the pop-ups) and playback controls only: play/pause, plus previous/next on HomePods (an Apple
+  background (Apple TV cards drop the timeline with `progress_bar: none`, since live TV has none and it lives in the remote pop-up; HomePod cards keep it) and playback controls only: play/pause, plus previous/next on HomePods (an Apple
   TV's skip keys mean nothing to most video apps). Volume, power and everything else live one
   tap away: the card body opens `#media` (the Living Room and Master Bedroom Apple TVs open their remotes). Bubble's
   media-player `tap_action` fires only on the icon, which these cards hide, so the navigation
