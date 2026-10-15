@@ -32,17 +32,17 @@ job ending, a fixed clock time, the vacuum getting stuck) rather than one room s
  (+ HA-restart recheck)        (or immediate override),        daytime not run
        │                       09:00-19:00, daytime not run         │
        ├─ mop-eligible night?        │                              ▼
-       │   yes -> script.household_  ▼                         Yes/No push
-       │   vacuum_mop_now          fan max                     (5m timeout = Yes)
-       │   (6 hard-floor rooms)    16 17 19 20 21 23 24 26          │
-       │   + mopped_overnight                                       ▼
-       │   no  -> fan quiet                                    fan max, whole map
-       │          18 22 25                                     marks both zones ran
+       │   yes -> job common_mop     ▼                         Yes/No push
+       │   + mopped_overnight      job daytime                 (5m timeout = Yes)
+       │   no  -> job nightly                                       │
+       │                                                            ▼
+       │                                                       job whole_house
+       │                                                       marks both zones ran
        ▼
  MORNING (wake, same automation)          ARRIVAL: Household: First Arrives Home
  everyone_sleeping off 20s, after a       mid-run -> Dock now / Let it finish push
  mop night: 15m grace TTS + push,         (2m no answer = dock; stuck = re-alert,
- then mop 19 21 at fan balanced           never dock); routine-pause question
+ then job master_mop                      never dock); routine-pause question
  11:00 push offers a manual start         runs in parallel
 
  DAILY STATE: Household: Vacuum Reset     DOCK: Household: Vacuum Dock Emptying
@@ -57,6 +57,9 @@ job ending, a fixed clock time, the vacuum getting stuck) rather than one room s
  follow-up, latches Avery-tonight         binary_sensor.vacuum_stuck -> Household:
  Household: Vacuum Setting Defaults       Vacuum Stuck Alert (TTS if home + awake)
  (pad on -> mop intensity high)
+
+ JOB STARTS: every "job ..." above is a call to Household: Vacuum Start Job --
+ rooms, active zone, fan, mop intensity, and the hardware refusals in one place
 ```
 
 ### Design decisions
@@ -74,10 +77,11 @@ job ending, a fixed clock time, the vacuum getting stuck) rather than one room s
 - **One automation owns the whole weekly mop event.** *Household: Vacuum Evening Cleaning*
   holds the nightly pass and the morning master-suite follow-up as trigger-keyed `choose`
   branches, since both ride the same pad and tank fill.
-- **Every job-starting path sets its own fan speed.** Nightly `quiet`, master-suite
-  `balanced`, daytime and whole-house `max` — nothing depends on what a previous job left
-  behind. Mop intensity has no equivalent start moment, so *Household: Vacuum Setting
-  Defaults* forces `high` whenever the pad clips on.
+- **One script starts every job.** *Household: Vacuum Start Job* owns each job's rooms and
+  settings and refuses a job the hardware can't run, the same shared-entry-point pattern as
+  `script.household_tts_announce`. Callers keep only *when* to clean and their own flags, so
+  segment IDs live in one place and a dashboard button gets the same safety checks as a
+  schedule. See [Job Starts](#job-starts).
 - **Interrupted jobs restart, they don't resume.** A commanded dock always cancels the job
   (`LESSONS.md` → *Vacuum & Roborock*), so arrival asks before docking, and a daytime job that
   docked before 65% progress runs again on the next departure.
@@ -116,13 +120,13 @@ job ending, a fixed clock time, the vacuum getting stuck) rather than one room s
 
 Segment IDs come from the Roborock app's map, not from anything in HA:
 
-| Pass | Rooms | Segment IDs | Set in |
+| Pass | `job` | Rooms | Segment IDs |
 |---|---|---|---|
-| Nightly vacuum | Office, Kitchen, Living Room | 18, 22, 25 | *Household: Vacuum Evening Cleaning* |
-| Daytime vacuum | Avery's Room, Bathroom, Master Bedroom, Master Closet, Master Bathroom, Utility Room, Pantry, Entrance | 16, 17, 19, 20, 21, 23, 24, 26 | *Household: Last Leaves Home* |
-| Nightly mop | Bathroom, Kitchen, Utility Room, Pantry, Living Room, Entrance | 17, 22, 23, 24, 25, 26 | `script.household_vacuum_mop_now` |
-| Morning mop | Master Bedroom, Master Bathroom | 19, 21 | *Household: Vacuum Evening Cleaning* |
-| Whole-house backstop | Entire map | — (`vacuum.start`) | *Household: Vacuum Midday Prompt* |
+| Nightly vacuum | `nightly` | Office, Kitchen, Living Room | 18, 22, 25 |
+| Daytime vacuum | `daytime` | Avery's Room, Bathroom, Master Bedroom, Master Closet, Master Bathroom, Utility Room, Pantry, Entrance | 16, 17, 19, 20, 21, 23, 24, 26 |
+| Nightly mop | `common_mop` | Bathroom, Kitchen, Utility Room, Pantry, Living Room, Entrance | 17, 22, 23, 24, 25, 26 |
+| Morning mop | `master_mop` | Master Bedroom, Master Bathroom | 19, 21 |
+| Whole-house backstop | `whole_house` | Entire map | — (`vacuum.start`) |
 
 The mop lists are hard floor only: the Office (18) and Master Closet (20) are carpeted and are
 never mopped. The whole-house backstop uses `vacuum.start` rather than a segment list, so a
@@ -136,9 +140,9 @@ Confirm a segment ID by checking that `app_segment_clean` targeting it actually 
 rename by hours, and a retired ID no-ops silently (`LESSONS.md` → *Vacuum & Roborock*).
 Segment order in the list doesn't set the route — the robot path-plans from its own position.
 
-> **Coordinated change:** segment IDs are hardcoded in the three places named in the *Set in*
-> column. If the map is rebuilt or rooms are re-split in the app, update all of them — a stale
-> ID cleans the wrong room or nothing at all.
+Segment IDs are set only in *Household: Vacuum Start Job*'s job table. If the map is rebuilt
+or rooms are re-split in the app, update that table — a stale ID cleans the wrong room or
+nothing at all.
 
 ### 2. Configure the Roborock app
 
@@ -167,7 +171,7 @@ All under the `int_vacuum_cleaning_routine` label:
 | `input_boolean.vacuum_ran_evening` | Nightly vacuum done today. Set on command by the nightly pass, the mop branch, or the noon whole-house clean. Gates only the vacuum-only branch, never the mop |
 | `input_select.vacuum_active_zone` | `evening` / `daytime` / `away` / `master_mop`, written when a job is commanded. Only `daytime` is read (the 65% check and the amber "will restart" card); the rest record which path started the last job |
 | `input_boolean.vacuum_routine_pause` | Manual "stepping out briefly, don't start" toggle, set before a departure. Blocks every automatic start and the prep reminder; arrival asks whether to keep it |
-| `input_boolean.vacuum_mop_common_areas_done_this_week` | The nightly mop ran this week. Set by `script.household_vacuum_mop_now` |
+| `input_boolean.vacuum_mop_common_areas_done_this_week` | The nightly mop ran this week. Set by the mop branch or *Vacuum Mop Now* once the job starts |
 | `input_boolean.vacuum_mop_master_suite_done_this_week` | The morning master-suite mop ran this week |
 | `input_boolean.vacuum_mopped_overnight` | Hand-off from the scheduled mop branch to the next 08:00 reset, which turns the following day into a [skip day](#skip-day-after-a-mop-night) |
 | `input_boolean.vacuum_mop_skip_today` | Cancels tonight's prep reminder without changing mop eligibility |
@@ -245,7 +249,43 @@ guide does not reproduce it. The sections below cover behavior and the reasons b
 | *Household: Vacuum Dock Emptying* | [Dock emptying](#dock-emptying) |
 | *Household: Vacuum Live Activity* | Lock Screen card and the daytime 65% check ([Monitoring](#monitoring)) |
 | *Household: Vacuum Stuck Alert* | TTS when stuck ([Monitoring](#monitoring)) |
-| `script.household_vacuum_mop_now` | The six-room mop job ([Ad Hoc Mop Pass](#ad-hoc-mop-pass)) |
+| *Household: Vacuum Start Job* (`script.household_vacuum_start_job`) | Every job start ([Job Starts](#job-starts)) |
+| *Household: Vacuum Mop Now* (`script.household_vacuum_mop_now`) | The [ad hoc mop](#ad-hoc-mop-pass) button |
+
+---
+
+## Job Starts
+
+Every automation and button starts a job by calling *Household: Vacuum Start Job* with a `job`
+from [Step 1](#1-map-rooms-to-zones). The script sets the job's settings, then starts it:
+
+| `job` | `active_zone` | Fan | Mop intensity |
+|---|---|---|---|
+| `nightly` | `evening` | `quiet` | — |
+| `daytime` | `daytime` | `balanced` | — |
+| `common_mop` | `evening` | `quiet` | `high` |
+| `master_mop` | `master_mop` | `balanced` | left as set |
+| `whole_house` | `away` | `max` | — |
+
+`master_mop` leaves mop intensity alone so a by-hand drop to `medium` (see
+[Weekly Mop Pass](#weekly-mop-pass)) carries into the follow-up. `whole_house` runs
+`vacuum.start` instead of `app_segment_clean`.
+
+Before starting, the script refuses a job the hardware can't run:
+
+| Refused when | `reason` |
+|---|---|
+| `binary_sensor.living_room_vacuum_cleaning` on (includes a mid-job recharge) | the vacuum is already mid-job |
+| Dustbin + water module out | the dustbin module isn't seated |
+| Mop job, pad off | the mop pad is off |
+| Mop job, `water_shortage` on | the water tank is empty |
+| Vacuum job, pad on | the mop pad is attached |
+| `whole_house`, vacuum not `docked` | the vacuum isn't docked (`vacuum.start` docks a returning robot) |
+
+It returns `{started, reason}`. Callers that set a ran/done flag stop when `started` is false,
+so a refused job never marks itself done, and the button paths push *"… skipped —
+{reason}."* The script runs `mode: queued`, so two callers landing together run one after the
+other and the second sees the first job's mid-job state.
 
 ---
 
@@ -261,9 +301,8 @@ since a restart during the hour leaves the `for:` trigger unarmed.
 Both branches require the routine not paused and the vacuum not already `cleaning`. Then:
 
 - **Mop branch** — taken on a [mop-eligible night](#weekly-mop-pass).
-- **Vacuum-only branch** — `vacuum_ran_evening` off and the pad off: `active_zone: evening`,
-  `fan: quiet`, segments 18, 22, 25, then `vacuum_ran_evening` on. Marked on command, since
-  nothing docks the nightly pass partway.
+- **Vacuum-only branch** — `vacuum_ran_evening` off and the pad off: starts `nightly`, then
+  turns `vacuum_ran_evening` on. Marked on start, since nothing docks the nightly pass partway.
 - **Neither** — with the pad on and a pass due, the night is skipped rather than dragging a wet
   pad through the vacuum pass, with a passive push *"Nightly clean skipped — the mop pad is
   attached"* (tag `vacuum_mop_cleanup`, cleared when the pad comes off).
@@ -272,9 +311,8 @@ Both branches require the routine not paused and the vacuum not already `cleanin
 
 The daytime block in *Household: Last Leaves Home* runs on that automation's departure
 trigger, between 09:00 and 19:00, when `vacuum_ran_daytime` is off, the routine isn't paused,
-the vacuum isn't `cleaning`, the pad is off, and the dustbin module is seated. It sets
-`active_zone: daytime` and `fan: max` and cleans the daytime list. The 09:00 start keeps the
-school drop-off window clear.
+the vacuum isn't `cleaning`, the pad is off, and the dustbin module is seated. It starts
+`daytime`. The 09:00 start keeps the school drop-off window clear.
 
 The block pushes when a clean that was otherwise due (not run, not paused, within hours) is
 blocked by hardware:
@@ -284,8 +322,9 @@ blocked by hardware:
 | Mop pad still attached | *Daytime clean skipped — the mop pad is still attached.* | `vacuum_mop_cleanup` |
 | Dustbin module out (`water_box_attached` off) | *Daytime clean skipped — the dustbin is not installed.* | `vacuum_dustbin_missing` |
 
-On the Q8 Max the dustbin and water tank are one module, so `water_box_attached` is also the
-dustbin check; a start without it faults with `no_dustbin`.
+The block checks pad and module itself, rather than relying on the start script's refusal, so
+these pushes carry their own tags. On the Q8 Max the dustbin and water tank are one module, so
+`water_box_attached` is also the dustbin check.
 
 `vacuum_ran_daytime` is set by *Vacuum Live Activity* once live progress clears 65% on a
 `daytime` job, not on command — closed doors cap achievable progress, and a job docked early
@@ -296,9 +335,8 @@ Live Activity's done card turns amber with *"will restart when everyone leaves a
 
 *Household: Vacuum Midday Prompt* fires at 12:00 when nobody is home, `vacuum_ran_daytime` is
 off, the routine isn't paused, the vacuum is exactly `docked` with `binary_sensor.living_room_vacuum_cleaning`
-off, and the pad is off. It pushes a Yes/No prompt; Yes or no answer within 5 minutes starts a
-whole-house clean (`active_zone: away`, `fan: max`, `vacuum.start`) and marks both ran-today
-flags. One check covers a departure outside the 09:00–19:00 window and an absence of any
+off, and the pad is off. It pushes a Yes/No prompt; Yes or no answer within 5 minutes starts
+`whole_house` and, once it starts, marks both ran-today flags. One check covers a departure outside the 09:00–19:00 window and an absence of any
 length, since nothing but a real clean clears `vacuum_ran_daytime`. `away`, not `daytime`, keeps
 the 65% check — calibrated to the daytime room list — off a whole-map job.
 
@@ -336,9 +374,9 @@ The fitted pad is the opt-in: without it the night falls back to the vacuum-only
 week's mop waits for the next night Avery is away. The Live Activity card title reads
 *Mop & Vacuum* while the pad is on, confirming which branch ran.
 
-The branch calls `script.household_vacuum_mop_now` for the job itself, then turns on
-`vacuum_ran_evening` and `vacuum_mopped_overnight`. Those two flags stay in the branch, not the
-script, so an ad hoc mop neither marks the nightly vacuum done nor triggers a skip day.
+The branch starts `common_mop`, then turns on `vacuum_mop_common_areas_done_this_week`,
+`vacuum_ran_evening`, and `vacuum_mopped_overnight`. The last two are set only here, so an
+[ad hoc mop](#ad-hoc-mop-pass) neither marks the nightly vacuum done nor triggers a skip day.
 
 Weekly is maintenance-level mopping — it keeps a film from building on hard floor — and the
 most that holds up when the pad and tank are fitted by hand.
@@ -360,10 +398,11 @@ ready, the routine isn't paused, and the vacuum isn't mid-job.
 2. Pushes the same text with a **Start now** button (tag `vacuum_master_mop_grace`) — a TTS
    fallback push can't carry a button.
 3. Waits 15 minutes or until Start now, then clears the push.
-4. Re-checks pad, module, tank, pause, and mid-job — 15 minutes is long enough to pull the
-   module for a refill and not reseat it.
-5. Sets `active_zone: master_mop`, `fan: balanced`, cleans segments 19 and 21, and turns on
-   `vacuum_mop_master_suite_done_this_week`. If a re-check fails, it pushes the reason instead.
+4. Re-checks the routine pause, then starts `master_mop`; the start script re-checks pad,
+   module, tank, and mid-job, since 15 minutes is long enough to pull the module for a refill
+   and not reseat it.
+5. Turns on `vacuum_mop_master_suite_done_this_week` once the job starts. If the pause is on
+   or the script refuses, it pushes the reason instead.
 
 At 11:00, if the nightly mop ran but the follow-up hasn't, someone is up, and the pad is still
 on, a push offers **Mop master suite now** (tag `vacuum_master_mop_missed`), which re-enters the
@@ -399,14 +438,12 @@ the follow-up starts, not when it finishes. The same 30-minute tick latches
 
 ## Ad Hoc Mop Pass
 
-`script.household_vacuum_mop_now` is the only implementation of the six-room mop job — the
-mop branch calls it, and it can be run from a dashboard button or the Companion App. It checks
-that the pad is attached, the module is seated, the tank isn't empty, and the vacuum isn't
-`cleaning`, and pushes the failed check by name instead of silently doing nothing. On success
-it sets `active_zone: evening`, `fan: quiet`, `mop_intensity: high`, cleans segments 17, 22,
-23, 24, 25, 26, and turns on `vacuum_mop_common_areas_done_this_week`, so any run counts as the
+*Household: Vacuum Mop Now* (`script.household_vacuum_mop_now`) is the dashboard and
+Companion App button for the six-room mop. It starts `common_mop`; if the start script
+refuses, it pushes *"Mop pass skipped — {reason}."* instead of silently doing nothing. Once the
+job starts it turns on `vacuum_mop_common_areas_done_this_week`, so any run counts as the
 week's mop. It doesn't touch `vacuum_ran_evening` or `vacuum_mopped_overnight` (see
-[Weekly Mop Pass](#weekly-mop-pass)), and the morning follow-up stays tied to an actual mop
+[Weekly Mop Pass](#weekly-mop-pass)), so the morning follow-up stays tied to an actual mop
 night.
 
 ---
@@ -511,6 +548,7 @@ Chores are matched by name, so these names must not be reused for other chores.
 | Household: Vacuum Live Activity | `automation.household_vacuum_live_activity` | Automation |
 | Household: Vacuum Stuck Alert | `automation.household_vacuum_stuck_alert` | Automation |
 | Household: Vacuum Maintenance Chores | `automation.household_vacuum_maintenance_chores` | Automation |
+| Household: Vacuum Start Job | `script.household_vacuum_start_job` | Script |
 | Household: Vacuum Mop Now | `script.household_vacuum_mop_now` | Script |
 | Household: Vacuum Reset Consumable | `script.household_vacuum_reset_consumable` | Script |
 | Live Activity dispatch | `script.household_live_activity` | Script |
@@ -559,6 +597,11 @@ Chores are matched by name, so these names must not be reused for other chores.
 `input_select.vacuum_active_zone` when the job ran. A job started outside these automations
 (the Roborock app) doesn't update it, so the 65% check attributes the job to whatever zone was
 last written.
+
+**A scheduled pass didn't start and no push explains it.** Open the *Household: Vacuum Start
+Job* trace from that time: the refusal branch it stopped in names the reason. The nightly and
+noon passes stop silently on a refusal, since their own conditions already cover the common
+cases.
 
 **The mop branch ran on the wrong night for Avery's calendar.** Compare
 `input_boolean.vacuum_avery_home_tonight` with `binary_sensor.avery_home_today` at the time the

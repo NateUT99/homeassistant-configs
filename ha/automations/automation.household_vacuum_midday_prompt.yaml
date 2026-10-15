@@ -80,35 +80,17 @@ actions:
           'START_VACUUM' }}
         alias: No was not tapped (yes or timeout)
     then:
-      - alias: Set active zone to away
-        action: input_select.select_option
-        target:
-          entity_id: input_select.vacuum_active_zone
+      - alias: Start the whole-house clean
+        action: script.household_vacuum_start_job
         data:
-          option: away
+          job: whole_house
+        response_variable: start
         note: >-
-          Not daytime -- the daytime zone's 65% completion check assumes
-          the daytime room set's closed-door coverage cap, which doesn't
-          apply to a whole-map job.
-      - alias: Set max fan speed for whole-house cleaning
-        action: vacuum.set_fan_speed
-        target:
-          entity_id: vacuum.living_room_vacuum
-        data:
-          fan_speed: max
-        note: >-
-          Explicit here, matching Evening Cleaning's own quiet and the
-          master-suite follow-up's own balanced -- every job-starting
-          path now asserts its own fan speed rather than depending on
-          what a previous job left behind.
-      - alias: Start whole-house clean
-        action: vacuum.start
-        target:
-          entity_id: vacuum.living_room_vacuum
-        note: >-
-          Not app_segment_clean -- a stale segment list silently no-ops
-          after a Roborock map merge (LESSONS.md). Stairs (28) is excluded
-          by the app's virtual wall, not by software.
+          The script re-checks the vacuum is docked and free, since the
+          5-minute wait can outlast either.
+      - alias: Continue only if the job started
+        condition: template
+        value_template: "{{ start.started }}"
       - alias: Mark both zones ran today
         action: input_boolean.turn_on
         target:

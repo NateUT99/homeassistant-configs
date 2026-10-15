@@ -149,40 +149,16 @@ actions:
         state: "on"
         alias: Dustbin module is seated
     then:
-      - alias: Set active zone to daytime
-        action: input_select.select_option
-        target:
-          entity_id: input_select.vacuum_active_zone
+      - alias: Start the daytime vacuum
+        action: script.household_vacuum_start_job
         data:
-          option: daytime
-      - alias: Set max fan speed for daytime cleaning
-        action: vacuum.set_fan_speed
-        target:
-          entity_id: vacuum.living_room_vacuum
-        data:
-          fan_speed: max
+          job: daytime
         note: >-
-          Explicit here, matching Evening Cleaning's own quiet and the
-          master-suite follow-up's own balanced -- every job-starting
-          path now asserts its own fan speed rather than depending on
-          what a previous job left behind.
-      - alias: Start segment clean of remaining rooms
-        action: vacuum.send_command
-        target:
-          entity_id: vacuum.living_room_vacuum
-        data:
-          command: app_segment_clean
-          params:
-            - segments: [16, 17, 19, 20, 21, 23, 24, 26]
-              repeat: 1
-        note: >-
-          Avery's Room, Bathroom, Master Bedroom, Master Closet, Master
-          Bathroom, Utility Room, Pantry, Entrance -- a fixed list. Office,
-          Kitchen, and Living Room run in the evening pass instead. No
-          mop-day adjustment is needed: the day after a mop night,
-          Household: Vacuum Reset marks vacuum_ran_daytime on at 08:00, so
-          this pass doesn't run at all. Segment 28 (Stairs) is never
-          included.
+          Avery's Room, Bathroom, Master suite, Utility Room, Pantry,
+          Entrance. The script owns the rooms and fan speed -- see
+          guides/vacuum_cleaning_routine.md. No mop-day adjustment is needed:
+          the day after a mop night, Household: Vacuum Reset marks
+          vacuum_ran_daytime on at 08:00, so this pass doesn't run at all.
     else:
       - alias: If the daytime clean was blocked by the mop pad, say so
         note: >-

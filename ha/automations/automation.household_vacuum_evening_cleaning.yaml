@@ -112,26 +112,33 @@ actions:
                       whole-house vacuum sets that flag but does not mop, so
                       the weekly mop still runs that night.
                     sequence:
-                      - alias: Start the weekly mop pass via the shared mop script
-                        action: script.household_vacuum_mop_now
+                      - alias: Start the common-area mop
+                        action: script.household_vacuum_start_job
+                        data:
+                          job: common_mop
+                        response_variable: start
                         note: >-
-                          script.household_vacuum_mop_now owns the six-room
-                          segment list, fan speed, and mop-related select
-                          settings -- see guides/vacuum_cleaning_routine.md,
-                          Ad Hoc Mop Pass. This branch's own conditions above
-                          already satisfy the script's hardware interlocks.
-                          It also turns on
-                          vacuum_mop_common_areas_done_this_week itself.
+                          The script owns the rooms, fan speed, and mop
+                          intensity -- see guides/vacuum_cleaning_routine.md.
+                      - alias: Continue only if the job started
+                        condition: template
+                        value_template: "{{ start.started }}"
+                        note: >-
+                          The script re-checks the hardware itself; if it
+                          refused, this branch's flags stay off.
+                      - alias: Mark common-area mop done this week
+                        action: input_boolean.turn_on
+                        target:
+                          entity_id: input_boolean.vacuum_mop_common_areas_done_this_week
                       - alias: Mark evening zone ran today
                         action: input_boolean.turn_on
                         target:
                           entity_id: input_boolean.vacuum_ran_evening
                         note: >-
-                          The script deliberately leaves this flag untouched
-                          -- a manual mop pass through the same script must
-                          not silently mark the night's ordinary vacuum pass
-                          as done too. This branch sets it since tonight's
-                          nightly pass is what actually ran.
+                          Set here, not by Household: Vacuum Mop Now -- an ad
+                          hoc mop must not mark the night's ordinary vacuum
+                          pass as done. Tonight's nightly pass is what
+                          actually ran.
                       - alias: Flag tonight as a mop night for the 08:00 reset
                         action: input_boolean.turn_on
                         target:
@@ -140,8 +147,9 @@ actions:
                           Household: Vacuum Reset reads and clears this at
                           08:00, marking both zones ran for the coming day so
                           its daytime and evening vacuum passes skip -- the mop
-                          pass vacuums as it mops. Set here rather than in the
-                          mop script so an ad hoc mop never skips a day.
+                          pass vacuums as it mops. Set here rather than by
+                          Household: Vacuum Mop Now so an ad hoc mop never
+                          skips a day.
                   - alias: Nightly vacuum pass -- evening zone hasn't run today, mop pad off
                     conditions:
                       - condition: state
@@ -159,38 +167,24 @@ actions:
                           With the pad on, the mop pass is the only job this run
                           may start -- a leftover pad, or one prepped on a night
                           the mop branch above cannot run, must not be dragged
-                          through the vacuum pass. Also what keeps the carpeted
-                          Office (18) safe in the segment list below.
+                          through the vacuum pass. The start script also
+                          refuses a vacuum job with the pad on.
                     sequence:
-                      - alias: Set active zone to evening
-                        action: input_select.select_option
-                        target:
-                          entity_id: input_select.vacuum_active_zone
+                      - alias: Start the nightly vacuum
+                        action: script.household_vacuum_start_job
                         data:
-                          option: evening
-                      - alias: Set quiet fan speed for evening cleaning
-                        action: vacuum.set_fan_speed
-                        target:
-                          entity_id: vacuum.living_room_vacuum
-                        data:
-                          fan_speed: quiet
-                      - alias: Start segment clean of common areas
-                        action: vacuum.send_command
-                        target:
-                          entity_id: vacuum.living_room_vacuum
-                        data:
-                          command: app_segment_clean
-                          params:
-                            - segments: [18, 22, 25]
-                              repeat: 1
+                          job: nightly
+                        response_variable: start
                         note: >-
-                          Office, Kitchen, Living Room -- a fixed list, the same
-                          every vacuum-only night. Office (18) is carpeted, so it
-                          is not in the mop script list and is skipped on mop
-                          night. Bathroom (17), Entrance (26), Utility Room (23),
-                          and Pantry (24) are vacuumed in Household: Last Leaves
-                          Home daytime pass instead, but stay in the mop script
-                          list. Segment 28 (Stairs) is never included.
+                          Office, Kitchen, Living Room. The script owns the
+                          rooms and fan speed -- see
+                          guides/vacuum_cleaning_routine.md.
+                      - alias: Continue only if the job started
+                        condition: template
+                        value_template: "{{ start.started }}"
+                        note: >-
+                          The script re-checks the hardware itself; if it
+                          refused, this branch's flags stay off.
                       - alias: Mark evening zone ran today
                         action: input_boolean.turn_on
                         target:
@@ -315,83 +309,52 @@ actions:
                   message: clear_notification
                   data:
                     tag: vacuum_master_mop_grace
-              - alias: Start the follow-up if the pad, water module, tank, and pause state still allow it
+              - alias: Start the follow-up unless the routine was paused during the grace window
                 note: >-
-                  Re-checked here, not just before the delay -- 15 minutes is
-                  enough time to pull the water module for a refill and not
-                  reseat it, or pull the pad off.
+                  The script re-checks the pad, water module, tank, and mid-job
+                  state itself, since 15 minutes is enough time to pull the
+                  module for a refill and not reseat it.
                 if:
-                  - condition: state
-                    entity_id: binary_sensor.living_room_vacuum_mop_attached
-                    state: "on"
-                    alias: Mop pad is still attached
-                  - condition: state
-                    entity_id: binary_sensor.living_room_vacuum_water_box_attached
-                    state: "on"
-                    alias: Water module is still seated
-                  - condition: state
-                    entity_id: binary_sensor.living_room_vacuum_water_shortage
-                    state: "off"
-                    alias: Water tank is still not empty
                   - condition: state
                     entity_id: input_boolean.vacuum_routine_pause
                     state: "off"
                     alias: Vacuum routine is still not paused
-                  - condition: state
-                    entity_id: binary_sensor.living_room_vacuum_cleaning
-                    state: "off"
-                    alias: Vacuum still is not mid-job
                 then:
-                  - alias: Set active zone to master_mop
-                    action: input_select.select_option
-                    target:
-                      entity_id: input_select.vacuum_active_zone
+                  - alias: Start the master suite mop
+                    action: script.household_vacuum_start_job
                     data:
-                      option: master_mop
-                  - alias: Set balanced fan speed
-                    action: vacuum.set_fan_speed
-                    target:
-                      entity_id: vacuum.living_room_vacuum
-                    data:
-                      fan_speed: balanced
+                      job: master_mop
+                    response_variable: start
                     note: >-
-                      Both rooms are hard floor and the house is awake -- max
-                      fan (daytime pass) is unnecessary noise here.
-                  - alias: Start the segment clean of the master bedroom and bathroom
-                    action: vacuum.send_command
-                    target:
-                      entity_id: vacuum.living_room_vacuum
-                    data:
-                      command: app_segment_clean
-                      params:
-                        - segments: [19, 21]
-                          repeat: 1
-                    note: >-
-                      Segment 20 (Master closet, carpeted) is deliberately
-                      excluded. Segment 28 (Stairs) never appears in this
-                      routine -- fall hazard, backstopped by an app virtual
-                      wall.
-                  - alias: Mark master suite mop done this week
-                    action: input_boolean.turn_on
-                    target:
-                      entity_id: input_boolean.vacuum_mop_master_suite_done_this_week
+                      Master Bedroom and Master Bathroom; the carpeted closet
+                      is excluded. The script owns the rooms and fan speed,
+                      and leaves mop intensity as set.
+                  - alias: Mark it done, or say why it was skipped
+                    if:
+                      - condition: template
+                        value_template: "{{ start.started }}"
+                        alias: The job started
+                    then:
+                      - alias: Mark master suite mop done this week
+                        action: input_boolean.turn_on
+                        target:
+                          entity_id: input_boolean.vacuum_mop_master_suite_done_this_week
+                    else:
+                      - alias: Tell Nate the master mop pass was skipped, and why
+                        action: notify.send_message
+                        target:
+                          entity_id: notify.nates_iphone
+                        data:
+                          title: Vacuum
+                          message: Master mop pass skipped -- {{ start.reason }}.
                 else:
-                  - alias: Tell Nate the master mop pass was skipped, and why
+                  - alias: Tell Nate the master mop pass was skipped because the routine is paused
                     action: notify.send_message
                     target:
                       entity_id: notify.nates_iphone
                     data:
                       title: Vacuum
-                      message: >-
-                        Master mop pass skipped -- {{ 'the mop pad came off'
-                        if is_state('binary_sensor.living_room_vacuum_mop_attached',
-                        'off') else ("the water module isn't seated" if
-                        is_state('binary_sensor.living_room_vacuum_water_box_attached',
-                        'off') else ('the water tank is empty' if
-                        is_state('binary_sensor.living_room_vacuum_water_shortage',
-                        'on') else ('the routine is paused' if
-                        is_state('input_boolean.vacuum_routine_pause', 'on')
-                        else 'the vacuum is already mid-job'))) }}.
+                      message: Master mop pass skipped -- the routine is paused.
       - alias: 11:00 backstop -- offer a manual start if this week's master suite follow-up hasn't run
         conditions:
           - condition: trigger
