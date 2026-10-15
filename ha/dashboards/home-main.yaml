@@ -1871,7 +1871,13 @@ views:
         display_timestamps: false
         media_artwork_overrides:
         - app_name: YouTube
-          image_url: /local/media_art/youtube.svg
+          missing_art_url: /local/media_art/youtube.svg
+        - app_name: TV
+          missing_art_url: /local/media_art/tv.svg
+        - app_name: Disney+
+          missing_art_url: /local/media_art/disney_plus.svg
+        - app_name: Prime Video
+          missing_art_url: /local/media_art/prime_video.svg
       - type: custom:bubble-card
         card_type: button
         button_type: slider
@@ -1906,7 +1912,7 @@ views:
 
           .rc-skip ha-icon { color: var(--primary-text-color) !important; }
 
-          .bubble-button-container { margin: 0 8px !important; width: auto !important; height: 32px !important; }
+          .bubble-button-container { height: 32px !important; }
 
           ha-card { border-radius: 10px !important; }
 
@@ -2623,7 +2629,13 @@ views:
         display_timestamps: false
         media_artwork_overrides:
         - app_name: YouTube
-          image_url: /local/media_art/youtube.svg
+          missing_art_url: /local/media_art/youtube.svg
+        - app_name: TV
+          missing_art_url: /local/media_art/tv.svg
+        - app_name: Disney+
+          missing_art_url: /local/media_art/disney_plus.svg
+        - app_name: Prime Video
+          missing_art_url: /local/media_art/prime_video.svg
       - type: custom:bubble-card
         card_type: button
         button_type: slider
@@ -2658,7 +2670,7 @@ views:
 
           .rc-skip ha-icon { color: var(--primary-text-color) !important; }
 
-          .bubble-button-container { margin: 0 8px !important; width: auto !important; height: 32px !important; }
+          .bubble-button-container { height: 32px !important; }
 
           ha-card { border-radius: 10px !important; }
 
