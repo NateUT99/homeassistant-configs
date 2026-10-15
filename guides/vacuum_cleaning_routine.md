@@ -8,7 +8,8 @@ Automates the Roborock Q8 Max Plus (`vacuum.living_room_vacuum`) to clean the ho
 independent schedules: a quiet pass over shared common areas in the evening, and a
 whole-house pass during the day whenever the house is empty and hasn't been cleaned yet. Once
 a week, on whatever night Avery is away, the evening pass doubles as a mop pass, followed the
-next morning by a short master-suite mop while the pad is still fitted. Seven standalone
+next morning by a short master-suite mop while the pad is still fitted; the day after a mop
+night skips both vacuum passes, since the mop pass vacuums as it mops. Seven standalone
 automations plus two blocks folded into the presence automations implement the whole routine,
 each covering one trigger source (bedtime, wake, departure, arrival, noon, a fixed clock time,
 or the vacuum getting stuck) rather than one physical zone, so that automations doing
@@ -46,8 +47,8 @@ card key off this sensor rather than the raw fault sensor alone.
         │ mop-eligible tonight│            │ utility, + bath/        │
         │ segments: kitchen,  │            │ entrance if Avery home  │
         │ living, pantry,     │            │ + master bed/bath       │
-        │ utility, bathroom,  │            │ unless mopped today     │
-        │ entrance (mop night)│            └──────────┬──────────────┘
+        │ utility, bathroom,  │            └──────────┬──────────────┘
+        │ entrance (mop night)│                       │
         │ or kitchen/living/  │                       │
         │ office + entrance/  │                       │
         │ bath if Avery away  │                       │
@@ -75,19 +76,16 @@ card key off this sensor rather than the raw fault sensor alone.
               fan: balanced, mop: high
               segments: master bedroom (19), master bathroom (21)
                              ▼
-              active_zone = master_mop; vacuum_mop_master_suite_done_this_week = on;
-              input_datetime.vacuum_master_mop_last_run = today
-                             │
-                             └─ read by Household: Last Leaves Home's segment-list
-                                variable: drops 19 and 21 from that day's daytime run
+              active_zone = master_mop; vacuum_mop_master_suite_done_this_week = on
 
   Household: Vacuum Reset                           Household: Vacuum Mop Pad Reminders
   triggers: 08:00 daily, 12:00 Mondays               triggers: every 30m from prep_check,
-  08:00 clears both ran-today flags, routine-        vacuum re-dock, 17:00, pad removed
-  pause, mop-skip-today; 12:00 Monday                latches vacuum_avery_home_tonight every
-  additionally clears both weekly mop flags --       20:00-23:59 tick (window opens 19:55,
-  split off 08:00 so a Sunday mop's morning           first tick lands 20:00); brackets mop
-  follow-up survives a late wake                      night with a prep nudge + cleanup nudge
+  08:00 clears both ran-today flags -- or, if        vacuum re-dock, 17:00, pad removed
+  vacuum_mopped_overnight is on, sets both and       latches vacuum_avery_home_tonight every
+  consumes it (skip day); always clears routine-     20:00-23:59 tick (window opens 19:55,
+  pause, mop-skip-today; 12:00 Monday clears          first tick lands 20:00); brackets mop
+  both weekly mop flags, split off 08:00 so a         night with a prep nudge + cleanup nudge
+  Sunday mop's follow-up survives a late wake
 
   Household: First Arrives Home                     Household: Vacuum Live Activity
   (confirmed-arrival block)                         trigger: vacuum state change, error sensor,
@@ -179,11 +177,10 @@ before the date can roll over), and the evening side reads the 20:00-latched
 `LESSONS.md` → *Presence & Device Trackers*.
 
 The master-suite follow-up is not a fourth physical zone — it is two daytime-zone rooms (both
-hard floor) that get mopped the morning after mop night while the pad is still fitted, then
-dropped from that same day's daytime pass so they aren't cleaned twice. Master Closet (20)
-stays daytime-only; it's carpeted, so a wet pad can never touch it. Which day counts as "today"
-for that drop is a date compare against `input_datetime.vacuum_master_mop_last_run`, not the
-`active_zone` helper — see [Step 2](#2-create-the-helpers).
+hard floor) that get mopped the morning after mop night while the pad is still fitted. That
+day's daytime pass is skipped entirely (see [Skip day](#skip-day-after-a-mop-night)), so the
+daytime segment list never needs to drop them. Master Closet (20) stays daytime-only; it's
+carpeted, so a wet pad can never touch it.
 
 *Household: Vacuum Midday Prompt*'s whole-house branch cleans the entire map and carries no
 segment list at all — see [Step 3](#3-build-the-automations) for why.
@@ -211,11 +208,11 @@ by testing whether `app_segment_clean` targeting it actually starts a job (`stat
 
 Nine helpers back the routine, all under the `int_vacuum_cleaning_routine` label:
 
-- `input_boolean.vacuum_ran_evening`, `input_boolean.vacuum_ran_daytime` — per-zone daily completion flags. `vacuum_ran_daytime` is set by *Vacuum Live Activity*'s daytime-completion check once live progress clears the threshold, or on command by *Vacuum Midday Prompt*; `vacuum_ran_evening` is set on command by *Vacuum Evening Cleaning* or *Vacuum Midday Prompt*'s whole-house branch; it skips only the nightly vacuum-only branch, never the weekly mop. Both are daily, cleared at 08:00 — separate from the weekly mop-completion flags below.
+- `input_boolean.vacuum_ran_evening`, `input_boolean.vacuum_ran_daytime` — per-zone daily completion flags. `vacuum_ran_daytime` is set by *Vacuum Live Activity*'s daytime-completion check once live progress clears the threshold, or on command by *Vacuum Midday Prompt*; `vacuum_ran_evening` is set on command by *Vacuum Evening Cleaning* or *Vacuum Midday Prompt*'s whole-house branch; it skips only the nightly vacuum-only branch, never the weekly mop. Both are daily, cleared at 08:00 — or set at 08:00 on a [skip day](#skip-day-after-a-mop-night) — separate from the weekly mop-completion flags below.
 - `input_select.vacuum_active_zone` (`evening` / `daytime` / `away` / `master_mop`) — set the moment a job is commanded. Only `daytime` gates a decision: *Vacuum Live Activity*'s daytime-completion check and its amber "will restart" branch both key off it specifically. `evening`, `away`, and `master_mop` are written on every job but never read back for anything — they exist as a debugging breadcrumb (which zone commanded the vacuum's current or most recent job), not as a control input.
 - `input_boolean.vacuum_routine_pause` — a per-trip "I'm stepping out briefly, don't start" flag. Nothing in HA arms it; it's a manual toggle (dashboard or Companion App) flipped on right before a departure that shouldn't start a job. On the next confirmed arrival, *Household: First Arrives Home* pushes **Keep paused** / **Resume**: Resume or no answer within 2 minutes clears it so it never survives to block a later real departure; Keep paused, or leaving again before answering (a quick stop), leaves it armed for the departure that follows. The question is dismissed either way.
 - `input_boolean.vacuum_mop_common_areas_done_this_week`, `input_boolean.vacuum_mop_master_suite_done_this_week` — the two weekly mop-completion flags. Since mop night floats to whatever night Avery is away rather than a fixed weekday, these (not a calendar condition) are what stop each half of the mop pass from running more than once a week. *Household: Vacuum Reset* clears both at 12:00 every Monday — deliberately not the daily 08:00 reset, so a Sunday-night mop's morning follow-up isn't cut short by a late wake; see [Step 3](#3-build-the-automations).
-- `input_datetime.vacuum_master_mop_last_run` (date only) — the date the master-suite follow-up last completed. *Household: Last Leaves Home* compares this against today's date to drop segments 19/21 from that day's daytime pass. A date, not the `active_zone` select: that select gets overwritten by the very next job commanded (including the daytime pass itself), so it can't reliably answer "did this happen today" once a second job has started.
+- `input_boolean.vacuum_mopped_overnight` — a one-shot hand-off from the nightly mop branch to the next 08:00 reset. *Vacuum Evening Cleaning*'s mop branch turns it on; *Vacuum Reset* reads it at 08:00, sets both ran-today flags instead of clearing them, and turns it off. A boolean consumed at 08:00 rather than a date compare, since the mop pass can start on either side of midnight.
 - `input_boolean.vacuum_mop_skip_today` — cancels that night's prep reminder loop (*Household: Vacuum Mop Pad Reminders*) without touching whether the mop pass itself is eligible. Cleared daily at 08:00 by *Vacuum Reset* so a cancel never bleeds into the next mop-eligible night.
 - `input_boolean.vacuum_avery_home_tonight` — the 20:00-latched snapshot of `binary_sensor.avery_home_today`, read by the two automations that can run past midnight (*Vacuum Evening Cleaning*'s nightly branch, *Vacuum Mop Pad Reminders*'s prep nudge). The live sensor is calendar-derived and flips at exactly `00:00:00`; a post-midnight run reading it live would answer for the wrong night. See the coordinated-change note in [Step 1](#1-map-rooms-to-zones) and `LESSONS.md` → *Presence & Device Trackers*.
 
@@ -239,7 +236,6 @@ YAML alone:
 - **Vacuum Midday Prompt fires daily at noon whenever the house is empty and the daytime zone hasn't run — one check that covers both a missed departure edge and an absence of any length.** A departure before 08:00 or in the 08:00-09:00 window falls outside *Last Leaves Home*'s block, and nothing else ever clears `vacuum_ran_daytime` except a real clean, so the same noon check catches both. It runs a whole-house `vacuum.start` (see that action's own `note` for the docked/segment-list caveats) rather than a segmented daytime-only clean, since the check can't tell a brief gap from a multi-day absence apart.
 - **Vacuum Live Activity also owns the daytime zone's completion check**, folded in from the former Vacuum Progress Tracking automation: any of its own triggers (a status transition or the 5-minute tick) checks whether live progress has cleared 65% while `active_zone` is `daytime`, and marks `vacuum_ran_daytime` on if so. No dedicated progress-sensor trigger or stored running-max helper is needed — `sensor.<vacuum>_cleaning_progress` resets roughly 20 seconds *after* the relevant state transition, not before it (`LESSONS.md` → *Vacuum & Roborock*), so sampling at every transition reliably beats the reset, and the write is sticky once made.
 - **Vacuum Reset splits its two clears onto different triggers on purpose.** The daily 08:00 boundary (ran-today flags, routine-pause, mop-skip-today) and the Monday weekly-mop-flag clear don't share a trigger — the weekly clear fires at 12:00 instead, since an 08:00 firing can land before a late wake finishes the master-suite follow-up from a Sunday-night mop, clearing `vacuum_mop_common_areas_done_this_week` out from under it.
-- **The master-suite follow-up's segment-list read happens before the next daytime pass overwrites the signal it depends on.** *Household: Last Leaves Home* builds `daytime_segments` from `input_datetime.vacuum_master_mop_last_run` compared against today's date, immediately before setting `active_zone` to `daytime` — the date helper isn't touched by that write, so read-before-write ordering is what makes the drop reliable.
 - **Fan speed is set explicitly by every job-starting path, not restored from a prior dock.** *Vacuum Evening Cleaning* sets `quiet`, its master-suite branch sets `balanced`, and *Household: Last Leaves Home* and *Vacuum Midday Prompt* both set `max` — each asserts its own value at its own start rather than depending on what an earlier, unrelated job left behind. *Vacuum Setting Defaults* now owns only mop intensity, resetting it to `high` whenever the pad clips on, since there's no equivalent "explicit at start" moment for that setting the way there is for fan speed.
 - **The arrival dock and the routine-pause prompt both live in *Household: First Arrives Home***, on the same confirmed-arrival trigger, rather than the pause handling having its own automation watching raw `zone.home` — this household tracks only Nate (and, when toggled, a guest) via `zone.home`, so `arrival_confirmed` already covers every arrival that matters here.
 - **Vacuum Mop Pad Reminders also owns the Avery-tonight latch**, piggybacked on the `time_pattern` trigger it already runs every 30 minutes — see that action's own `note` for the window and why it's self-healing.
@@ -300,14 +296,15 @@ be dragged across the carpeted Office and bedrooms. So the nightly vacuum-only b
 daytime block in *Household: Last Leaves Home*, *Household: Vacuum Midday Prompt*'s whole-house
 branch, and its 12:00 gate all check `binary_sensor.living_room_vacuum_mop_attached` being
 `off`. The daytime block additionally pushes *"Daytime clean skipped — the mop pad is
-still attached"* so the skip is never silent, tagged `vacuum_mop_cleanup` so it clears when the
-pad comes off; Midday Prompt self-heals — once the pad comes
+still attached"* when a clean was otherwise due (not yet run, not paused, 9am–7pm), tagged
+`vacuum_mop_cleanup` so it clears when the pad comes off; Midday Prompt self-heals — once the pad comes
 off, the noon check runs the clean it skipped. At bedtime, a fitted pad means the mop branch is the only job the
 nightly run may start. If the mop branch can't run — this week's mop already happened (a
 leftover pad), Avery is home, or the tank or module isn't ready — the whole nightly pass is
 skipped rather than falling through to the vacuum-only branch, with a passive (silent) push
 *"Nightly clean skipped — the mop pad is attached"* tagged `vacuum_mop_cleanup` so it is waiting
-in the morning and clears when the pad comes off.
+in the morning and clears when the pad comes off. Both skip pushes stay silent on a [skip
+day](#skip-day-after-a-mop-night), when the ran-today flags are already on and no pass was due.
 
 ### Master suite follow-up (the next morning)
 
@@ -329,11 +326,9 @@ pad off) and starts a segment clean at `fan: balanced` / `mop: high`. Master Clo
 20) is never included — it's carpeted.
 
 The branch sets `input_select.vacuum_active_zone` to `master_mop` and turns on
-`vacuum_mop_master_suite_done_this_week` and stamps `input_datetime.vacuum_master_mop_last_run`
-with today's date on success. The zone value keeps *Vacuum Live Activity*'s daytime-completion
-check (gated on `daytime`) from attributing this run to the daytime zone; the date stamp is what *Household:
-Last Leaves Home*'s segment-list template reads to drop segments 19 and 21 from that day's
-daytime pass. The done flag is what stops the follow-up from re-attempting later the same week;
+`vacuum_mop_master_suite_done_this_week` on success. The zone value keeps *Vacuum Live
+Activity*'s daytime-completion check (gated on `daytime`) from attributing this run to the
+daytime zone. The done flag is what stops the follow-up from re-attempting later the same week;
 *Household: Vacuum Reset* clears it every Monday.
 
 At 11:00, if this week's common-area mop has run but the follow-up hasn't, someone is up, and
@@ -342,10 +337,6 @@ action button (`VACUUM_MASTER_MOP_NOW`). Tapping it re-enters the morning branch
 announcement and 15-minute grace included, so a manual start gets the same re-checks. This
 covers anything that stops the morning branch: an HA restart during the delay, or a run
 aborted by an unexpected error.
-
-Skipping the master bedroom/bathroom from the daytime pass, rather than also mopping them
-there, is deliberate: *Household: Last Leaves Home* builds `daytime_segments` from a one-line
-conditional list, so the master suite is vacuumed exactly once per day either way.
 
 **The reminders.** *Household: Vacuum Mop Pad Reminders* owns the pad lifecycle as one state
 machine around the mop-attached sensor:
@@ -376,6 +367,22 @@ morning follow-up re-docks. TTS is further limited to 06:00–21:00 with someone
 tick shares the :00 tick with the prep check, so the automation runs `mode: queued` to keep
 either from being dropped. Only the re-dock sends the push; it stays on the lock screen until
 the pad comes off, so the hourly repeats are spoken only. TTS goes through `script.household_tts_announce`.
+
+### Skip day after a mop night
+
+The mop pass vacuums as it mops, so the day after a mop night runs no vacuum passes: no
+daytime pass, no noon whole-house prompt, no evening pass. Everything resumes the following
+day. The mop branch turns on `input_boolean.vacuum_mopped_overnight`; at 08:00 *Household:
+Vacuum Reset* sees it, turns both ran-today flags **on** instead of off, and turns the hand-off
+flag off. Every job-starting path already skips on those flags, so none of them carries any
+mop-night logic of its own, and the next 08:00 reset reopens both zones.
+
+The skip keys on the overnight common-area mop alone, not on the morning master-suite
+follow-up — if the follow-up doesn't run, the master suite simply waits for the next daytime
+pass. An ad hoc run of `script.household_vacuum_mop_now` never triggers a skip day; the flag is
+set only by the scheduled mop branch. The cost is coverage on the skipped day's non-mopped
+rooms: the Bedroom (16) and Master Closet (20) go two days between passes, and the Office (18),
+already skipped on mop night, goes three nights.
 
 ## Ad Hoc Mop Pass
 
@@ -477,7 +484,7 @@ reused for other chores.
 | Vacuum Mop Common Areas Done This Week | `input_boolean.vacuum_mop_common_areas_done_this_week` | Helper |
 | Vacuum Mop Master Suite Done This Week | `input_boolean.vacuum_mop_master_suite_done_this_week` | Helper |
 | Vacuum Mop Skip Today | `input_boolean.vacuum_mop_skip_today` | Helper |
-| Vacuum Master Mop Last Run | `input_datetime.vacuum_master_mop_last_run` | Helper |
+| Vacuum Mopped Overnight | `input_boolean.vacuum_mopped_overnight` | Helper |
 | Vacuum Avery Home Tonight | `input_boolean.vacuum_avery_home_tonight` | Helper |
 
 ## Related Files

@@ -1,11 +1,12 @@
 id: "1789523181266"
 alias: "Household: Vacuum Reset"
 description: >-
-  Clears both zones' ran-today flags, routine-pause, and mop-skip-today every
-  day at 08:00; both weekly mop-completion flags separately at 12:00 every
-  Monday -- split off 08:00 so a Sunday-night mop's morning follow-up isn't
-  cut short by a late wake clearing vacuum_mop_common_areas_done_this_week out
-  from under it. See guides/vacuum_cleaning_routine.md.
+  Every day at 08:00, clears both zones' ran-today flags, routine-pause, and
+  mop-skip-today -- or, the morning after an overnight mop pass, sets both
+  ran-today flags instead so that day's daytime and evening vacuum passes are
+  skipped. Clears both weekly mop-completion flags separately at 12:00 every
+  Monday, so a Sunday-night mop's morning follow-up isn't cut short by a late
+  wake. See guides/vacuum_cleaning_routine.md.
 triggers:
   - trigger: time
     at: "08:00:00"
@@ -18,19 +19,40 @@ triggers:
 conditions: []
 actions:
   - choose:
-      - alias: 8am daily -- clear both zones' ran-today flags and related state
+      - alias: "8am daily -- start the vacuum-day: open both zones, or skip them after a mop night"
         conditions:
           - condition: trigger
             id: [daily_reset]
         sequence:
-          - alias: Reset daytime zone ran-today flag
-            action: input_boolean.turn_off
-            target:
-              entity_id: input_boolean.vacuum_ran_daytime
-          - alias: Reset evening zone ran-today flag
-            action: input_boolean.turn_off
-            target:
-              entity_id: input_boolean.vacuum_ran_evening
+          - alias: Skip today's vacuum passes after a mop night, otherwise open both zones
+            if:
+              - condition: state
+                entity_id: input_boolean.vacuum_mopped_overnight
+                state: "on"
+                alias: The common-area mop pass ran overnight
+            then:
+              - alias: Mark both zones ran today so the daytime, noon, and evening passes skip
+                action: input_boolean.turn_on
+                target:
+                  entity_id:
+                    - input_boolean.vacuum_ran_daytime
+                    - input_boolean.vacuum_ran_evening
+                note: >-
+                  The mop pass vacuums as it mops, so the next day's passes
+                  would only repeat it. Every job-starting path already skips
+                  on these flags, so none of them needs to know about mop
+                  night; the next 08:00 reset reopens both zones.
+              - alias: Consume the mopped-overnight flag
+                action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.vacuum_mopped_overnight
+            else:
+              - alias: Reset both zones' ran-today flags
+                action: input_boolean.turn_off
+                target:
+                  entity_id:
+                    - input_boolean.vacuum_ran_daytime
+                    - input_boolean.vacuum_ran_evening
           - alias: Clear routine pause flag as a backstop
             action: input_boolean.turn_off
             target:

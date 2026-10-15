@@ -132,6 +132,16 @@ actions:
                           not silently mark the night's ordinary vacuum pass
                           as done too. This branch sets it since tonight's
                           nightly pass is what actually ran.
+                      - alias: Flag tonight as a mop night for the 08:00 reset
+                        action: input_boolean.turn_on
+                        target:
+                          entity_id: input_boolean.vacuum_mopped_overnight
+                        note: >-
+                          Household: Vacuum Reset reads and clears this at
+                          08:00, marking both zones ran for the coming day so
+                          its daytime and evening vacuum passes skip -- the mop
+                          pass vacuums as it mops. Set here rather than in the
+                          mop script so an ad hoc mop never skips a day.
                   - alias: Nightly vacuum pass -- evening zone hasn't run today, mop pad off
                     conditions:
                       - condition: state
@@ -194,22 +204,28 @@ actions:
                         note: >-
                           Set on command, not on verified completion -- nothing
                           docks the evening run mid-way, so there is no partial
-                          run to distinguish. Cleared at 8am by Household:
+                          run to distinguish. Reset at 8am by Household:
                           Vacuum Reset.
                 default:
                   - alias: If tonight was skipped for the mop pad, say so quietly
                     note: >-
                       Covers a leftover pad (this week's mop already ran) and a
                       pad prepped on a night the mop branch cannot run (Avery
-                      home, tank empty, module out). Passive so it lands
-                      silently overnight, and tagged vacuum_mop_cleanup so
-                      Household: Vacuum Mop Pad Reminders clears it when the
-                      pad comes off.
+                      home, tank empty, module out). Only when a pass was
+                      actually due -- the night after a mop pass is skipped on
+                      purpose and stays silent. Passive so it lands silently
+                      overnight, and tagged vacuum_mop_cleanup so Household:
+                      Vacuum Mop Pad Reminders clears it when the pad comes
+                      off.
                     if:
                       - condition: state
                         entity_id: binary_sensor.living_room_vacuum_mop_attached
                         state: "on"
                         alias: Mop pad is attached
+                      - condition: state
+                        entity_id: input_boolean.vacuum_ran_evening
+                        state: "off"
+                        alias: A nightly pass was due tonight
                     then:
                       - alias: Tell Nate the nightly clean was skipped for the mop pad
                         action: notify.mobile_app_nates_iphone
@@ -341,17 +357,6 @@ actions:
                     action: input_boolean.turn_on
                     target:
                       entity_id: input_boolean.vacuum_mop_master_suite_done_this_week
-                  - alias: Stamp today as the master suite's last mop date
-                    action: input_datetime.set_datetime
-                    target:
-                      entity_id: input_datetime.vacuum_master_mop_last_run
-                    data:
-                      date: "{{ now().strftime('%Y-%m-%d') }}"
-                    note: >-
-                      Read by Household: Last Leaves Home to drop the master
-                      suite from today's daytime pass -- a date compare
-                      rather than input_select.vacuum_active_zone, which the
-                      next job commanded always overwrites.
                 else:
                   - alias: Tell Nate the master mop pass was skipped, and why
                     action: notify.send_message
