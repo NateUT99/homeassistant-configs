@@ -14,7 +14,8 @@ automations plus two blocks folded into the presence automations implement the w
 each covering one trigger source (bedtime, wake, departure, arrival, noon, a fixed clock time,
 or the vacuum getting stuck) rather than one physical zone, so that automations doing
 tightly-coupled or same-signal work share one entity instead of duplicating conditions across
-two. Interrupted daytime jobs restart rather than resume: a commanded dock always cancels the
+two. Arrival asks whether to dock a running job or let it finish, because a dock can't be
+undone: interrupted daytime jobs restart rather than resume, since a commanded dock always cancels the
 active Roborock job, and `sensor.<vacuum>_current_room` is too noisy to track room-level
 completion — see `LESSONS.md` → *Vacuum & Roborock*.
 
@@ -88,10 +89,10 @@ card key off this sensor rather than the raw fault sensor alone.
 
   Household: First Arrives Home                     Household: Vacuum Live Activity
   (confirmed-arrival block)                         trigger: vacuum state change, error sensor,
-  docks the vacuum if mid-run and not stuck,         stuck-sensor change, every 5 min; marks the
-  asks to keep/clear the routine-pause flag          daytime zone done once live progress clears
-                                                      65% (any trigger, gated to daytime), then
-                                                      reconciles -> running/paused/done/stuck/clear.
+  asks Dock now / Let it finish if mid-run          stuck-sensor change, every 5 min; marks the
+  (2m no answer = dock; never if stuck);            daytime zone done once live progress clears
+  asks to keep/clear the routine-pause                65% (any trigger, gated to daytime), then
+  flag (both questions run in parallel)               reconciles -> running/paused/done/stuck/clear.
                                                       Running and returning suppressed while
                                                       everyone_sleeping; the done card still posts,
                                                       but silenced via periodic_tick overnight
@@ -228,7 +229,8 @@ YAML alone:
 - **Vacuum Live Activity also owns the daytime zone's completion check**, folded in from the former Vacuum Progress Tracking automation: any of its own triggers (a status transition or the 5-minute tick) checks whether live progress has cleared 65% while `active_zone` is `daytime`, and marks `vacuum_ran_daytime` on if so. No dedicated progress-sensor trigger or stored running-max helper is needed — `sensor.<vacuum>_cleaning_progress` resets roughly 20 seconds *after* the relevant state transition, not before it (`LESSONS.md` → *Vacuum & Roborock*), so sampling at every transition reliably beats the reset, and the write is sticky once made.
 - **Vacuum Reset splits its two clears onto different triggers on purpose.** The daily 08:00 boundary (ran-today flags, routine-pause, mop-skip-today) and the Monday weekly-mop-flag clear don't share a trigger — the weekly clear fires at 12:00 instead, since an 08:00 firing can land before a late wake finishes the master-suite follow-up from a Sunday-night mop, clearing `vacuum_mop_common_areas_done_this_week` out from under it.
 - **Fan speed is set explicitly by every job-starting path, not restored from a prior dock.** *Vacuum Evening Cleaning* sets `quiet`, its master-suite branch sets `balanced`, and *Household: Last Leaves Home* and *Vacuum Midday Prompt* both set `max` — each asserts its own value at its own start rather than depending on what an earlier, unrelated job left behind. *Vacuum Setting Defaults* now owns only mop intensity, resetting it to `high` whenever the pad clips on, since there's no equivalent "explicit at start" moment for that setting the way there is for fan speed.
-- **The arrival dock and the routine-pause prompt both live in *Household: First Arrives Home***, on the same confirmed-arrival trigger, rather than the pause handling having its own automation watching raw `zone.home` — this household tracks only Nate (and, when toggled, a guest) via `zone.home`, so `arrival_confirmed` already covers every arrival that matters here.
+- **Arrival asks before docking, and defaults to docking.** A dock ends the job for good, so *Household: First Arrives Home* pushes **Dock now** / **Let it finish** with the live progress percentage instead of docking outright. No answer within 2 minutes docks, so a missed push never leaves the robot underfoot; leaving again before answering lets it finish. **Let it finish** lets a daytime job reach the 65% completion check, so it isn't re-run on the next departure. The dock question and the routine-pause question run in a `parallel` block so neither wait delays the other.
+- **The arrival dock question and the routine-pause prompt both live in *Household: First Arrives Home***, on the same confirmed-arrival trigger, rather than the pause handling having its own automation watching raw `zone.home` — this household tracks only Nate (and, when toggled, a guest) via `zone.home`, so `arrival_confirmed` already covers every arrival that matters here.
 - **Vacuum Mop Pad Reminders also owns the Avery-tonight latch**, piggybacked on the `time_pattern` trigger it already runs every 30 minutes — see that action's own `note` for the window and why it's self-healing.
 - **Segment order in `app_segment_clean` does not determine cleaning route.** The robot path-plans from its own position, not the array order — no need to sort segment lists.
 
@@ -461,7 +463,7 @@ reused for other chores.
 | Living Room Vacuum Filter Clean Time Left | `sensor.living_room_vacuum_filter_clean_time_left` | Template helper (hours until the filter's next clean) |
 | Reset air filter / main brush / side brush / sensor consumable | `button.living_room_vacuum_reset_*_consumable` | Button ×4 (enabled; disabled by default by the integration) |
 | Household: Last Leaves Home | `automation.household_last_leaves_home` | Automation (contains the daytime-start block) |
-| Household: First Arrives Home | `automation.household_first_arrives_home` | Automation (contains the arrival dock and vacuum routine-pause prompt) |
+| Household: First Arrives Home | `automation.household_first_arrives_home` | Automation (contains the arrival dock question and vacuum routine-pause prompt) |
 | Household: Vacuum Reset | `automation.household_vacuum_reset` | Automation (daily 08:00 flag reset + Monday 12:00 weekly mop reset) |
 | Household: Vacuum Midday Prompt | `automation.household_vacuum_midday_prompt` | Automation (noon prompt for a whole-house catch-up clean) |
 | Household: Vacuum Mop Pad Reminders | `automation.household_vacuum_mop_pad_reminders` | Automation (prep + cleanup nudges, plus the Avery-tonight latch) |
@@ -510,4 +512,4 @@ reused for other chores.
 
 **The master-suite follow-up skips with "the water module isn't seated."** The 2-in-1 dustbin + water module was pulled to refill the tank and hasn't been reseated by the time the 15-minute grace window elapses. Reseat it before the window closes. The follow-up doesn't retry on its own, but if it still hasn't run by 11:00 a push offers a **Mop master suite now** button.
 
-**Arrival doesn't dock the vacuum even though it looks like it's cleaning.** Check `binary_sensor.vacuum_stuck` — *Household: First Arrives Home* deliberately withholds `return_to_base` while it's `on` and re-alerts the vacuum's Live Activity stuck card instead, since commanding a stuck vacuum to move just adds another movement command on top of whatever it's caught on. Clear the physical obstruction first; the sensor drops back to `off` within a minute of real progress resuming.
+**Arrival doesn't dock the vacuum even though it looks like it's cleaning.** Arrival only docks on **Dock now** or after 2 minutes with no answer — a departure before answering, or **Let it finish**, leaves it running. Otherwise check `binary_sensor.vacuum_stuck` — *Household: First Arrives Home* deliberately withholds `return_to_base` while it's `on` and re-alerts the vacuum's Live Activity stuck card instead, since commanding a stuck vacuum to move just adds another movement command on top of whatever it's caught on. Clear the physical obstruction first; the sensor drops back to `off` within a minute of real progress resuming.

@@ -150,13 +150,13 @@ docking the vacuum, setting the thermostat preset — trigger on this helper goi
                             Household: First Arrives Home
                             - thermostat → Home
                             - clear Immediate Departure override
-                            - dock the vacuum if mid-run
+                            - ask to dock or finish a mid-run vacuum
                             - ask to keep/clear the vacuum routine pause
                             - (future arrival actions land here)
 ```
 
-**Why two paths.** The fast path buys a couple of minutes on a genuine drive-home, docking the
-vacuum before anyone walks in. A driving signal is any of the three in
+**Why two paths.** The fast path buys a couple of minutes on a genuine drive-home, so the
+vacuum question lands before anyone walks in. A driving signal is any of the three in
 [CarPlay Signal](#carplay-signal). The evidence path is the correctness backstop and needs no
 per-person activity sensor — anything that isn't clearly a car (walking, cycling, running,
 stationary, or the sensor's idle `Unknown`) defers to it rather than being enumerated, since

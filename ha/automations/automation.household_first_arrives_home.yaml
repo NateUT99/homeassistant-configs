@@ -5,8 +5,9 @@ description: >-
   automation.household_confirm_arrival, not the raw zone.home geofence (which
   fires ~100m out and can't tell a drive home from a walk around the block).
   Sets the living room thermostat to Home, clears the Immediate Departure
-  flag, docks the vacuum if it's mid-run and not stuck (re-alerting its Live
-  Activity card if it is stuck), and -- if the vacuum routine is paused --
+  flag, asks whether to dock a mid-run vacuum or let it
+  finish (docking after 2 minutes with no answer; re-alerting its Live
+  Activity card instead if it is stuck), and -- if the vacuum routine is paused --
   asks whether to keep the pause, clearing it after 2 minutes with no answer.
   Additional arrival actions will be added over time.
 triggers:
@@ -31,125 +32,199 @@ actions:
       later, possibly brief, departure. automation.household_last_leaves_home
       also clears it on use; this is the safety net for when that automation
       didn't run.
-  - alias: Dock the vacuum if it's mid-run now that someone is home, and it isn't stuck
-    note: >-
-      A commanded dock cancels the active job on this unit -- expected, see
-      guides/vacuum_cleaning_routine.md. Gated on binary_sensor.vacuum_stuck
-      being off, since a fault can clear while the unit is still
-      mechanically obstructed and return_to_base would just command more
-      movement into whatever it's caught on -- see LESSONS.md -> Vacuum &
-      Roborock.
-    if:
-      - condition: state
-        entity_id: vacuum.living_room_vacuum
-        state: cleaning
-        alias: Vacuum is cleaning
-      - condition: state
-        entity_id: binary_sensor.vacuum_stuck
-        state: "off"
-        alias: Vacuum is not actually stuck
-    then:
-      - alias: Send the vacuum back to its dock
-        action: vacuum.return_to_base
-        target:
-          entity_id: vacuum.living_room_vacuum
-    else:
-      - alias: If the vacuum is stuck instead, re-alert its Live Activity
-        if:
-          - condition: state
-            entity_id: binary_sensor.vacuum_stuck
-            state: "on"
-            alias: Vacuum is stuck
-        then:
-          - alias: Resend the vacuum stuck card
+  - alias: Handle the vacuum and the routine pause side by side
+    note: Parallel so neither 2-minute question delays the other.
+    parallel:
+      - alias: Ask whether to dock a running vacuum, or re-alert a stuck one
+        sequence:
+          - alias: If the vacuum is stuck, re-alert and stop here
             note: >-
-              The stuck card has been up since the vacuum got stuck; re-running
-              its automation resends it as an alerting update (only the coarse
-              tick sends silently), so the phone wakes on arrival without a
-              separate push.
-            action: automation.trigger
-            target:
-              entity_id: automation.household_vacuum_live_activity
+              A fault can clear while the unit is still mechanically
+              obstructed, and return_to_base would just command more movement
+              into whatever it is caught on -- see LESSONS.md -> Vacuum &
+              Roborock.
+            if:
+              - condition: state
+                entity_id: binary_sensor.vacuum_stuck
+                state: "on"
+                alias: Vacuum is stuck
+            then:
+              - alias: Resend the vacuum stuck card
+                note: >-
+                  The stuck card has been up since the vacuum got stuck;
+                  re-running its automation resends it as an alerting update
+                  (only the coarse tick sends silently), so the phone wakes on
+                  arrival without a separate push.
+                action: automation.trigger
+                target:
+                  entity_id: automation.household_vacuum_live_activity
+                data:
+                  skip_condition: true
+              - stop: Vacuum is stuck -- never command a dock
+          - condition: state
+            entity_id: vacuum.living_room_vacuum
+            state: cleaning
+            alias: Vacuum is cleaning
+          - alias: Build per-run button IDs
+            variables:
+              dock_action: VACUUM_ARRIVAL_DOCK_{{ context.id }}
+              finish_action: VACUUM_ARRIVAL_FINISH_{{ context.id }}
+            note: >-
+              Scoped to this run so a tap on a stale notification from an
+              earlier arrival cannot answer this one.
+          - alias: Ask Nate whether to dock or let it finish
+            action: notify.mobile_app_nates_iphone
+            note: >-
+              A commanded dock cancels the active job on this unit -- it
+              cannot pause and resume. See LESSONS.md -> Vacuum & Roborock.
             data:
-              skip_condition: true
-  - alias: If the vacuum routine is paused, ask whether to keep the pause
-    note: >-
-      Last in the sequence so the 2-minute wait never delays the other arrival
-      actions. No answer clears the pause (a pause shouldn't silently outlive
-      the trip it was set for); leaving again before answering keeps it, since
-      that was a quick stop and the pause was meant for the departure that
-      follows.
-    if:
-      - condition: state
-        entity_id: input_boolean.vacuum_routine_pause
-        state: "on"
-        alias: Vacuum routine is paused
-    then:
-      - alias: Build per-run button IDs
-        variables:
-          keep_action: VACUUM_PAUSE_KEEP_{{ context.id }}
-          resume_action: VACUUM_PAUSE_RESUME_{{ context.id }}
-        note: >-
-          Scoped to this run so a tap on a stale notification from an earlier
-          arrival cannot answer this one.
-      - alias: Ask Nate whether to keep the vacuum paused
-        action: notify.mobile_app_nates_iphone
-        note: >-
-          Legacy notify service -- action buttons and the tag need data:, which
-          notify.send_message cannot carry.
-        data:
-          title: Vacuum
-          message: Vacuum is paused. Keep it paused?
-          data:
-            tag: vacuum_pause_arrival
-            actions:
-              - action: "{{ keep_action }}"
-                title: Keep paused
-              - action: "{{ resume_action }}"
-                title: Resume
-      - alias: Wait for an answer, a departure, or 2 minutes
-        wait_for_trigger:
-          - trigger: event
-            event_type: mobile_app_notification_action
-            event_data:
-              action: "{{ keep_action }}"
-            alias: Keep paused tapped
-          - trigger: event
-            event_type: mobile_app_notification_action
-            event_data:
-              action: "{{ resume_action }}"
-            alias: Resume tapped
-          - trigger: state
-            entity_id: zone.home
-            to: "0"
-            alias: Left again before answering
-        timeout:
-          minutes: 2
-        continue_on_timeout: true
-      - alias: Clear the pause on Resume or no answer
-        if:
-          - condition: template
-            value_template: >-
-              {{ wait.trigger is none or (wait.trigger.platform == 'event' and
-              wait.trigger.event.data.action == resume_action) }}
-            alias: Resume tapped or timed out
-        note: >-
-          Template because wait.trigger has no native condition. A platform
-          check guards the event access, since a zone.home departure also ends
-          the wait.
-        then:
-          - alias: Clear the vacuum routine-pause flag
-            action: input_boolean.turn_off
-            target:
-              entity_id: input_boolean.vacuum_routine_pause
-      - alias: Dismiss the question
-        action: notify.mobile_app_nates_iphone
-        note: >-
-          No-op when a button tap already dismissed it; clears it on timeout or
-          departure.
-        data:
-          message: clear_notification
-          data:
-            tag: vacuum_pause_arrival
+              title: Vacuum
+              message: >-
+                Vacuum is still cleaning ({{
+                states('sensor.living_room_vacuum_cleaning_progress') }}%).
+                Docking ends the job. Docks in 2 minutes unless you let it
+                finish.
+              data:
+                tag: vacuum_arrival_dock
+                actions:
+                  - action: "{{ dock_action }}"
+                    title: Dock now
+                  - action: "{{ finish_action }}"
+                    title: Let it finish
+          - alias: Wait for an answer, a departure, or 2 minutes
+            wait_for_trigger:
+              - trigger: event
+                event_type: mobile_app_notification_action
+                event_data:
+                  action: "{{ dock_action }}"
+                alias: Dock now tapped
+              - trigger: event
+                event_type: mobile_app_notification_action
+                event_data:
+                  action: "{{ finish_action }}"
+                alias: Let it finish tapped
+              - trigger: state
+                entity_id: zone.home
+                to: "0"
+                alias: Left again before answering
+            timeout:
+              minutes: 2
+            continue_on_timeout: true
+          - alias: Dismiss the question
+            action: notify.mobile_app_nates_iphone
+            note: >-
+              No-op when a button tap already dismissed it; clears it on
+              timeout or departure.
+            data:
+              message: clear_notification
+              data:
+                tag: vacuum_arrival_dock
+          - alias: Dock on Dock now or no answer, if it's still cleaning and not stuck
+            note: >-
+              No answer docks, matching the old unconditional behaviour, so a
+              missed push never leaves the robot underfoot. Leaving again
+              before answering lets it finish -- the house is empty again.
+              Re-checked after the wait since the job can finish or jam in
+              those 2 minutes.
+            if:
+              - condition: template
+                value_template: >-
+                  {{ wait.trigger is none or (wait.trigger.platform == 'event'
+                  and wait.trigger.event.data.action == dock_action) }}
+                alias: Dock now tapped or timed out
+              - condition: state
+                entity_id: vacuum.living_room_vacuum
+                state: cleaning
+                alias: Vacuum is still cleaning
+              - condition: state
+                entity_id: binary_sensor.vacuum_stuck
+                state: "off"
+                alias: Vacuum is still not stuck
+            then:
+              - alias: Send the vacuum back to its dock
+                action: vacuum.return_to_base
+                target:
+                  entity_id: vacuum.living_room_vacuum
+      - alias: If the vacuum routine is paused, ask whether to keep the pause
+        sequence:
+          - alias: If the vacuum routine is paused, ask whether to keep the pause
+            note: >-
+              Runs alongside the dock question so neither 2-minute wait delays the
+              other. No answer clears the pause (a pause shouldn't silently outlive
+              the trip it was set for); leaving again before answering keeps it, since
+              that was a quick stop and the pause was meant for the departure that
+              follows.
+            if:
+              - condition: state
+                entity_id: input_boolean.vacuum_routine_pause
+                state: "on"
+                alias: Vacuum routine is paused
+            then:
+              - alias: Build per-run button IDs
+                variables:
+                  keep_action: VACUUM_PAUSE_KEEP_{{ context.id }}
+                  resume_action: VACUUM_PAUSE_RESUME_{{ context.id }}
+                note: >-
+                  Scoped to this run so a tap on a stale notification from an earlier
+                  arrival cannot answer this one.
+              - alias: Ask Nate whether to keep the vacuum paused
+                action: notify.mobile_app_nates_iphone
+                note: >-
+                  Legacy notify service -- action buttons and the tag need data:, which
+                  notify.send_message cannot carry.
+                data:
+                  title: Vacuum
+                  message: Vacuum is paused. Keep it paused?
+                  data:
+                    tag: vacuum_pause_arrival
+                    actions:
+                      - action: "{{ keep_action }}"
+                        title: Keep paused
+                      - action: "{{ resume_action }}"
+                        title: Resume
+              - alias: Wait for an answer, a departure, or 2 minutes
+                wait_for_trigger:
+                  - trigger: event
+                    event_type: mobile_app_notification_action
+                    event_data:
+                      action: "{{ keep_action }}"
+                    alias: Keep paused tapped
+                  - trigger: event
+                    event_type: mobile_app_notification_action
+                    event_data:
+                      action: "{{ resume_action }}"
+                    alias: Resume tapped
+                  - trigger: state
+                    entity_id: zone.home
+                    to: "0"
+                    alias: Left again before answering
+                timeout:
+                  minutes: 2
+                continue_on_timeout: true
+              - alias: Clear the pause on Resume or no answer
+                if:
+                  - condition: template
+                    value_template: >-
+                      {{ wait.trigger is none or (wait.trigger.platform == 'event' and
+                      wait.trigger.event.data.action == resume_action) }}
+                    alias: Resume tapped or timed out
+                note: >-
+                  Template because wait.trigger has no native condition. A platform
+                  check guards the event access, since a zone.home departure also ends
+                  the wait.
+                then:
+                  - alias: Clear the vacuum routine-pause flag
+                    action: input_boolean.turn_off
+                    target:
+                      entity_id: input_boolean.vacuum_routine_pause
+              - alias: Dismiss the question
+                action: notify.mobile_app_nates_iphone
+                note: >-
+                  No-op when a button tap already dismissed it; clears it on timeout or
+                  departure.
+                data:
+                  message: clear_notification
+                  data:
+                    tag: vacuum_pause_arrival
 mode: single
 category: 01M08R77W9A83G7DDA33MT8R09
