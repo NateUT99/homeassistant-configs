@@ -2005,11 +2005,20 @@ views:
           styles: "${(() => {\n  const st = hass.states['media_player.living_room_appletv'];\n  const a = st?.attributes || {};\n  const sa = hass.states['sensor.living_room_appletv_info']?.attributes ||\
             \ {};\n  const d = sa.details || {};\n  const cid = String(a.media_content_id ?? '');\n  const fb = ({ 'YouTube': '/local/media_art/youtube.svg', 'TV': '/local/media_art/tv.svg', 'Disney+':\
             \ '/local/media_art/disney_plus.svg', 'Prime Video': '/local/media_art/prime_video.svg' })[a.app_name] || '';\n  const last = window.__lrAppleTvArt || {};\n  const settled = ['playing', 'paused'].includes(st?.state)\
-            \ && cid !== '';\n  const pending = /^[0-9]+$/.test(cid) && String(sa.content_id ?? '') !== cid;\n  let art;\n  if (settled && !pending) {\n    art = String(sa.content_id ?? '') === cid && d.poster\
-            \ ? d.poster.replace('1000x1000bb', '600x600bb') : (a.entity_picture || fb);\n    window.__lrAppleTvArt = { art, t: Date.now() };\n  } else {\n    art = last.art && Date.now() - last.t < 30000\
-            \ ? last.art : fb;\n  }\n  return art ? `.bubble-button-card-container { background-image: url(\"${art}\") !important; }` : '';\n})()}\n.bubble-button-card-container { background-size: contain\
-            \ !important; background-position: center !important; background-repeat: no-repeat !important; background-origin: content-box !important; padding: 12px !important; box-sizing: border-box !important;\
-            \ }\nha-card, .bubble-button-card-container, .bubble-button-container { height: 174px !important; }\n.bubble-icon-container, .bubble-name-container { display: none !important; }\n"
+            \ && cid !== '';\n  const pending = /^[0-9]+$/.test(cid) && String(sa.content_id ?? '') !== cid;\n  let art;\n  if (settled && !pending) {\n    art = String(sa.content_id ?? '') === cid && (d.backdrop\
+            \ || d.poster) ? (d.backdrop || d.poster.replace('1000x1000bb', '600x600bb')) : (a.entity_picture || fb);\n    window.__lrAppleTvArt = { art, t: Date.now() };\n  } else {\n    art = last.art\
+            \ && Date.now() - last.t < 30000 ? last.art : fb;\n  }\n  return `.bubble-button-card-container { background-image: url(\"${art || '/local/media_art/tv.svg'}\") !important; }`;\n})()}\n.bubble-button-card-container\
+            \ { background-size: contain !important; background-position: center !important; background-repeat: no-repeat !important; background-origin: content-box !important; padding: 12px !important;\
+            \ box-sizing: border-box !important; }\nha-card, .bubble-button-card-container, .bubble-button-container { height: 174px !important; }\n.bubble-icon-container, .bubble-name-container { display:\
+            \ none !important; }\n"
+          visibility:
+          - condition: state
+            entity: media_player.living_room_appletv
+            state_not:
+            - 'off'
+            - standby
+            - unavailable
+            - unknown
         - type: custom:bubble-card
           card_type: button
           button_type: slider
