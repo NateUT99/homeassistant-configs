@@ -264,12 +264,10 @@ from [Step 1](#1-map-rooms-to-zones). The script sets the job's settings, then s
 | `nightly` | `evening` | `quiet` | — |
 | `daytime` | `daytime` | `balanced` | — |
 | `common_mop` | `evening` | `quiet` | `high` |
-| `master_mop` | `master_mop` | `balanced` | left as set |
+| `master_mop` | `master_mop` | `balanced` | `high` |
 | `whole_house` | `away` | `max` | — |
 
-`master_mop` leaves mop intensity alone so a by-hand drop to `medium` (see
-[Weekly Mop Pass](#weekly-mop-pass)) carries into the follow-up. `whole_house` runs
-`vacuum.start` instead of `app_segment_clean`.
+`whole_house` runs `vacuum.start` instead of `app_segment_clean`.
 
 Before starting, the script refuses a job the hardware can't run:
 
@@ -380,11 +378,6 @@ The branch starts `common_mop`, then turns on `vacuum_mop_common_areas_done_this
 
 Weekly is maintenance-level mopping — it keeps a film from building on hard floor — and the
 most that holds up when the pad and tank are fitted by hand.
-
-The nightly mop and the morning follow-up share one 350 ml fill, and the only water signal is
-the binary `water_shortage`. If the tank runs dry before the follow-up finishes, drop mop
-intensity to `medium` by hand; *Vacuum Setting Defaults* re-forces `high` only on the next pad
-attach.
 
 ### Master suite follow-up
 

@@ -182,15 +182,11 @@ sequence:
       entity_id: vacuum.living_room_vacuum
     data:
       fan_speed: "{{ cfg.fan }}"
-  - alias: Set high mop intensity for the common-area mop
+  - alias: Set high mop intensity for a mop job
     if:
       - condition: template
-        value_template: "{{ job == 'common_mop' }}"
-        alias: This is the common-area mop
-    note: >-
-      Not for master_mop: it shares the night's tank fill, and if the tank ran
-      dry, mop intensity is dropped to medium by hand for the follow-up --
-      forcing high here would undo that.
+        value_template: "{{ cfg.mop }}"
+        alias: This is a mop job
     then:
       - alias: Set high mop intensity
         action: select.select_option

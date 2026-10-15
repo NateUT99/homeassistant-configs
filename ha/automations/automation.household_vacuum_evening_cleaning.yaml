@@ -327,8 +327,8 @@ actions:
                     response_variable: start
                     note: >-
                       Master Bedroom and Master Bathroom; the carpeted closet
-                      is excluded. The script owns the rooms and fan speed,
-                      and leaves mop intensity as set.
+                      is excluded. The script owns the rooms, fan speed, and
+                      mop intensity.
                   - alias: Mark it done, or say why it was skipped
                     if:
                       - condition: template
