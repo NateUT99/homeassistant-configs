@@ -292,7 +292,7 @@ views:
             custom_height: 40
             css_class: cat-media
             icon: mdi:speaker-multiple
-            name: '{% from ''dashboard.jinja'' import media_playing_count %}{% set n = media_playing_count() | int %}{{ (n ~ '' on'') if n else ''Media off'' }}'
+            name: '{% from ''dashboard.jinja'' import media_playing_count %}{% set n = media_playing_count() | int %}{{ (n ~ '' playing'') if n else ''Media off'' }}'
             tap_action:
               action: navigate
               navigation_path: '#media'
@@ -5145,48 +5145,47 @@ views:
           entity: binary_sensor.living_room_appletv_active
           state: 'on'
         card:
-          type: custom:bubble-card
-          card_type: media-player
-          entity: media_player.living_room_appletv
-          name: Apple TV
-          cover_background: false
-          hide:
-            power_button: true
-            volume_button: true
-            previous_button: true
-            next_button: true
-          sub_button:
-            main:
-            - entity: media_player.living_room_soundbar
-              sub_button_type: slider
-              icon: mdi:volume-high
-              always_visible: true
-              width: 130
-              show_button_info: true
-              slider_live_update: true
-          modules:
-          - bubble_media_player_enhanced
-          bubble_media_player_enhanced:
-            card_layout: default
-            progress_bar: full
-            idle_artwork: none
-            artwork_fit: original
-            progress_position: above
-            background_opacity: 0.85
-          show_icon: false
-          rows: 3
-          main_buttons_position: bottom
-          styles: '.bmpe-accent .bubble-sub-button-slider .bubble-range-fill { background-color: var(--bmpe-accent) !important; }
+          type: custom:yet-another-media-player
+          entities:
+          - entity_id: media_player.living_room_appletv
+            name: Apple TV
+            hidden_controls:
+            - previous
+            - next
+            - stop
+            - shuffle
+            - repeat
+            - favorite
+            - power
+            volume_entity: media_player.living_room_soundbar
+          always_collapsed: true
+          match_theme: true
+          volume_mode: slider
+          artwork_object_fit: cover
+          uix:
+            style: ':host { --accent-color: var(--primary-text-color); }
 
-            .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo),
-            0 0 3px var(--bmpe-ink-halo); }'
-          tap_action:
+              .volume-percentage-indicator { color: var(--primary-background-color) !important; }
+
+              .more-info-menu { display: none !important; }
+
+              '
+          media_artwork_overrides:
+          - app_name: YouTube
+            missing_art_url: /local/media_art/youtube.svg
+          - app_name: TV
+            missing_art_url: /local/media_art/tv.svg
+          - app_name: Disney+
+            missing_art_url: /local/media_art/disney_plus.svg
+          - app_name: Prime Video
+            missing_art_url: /local/media_art/prime_video.svg
+          actions:
+          - name: Remote
+            icon: mdi:remote-tv
             action: navigate
             navigation_path: '#living-room-remote'
-          button_action:
-            tap_action:
-              action: navigate
-              navigation_path: '#living-room-remote'
+            placement: hidden
+            card_trigger: tap
       - type: conditional
         conditions:
         - condition: or
@@ -5207,72 +5206,75 @@ views:
           entity: binary_sensor.master_bedroom_appletv_active
           state: 'on'
         card:
-          type: custom:bubble-card
-          card_type: media-player
-          entity: media_player.master_bedroom_appletv
-          name: Apple TV
-          cover_background: false
-          hide:
-            power_button: true
-            volume_button: true
-            previous_button: true
-            next_button: true
-          sub_button:
-            main:
-            - entity: media_player.master_bedroom_tv
-              sub_button_type: slider
-              icon: mdi:volume-high
-              always_visible: true
-              show_button_info: true
-              slider_live_update: true
-              width: 130
-          modules:
-          - bubble_media_player_enhanced
-          bubble_media_player_enhanced:
-            card_layout: default
-            progress_bar: full
-            idle_artwork: none
-            artwork_fit: original
-            progress_position: above
-            background_opacity: 0.85
-          show_icon: false
-          rows: 3
-          main_buttons_position: bottom
-          styles: '.bmpe-accent .bubble-sub-button-slider .bubble-range-fill { background-color: var(--bmpe-accent) !important; }
+          type: custom:yet-another-media-player
+          entities:
+          - entity_id: media_player.master_bedroom_appletv
+            name: Apple TV
+            hidden_controls:
+            - previous
+            - next
+            - stop
+            - shuffle
+            - repeat
+            - favorite
+            - power
+            volume_entity: media_player.master_bedroom_tv
+          always_collapsed: true
+          match_theme: true
+          volume_mode: slider
+          artwork_object_fit: cover
+          uix:
+            style: ':host { --accent-color: var(--primary-text-color); }
 
-            .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo),
-            0 0 3px var(--bmpe-ink-halo); }'
-          tap_action:
+              .volume-percentage-indicator { color: var(--primary-background-color) !important; }
+
+              .more-info-menu { display: none !important; }
+
+              '
+          media_artwork_overrides:
+          - app_name: YouTube
+            missing_art_url: /local/media_art/youtube.svg
+          - app_name: TV
+            missing_art_url: /local/media_art/tv.svg
+          - app_name: Disney+
+            missing_art_url: /local/media_art/disney_plus.svg
+          - app_name: Prime Video
+            missing_art_url: /local/media_art/prime_video.svg
+          actions:
+          - name: Remote
+            icon: mdi:remote-tv
             action: navigate
             navigation_path: '#master-bedroom-remote'
-          button_action:
-            tap_action:
-              action: navigate
-              navigation_path: '#master-bedroom-remote'
+            placement: hidden
+            card_trigger: tap
       - type: conditional
         conditions:
         - condition: state
           entity: binary_sensor.master_bedroom_homepod_active
           state: 'on'
         card:
-          type: custom:bubble-card
-          card_type: media-player
-          entity: media_player.master_bedroom_homepod
-          name: HomePod
-          cover_background: false
-          hide:
-            power_button: true
-          modules:
-          - bubble_media_player_enhanced
-          bubble_media_player_enhanced:
-            card_layout: default
-            progress_bar: full
-            idle_artwork: none
-            progress_position: above
-            background_opacity: 0.85
-          show_icon: false
-          rows: 3
-          main_buttons_position: bottom
+          type: custom:yet-another-media-player
+          entities:
+          - entity_id: media_player.master_bedroom_homepod
+            name: HomePod
+            hidden_controls:
+            - stop
+            - shuffle
+            - repeat
+            - favorite
+            - power
+          always_collapsed: true
+          match_theme: true
+          volume_mode: slider
+          artwork_object_fit: cover
+          uix:
+            style: ':host { --accent-color: var(--primary-text-color); }
+
+              .volume-percentage-indicator { color: var(--primary-background-color) !important; }
+
+              .more-info-menu { display: none !important; }
+
+              '
       - type: conditional
         conditions:
         - condition: state
@@ -5288,24 +5290,28 @@ views:
           entity: binary_sensor.averys_room_homepod_active
           state: 'on'
         card:
-          type: custom:bubble-card
-          card_type: media-player
-          entity: media_player.averys_room_homepod
-          name: HomePod
-          cover_background: false
-          hide:
-            power_button: true
-          modules:
-          - bubble_media_player_enhanced
-          bubble_media_player_enhanced:
-            card_layout: default
-            progress_bar: full
-            idle_artwork: none
-            progress_position: above
-            background_opacity: 0.85
-          show_icon: false
-          rows: 3
-          main_buttons_position: bottom
+          type: custom:yet-another-media-player
+          entities:
+          - entity_id: media_player.averys_room_homepod
+            name: HomePod
+            hidden_controls:
+            - stop
+            - shuffle
+            - repeat
+            - favorite
+            - power
+          always_collapsed: true
+          match_theme: true
+          volume_mode: slider
+          artwork_object_fit: cover
+          uix:
+            style: ':host { --accent-color: var(--primary-text-color); }
+
+              .volume-percentage-indicator { color: var(--primary-background-color) !important; }
+
+              .more-info-menu { display: none !important; }
+
+              '
       - type: conditional
         conditions:
         - condition: state
@@ -5321,24 +5327,28 @@ views:
           entity: binary_sensor.office_homepod_active
           state: 'on'
         card:
-          type: custom:bubble-card
-          card_type: media-player
-          entity: media_player.office_homepod
-          name: HomePod
-          cover_background: false
-          hide:
-            power_button: true
-          modules:
-          - bubble_media_player_enhanced
-          bubble_media_player_enhanced:
-            card_layout: default
-            progress_bar: full
-            idle_artwork: none
-            progress_position: above
-            background_opacity: 0.85
-          show_icon: false
-          rows: 3
-          main_buttons_position: bottom
+          type: custom:yet-another-media-player
+          entities:
+          - entity_id: media_player.office_homepod
+            name: HomePod
+            hidden_controls:
+            - stop
+            - shuffle
+            - repeat
+            - favorite
+            - power
+          always_collapsed: true
+          match_theme: true
+          volume_mode: slider
+          artwork_object_fit: cover
+          uix:
+            style: ':host { --accent-color: var(--primary-text-color); }
+
+              .volume-percentage-indicator { color: var(--primary-background-color) !important; }
+
+              .more-info-menu { display: none !important; }
+
+              '
       - type: conditional
         conditions:
         - condition: state
@@ -5354,41 +5364,40 @@ views:
           entity: binary_sensor.family_room_appletv_active
           state: 'on'
         card:
-          type: custom:bubble-card
-          card_type: media-player
-          entity: media_player.family_room_appletv
-          name: Apple TV
-          cover_background: false
-          hide:
-            power_button: true
-            volume_button: true
-            previous_button: true
-            next_button: true
-          sub_button:
-            main:
-            - entity: media_player.family_room_theater
-              sub_button_type: slider
-              icon: mdi:volume-high
-              always_visible: true
-              width: 130
-              show_button_info: true
-              slider_live_update: true
-          modules:
-          - bubble_media_player_enhanced
-          bubble_media_player_enhanced:
-            card_layout: default
-            progress_bar: full
-            idle_artwork: none
-            artwork_fit: original
-            progress_position: above
-            background_opacity: 0.85
-          show_icon: false
-          rows: 3
-          main_buttons_position: bottom
-          styles: '.bmpe-accent .bubble-sub-button-slider .bubble-range-fill { background-color: var(--bmpe-accent) !important; }
+          type: custom:yet-another-media-player
+          entities:
+          - entity_id: media_player.family_room_appletv
+            name: Apple TV
+            hidden_controls:
+            - previous
+            - next
+            - stop
+            - shuffle
+            - repeat
+            - favorite
+            - power
+            volume_entity: media_player.family_room_theater
+          always_collapsed: true
+          match_theme: true
+          volume_mode: slider
+          artwork_object_fit: cover
+          uix:
+            style: ':host { --accent-color: var(--primary-text-color); }
 
-            .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo),
-            0 0 3px var(--bmpe-ink-halo); }'
+              .volume-percentage-indicator { color: var(--primary-background-color) !important; }
+
+              .more-info-menu { display: none !important; }
+
+              '
+          media_artwork_overrides:
+          - app_name: YouTube
+            missing_art_url: /local/media_art/youtube.svg
+          - app_name: TV
+            missing_art_url: /local/media_art/tv.svg
+          - app_name: Disney+
+            missing_art_url: /local/media_art/disney_plus.svg
+          - app_name: Prime Video
+            missing_art_url: /local/media_art/prime_video.svg
       - type: conditional
         conditions:
         - condition: state
@@ -5404,24 +5413,28 @@ views:
           entity: binary_sensor.kitchen_homepod_active
           state: 'on'
         card:
-          type: custom:bubble-card
-          card_type: media-player
-          entity: media_player.kitchen_homepod
-          name: HomePod
-          cover_background: false
-          hide:
-            power_button: true
-          modules:
-          - bubble_media_player_enhanced
-          bubble_media_player_enhanced:
-            card_layout: default
-            progress_bar: full
-            idle_artwork: none
-            progress_position: above
-            background_opacity: 0.85
-          show_icon: false
-          rows: 3
-          main_buttons_position: bottom
+          type: custom:yet-another-media-player
+          entities:
+          - entity_id: media_player.kitchen_homepod
+            name: HomePod
+            hidden_controls:
+            - stop
+            - shuffle
+            - repeat
+            - favorite
+            - power
+          always_collapsed: true
+          match_theme: true
+          volume_mode: slider
+          artwork_object_fit: cover
+          uix:
+            style: ':host { --accent-color: var(--primary-text-color); }
+
+              .volume-percentage-indicator { color: var(--primary-background-color) !important; }
+
+              .more-info-menu { display: none !important; }
+
+              '
       show_header: false
 - title: Climate
   path: climate

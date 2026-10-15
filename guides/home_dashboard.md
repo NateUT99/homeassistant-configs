@@ -64,19 +64,16 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   destination for that player: tapping its card on Home, in `#media`, or in `#living-room` opens
   it. It is a separate pop-up rather than a collapsible section in the room pop-up, because
   Expander Card can't be opened from a link and remembers its last state per device, so a
-  link could land on a collapsed remote. The D-pad is Universal Remote Card (HACS), the only
+  link could land on a collapsed remote. The remote is Universal Remote Card (HACS), the only
   card besides YAMP that isn't Bubble: it sends the Apple TV `remote.send_command` keys natively, gives
-  haptics, and has a round `circlepad` element that a Bubble module could only approximate.
-- **Full media cards live in the pop-ups.** `#media` and the room pop-ups (`#living-room` and
-  the others) use the Bubble Media Player Enhanced module (artwork background and colours;
-  `background_opacity: 0.85` so bright artwork doesn't wash out the overlaid title and times;
-  `idle_artwork: none` since the cards hide when idle), so there is one media style and no
-  separate media card dependency. Bubble's own icon is hidden (`show_icon: false`) because the
-  module already draws the cover. These use the large layout (`rows: 3`, full scrubbable
-  progress bar above the controls, `main_buttons_position: bottom`); Apple TV cards also use
-  `artwork_fit: original` so wide TV artwork is not cropped square, and a card `styles` rule
-  fills the speaker slider with the module's artwork colour (`--bmpe-accent`) and its text with
-  the module's ink colour, so it matches the play button and progress bar.
+  haptics, and has a swipe touchpad that Bubble has no equivalent for.
+- **Media cards by place.** Home uses the two-row Bubble cards above. The remote pop-ups lead
+  with a full-height Yet Another Media Player card (artwork first). `#media` uses compact YAMP
+  cards, one per active player, so the whole house fits on one screen. The room pop-ups'
+  HomePod and Family Room cards keep the large Bubble Media Player Enhanced layout (`rows: 3`,
+  scrubbable progress bar, `background_opacity: 0.85`, `idle_artwork: none`, Bubble's icon
+  hidden since the module draws the cover; Apple TV cards use `artwork_fit: original`); the
+  Living Room and Master Bedroom pop-ups reuse the Home card, since their remotes hold the rest.
 - **Media cards follow an "active" template sensor per player**
   (`ha/packages/media_activity.yaml`), and so does the Media chip's count. Apple TVs are
   active while playing or paused (a paused show is one you'll come back to) plus 30 seconds,
@@ -160,11 +157,16 @@ switch by hand are quick actions; running appliances are Happening now.
 | **Weather** | Always | Outside temp and condition ("58° Sunny"), plus "AQI n" when above 50 | AQI on the EPA scale: yellow > 50, orange > 100, red > 150; neutral otherwise | `#weather` | — |
 | **Lights** | Always | "N on" / "All off" (visible lights in the areas listed in `house_light_areas()`) | Amber when any are on | `#lights` | — |
 | **Security** | Always | Apple Home-style, higher risk first: "N Open" (front door, patio door, or garage physically open), else "N Unlocked" (front door lock), else "Secure". Interior doors and windows are not counted | Green secure, else `alert_level()` (amber / red); icon open door, open lock, or check-shield | `#security` | `script.household_secure_doors` |
-| **Media** | Always | "N on" / "Media off" — players with a room media card showing (their activity sensor is on) | Purple when any are on | `#media` | — |
+| **Media** | Always | "N playing" / "Media off" — players with a room media card showing (their activity sensor is on) | Purple when any are playing | `#media` | — |
 
 **`#lights`** lists every light by room (Living Room through Utility Room) as `apple_tile`
-tiles — tap toggles, hold opens more-info. **`#media`** lists the active Apple TV and HomePod
-cards by room, the same cards the room sections show. Each card and room heading sits in a
+tiles — tap toggles, hold opens more-info. **`#media`** is the house-wide "Speakers & TVs"
+list: one compact Yet Another Media Player card (`always_collapsed`: title, controls and volume
+beside a small artwork tile) per active player, under its room heading. Apple TVs show
+play/pause with volume on the real speaker (Soundbar, bedroom TV, Theater) and the favourite-app
+fallback artwork; tapping one opens its remote pop-up (a hidden YAMP navigate action on
+`card_trigger: tap`; Family Room has no remote yet). HomePods show previous, play/pause and next
+with their own volume. Each card and room heading sits in a
 `conditional` card keyed on the player's activity sensor (the Media chip's rule), so idle
 players are hidden; with none active the pop-up shows a single "Nothing playing" line. Both
 lists are static: a new light or player is added to the pop-up by hand, along with its
@@ -209,12 +211,12 @@ start collapsed.
 
 | Room | Media card (while in use) | Tiles |
 |---|---|---|
-| Living Room | Apple TV; volume slider → Soundbar | Ceiling Light, Fan |
-| Master Bedroom | Apple TV (slider → TV); HomePod (slider → HomePod) | Ceiling Light, Fan, Nightstand |
-| Avery's Room | HomePod; volume slider → HomePod | Ceiling Light, Fan, Desk Lamp |
-| Office | HomePod; volume slider → HomePod | Ceiling Light, Fan, Key Light, Bourbon Lamp |
-| Family Room | Apple TV; volume slider → Theater | Ambient Lamp, Alice Glow, Peanuts Glow |
-| Kitchen | HomePod; volume slider → HomePod | Sink Light |
+| Living Room | Apple TV | Ceiling Light, Fan |
+| Master Bedroom | Apple TV; HomePod | Ceiling Light, Fan, Nightstand |
+| Avery's Room | HomePod | Ceiling Light, Fan, Desk Lamp |
+| Office | HomePod | Ceiling Light, Fan, Key Light, Bourbon Lamp |
+| Family Room | Apple TV | Ambient Lamp, Alice Glow, Peanuts Glow |
+| Kitchen | HomePod | Sink Light |
 | Outside | — | Porch, Front Door, Garage |
 
 
