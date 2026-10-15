@@ -1,0 +1,20 @@
+alias: 'Household: Media Toggle Mute'
+description: Flips mute on a media player. Used by the home-main TV remote pop-ups, where a dashboard
+  tap action can't read the current mute state to pass the opposite. See guides/home_dashboard.md.
+icon: mdi:volume-mute
+mode: parallel
+fields:
+  entity_id:
+    name: Media player
+    description: The player to mute or unmute.
+    required: true
+    selector:
+      entity:
+        domain: media_player
+sequence:
+- alias: Flip mute
+  action: media_player.volume_mute
+  target:
+    entity_id: '{{ entity_id }}'
+  data:
+    is_volume_muted: '{{ not (state_attr(entity_id, ''is_volume_muted'') | default(false, true)) }}'
