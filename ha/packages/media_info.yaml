@@ -1,24 +1,46 @@
-# Now-playing details for the Apple TVs, from Apple's public iTunes lookup service.
+# Now-playing details for the Apple TVs, from Apple's public iTunes lookup service and TMDB.
 #
 # Content bought or rented from Apple reports its iTunes store ID as media_content_id (a plain
 # number, e.g. 271991087 for The Terminator), which the lookup resolves exactly: year, content
 # rating, genre, runtime, description and a poster, plus the director for a movie or the series
 # for a TV episode (Apple's artistName is the director on a movie and the series on an
 # episode). Other apps (YouTube, Disney+, live TV) report non-numeric IDs and get no details.
-# The lookup runs only when the content ID changes (or HA starts / templates reload), not on a
-# timer, and needs no account or key. The home-main remote pop-ups and #media show the details.
-# See guides/home_dashboard.md.
+#
+# TMDB (The Movie Database) then adds the cast with headshots, tagline, audience score and wide
+# background art. TMDB doesn't know Apple's IDs, so it is matched by name: a movie by title and
+# release year; an episode by series name (Apple's "(Original)"-style suffix removed), taking
+# the newest series that started no later than the episode aired (so Magnum, P.I. 1982 finds
+# the 1980 series, not the 2018 one), then the season and episode numbers from Apple's track
+# name ("Season 2, Episode 20: ..."). An unmatched title just gets no TMDB fields.
+#
+# Security: the TMDB API Read Access Token lives in /config/secrets.yaml as
+# `tmdb_token: "Bearer <token>"` and is sent as a request header, never in a URL (so it never
+# lands in a log line). It grants read access to TMDB's public catalogue only. Each new title
+# played is sent to Apple and TMDB.
+#
+# The lookups run only when the content ID changes (or HA starts / templates reload), not on a
+# timer. The home-main remote pop-ups and #media show the details. See guides/home_dashboard.md.
 #
 # Top-level variables can't see `this`, so `changed` reads the sensor by entity ID (the
-# renamed sensor.<room>_appletv_info).
+# renamed sensor.<room>_appletv_info). `changed` is also true for details stored before the
+# TMDB `cast` field existed, so they are fetched once more.
 #
-# Deployed to /config/packages/media_info.yaml; reload with template.reload (rest_command.reload
-# for the command; adding rest_command to an instance that had none needs a restart).
+# Deployed to /config/packages/media_info.yaml; reload with rest_command.reload then
+# template.reload.
 
 rest_command:
   itunes_lookup:
     url: "https://itunes.apple.com/lookup?id={{ id }}&country=us"
     method: GET
+    timeout: 10
+
+  # `path` is everything after /3/, query string included.
+  tmdb_get:
+    url: "https://api.themoviedb.org/3/{{ path }}"
+    method: GET
+    headers:
+      Authorization: !secret tmdb_token
+      accept: application/json
     timeout: 10
 
 template:
@@ -33,8 +55,7 @@ template:
       new_id: "{{ state_attr('media_player.living_room_appletv', 'media_content_id') | default('', true) | string }}"
       active: "{{ is_state('media_player.living_room_appletv', ['playing', 'paused']) }}"
       owned: "{{ new_id is match('^[0-9]+$') }}"
-      # Also re-fetch details stored before the kind/series fields existed.
-      changed: "{{ new_id != (state_attr('sensor.living_room_appletv_info', 'content_id') | default('', true) | string) or 'kind' not in (state_attr('sensor.living_room_appletv_info', 'details') or {}) }}"
+      changed: "{{ new_id != (state_attr('sensor.living_room_appletv_info', 'content_id') | default('', true) | string) or 'cast' not in (state_attr('sensor.living_room_appletv_info', 'details') or {}) }}"
     actions:
       - if:
           - condition: template
@@ -45,6 +66,30 @@ template:
               id: "{{ new_id }}"
             response_variable: itunes
             continue_on_error: true
+          - if:
+              - condition: template
+                value_template: >
+                  {% if itunes is defined and itunes.status == 200 %}{% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{{ r.kind | default('') in ['feature-movie', 'tv-episode'] }}{% else %}false{% endif %}
+            then:
+              - action: rest_command.tmdb_get
+                data:
+                  path: >
+                    {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{% if r.kind == 'feature-movie' %}search/movie?query={{ r.trackName | urlencode }}&primary_release_year={{ r.releaseDate[:4] }}{% else %}search/tv?query={{ r.artistName | regex_replace('\\s*\\([^)]*\\)$', '') | urlencode }}{% endif %}
+                response_variable: tsearch
+                continue_on_error: true
+              - if:
+                  - condition: template
+                    value_template: "{{ tsearch is defined and tsearch.status == 200 and (tsearch.content.results | default([]) | count) > 0 }}"
+                then:
+                  - action: rest_command.tmdb_get
+                    data:
+                      path: >
+                        {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{% set res = tsearch.content.results %}
+                        {% if r.kind == 'feature-movie' %}movie/{{ (res | first).id }}?append_to_response=credits
+                        {%- else %}{% set aired = r.releaseDate[:10] %}{% set shows = res | selectattr('first_air_date', 'defined') | rejectattr('first_air_date', 'eq', '') | selectattr('first_air_date', 'le', aired) | sort(attribute='first_air_date', reverse=true) | list %}{% set show = (shows or res) | first %}{% set se = r.trackName | regex_findall('Season (\\d+), Episode (\\d+)') | first | default([]) %}
+                        {%- if se %}tv/{{ show.id }}/season/{{ se[0] }}/episode/{{ se[1] }}?append_to_response=credits{% else %}tv/{{ show.id }}?append_to_response=credits{% endif %}{% endif %}
+                    response_variable: tdetail
+                    continue_on_error: true
     sensor:
       - name: Living Room Apple TV Info
         unique_id: living_room_appletv_info
@@ -52,8 +97,7 @@ template:
         # The title while details are available, otherwise "none" (the card hides).
         state: >
           {% if active and owned and itunes is defined and itunes.status == 200 %}
-            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
-            {{ (c.results | first | default({})).trackName | default('none') }}
+            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{{ r.trackName | default('none') }}
           {% elif active and owned and not changed %}
             {{ this.state }}
           {% else %}
@@ -63,9 +107,15 @@ template:
           content_id: "{{ new_id if (active and owned) else '' }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
-              {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
-              {% set r = c.results | first | default({}) %}
+              {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
               {% set mins = ((r.trackTimeMillis | default(0) | int) / 60000) | round(0) | int %}
+              {% set t = tdetail.content if (tdetail is defined and tdetail.status == 200 and tdetail.content is mapping) else {} %}
+              {% set people = ((t.get('credits') or {}).get('cast') or []) + (t.get('guest_stars') or []) %}
+              {% set ns = namespace(cast=[]) %}
+              {% for p in people[:8] %}
+                {% set ns.cast = ns.cast + [{'name': p.name, 'role': p.character | default(''), 'photo': ('https://image.tmdb.org/t/p/w185' ~ p.profile_path) if p.profile_path else ''}] %}
+              {% endfor %}
+              {% set art = t.get('backdrop_path') or t.get('still_path') %}
               {{ {
                 'year': (r.releaseDate | default(''))[:4],
                 'rating': r.contentAdvisoryRating | default(''),
@@ -75,7 +125,11 @@ template:
                 'series': r.artistName | default('') if r.kind | default('') == 'tv-episode' else '',
                 'director': r.artistName | default('') if r.kind | default('') == 'feature-movie' else '',
                 'description': r.longDescription | default(r.shortDescription | default('')),
-                'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb')
+                'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb'),
+                'tagline': t.get('tagline') or '',
+                'score': ('%.1f' | format(t.vote_average)) if (t.get('vote_count') or 0) > 0 else '',
+                'cast': ns.cast,
+                'backdrop': ('https://image.tmdb.org/t/p/w1280' ~ art) if art else ''
               } }}
             {% elif active and owned and not changed %}
               {{ this.attributes.details | default({}) }}
@@ -94,8 +148,7 @@ template:
       new_id: "{{ state_attr('media_player.master_bedroom_appletv', 'media_content_id') | default('', true) | string }}"
       active: "{{ is_state('media_player.master_bedroom_appletv', ['playing', 'paused']) }}"
       owned: "{{ new_id is match('^[0-9]+$') }}"
-      # Also re-fetch details stored before the kind/series fields existed.
-      changed: "{{ new_id != (state_attr('sensor.master_bedroom_appletv_info', 'content_id') | default('', true) | string) or 'kind' not in (state_attr('sensor.master_bedroom_appletv_info', 'details') or {}) }}"
+      changed: "{{ new_id != (state_attr('sensor.master_bedroom_appletv_info', 'content_id') | default('', true) | string) or 'cast' not in (state_attr('sensor.master_bedroom_appletv_info', 'details') or {}) }}"
     actions:
       - if:
           - condition: template
@@ -106,6 +159,30 @@ template:
               id: "{{ new_id }}"
             response_variable: itunes
             continue_on_error: true
+          - if:
+              - condition: template
+                value_template: >
+                  {% if itunes is defined and itunes.status == 200 %}{% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{{ r.kind | default('') in ['feature-movie', 'tv-episode'] }}{% else %}false{% endif %}
+            then:
+              - action: rest_command.tmdb_get
+                data:
+                  path: >
+                    {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{% if r.kind == 'feature-movie' %}search/movie?query={{ r.trackName | urlencode }}&primary_release_year={{ r.releaseDate[:4] }}{% else %}search/tv?query={{ r.artistName | regex_replace('\\s*\\([^)]*\\)$', '') | urlencode }}{% endif %}
+                response_variable: tsearch
+                continue_on_error: true
+              - if:
+                  - condition: template
+                    value_template: "{{ tsearch is defined and tsearch.status == 200 and (tsearch.content.results | default([]) | count) > 0 }}"
+                then:
+                  - action: rest_command.tmdb_get
+                    data:
+                      path: >
+                        {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{% set res = tsearch.content.results %}
+                        {% if r.kind == 'feature-movie' %}movie/{{ (res | first).id }}?append_to_response=credits
+                        {%- else %}{% set aired = r.releaseDate[:10] %}{% set shows = res | selectattr('first_air_date', 'defined') | rejectattr('first_air_date', 'eq', '') | selectattr('first_air_date', 'le', aired) | sort(attribute='first_air_date', reverse=true) | list %}{% set show = (shows or res) | first %}{% set se = r.trackName | regex_findall('Season (\\d+), Episode (\\d+)') | first | default([]) %}
+                        {%- if se %}tv/{{ show.id }}/season/{{ se[0] }}/episode/{{ se[1] }}?append_to_response=credits{% else %}tv/{{ show.id }}?append_to_response=credits{% endif %}{% endif %}
+                    response_variable: tdetail
+                    continue_on_error: true
     sensor:
       - name: Master Bedroom Apple TV Info
         unique_id: master_bedroom_appletv_info
@@ -113,8 +190,7 @@ template:
         # The title while details are available, otherwise "none" (the card hides).
         state: >
           {% if active and owned and itunes is defined and itunes.status == 200 %}
-            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
-            {{ (c.results | first | default({})).trackName | default('none') }}
+            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{{ r.trackName | default('none') }}
           {% elif active and owned and not changed %}
             {{ this.state }}
           {% else %}
@@ -124,9 +200,15 @@ template:
           content_id: "{{ new_id if (active and owned) else '' }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
-              {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
-              {% set r = c.results | first | default({}) %}
+              {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
               {% set mins = ((r.trackTimeMillis | default(0) | int) / 60000) | round(0) | int %}
+              {% set t = tdetail.content if (tdetail is defined and tdetail.status == 200 and tdetail.content is mapping) else {} %}
+              {% set people = ((t.get('credits') or {}).get('cast') or []) + (t.get('guest_stars') or []) %}
+              {% set ns = namespace(cast=[]) %}
+              {% for p in people[:8] %}
+                {% set ns.cast = ns.cast + [{'name': p.name, 'role': p.character | default(''), 'photo': ('https://image.tmdb.org/t/p/w185' ~ p.profile_path) if p.profile_path else ''}] %}
+              {% endfor %}
+              {% set art = t.get('backdrop_path') or t.get('still_path') %}
               {{ {
                 'year': (r.releaseDate | default(''))[:4],
                 'rating': r.contentAdvisoryRating | default(''),
@@ -136,7 +218,11 @@ template:
                 'series': r.artistName | default('') if r.kind | default('') == 'tv-episode' else '',
                 'director': r.artistName | default('') if r.kind | default('') == 'feature-movie' else '',
                 'description': r.longDescription | default(r.shortDescription | default('')),
-                'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb')
+                'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb'),
+                'tagline': t.get('tagline') or '',
+                'score': ('%.1f' | format(t.vote_average)) if (t.get('vote_count') or 0) > 0 else '',
+                'cast': ns.cast,
+                'backdrop': ('https://image.tmdb.org/t/p/w1280' ~ art) if art else ''
               } }}
             {% elif active and owned and not changed %}
               {{ this.attributes.details | default({}) }}
@@ -155,8 +241,7 @@ template:
       new_id: "{{ state_attr('media_player.family_room_appletv', 'media_content_id') | default('', true) | string }}"
       active: "{{ is_state('media_player.family_room_appletv', ['playing', 'paused']) }}"
       owned: "{{ new_id is match('^[0-9]+$') }}"
-      # Also re-fetch details stored before the kind/series fields existed.
-      changed: "{{ new_id != (state_attr('sensor.family_room_appletv_info', 'content_id') | default('', true) | string) or 'kind' not in (state_attr('sensor.family_room_appletv_info', 'details') or {}) }}"
+      changed: "{{ new_id != (state_attr('sensor.family_room_appletv_info', 'content_id') | default('', true) | string) or 'cast' not in (state_attr('sensor.family_room_appletv_info', 'details') or {}) }}"
     actions:
       - if:
           - condition: template
@@ -167,6 +252,30 @@ template:
               id: "{{ new_id }}"
             response_variable: itunes
             continue_on_error: true
+          - if:
+              - condition: template
+                value_template: >
+                  {% if itunes is defined and itunes.status == 200 %}{% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{{ r.kind | default('') in ['feature-movie', 'tv-episode'] }}{% else %}false{% endif %}
+            then:
+              - action: rest_command.tmdb_get
+                data:
+                  path: >
+                    {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{% if r.kind == 'feature-movie' %}search/movie?query={{ r.trackName | urlencode }}&primary_release_year={{ r.releaseDate[:4] }}{% else %}search/tv?query={{ r.artistName | regex_replace('\\s*\\([^)]*\\)$', '') | urlencode }}{% endif %}
+                response_variable: tsearch
+                continue_on_error: true
+              - if:
+                  - condition: template
+                    value_template: "{{ tsearch is defined and tsearch.status == 200 and (tsearch.content.results | default([]) | count) > 0 }}"
+                then:
+                  - action: rest_command.tmdb_get
+                    data:
+                      path: >
+                        {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{% set res = tsearch.content.results %}
+                        {% if r.kind == 'feature-movie' %}movie/{{ (res | first).id }}?append_to_response=credits
+                        {%- else %}{% set aired = r.releaseDate[:10] %}{% set shows = res | selectattr('first_air_date', 'defined') | rejectattr('first_air_date', 'eq', '') | selectattr('first_air_date', 'le', aired) | sort(attribute='first_air_date', reverse=true) | list %}{% set show = (shows or res) | first %}{% set se = r.trackName | regex_findall('Season (\\d+), Episode (\\d+)') | first | default([]) %}
+                        {%- if se %}tv/{{ show.id }}/season/{{ se[0] }}/episode/{{ se[1] }}?append_to_response=credits{% else %}tv/{{ show.id }}?append_to_response=credits{% endif %}{% endif %}
+                    response_variable: tdetail
+                    continue_on_error: true
     sensor:
       - name: Family Room Apple TV Info
         unique_id: family_room_appletv_info
@@ -174,8 +283,7 @@ template:
         # The title while details are available, otherwise "none" (the card hides).
         state: >
           {% if active and owned and itunes is defined and itunes.status == 200 %}
-            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
-            {{ (c.results | first | default({})).trackName | default('none') }}
+            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{{ r.trackName | default('none') }}
           {% elif active and owned and not changed %}
             {{ this.state }}
           {% else %}
@@ -185,9 +293,15 @@ template:
           content_id: "{{ new_id if (active and owned) else '' }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
-              {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
-              {% set r = c.results | first | default({}) %}
+              {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
               {% set mins = ((r.trackTimeMillis | default(0) | int) / 60000) | round(0) | int %}
+              {% set t = tdetail.content if (tdetail is defined and tdetail.status == 200 and tdetail.content is mapping) else {} %}
+              {% set people = ((t.get('credits') or {}).get('cast') or []) + (t.get('guest_stars') or []) %}
+              {% set ns = namespace(cast=[]) %}
+              {% for p in people[:8] %}
+                {% set ns.cast = ns.cast + [{'name': p.name, 'role': p.character | default(''), 'photo': ('https://image.tmdb.org/t/p/w185' ~ p.profile_path) if p.profile_path else ''}] %}
+              {% endfor %}
+              {% set art = t.get('backdrop_path') or t.get('still_path') %}
               {{ {
                 'year': (r.releaseDate | default(''))[:4],
                 'rating': r.contentAdvisoryRating | default(''),
@@ -197,7 +311,11 @@ template:
                 'series': r.artistName | default('') if r.kind | default('') == 'tv-episode' else '',
                 'director': r.artistName | default('') if r.kind | default('') == 'feature-movie' else '',
                 'description': r.longDescription | default(r.shortDescription | default('')),
-                'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb')
+                'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb'),
+                'tagline': t.get('tagline') or '',
+                'score': ('%.1f' | format(t.vote_average)) if (t.get('vote_count') or 0) > 0 else '',
+                'cast': ns.cast,
+                'backdrop': ('https://image.tmdb.org/t/p/w1280' ~ art) if art else ''
               } }}
             {% elif active and owned and not changed %}
               {{ this.attributes.details | default({}) }}
