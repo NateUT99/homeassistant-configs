@@ -50,21 +50,20 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   `input_select.household_hvac_mode_before_pause`; nothing is re-derived in the dashboard.
 - **Generator chip shows only while running.** Running means a utility outage — worth seeing
   at a glance. Exercising, warnings, and maintenance belong on the Energy view.
-- **Media lives in the room it plays in.** Each room section on Home carries a compact
-  (`rows: 1`) Bubble `media-player` card for its Apple TV or HomePod, shown only while that
-  player is in use — no house-wide player card. The compact card is title, play/pause, and an
-  always-visible volume slider sub-button (`show_button_info`, `slider_live_update`); skip,
-  power, and Bubble's own volume button are hidden, and tapping the card opens `#media` for the
-  full card (the Living Room Apple TV opens its remote instead). Bubble's volume button controls the Apple TV, not the speaker it plays through,
-  so Apple TV sliders target the real speaker (Sonos, or the bedroom TV); HomePod sliders
-  target the HomePod. The compact cards carry no Media Player Enhanced module: its progress
-  bar and times draw over the title and slider at one row.
+- **Media lives in the room it plays in.** Each room section on Home carries a Bubble
+  `media-player` card for its Apple TV or HomePod, shown only while that player is in use, with
+  no house-wide player card. It is the two-row layout with the Media Player Enhanced artwork
+  background and playback controls only: play/pause, plus previous/next on HomePods (an Apple
+  TV's skip keys mean nothing to most video apps). Volume, power and everything else live one
+  tap away: the card body opens `#media` (the Living Room Apple TV opens its remote). Bubble's
+  media-player `tap_action` fires only on the icon, which these cards hide, so the navigation
+  is set in `button_action`.
 - **The Living Room Apple TV has its own remote pop-up.** `#living-room-remote` is the one
   destination for that player: tapping its card on Home, in `#media`, or in `#living-room` opens
   it. It is a separate pop-up rather than a collapsible section in the room pop-up, because
   Expander Card can't be opened from a link and remembers its last state per device, so a
   link could land on a collapsed remote. The D-pad is Universal Remote Card (HACS), the only
-  card that isn't Bubble: it sends the Apple TV `remote.send_command` keys natively, gives
+  card besides YAMP that isn't Bubble: it sends the Apple TV `remote.send_command` keys natively, gives
   haptics, and has a round `circlepad` element that a Bubble module could only approximate.
 - **Full media cards live in the pop-ups.** `#media` and the room pop-ups (`#living-room` and
   the others) use the Bubble Media Player Enhanced module (artwork background and colours;
@@ -92,7 +91,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 ## Prerequisites
 
 - Home Assistant 2026.9 or later
-- HACS frontend: Bubble Card ≥ 3.4, Navbar Card ≥ 1.7 (badge icons), Kiosk Mode, Battery State Card, Expander Card, apexcharts-card, Universal Remote Card (`Nerwyn/universal-remote-card`); custom-brand-icons (`phu:` icons); theme: Home Flat (repo, `ha/themes/home_flat.yaml`)
+- HACS frontend: Bubble Card ≥ 3.4, Navbar Card ≥ 1.7 (badge icons), Kiosk Mode, Battery State Card, Expander Card, apexcharts-card, Universal Remote Card (`Nerwyn/universal-remote-card`), Yet Another Media Player (`jianyu-li/yet-another-media-player`); custom-brand-icons (`phu:` icons); theme: Home Flat (repo, `ha/themes/home_flat.yaml`)
 - HACS integrations: Bubble Card Tools and UIX, each added under **Settings → Devices &
   Services** (installing from HACS alone isn't enough)
 - AI insights (`guides/ai_insights.md`) for the greeting line, the `#weather` tip, and the AI Insight cards
@@ -324,7 +323,7 @@ tile, until they get a room hero (#13 step 4).
 | Hash | Contents |
 |---|---|
 | `#living-room` | Apple TV player at the top (only while active; Soundbar volume slider; Apps, Speech and Night sub-buttons; tap opens `#living-room-remote`), otherwise a compact Apple TV card showing its state that opens the remote, with a power button (`media_player.turn_on`) only while it is `off`; 4 lights, thermostat + fireplace (Bubble climate) |
-| `#living-room-remote` | Apple TV player (power shown; Soundbar volume slider), sound row (Speech and Night toggles, filled while on; Soundbar volume − / level / +), app favourites (segmented, `phu:` brand icons: TV, YouTube, Disney+, Prime Video; the current app is the filled pill; an All apps dropdown of `source_list`), remote (Universal Remote Card: back = `menu`, hold = `top_menu`; `circlepad` with OK = `select`, directions repeat on hold; home) |
+| `#living-room-remote` | No header. Now playing: Yet Another Media Player, artwork-first (`card_height: 320`, the smallest height at which YAMP keeps its power, mute and volume row; `volume_entity` is the Soundbar; classic controls in a bar under the art, since the modern layout floats a large pause button and the title over the middle of it; `artwork_object_fit: contain` so wide TV art sits whole above the title instead of being cropped behind it; a UIX `--accent-color` override keeps controls neutral instead of HA's default orange accent). Speech and Night toggles (filled while on). App favourites (segmented, `phu:` brand icons: TV, YouTube, Disney+, Prime Video; the current app is the filled pill; an All apps dropdown of `source_list`). Remote (Universal Remote Card: back = `menu`, hold = `top_menu`; `circlepad` with OK = `select`, directions repeat on hold; home) |
 | `#kitchen` | Sink light, dishwasher and refrigerator tiles, HomePod |
 | `#family-room` | Ambient lamp, 2 pinball underglows, 3 game power switches, Apple TV player (only while active; Theater volume slider; Apps, Speech and Night sub-buttons) |
 | `#office` | 7 lights, fan speed (tile `fan-speed` feature), HomePod |

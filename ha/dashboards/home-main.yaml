@@ -697,16 +697,10 @@ views:
             previous_button: true
             next_button: true
           sub_button:
-            main:
-            - entity: media_player.living_room_soundbar
-              sub_button_type: slider
-              icon: mdi:volume-high
-              always_visible: true
-              width: 130
-              show_button_info: true
-              slider_live_update: true
+            main: []
+            bottom: []
           show_icon: false
-          rows: 1
+          rows: 2
           tap_action:
             action: navigate
             navigation_path: '#living-room-remote'
@@ -714,6 +708,16 @@ views:
             tap_action:
               action: navigate
               navigation_path: '#living-room-remote'
+          main_buttons_position: bottom
+          modules:
+          - bubble_media_player_enhanced
+          bubble_media_player_enhanced:
+            card_layout: default
+            progress_bar: full
+            idle_artwork: none
+            artwork_fit: original
+            progress_position: above
+            background_opacity: 0.85
       - type: grid
         columns: 2
         square: false
@@ -799,16 +803,10 @@ views:
             previous_button: true
             next_button: true
           sub_button:
-            main:
-            - entity: media_player.master_bedroom_tv
-              sub_button_type: slider
-              icon: mdi:volume-high
-              always_visible: true
-              show_button_info: true
-              slider_live_update: true
-              width: 130
+            main: []
+            bottom: []
           show_icon: false
-          rows: 1
+          rows: 2
           tap_action:
             action: navigate
             navigation_path: '#media'
@@ -816,6 +814,16 @@ views:
             tap_action:
               action: navigate
               navigation_path: '#media'
+          main_buttons_position: bottom
+          modules:
+          - bubble_media_player_enhanced
+          bubble_media_player_enhanced:
+            card_layout: default
+            progress_bar: full
+            idle_artwork: none
+            artwork_fit: original
+            progress_position: above
+            background_opacity: 0.85
       - type: conditional
         conditions:
         - condition: state
@@ -830,26 +838,30 @@ views:
           hide:
             power_button: true
             volume_button: true
-            previous_button: true
-            next_button: true
+            previous_button: false
+            next_button: false
           show_icon: false
-          rows: 1
+          rows: 2
           tap_action:
             action: navigate
             navigation_path: '#media'
           sub_button:
-            main:
-            - entity: media_player.master_bedroom_homepod
-              sub_button_type: slider
-              icon: mdi:volume-high
-              always_visible: true
-              width: 130
-              show_button_info: true
-              slider_live_update: true
+            main: []
+            bottom: []
           button_action:
             tap_action:
               action: navigate
               navigation_path: '#media'
+          main_buttons_position: bottom
+          modules:
+          - bubble_media_player_enhanced
+          bubble_media_player_enhanced:
+            card_layout: default
+            progress_bar: full
+            idle_artwork: none
+            artwork_fit: cover
+            progress_position: above
+            background_opacity: 0.85
       - type: grid
         columns: 2
         square: false
@@ -951,26 +963,30 @@ views:
           hide:
             power_button: true
             volume_button: true
-            previous_button: true
-            next_button: true
+            previous_button: false
+            next_button: false
           show_icon: false
-          rows: 1
+          rows: 2
           tap_action:
             action: navigate
             navigation_path: '#media'
           sub_button:
-            main:
-            - entity: media_player.averys_room_homepod
-              sub_button_type: slider
-              icon: mdi:volume-high
-              always_visible: true
-              width: 130
-              show_button_info: true
-              slider_live_update: true
+            main: []
+            bottom: []
           button_action:
             tap_action:
               action: navigate
               navigation_path: '#media'
+          main_buttons_position: bottom
+          modules:
+          - bubble_media_player_enhanced
+          bubble_media_player_enhanced:
+            card_layout: default
+            progress_bar: full
+            idle_artwork: none
+            artwork_fit: cover
+            progress_position: above
+            background_opacity: 0.85
       - type: grid
         columns: 2
         square: false
@@ -1072,26 +1088,30 @@ views:
           hide:
             power_button: true
             volume_button: true
-            previous_button: true
-            next_button: true
-          rows: 1
+            previous_button: false
+            next_button: false
+          rows: 2
           show_icon: false
           tap_action:
             action: navigate
             navigation_path: '#media'
           sub_button:
-            main:
-            - entity: media_player.office_homepod
-              sub_button_type: slider
-              icon: mdi:volume-high
-              always_visible: true
-              width: 130
-              show_button_info: true
-              slider_live_update: true
+            main: []
+            bottom: []
           button_action:
             tap_action:
               action: navigate
               navigation_path: '#media'
+          main_buttons_position: bottom
+          modules:
+          - bubble_media_player_enhanced
+          bubble_media_player_enhanced:
+            card_layout: default
+            progress_bar: full
+            idle_artwork: none
+            artwork_fit: cover
+            progress_position: above
+            background_opacity: 0.85
       - type: grid
         columns: 2
         square: false
@@ -1214,16 +1234,10 @@ views:
             previous_button: true
             next_button: true
           sub_button:
-            main:
-            - entity: media_player.family_room_theater
-              sub_button_type: slider
-              icon: mdi:volume-high
-              always_visible: true
-              width: 130
-              show_button_info: true
-              slider_live_update: true
+            main: []
+            bottom: []
           show_icon: false
-          rows: 1
+          rows: 2
           tap_action:
             action: navigate
             navigation_path: '#media'
@@ -1231,6 +1245,16 @@ views:
             tap_action:
               action: navigate
               navigation_path: '#media'
+          main_buttons_position: bottom
+          modules:
+          - bubble_media_player_enhanced
+          bubble_media_player_enhanced:
+            card_layout: default
+            progress_bar: full
+            idle_artwork: none
+            artwork_fit: original
+            progress_position: above
+            background_opacity: 0.85
       - type: grid
         columns: 2
         square: false
@@ -1332,26 +1356,30 @@ views:
           hide:
             power_button: true
             volume_button: true
-            previous_button: true
-            next_button: true
+            previous_button: false
+            next_button: false
           show_icon: false
-          rows: 1
+          rows: 2
           tap_action:
             action: navigate
             navigation_path: '#media'
           sub_button:
-            main:
-            - entity: media_player.kitchen_homepod
-              sub_button_type: slider
-              icon: mdi:volume-high
-              always_visible: true
-              width: 130
-              show_button_info: true
-              slider_live_update: true
+            main: []
+            bottom: []
           button_action:
             tap_action:
               action: navigate
               navigation_path: '#media'
+          main_buttons_position: bottom
+          modules:
+          - bubble_media_player_enhanced
+          bubble_media_player_enhanced:
+            card_layout: default
+            progress_bar: full
+            idle_artwork: none
+            artwork_fit: cover
+            progress_position: above
+            background_opacity: 0.85
       - type: grid
         columns: 2
         square: false
@@ -1849,41 +1877,29 @@ views:
       popup_mode: adaptive-dialog
       popup_style: bubble
       cards:
-      - type: custom:bubble-card
-        card_type: media-player
-        entity: media_player.living_room_appletv
-        name: Apple TV
-        cover_background: false
-        hide:
-          volume_button: true
-          previous_button: true
-          next_button: true
-        sub_button:
-          main:
-          - entity: media_player.living_room_soundbar
-            sub_button_type: slider
-            icon: mdi:volume-high
-            always_visible: true
-            width: 130
-            show_button_info: true
-            slider_live_update: true
-          bottom: []
-        modules:
-        - bubble_media_player_enhanced
-        bubble_media_player_enhanced:
-          card_layout: default
-          progress_bar: full
-          idle_artwork: none
-          artwork_fit: original
-          progress_position: above
-          background_opacity: 0.85
-        show_icon: false
-        rows: 2
-        main_buttons_position: bottom
-        styles: '.bmpe-accent .bubble-sub-button-slider .bubble-range-fill { background-color: var(--bmpe-accent) !important; }
+      - type: custom:yet-another-media-player
+        entities:
+        - entity_id: media_player.living_room_appletv
+          name: Apple TV
+          volume_entity: media_player.living_room_soundbar
+          hidden_controls:
+          - previous
+          - next
+          - stop
+          - shuffle
+          - repeat
+          - favorite
+        match_theme: true
+        card_height: 320
+        volume_mode: slider
+        artwork_object_fit: contain
+        details_alignment: left
+        uix:
+          style: ':host { --accent-color: var(--primary-text-color); }
 
-          .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo), 0
-          0 3px var(--bmpe-ink-halo); }'
+            .details .title, .details .artist { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.7); }
+
+            '
       - type: custom:bubble-card
         card_type: sub-buttons
         hide_main_background: true
@@ -1894,7 +1910,7 @@ views:
           - name: Sound
             buttons_layout: inline
             group:
-            - show_name: false
+            - show_name: true
               state_background: true
               light_background: false
               custom_height: 44
@@ -1904,7 +1920,7 @@ views:
               css_class: rc-toggle
               tap_action:
                 action: toggle
-            - show_name: false
+            - show_name: true
               state_background: true
               light_background: false
               custom_height: 44
@@ -1914,60 +1930,16 @@ views:
               css_class: rc-toggle
               tap_action:
                 action: toggle
-            - show_name: false
-              state_background: true
-              light_background: false
-              custom_height: 44
-              icon: mdi:minus
-              name: Volume down
-              css_class: rc-vol rc-vol-down
-              tap_action:
-                action: perform-action
-                perform_action: media_player.volume_down
-                target:
-                  entity_id: media_player.living_room_soundbar
-            - show_name: true
-              state_background: true
-              light_background: false
-              custom_height: 44
-              entity: media_player.living_room_soundbar
-              name: '{{ ((state_attr(''media_player.living_room_soundbar'', ''volume_level'') | float(0)) * 100) | round | int }}'
-              show_icon: false
-              css_class: rc-vol rc-vol-level
-              sub_button_type: default
-              tap_action:
-                action: none
-            - show_name: false
-              state_background: true
-              light_background: false
-              custom_height: 44
-              icon: mdi:plus
-              name: Volume up
-              css_class: rc-vol rc-vol-up
-              tap_action:
-                action: perform-action
-                perform_action: media_player.volume_up
-                target:
-                  entity_id: media_player.living_room_soundbar
         styles: '.bubble-sub-button-bottom-container { justify-content: stretch !important; }
 
           .bubble-sub-button-group { width: 100% !important; gap: 8px !important; flex-wrap: nowrap !important; }
 
-          .bubble-sub-button { border-radius: 16px !important; justify-content: center !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }
-
-          .rc-toggle { flex: 0 0 56px !important; }
+          .bubble-sub-button { flex: 1 1 0 !important; gap: 6px !important; border-radius: 16px !important; justify-content: center !important; background: color-mix(in srgb, var(--primary-text-color) 7%,
+          transparent) !important; }
 
           .rc-toggle.background-on { background: var(--primary-text-color) !important; }
 
-          .rc-toggle.background-on ha-icon { color: var(--primary-background-color) !important; }
-
-          .rc-vol-down { flex: 1 1 0 !important; margin-left: 8px !important; border-radius: 16px 0 0 16px !important; }
-
-          .rc-vol-level { flex: 0 0 56px !important; border-radius: 0 !important; margin: 0 -8px !important; }
-
-          .rc-vol-level .bubble-sub-button-name-container { font-size: 17px !important; font-weight: 600 !important; }
-
-          .rc-vol-up { flex: 1 1 0 !important; border-radius: 0 16px 16px 0 !important; }
+          .rc-toggle.background-on ha-icon, .rc-toggle.background-on .bubble-sub-button-name-container { color: var(--primary-background-color) !important; }
 
           '
       - type: custom:bubble-card
@@ -2146,6 +2118,7 @@ views:
           .row { justify-content: space-between; align-items: flex-start; padding: 8px 0 16px; }
 
           '
+      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#kitchen'
