@@ -1,0 +1,96 @@
+id: "1792092147381"
+alias: "Household: Vacuum Dock Emptying"
+description: >-
+  Empties the dock only while nobody is home, since emptying is the loudest
+  part of the routine. Auto-empty is turned off in the Roborock app. A
+  finished job marks an empty as pending and empties right away if the house
+  is empty; otherwise the next departure empties it. Any empty, including one
+  started from the app, clears the pending flag. See
+  guides/vacuum_cleaning_routine.md.
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.living_room_vacuum_cleaning
+    from: "on"
+    to: "off"
+    for:
+      minutes: 1
+    id: job_ended
+    alias: A cleaning job ended a minute ago
+    note: >-
+      The cleaning sensor stays on through a mid-job recharge and only turns
+      off when the job completes or is cancelled (LESSONS.md -> Vacuum &
+      Roborock). The minute lets the robot settle on the dock.
+  - trigger: state
+    entity_id: zone.home
+    to: "0"
+    for:
+      minutes: 7
+    id: departure
+    alias: Everyone has been gone for 7 minutes
+    note: >-
+      Lands after Household: Last Leaves Home's 5-minute daytime start, so if
+      that pass starts, this skips and the job_ended trigger empties the bin
+      once the pass finishes.
+  - trigger: state
+    entity_id: switch.living_room_vacuum_dock_dust_emptying
+    to: "on"
+    id: emptied
+    alias: The dock started emptying
+conditions: []
+actions:
+  - choose:
+      - alias: An empty happened -- clear the pending flag
+        conditions:
+          - condition: trigger
+            id: [emptied]
+        sequence:
+          - alias: Clear the pending flag
+            action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.vacuum_dock_empty_pending
+      - alias: A job ended or everyone left -- empty now if the house is empty
+        conditions:
+          - condition: trigger
+            id: [job_ended, departure]
+        sequence:
+          - alias: Mark an empty as pending if a job just ended
+            if:
+              - condition: trigger
+                id: [job_ended]
+            then:
+              - alias: Set the pending flag
+                action: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.vacuum_dock_empty_pending
+          - condition: state
+            entity_id: input_boolean.vacuum_dock_empty_pending
+            state: "on"
+            alias: An empty is pending
+          - condition: numeric_state
+            entity_id: zone.home
+            below: 1
+            alias: No one is home
+          - condition: state
+            entity_id: vacuum.living_room_vacuum
+            state: docked
+            alias: Vacuum is docked
+          - condition: state
+            entity_id: binary_sensor.living_room_vacuum_cleaning
+            state: "off"
+            alias: Vacuum isn't mid-job
+            note: An autonomous mid-job recharge also reads docked; this catches that case.
+          - condition: state
+            entity_id: binary_sensor.living_room_vacuum_water_box_attached
+            state: "on"
+            alias: Dustbin module is seated
+          - alias: Start the dock empty
+            action: switch.turn_on
+            target:
+              entity_id: switch.living_room_vacuum_dock_dust_emptying
+            note: >-
+              Not confirmed here: HA sees the empty a minute or more late
+              (polled), so the emptied trigger clears the pending flag when it
+              lands. If the empty never happens, the flag stays on and the
+              next trigger retries.
+mode: single
+category: 01M0XF7RJK5EX3A4YPNEX7X3DG
