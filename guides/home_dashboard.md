@@ -28,7 +28,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 │   │                         ── Greeting (markdown: "Good <part of day>, <name>!" + briefing)
 │   │                         ── Happening now (heading + 2-up grid, shown while an appliance runs)
 │   ├── Sections 2–8       ── Room sections × 7 (Expander: heading + media card + tiles)
-│   └── Section 9          ── Pop-ups: #rooms (room tiles by floor, 2-up) + 6 rooms + #living-room-remote
+│   └── Section 9          ── Pop-ups: #rooms (room tiles by floor, 2-up) + 6 rooms + #living-room-remote #master-bedroom-remote
 │                             + #security #hvac #weather #vacuum #vacuum-care #laundry
 │
 └── Chores view ── Navbar Card ── chore-calendar-card
@@ -55,7 +55,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   no house-wide player card. It is the two-row layout with the Media Player Enhanced artwork
   background and playback controls only: play/pause, plus previous/next on HomePods (an Apple
   TV's skip keys mean nothing to most video apps). Volume, power and everything else live one
-  tap away: the card body opens `#media` (the Living Room Apple TV opens its remote). Bubble's
+  tap away: the card body opens `#media` (the Living Room and Master Bedroom Apple TVs open their remotes). Bubble's
   media-player `tap_action` fires only on the icon, which these cards hide, so the navigation
   is set in `button_action`.
 - **The Living Room Apple TV has its own remote pop-up.** `#living-room-remote` is the one
@@ -327,7 +327,8 @@ tile, until they get a room hero (#13 step 4).
 | `#kitchen` | Sink light, dishwasher and refrigerator tiles, HomePod |
 | `#family-room` | Ambient lamp, 2 pinball underglows, 3 game power switches, Apple TV player (only while active; Theater volume slider; Apps, Speech and Night sub-buttons) |
 | `#office` | 7 lights, fan speed (tile `fan-speed` feature), HomePod |
-| `#master-bedroom` | Ceiling light, nightstand lamp, fan speed, Apple TV player (only while active; bedroom TV volume slider; Apps sub-button), HomePod, bathroom speaker |
+| `#master-bedroom` | Ceiling light, nightstand lamp, fan speed, Apple TV player (only while active; bedroom TV volume slider; Apps sub-button; tap opens `#master-bedroom-remote`), otherwise the same compact Apple TV card as `#living-room`, HomePod, bathroom speaker |
+| `#master-bedroom-remote` | `#living-room-remote` for the bedroom Apple TV, minus the Sonos sound row: YAMP's volume slider and mute drive the LG TV (`media_player.master_bedroom_tv`, which reports `unavailable` while the TV is off), and the keyboard uses the Master Bedroom AppleTV config entry |
 | `#averys-room` | Ceiling light, desk and dresser lamps, fan speed, HomePod |
 | `#security` | Doorbell camera (square crop, first); lock, garage door, garage interior door, doors & windows; Water (the 4 leak sensors); outside lights |
 | `#hvac` | Hero (indoor temperature; Heating to / Cooling to / Holding range / Paused, and preset; humidity; amber or blue tint while running), heat and cool setpoint steppers, segmented presets (Home · Away · Sleep), fireplace (hold toggles off ↔ heat; amber while on), Today: three metric tiles for whichever mode has run more today (runtime, cycles, average cycle — amber under 10 min, an early short-cycling sign), Last 12 hours chart (apexcharts: indoor temperature, dashed setpoints, outside temperature, heating/cooling bands), Last 14 days chart (apexcharts on long-term statistics: daily heating/cooling hours as stacked columns via `change`, daily mean outside temperature on the right axis; `extend_to: false` so the live point doesn't narrow the columns) |

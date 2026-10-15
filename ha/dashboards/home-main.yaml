@@ -809,11 +809,11 @@ views:
           rows: 2
           tap_action:
             action: navigate
-            navigation_path: '#media'
+            navigation_path: '#master-bedroom-remote'
           button_action:
             tap_action:
               action: navigate
-              navigation_path: '#media'
+              navigation_path: '#master-bedroom-remote'
           main_buttons_position: bottom
           modules:
           - bubble_media_player_enhanced
@@ -2522,6 +2522,48 @@ views:
 
             .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo),
             0 0 3px var(--bmpe-ink-halo); }'
+          tap_action:
+            action: navigate
+            navigation_path: '#master-bedroom-remote'
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#master-bedroom-remote'
+      - type: conditional
+        conditions:
+        - condition: state
+          entity: binary_sensor.master_bedroom_appletv_active
+          state: 'off'
+        card:
+          type: custom:bubble-card
+          card_type: button
+          button_type: name
+          entity: media_player.master_bedroom_appletv
+          name: Apple TV
+          icon: mdi:apple
+          show_state: true
+          tap_action:
+            action: navigate
+            navigation_path: '#master-bedroom-remote'
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#master-bedroom-remote'
+          sub_button:
+            main:
+            - icon: mdi:power
+              name: Power
+              show_background: true
+              tap_action:
+                action: perform-action
+                perform_action: media_player.turn_on
+                target:
+                  entity_id: media_player.master_bedroom_appletv
+              visibility:
+              - condition: state
+                entity: media_player.master_bedroom_appletv
+                state: 'off'
+            bottom: []
       - type: custom:bubble-card
         card_type: media-player
         entity: media_player.master_bedroom_homepod
@@ -2549,6 +2591,262 @@ views:
           idle_artwork: none
           background_opacity: 0.85
         show_icon: false
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#master-bedroom-remote'
+      name: Master Bedroom TV
+      icon: mdi:television
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: custom:yet-another-media-player
+        entities:
+        - entity_id: media_player.master_bedroom_appletv
+          name: Apple TV
+          volume_entity: media_player.master_bedroom_tv
+          hidden_controls:
+          - previous
+          - next
+          - stop
+          - shuffle
+          - repeat
+          - favorite
+          - play_pause
+          - power
+        match_theme: true
+        card_height: 320
+        volume_mode: slider
+        artwork_object_fit: cover
+        details_alignment: left
+        uix:
+          style: ':host { --accent-color: var(--primary-text-color); }
+
+            .details .title, .details .artist { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.7); }
+
+            .volume-percentage-indicator { color: var(--primary-background-color) !important; }
+
+            .more-info-menu { display: none !important; }
+
+            '
+        display_timestamps: true
+      - type: custom:bubble-card
+        card_type: sub-buttons
+        entity: media_player.master_bedroom_appletv
+        hide_main_background: true
+        rows: 0.9
+        modules:
+        - segmented
+        sub_button:
+          main: []
+          bottom:
+          - name: Apps
+            buttons_layout: inline
+            group:
+            - name: TV
+              icon: phu:apple-tv
+              show_name: false
+              css_class: seg-tv
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              sub_button_type: default
+              tap_action:
+                action: perform-action
+                perform_action: media_player.select_source
+                target:
+                  entity_id: media_player.master_bedroom_appletv
+                data:
+                  source: TV
+            - name: YouTube
+              icon: phu:youtube
+              show_name: false
+              css_class: seg-youtube
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              sub_button_type: default
+              tap_action:
+                action: perform-action
+                perform_action: media_player.select_source
+                target:
+                  entity_id: media_player.master_bedroom_appletv
+                data:
+                  source: YouTube
+            - name: Disney+
+              icon: phu:disney-plus
+              show_name: false
+              css_class: seg-disney
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              sub_button_type: default
+              tap_action:
+                action: perform-action
+                perform_action: media_player.select_source
+                target:
+                  entity_id: media_player.master_bedroom_appletv
+                data:
+                  source: Disney+
+            - name: Prime Video
+              icon: phu:prime-video
+              show_name: false
+              css_class: seg-prime-video
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              sub_button_type: default
+              tap_action:
+                action: perform-action
+                perform_action: media_player.select_source
+                target:
+                  entity_id: media_player.master_bedroom_appletv
+                data:
+                  source: Prime Video
+        styles: '.bubble-sub-button-group:has(> .bubble-sub-button:nth-child(4)) .bubble-sub-button { flex-direction: row !important; height: 40px !important; }
+
+          .bubble-sub-button { --mdc-icon-size: 30px; }
+
+          '
+      - type: custom:universal-remote-card
+        platform: Apple TV
+        remote_id: remote.master_bedroom_appletv
+        media_player_id: media_player.master_bedroom_appletv
+        rows:
+        - - - back
+            - play_pause
+          - touchpad
+          - - home
+            - power
+        - - skip_backward
+          - keyboard
+          - skip_forward
+        custom_actions:
+        - type: button
+          name: back
+          icon: mdi:arrow-left
+          tap_action:
+            action: key
+            key: menu
+          hold_action:
+            action: key
+            key: top_menu
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }'
+        - type: button
+          name: home
+          icon: mdi:home
+          tap_action:
+            action: key
+            key: home
+          hold_action:
+            action: key
+            key: home
+            hold_secs: 1
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }'
+        - type: button
+          name: play_pause
+          icon: mdi:play-pause
+          tap_action:
+            action: key
+            key: play_pause
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }'
+          hold_action:
+            action: none
+        - type: button
+          name: power
+          icon: mdi:power
+          tap_action:
+            action: none
+          hold_action:
+            action: perform-action
+            perform_action: media_player.toggle
+            target:
+              entity_id: media_player.master_bedroom_appletv
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }'
+        - type: touchpad
+          name: touchpad
+          tap_action:
+            action: key
+            key: select
+          up:
+            tap_action:
+              action: key
+              key: up
+            hold_action:
+              action: repeat
+          down:
+            tap_action:
+              action: key
+              key: down
+            hold_action:
+              action: repeat
+          left:
+            tap_action:
+              action: key
+              key: left
+            hold_action:
+              action: repeat
+          right:
+            tap_action:
+              action: key
+              key: right
+            hold_action:
+              action: repeat
+          styles: ':host { width: 190px; }
+
+            toucharea { height: 200px; border-radius: 32px; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); }
+
+            '
+        - type: button
+          name: skip_backward
+          icon: mdi:rewind-10
+          tap_action:
+            action: key
+            key: skip_backward
+          hold_action:
+            action: none
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }'
+        - type: button
+          name: skip_forward
+          icon: mdi:fast-forward-10
+          tap_action:
+            action: key
+            key: skip_forward
+          hold_action:
+            action: none
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }'
+        - type: button
+          name: keyboard
+          icon: mdi:keyboard
+          tap_action:
+            action: keyboard
+            config_entry_id: 01M06845CTB1QDDTEE7Q7YWDZ4
+            remote_id: remote.master_bedroom_appletv
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }
+
+            :host { visibility: {{ ''visible'' if is_state(''binary_sensor.master_bedroom_appletv_keyboard_focus'', ''on'') else ''hidden'' }}; }'
+        styles: 'ha-card { background: none !important; box-shadow: none !important; padding: 0 !important; }
+
+          .row { justify-content: space-between; align-items: center; padding: 0; }
+
+          .column { gap: 16px; }
+
+          #row-2 { padding: 8px 0 0; }
+
+          '
+        config_entry_id: 01M06845CTB1QDDTEE7Q7YWDZ4
+      show_header: false
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#averys-room'
@@ -4894,6 +5192,13 @@ views:
 
             .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo),
             0 0 3px var(--bmpe-ink-halo); }'
+          tap_action:
+            action: navigate
+            navigation_path: '#master-bedroom-remote'
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#master-bedroom-remote'
       - type: conditional
         conditions:
         - condition: state
