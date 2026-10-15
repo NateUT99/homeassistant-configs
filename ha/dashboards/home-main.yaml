@@ -3148,158 +3148,9 @@ views:
       button_type: name
       popup_style: home-assistant
       cards:
-      - type: custom:yet-another-media-player
-        entities:
-        - entity_id: media_player.master_bedroom_appletv
-          name: Apple TV
-          volume_entity: media_player.master_bedroom_tv
-          hidden_controls:
-          - previous
-          - next
-          - stop
-          - shuffle
-          - repeat
-          - favorite
-          - play_pause
-          - power
-        match_theme: true
-        card_height: 320
-        volume_mode: stepper
-        artwork_object_fit: cover
-        details_alignment: left
-        uix:
-          style: ':host { --accent-color: var(--primary-text-color); }
-
-            .details .title, .details .artist { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.7); }
-
-            .volume-percentage-indicator { color: var(--primary-background-color) !important; }
-
-            .more-info-menu { display: none !important; }
-
-            .progress-bar-container, .timestamps-container { display: none !important; }
-
-            '
-        display_timestamps: false
-        media_artwork_overrides:
-        - entity_id: media_player.master_bedroom_appletv
-          image_url: '{% set d = state_attr(''sensor.master_bedroom_appletv_info'', ''details'') %}{% set ok = d is mapping and d.get(''poster'') and (state_attr(''sensor.master_bedroom_appletv_info'',
-            ''content_id'') | string) == (state_attr(''media_player.master_bedroom_appletv'', ''media_content_id'') | string) %}{% set fb = {''YouTube'': ''/local/media_art/youtube.svg'', ''TV'': ''/local/media_art/tv.svg'',
-            ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg''} %}{{ d.poster | replace(''1000x1000bb'', ''2000x2000bb'') if ok else (state_attr(''media_player.master_bedroom_appletv'',
-            ''entity_picture'') or fb.get(state_attr(''media_player.master_bedroom_appletv'', ''app_name''), '''')) }}'
-          size_percentage: 100
-          object_fit: cover
-          object_position: top center
-        artwork_position: top center
-        volume_step: 0.02
-      - type: custom:bubble-card
-        card_type: button
-        button_type: slider
-        entity: number.master_bedroom_appletv_position
-        name: Timeline
-        show_name: false
-        show_icon: false
-        show_state: true
-        state_content: '{% set p = states(''number.master_bedroom_appletv_position'') | int(0) %}{% set d = state_attr(''number.master_bedroom_appletv_position'', ''max'') | int(0) %}{% if d >= 3600 %}{{
-          ''%d:%02d:%02d'' | format(p // 3600, p % 3600 // 60, p % 60) }} / {{ ''%d:%02d:%02d'' | format(d // 3600, d % 3600 // 60, d % 60) }}{% else %}{{ ''%d:%02d'' | format(p // 60, p % 60) }} / {{ ''%d:%02d''
-          | format(d // 60, d % 60) }}{% endif %}'
-        slider_live_update: false
-        rows: 0.6
-        tap_action:
-          action: none
-        visibility:
-        - condition: state
-          entity: number.master_bedroom_appletv_position
-          state_not:
-          - unavailable
-          - unknown
-        styles: '.bubble-button-card-container, .bubble-button-container { border-radius: 10px !important; overflow: hidden !important; }
-
-          .bubble-range-fill, .bubble-range-slider { border-radius: 0 !important; }
-
-          .bubble-button-card-container { background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }
-
-          .bubble-range-fill { background: var(--purple-color) !important; opacity: 0.55 !important; }
-
-          .bubble-state { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px !important; }
-
-          .rc-skip { background: transparent !important; --mdc-icon-size: 24px; }
-
-          .rc-skip ha-icon { color: var(--primary-text-color) !important; }
-
-          .bubble-button-container { height: 32px !important; }
-
-          ha-card { border-radius: 10px !important; }
-
-          '
-        sub_button:
-          main: []
-          bottom: []
-        modules:
-        - time_slider
       - type: custom:bubble-card
         card_type: sub-buttons
-        hide_main_background: true
-        rows: 0.5
-        visibility:
-        - condition: state
-          entity: sensor.master_bedroom_appletv_info
-          state_not:
-          - none
-          - unknown
-          - unavailable
-        sub_button:
-          main: []
-          bottom:
-          - name: Details
-            buttons_layout: inline
-            group:
-            - entity: sensor.master_bedroom_appletv_info
-              name: '{{ (state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {}).get(''rating'', '''') }}'
-              show_name: true
-              show_icon: false
-              css_class: rc-rating
-              state_background: false
-              light_background: false
-              tap_action:
-                action: none
-            - entity: sensor.master_bedroom_appletv_info
-              name: '{% set d = state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {} %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', '''')] | select | join('' ·
-                '') }}'
-              show_name: true
-              show_icon: false
-              css_class: rc-meta
-              state_background: false
-              light_background: false
-              tap_action:
-                action: none
-        styles: '.bubble-sub-button-bottom-container { justify-content: flex-start !important; }
-
-          .bubble-sub-button-group { gap: 10px !important; align-items: center !important; }
-
-          .bubble-sub-button { background: transparent !important; padding: 0 !important; height: 24px !important; min-width: 0 !important; }
-
-          .rc-rating { border: 1.5px solid var(--secondary-text-color) !important; border-radius: 5px !important; padding: 0 6px !important; height: 22px !important; }
-
-          .rc-rating .bubble-sub-button-name-container { font-size: 12px !important; font-weight: 700 !important; color: var(--secondary-text-color) !important; letter-spacing: 0.5px; }
-
-          .rc-meta .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }
-
-          .bubble-sub-button.rc-rating { flex: 0 0 auto !important; width: auto !important; }
-
-          .bubble-sub-button.rc-meta { flex: 1 1 auto !important; width: auto !important; justify-content: flex-start !important; overflow: hidden !important; }
-
-          .rc-meta .bubble-sub-button-name-container, .rc-meta .scrolling-container, .rc-meta .scrolling-container span { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis
-          !important; animation: none !important; transform: none !important; }
-
-          .rc-meta .bubble-sub-button-name-container { margin: 0 !important; text-align: left !important; flex: 1 1 auto !important; }
-
-          .bubble-sub-button-group { justify-content: flex-start !important; width: 100% !important; }
-
-          '
-        scrolling_effect: false
-      - type: custom:bubble-card
-        card_type: sub-buttons
-        entity: media_player.master_bedroom_appletv
+        entity: input_select.master_bedroom_remote_view
         hide_main_background: true
         rows: 0.9
         modules:
@@ -3307,13 +3158,13 @@ views:
         sub_button:
           main: []
           bottom:
-          - name: Apps
+          - name: View
             buttons_layout: inline
             group:
-            - name: TV
-              icon: phu:apple-tv
-              show_name: false
-              css_class: seg-tv
+            - name: Now Playing
+              icon: mdi:information-outline
+              show_name: true
+              css_class: seg-now-playing
               state_background: false
               light_background: false
               fill_width: true
@@ -3321,15 +3172,15 @@ views:
               sub_button_type: default
               tap_action:
                 action: perform-action
-                perform_action: media_player.select_source
+                perform_action: input_select.select_option
                 target:
-                  entity_id: media_player.master_bedroom_appletv
+                  entity_id: input_select.master_bedroom_remote_view
                 data:
-                  source: TV
-            - name: YouTube
-              icon: phu:youtube
-              show_name: false
-              css_class: seg-youtube
+                  option: Now Playing
+            - name: Apple TV
+              icon: phu:appletv-sim
+              show_name: true
+              css_class: seg-apple-tv
               state_background: false
               light_background: false
               fill_width: true
@@ -3337,182 +3188,446 @@ views:
               sub_button_type: default
               tap_action:
                 action: perform-action
-                perform_action: media_player.select_source
+                perform_action: input_select.select_option
                 target:
-                  entity_id: media_player.master_bedroom_appletv
+                  entity_id: input_select.master_bedroom_remote_view
                 data:
-                  source: YouTube
-            - name: Disney+
-              icon: phu:disney-plus
-              show_name: false
-              css_class: seg-disney
-              state_background: false
-              light_background: false
-              fill_width: true
-              custom_height: 40
-              sub_button_type: default
-              tap_action:
-                action: perform-action
-                perform_action: media_player.select_source
-                target:
-                  entity_id: media_player.master_bedroom_appletv
-                data:
-                  source: Disney+
-            - name: Prime Video
-              icon: phu:prime-video
-              show_name: false
-              css_class: seg-prime-video
-              state_background: false
-              light_background: false
-              fill_width: true
-              custom_height: 40
-              sub_button_type: default
-              tap_action:
-                action: perform-action
-                perform_action: media_player.select_source
-                target:
-                  entity_id: media_player.master_bedroom_appletv
-                data:
-                  source: Prime Video
-        styles: '.bubble-sub-button-group:has(> .bubble-sub-button:nth-child(4)) .bubble-sub-button { flex-direction: row !important; height: 40px !important; }
+                  option: Apple TV
+        styles: '{% if states(''sensor.master_bedroom_appletv_info'') in [''none'', ''unknown'', ''unavailable''] %}.seg-now-playing { opacity: 0.35; pointer-events: none; }{% endif %}
 
-          .bubble-sub-button { --mdc-icon-size: 30px; }
+          .bubble-sub-button .bubble-sub-button-name-container { font-size: 13px !important; white-space: nowrap !important; overflow: visible !important; text-overflow: clip !important; }
+
+          .bubble-sub-button { gap: 5px !important; padding: 0 4px !important; }
 
           '
-      - type: custom:universal-remote-card
-        platform: Apple TV
-        remote_id: remote.master_bedroom_appletv
-        media_player_id: media_player.master_bedroom_appletv
-        rows:
-        - - - back
-            - play_pause
-          - touchpad
-          - - home
-            - power
-        - - skip_backward
-          - keyboard
-          - skip_forward
-        custom_actions:
-        - type: button
-          name: back
-          icon: mdi:arrow-left
-          tap_action:
-            action: key
-            key: menu
-          hold_action:
-            action: key
-            key: top_menu
-          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
-            }'
-        - type: button
-          name: home
-          icon: mdi:home
-          tap_action:
-            action: key
-            key: home
-          hold_action:
-            action: key
-            key: home
-            hold_secs: 1
-          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
-            }'
-        - type: button
-          name: play_pause
-          icon: mdi:play-pause
-          tap_action:
-            action: key
-            key: play_pause
-          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
-            }'
-          hold_action:
-            action: none
-        - type: button
-          name: power
-          icon: mdi:power
-          tap_action:
-            action: none
-          hold_action:
-            action: perform-action
-            perform_action: media_player.toggle
-            target:
-              entity_id: media_player.master_bedroom_appletv
-          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
-            }'
-        - type: touchpad
-          name: touchpad
-          tap_action:
-            action: key
-            key: select
-          up:
-            tap_action:
-              action: key
-              key: up
-            hold_action:
-              action: repeat
-          down:
-            tap_action:
-              action: key
-              key: down
-            hold_action:
-              action: repeat
-          left:
-            tap_action:
-              action: key
-              key: left
-            hold_action:
-              action: repeat
-          right:
-            tap_action:
-              action: key
-              key: right
-            hold_action:
-              action: repeat
-          styles: ':host { width: 190px; }
+        scrolling_effect: false
+      - type: markdown
+        text_only: true
+        content: '{% set d = state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {} %}<img src="{{ (d.get(''poster'', '''')) | replace(''1000x1000bb'', ''2000x2000bb'') }}">
 
-            toucharea { height: 170px; border-radius: 32px; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); }
+
+          {% if d.get(''series'') %}### {{ d.get(''series'') }}
+
+
+          {% endif %}## {{ states(''sensor.master_bedroom_appletv_info'') }}
+
+
+          **{{ d.get(''rating'', '''') }}** · {{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', '''')] | select | join('' · '') }}
+
+
+          {% if d.get(''director'') %}Directed by {{ d.get(''director'') }}
+
+
+          {% endif %}{{ d.get(''description'', '''') }}'
+        visibility:
+        - condition: state
+          entity: input_select.master_bedroom_remote_view
+          state: Now Playing
+        - condition: state
+          entity: sensor.master_bedroom_appletv_info
+          state_not:
+          - none
+          - unknown
+          - unavailable
+        uix:
+          style:
+            ha-markdown$: 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px 4px !important; color: var(--secondary-text-color);
+              line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding: 0 5px; font-size: 12px; } h3 { margin: 14px 4px
+              0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3 + h2 { margin-top: 2px !important; }'
+            'ha-markdown $ ha-markdown-element:': 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px
+              4px !important; color: var(--secondary-text-color); line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding:
+              0 5px; font-size: 12px; } h3 { margin: 14px 4px 0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3
+              + h2 { margin-top: 2px !important; }'
+      - type: vertical-stack
+        visibility:
+        - condition: or
+          conditions:
+          - condition: state
+            entity: input_select.master_bedroom_remote_view
+            state: Apple TV
+          - condition: and
+            conditions:
+            - condition: state
+              entity: input_select.master_bedroom_remote_view
+              state: Now Playing
+            - condition: state
+              entity: sensor.master_bedroom_appletv_info
+              state:
+              - none
+              - unknown
+              - unavailable
+        cards:
+        - type: custom:bubble-card
+          card_type: media-player
+          entity: media_player.master_bedroom_appletv
+          name: Apple TV
+          cover_background: false
+          hide:
+            power_button: true
+            volume_button: true
+            previous_button: true
+            next_button: true
+            play_pause_button: true
+          sub_button:
+            main: []
+            bottom: []
+          show_icon: false
+          rows: 2
+          main_buttons_position: bottom
+          modules:
+          - bubble_media_player_enhanced
+          bubble_media_player_enhanced:
+            card_layout: default
+            progress_bar: none
+            idle_artwork: none
+            artwork_fit: original
+            progress_position: above
+            background_opacity: 0.85
+        - type: custom:bubble-card
+          card_type: button
+          button_type: slider
+          entity: number.master_bedroom_appletv_position
+          name: Timeline
+          show_name: false
+          show_icon: false
+          show_state: true
+          state_content: '{% set p = states(''number.master_bedroom_appletv_position'') | int(0) %}{% set d = state_attr(''number.master_bedroom_appletv_position'', ''max'') | int(0) %}{% if d >= 3600 %}{{
+            ''%d:%02d:%02d'' | format(p // 3600, p % 3600 // 60, p % 60) }} / {{ ''%d:%02d:%02d'' | format(d // 3600, d % 3600 // 60, d % 60) }}{% else %}{{ ''%d:%02d'' | format(p // 60, p % 60) }} / {{
+            ''%d:%02d'' | format(d // 60, d % 60) }}{% endif %}'
+          slider_live_update: false
+          rows: 0.6
+          tap_action:
+            action: none
+          visibility:
+          - condition: state
+            entity: number.master_bedroom_appletv_position
+            state_not:
+            - unavailable
+            - unknown
+          styles: '.bubble-button-card-container, .bubble-button-container { border-radius: 10px !important; overflow: hidden !important; }
+
+            .bubble-range-fill, .bubble-range-slider { border-radius: 0 !important; }
+
+            .bubble-button-card-container { background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }
+
+            .bubble-range-fill { background: var(--purple-color) !important; opacity: 0.55 !important; }
+
+            .bubble-state { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px !important; }
+
+            .rc-skip { background: transparent !important; --mdc-icon-size: 24px; }
+
+            .rc-skip ha-icon { color: var(--primary-text-color) !important; }
+
+            .bubble-button-container { height: 32px !important; }
+
+            ha-card { border-radius: 10px !important; }
 
             '
-        - type: button
-          name: keyboard
-          icon: mdi:keyboard
-          tap_action:
-            action: keyboard
-            config_entry_id: 01M06845CTB1QDDTEE7Q7YWDZ4
-            remote_id: remote.master_bedroom_appletv
-          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+          sub_button:
+            main: []
+            bottom: []
+          modules:
+          - time_slider
+        - type: custom:bubble-card
+          card_type: sub-buttons
+          hide_main_background: true
+          rows: 0.9
+          scrolling_effect: false
+          sub_button:
+            main: []
+            bottom:
+            - name: Volume
+              buttons_layout: inline
+              group:
+              - state_background: false
+                light_background: false
+                custom_height: 44
+                entity: media_player.master_bedroom_tv
+                name: Mute
+                show_name: false
+                icon: '{{ ''mdi:volume-off'' if state_attr(''media_player.master_bedroom_tv'', ''is_volume_muted'') else ''mdi:volume-high'' }}'
+                css_class: rc-mute
+                tap_action:
+                  action: perform-action
+                  perform_action: script.household_media_toggle_mute
+                  data:
+                    entity_id: media_player.master_bedroom_tv
+              - state_background: false
+                light_background: false
+                custom_height: 44
+                name: Volume down
+                icon: mdi:minus
+                show_name: false
+                css_class: rc-vol-down
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.volume_down
+                  target:
+                    entity_id: media_player.master_bedroom_tv
+              - state_background: false
+                light_background: false
+                custom_height: 44
+                entity: media_player.master_bedroom_tv
+                name: '{{ ''Muted'' if state_attr(''media_player.master_bedroom_tv'', ''is_volume_muted'') else ((((state_attr(''media_player.master_bedroom_tv'', ''volume_level'') | float(0)) * 100) |
+                  round | int) ~ ''%'') }}'
+                show_name: true
+                show_icon: false
+                sub_button_type: default
+                css_class: rc-vol-level
+                tap_action:
+                  action: none
+              - state_background: false
+                light_background: false
+                custom_height: 44
+                name: Volume up
+                icon: mdi:plus
+                show_name: false
+                css_class: rc-vol-up
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.volume_up
+                  target:
+                    entity_id: media_player.master_bedroom_tv
+          styles: '.bubble-sub-button-bottom-container { justify-content: stretch !important; }
+
+            .bubble-sub-button-group { width: 100% !important; gap: 0 !important; flex-wrap: nowrap !important; }
+
+            .bubble-sub-button { justify-content: center !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; border-radius: 0 !important; --mdc-icon-size: 22px;
             }
 
-            :host { visibility: {{ ''visible'' if is_state(''binary_sensor.master_bedroom_appletv_keyboard_focus'', ''on'') else ''hidden'' }}; }'
-        - type: button
-          name: skip_backward
-          icon: mdi:rewind-10
-          tap_action:
-            action: key
-            key: skip_backward
-          hold_action:
-            action: none
-          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
-            }'
-        - type: button
-          name: skip_forward
-          icon: mdi:fast-forward-10
-          tap_action:
-            action: key
-            key: skip_forward
-          hold_action:
-            action: none
-          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
-            }'
-        styles: 'ha-card { background: none !important; box-shadow: none !important; padding: 0 !important; }
+            .rc-mute { flex: 0 0 56px !important; border-radius: 16px !important; margin-right: 8px !important; }
 
-          .row { justify-content: space-between; align-items: center; padding: 0; }
+            .rc-vol-down { flex: 1 1 0 !important; border-radius: 16px 0 0 16px !important; }
 
-          .column { gap: 16px; }
+            .rc-vol-level { flex: 0 0 72px !important; }
 
-          #row-2 { padding: 8px 0 0; }
+            .rc-vol-level .bubble-sub-button-name-container { font-size: 16px !important; font-weight: 600 !important; font-variant-numeric: tabular-nums; }
 
-          '
-        config_entry_id: 01M06845CTB1QDDTEE7Q7YWDZ4
+            .rc-vol-up { flex: 1 1 0 !important; border-radius: 0 16px 16px 0 !important; }
+
+            {% if state_attr(''media_player.master_bedroom_tv'', ''is_volume_muted'') %}.rc-mute { background: var(--primary-text-color) !important; }
+
+            .rc-mute ha-icon { color: var(--primary-background-color) !important; }
+
+            .rc-vol-level .bubble-sub-button-name-container { color: var(--secondary-text-color) !important; }{% endif %}
+
+            '
+        - type: custom:bubble-card
+          card_type: sub-buttons
+          entity: media_player.master_bedroom_appletv
+          hide_main_background: true
+          rows: 0.9
+          modules:
+          - segmented
+          sub_button:
+            main: []
+            bottom:
+            - name: Apps
+              buttons_layout: inline
+              group:
+              - name: TV
+                icon: phu:apple-tv
+                show_name: false
+                css_class: seg-tv
+                state_background: false
+                light_background: false
+                fill_width: true
+                custom_height: 40
+                sub_button_type: default
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.select_source
+                  target:
+                    entity_id: media_player.master_bedroom_appletv
+                  data:
+                    source: TV
+              - name: YouTube
+                icon: phu:youtube
+                show_name: false
+                css_class: seg-youtube
+                state_background: false
+                light_background: false
+                fill_width: true
+                custom_height: 40
+                sub_button_type: default
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.select_source
+                  target:
+                    entity_id: media_player.master_bedroom_appletv
+                  data:
+                    source: YouTube
+              - name: Disney+
+                icon: phu:disney-plus
+                show_name: false
+                css_class: seg-disney
+                state_background: false
+                light_background: false
+                fill_width: true
+                custom_height: 40
+                sub_button_type: default
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.select_source
+                  target:
+                    entity_id: media_player.master_bedroom_appletv
+                  data:
+                    source: Disney+
+              - name: Prime Video
+                icon: phu:prime-video
+                show_name: false
+                css_class: seg-prime-video
+                state_background: false
+                light_background: false
+                fill_width: true
+                custom_height: 40
+                sub_button_type: default
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.select_source
+                  target:
+                    entity_id: media_player.master_bedroom_appletv
+                  data:
+                    source: Prime Video
+          styles: '.bubble-sub-button-group:has(> .bubble-sub-button:nth-child(4)) .bubble-sub-button { flex-direction: row !important; height: 40px !important; }
+
+            .bubble-sub-button { --mdc-icon-size: 30px; }
+
+            '
+        - type: custom:universal-remote-card
+          platform: Apple TV
+          remote_id: remote.master_bedroom_appletv
+          media_player_id: media_player.master_bedroom_appletv
+          rows:
+          - - - back
+              - play_pause
+            - touchpad
+            - - home
+              - power
+          - - skip_backward
+            - keyboard
+            - skip_forward
+          custom_actions:
+          - type: button
+            name: back
+            icon: mdi:arrow-left
+            tap_action:
+              action: key
+              key: menu
+            hold_action:
+              action: key
+              key: top_menu
+            styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+              }'
+          - type: button
+            name: home
+            icon: mdi:home
+            tap_action:
+              action: key
+              key: home
+            hold_action:
+              action: key
+              key: home
+              hold_secs: 1
+            styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+              }'
+          - type: button
+            name: play_pause
+            icon: mdi:play-pause
+            tap_action:
+              action: key
+              key: play_pause
+            styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+              }'
+            hold_action:
+              action: none
+          - type: button
+            name: power
+            icon: mdi:power
+            tap_action:
+              action: none
+            hold_action:
+              action: perform-action
+              perform_action: media_player.toggle
+              target:
+                entity_id: media_player.master_bedroom_appletv
+            styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+              }'
+          - type: touchpad
+            name: touchpad
+            tap_action:
+              action: key
+              key: select
+            up:
+              tap_action:
+                action: key
+                key: up
+              hold_action:
+                action: repeat
+            down:
+              tap_action:
+                action: key
+                key: down
+              hold_action:
+                action: repeat
+            left:
+              tap_action:
+                action: key
+                key: left
+              hold_action:
+                action: repeat
+            right:
+              tap_action:
+                action: key
+                key: right
+              hold_action:
+                action: repeat
+            styles: ':host { width: 190px; }
+
+              toucharea { height: 170px; border-radius: 32px; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); }
+
+              '
+          - type: button
+            name: keyboard
+            icon: mdi:keyboard
+            tap_action:
+              action: keyboard
+              config_entry_id: 01M06845CTB1QDDTEE7Q7YWDZ4
+              remote_id: remote.master_bedroom_appletv
+            styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+              }
+
+              :host { visibility: {{ ''visible'' if is_state(''binary_sensor.master_bedroom_appletv_keyboard_focus'', ''on'') else ''hidden'' }}; }'
+          - type: button
+            name: skip_backward
+            icon: mdi:rewind-10
+            tap_action:
+              action: key
+              key: skip_backward
+            hold_action:
+              action: none
+            styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+              }'
+          - type: button
+            name: skip_forward
+            icon: mdi:fast-forward-10
+            tap_action:
+              action: key
+              key: skip_forward
+            hold_action:
+              action: none
+            styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+              }'
+          styles: 'ha-card { background: none !important; box-shadow: none !important; padding: 0 !important; }
+
+            .row { justify-content: space-between; align-items: center; padding: 0; }
+
+            .column { gap: 16px; }
+
+            #row-2 { padding: 8px 0 0; }
+
+            '
+          config_entry_id: 01M06845CTB1QDDTEE7Q7YWDZ4
       show_header: false
     - type: custom:bubble-card
       card_type: pop-up
