@@ -282,10 +282,7 @@ actions:
                   entity_id: script.household_tts_announce
                 data:
                   variables:
-                    message: >-
-                      Refill the robot's water tank. The master bedroom and
-                      master bathroom will be mopped in 15 minutes -- pick
-                      anything up off the floor.
+                    message: Master suite mop in 15 minutes. Refill the tank and clear the floor.
                     target: master_bedroom
                     notification_title: Vacuum Master Mop
                     critical_fallback: false
@@ -302,9 +299,7 @@ actions:
                 action: notify.mobile_app_nates_iphone
                 data:
                   title: Vacuum Master Mop
-                  message: >-
-                    Mopping the master bedroom and bathroom in 15 minutes.
-                    Refill the water tank and clear the floor.
+                  message: Master suite mop in 15 minutes. Refill the tank and clear the floor.
                   data:
                     tag: vacuum_master_mop_grace
                     actions:

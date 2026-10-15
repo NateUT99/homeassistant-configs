@@ -249,7 +249,7 @@ sequence:
                       variables:
                         speakers:
                           - media_player.kitchen_homepod
-                        url: "{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}"
+                        clip: "{{ tts_audio.url | regex_replace('^https?://[^/]+/local/', '/config/www/') }}"
                   - alias: Wait for the kitchen announcement to finish
                     wait_for_trigger:
                       - trigger: state
@@ -359,17 +359,17 @@ sequence:
               wait for generation. Runs in its own Household: TTS Play run (script.turn_on,
               not a blocking call) because a playback failure raises an error continue_on_error
               cannot catch and would otherwise abort this script before it could
-              retry or push. The URL host is rewritten to loopback: chime_tts always
-              returns its Nabu Casa external URL, but HA itself (pyatv) downloads
-              the clip for these Apple TV-integration speakers, so a local fetch
-              skips the remote-UI round trip. Assumes HA serves HTTP on port 80.
+              retry or push. The clip is passed as its local path under
+              /config/www, not chime_tts's Nabu Casa URL: pyatv streams a URL
+              through a 64 KiB buffer and fails on any clip over 56 KiB (about
+              7 s), while a local path is decoded whole up front.
             action: script.turn_on
             target:
               entity_id: script.household_tts_play
             data:
               variables:
                 speakers: "{{ speaker_entities }}"
-                url: "{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}"
+                clip: "{{ tts_audio.url | regex_replace('^https?://[^/]+/local/', '/config/www/') }}"
           - alias: Wait for a targeted HomePod to start playing
             note: >-
               Success shows up as the speaker reaching playing about a second in.
@@ -409,8 +409,9 @@ sequence:
             continue_on_timeout: true
           - alias: If playback didn't start, retry once, then push
             note: >-
-              The decoder failure is intermittent -- the same clip has played fine
-              minutes later -- so one retry after a short pause covers most of them.
+              A safety net for a transient playback failure. Oversized clips
+              (over 56 KiB) were the one deterministic cause, and the local clip
+              path above avoids it, so a retry is now a rare path.
             if:
               - condition: template
                 alias: Playback didn't start
@@ -427,7 +428,7 @@ sequence:
                 data:
                   variables:
                     speakers: "{{ speaker_entities }}"
-                    url: "{{ tts_audio.url | regex_replace('^https?://[^/]+', 'http://127.0.0.1') }}"
+                    clip: "{{ tts_audio.url | regex_replace('^https?://[^/]+/local/', '/config/www/') }}"
               - alias: Wait for a targeted HomePod to start playing
                 note: >-
                   Success shows up as the speaker reaching playing about a second

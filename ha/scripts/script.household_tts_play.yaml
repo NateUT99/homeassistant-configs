@@ -13,24 +13,28 @@ fields:
       entity:
         domain: media_player
         multiple: true
-  url:
-    name: URL
-    description: Clip URL, already rewritten to loopback by the caller.
+  clip:
+    name: Clip
+    description: >-
+      Local file path of the clip under /config/www, already converted from
+      the chime_tts URL by the caller.
     required: true
     selector:
       text: {}
 sequence:
   - alias: Play the clip as an announcement
     note: >-
-      The Apple TV integration can raise miniaudio's DecodeError here, which
-      is not a HomeAssistantError, so continue_on_error can't catch it -- it
+      A local path, not a URL: pyatv streams a URL through a 64 KiB buffer
+      and fails on any clip over 56 KiB (about 7 s), while a path is decoded
+      whole up front (LESSONS.md -> TTS & Media). The Apple TV integration can
+      still raise miniaudio's DecodeError, which is not a HomeAssistantError, so continue_on_error can't catch it -- it
       aborts whichever run it is in. Isolating it in this script keeps the
       caller alive to retry or push.
     action: media_player.play_media
     target:
       entity_id: "{{ speakers }}"
     data:
-      media_content_id: "{{ url }}"
+      media_content_id: "{{ clip }}"
       media_content_type: music
       announce: true
 mode: parallel
