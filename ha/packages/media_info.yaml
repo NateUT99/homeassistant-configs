@@ -1,0 +1,195 @@
+# Now-playing details for the Apple TVs, from Apple's public iTunes lookup service.
+#
+# Content bought or rented from Apple reports its iTunes store ID as media_content_id (a plain
+# number, e.g. 271991087 for The Terminator), which the lookup resolves exactly: year, content
+# rating, genre, runtime, director, description and a poster. Other apps (YouTube, Disney+,
+# live TV) report non-numeric IDs and get no details. The lookup runs only when the content ID
+# changes (or HA starts / templates reload), not on a timer, and needs no account or key. The home-main remote pop-ups show the
+# details under the timeline. See guides/home_dashboard.md.
+#
+# Top-level variables can't see `this`, so `changed` reads the sensor by entity ID (the
+# renamed sensor.<room>_appletv_info).
+#
+# Deployed to /config/packages/media_info.yaml; reload with template.reload (rest_command.reload
+# for the command; adding rest_command to an instance that had none needs a restart).
+
+rest_command:
+  itunes_lookup:
+    url: "https://itunes.apple.com/lookup?id={{ id }}&country=us"
+    method: GET
+    timeout: 10
+
+template:
+  - triggers:
+      - trigger: state
+        entity_id: media_player.living_room_appletv
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: event_template_reloaded
+    variables:
+      new_id: "{{ state_attr('media_player.living_room_appletv', 'media_content_id') | default('', true) | string }}"
+      active: "{{ is_state('media_player.living_room_appletv', ['playing', 'paused']) }}"
+      owned: "{{ new_id is match('^[0-9]+$') }}"
+      changed: "{{ new_id != (state_attr('sensor.living_room_appletv_info', 'content_id') | default('', true) | string) }}"
+    actions:
+      - if:
+          - condition: template
+            value_template: "{{ active and owned and changed }}"
+        then:
+          - action: rest_command.itunes_lookup
+            data:
+              id: "{{ new_id }}"
+            response_variable: itunes
+            continue_on_error: true
+    sensor:
+      - name: Living Room Apple TV Info
+        unique_id: living_room_appletv_info
+        icon: mdi:movie-open-outline
+        # The title while details are available, otherwise "none" (the card hides).
+        state: >
+          {% if active and owned and itunes is defined and itunes.status == 200 %}
+            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
+            {{ (c.results | first | default({})).trackName | default('none') }}
+          {% elif active and owned and not changed %}
+            {{ this.state }}
+          {% else %}
+            none
+          {% endif %}
+        attributes:
+          content_id: "{{ new_id if (active and owned) else '' }}"
+          details: >
+            {% if active and owned and itunes is defined and itunes.status == 200 %}
+              {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
+              {% set r = c.results | first | default({}) %}
+              {% set mins = ((r.trackTimeMillis | default(0) | int) / 60000) | round(0) | int %}
+              {{ {
+                'year': (r.releaseDate | default(''))[:4],
+                'rating': r.contentAdvisoryRating | default(''),
+                'genre': r.primaryGenreName | default(''),
+                'runtime': ((mins // 60) ~ 'h ' ~ (mins % 60) ~ 'm') if mins >= 60 else ((mins ~ 'm') if mins else ''),
+                'director': r.artistName | default(''),
+                'description': r.longDescription | default(r.shortDescription | default('')),
+                'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb')
+              } }}
+            {% elif active and owned and not changed %}
+              {{ this.attributes.details | default({}) }}
+            {% else %}
+              {{ {} }}
+            {% endif %}
+
+  - triggers:
+      - trigger: state
+        entity_id: media_player.master_bedroom_appletv
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: event_template_reloaded
+    variables:
+      new_id: "{{ state_attr('media_player.master_bedroom_appletv', 'media_content_id') | default('', true) | string }}"
+      active: "{{ is_state('media_player.master_bedroom_appletv', ['playing', 'paused']) }}"
+      owned: "{{ new_id is match('^[0-9]+$') }}"
+      changed: "{{ new_id != (state_attr('sensor.master_bedroom_appletv_info', 'content_id') | default('', true) | string) }}"
+    actions:
+      - if:
+          - condition: template
+            value_template: "{{ active and owned and changed }}"
+        then:
+          - action: rest_command.itunes_lookup
+            data:
+              id: "{{ new_id }}"
+            response_variable: itunes
+            continue_on_error: true
+    sensor:
+      - name: Master Bedroom Apple TV Info
+        unique_id: master_bedroom_appletv_info
+        icon: mdi:movie-open-outline
+        # The title while details are available, otherwise "none" (the card hides).
+        state: >
+          {% if active and owned and itunes is defined and itunes.status == 200 %}
+            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
+            {{ (c.results | first | default({})).trackName | default('none') }}
+          {% elif active and owned and not changed %}
+            {{ this.state }}
+          {% else %}
+            none
+          {% endif %}
+        attributes:
+          content_id: "{{ new_id if (active and owned) else '' }}"
+          details: >
+            {% if active and owned and itunes is defined and itunes.status == 200 %}
+              {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
+              {% set r = c.results | first | default({}) %}
+              {% set mins = ((r.trackTimeMillis | default(0) | int) / 60000) | round(0) | int %}
+              {{ {
+                'year': (r.releaseDate | default(''))[:4],
+                'rating': r.contentAdvisoryRating | default(''),
+                'genre': r.primaryGenreName | default(''),
+                'runtime': ((mins // 60) ~ 'h ' ~ (mins % 60) ~ 'm') if mins >= 60 else ((mins ~ 'm') if mins else ''),
+                'director': r.artistName | default(''),
+                'description': r.longDescription | default(r.shortDescription | default('')),
+                'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb')
+              } }}
+            {% elif active and owned and not changed %}
+              {{ this.attributes.details | default({}) }}
+            {% else %}
+              {{ {} }}
+            {% endif %}
+
+  - triggers:
+      - trigger: state
+        entity_id: media_player.family_room_appletv
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: event_template_reloaded
+    variables:
+      new_id: "{{ state_attr('media_player.family_room_appletv', 'media_content_id') | default('', true) | string }}"
+      active: "{{ is_state('media_player.family_room_appletv', ['playing', 'paused']) }}"
+      owned: "{{ new_id is match('^[0-9]+$') }}"
+      changed: "{{ new_id != (state_attr('sensor.family_room_appletv_info', 'content_id') | default('', true) | string) }}"
+    actions:
+      - if:
+          - condition: template
+            value_template: "{{ active and owned and changed }}"
+        then:
+          - action: rest_command.itunes_lookup
+            data:
+              id: "{{ new_id }}"
+            response_variable: itunes
+            continue_on_error: true
+    sensor:
+      - name: Family Room Apple TV Info
+        unique_id: family_room_appletv_info
+        icon: mdi:movie-open-outline
+        # The title while details are available, otherwise "none" (the card hides).
+        state: >
+          {% if active and owned and itunes is defined and itunes.status == 200 %}
+            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
+            {{ (c.results | first | default({})).trackName | default('none') }}
+          {% elif active and owned and not changed %}
+            {{ this.state }}
+          {% else %}
+            none
+          {% endif %}
+        attributes:
+          content_id: "{{ new_id if (active and owned) else '' }}"
+          details: >
+            {% if active and owned and itunes is defined and itunes.status == 200 %}
+              {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}
+              {% set r = c.results | first | default({}) %}
+              {% set mins = ((r.trackTimeMillis | default(0) | int) / 60000) | round(0) | int %}
+              {{ {
+                'year': (r.releaseDate | default(''))[:4],
+                'rating': r.contentAdvisoryRating | default(''),
+                'genre': r.primaryGenreName | default(''),
+                'runtime': ((mins // 60) ~ 'h ' ~ (mins % 60) ~ 'm') if mins >= 60 else ((mins ~ 'm') if mins else ''),
+                'director': r.artistName | default(''),
+                'description': r.longDescription | default(r.shortDescription | default('')),
+                'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb')
+              } }}
+            {% elif active and owned and not changed %}
+              {{ this.attributes.details | default({}) }}
+            {% else %}
+              {{ {} }}
+            {% endif %}
