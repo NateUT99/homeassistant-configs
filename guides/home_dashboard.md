@@ -157,7 +157,7 @@ switch by hand are quick actions; running appliances are Happening now.
 | **Weather** | Always | Outside temp and condition ("58° Sunny"), plus "AQI n" when above 50 | AQI on the EPA scale: yellow > 50, orange > 100, red > 150; neutral otherwise | `#weather` | — |
 | **Lights** | Always | "N on" / "All off" (visible lights in the areas listed in `house_light_areas()`) | Amber when any are on | `#lights` | — |
 | **Security** | Always | Apple Home-style, higher risk first: "N Open" (front door, patio door, or garage physically open), else "N Unlocked" (front door lock), else "Secure". Interior doors and windows are not counted | Green secure, else `alert_level()` (amber / red); icon open door, open lock, or check-shield | `#security` | `script.household_secure_doors` |
-| **Media** | Always | "N playing" / "Media off" — players with a room media card showing (their activity sensor is on) | Purple when any are playing | `#media` | — |
+| **Media** | Always | "N Playing" / "Media off" — players with a room media card showing (their activity sensor is on) | Purple when any are playing | `#media` | — |
 
 **`#lights`** lists every light by room (Living Room through Utility Room) as `apple_tile`
 tiles — tap toggles, hold opens more-info. **`#media`** is the house-wide "Speakers & TVs"
