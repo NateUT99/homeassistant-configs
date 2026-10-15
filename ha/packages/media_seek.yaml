@@ -9,6 +9,10 @@
 # Apple TV does no work. Unavailable when the app reports no duration (live TV), which
 # hides the slider. See guides/home_dashboard.md.
 #
+# A seek fires media_seek_requested, which the number takes as its value and holds for 6 s
+# (advancing while playing): the Apple TV keeps reporting the pre-seek position for a few
+# seconds, and recalculating from it in that window made the slider jump back and forth.
+#
 # The position is excluded from the recorder: at 2 s it would write ~1,800 useless rows per
 # hour of playback. This is the only recorder config in the instance (configuration.yaml
 # has none); recorder config is not reloadable, so changing it needs a restart.
@@ -29,6 +33,11 @@ template:
         seconds: "/2"
       - trigger: state
         entity_id: media_player.living_room_appletv
+      - trigger: event
+        event_type: media_seek_requested
+        event_data:
+          entity_id: media_player.living_room_appletv
+        id: seek
     condition:
       - condition: state
         entity_id: media_player.living_room_appletv
@@ -43,30 +52,49 @@ template:
         min: 0
         max: "{{ state_attr('media_player.living_room_appletv', 'media_duration') | float(1) }}"
         step: 1
-        # Take the dragged value immediately; otherwise the slider snaps back to the old
-        # position until the next refresh picks up the seek.
         optimistic: true
         availability: "{{ state_attr('media_player.living_room_appletv', 'media_duration') | float(0) > 0 }}"
         state: >
           {% set e = 'media_player.living_room_appletv' %}
-          {% set pos = state_attr(e, 'media_position') | float(0) %}
-          {% set upd = state_attr(e, 'media_position_updated_at') %}
-          {% if is_state(e, 'playing') and upd is not none %}
-            {% set pos = pos + (now() - upd).total_seconds() %}
+          {% set t = now().timestamp() %}
+          {% set seek_at = this.attributes.seek_at | default(0) | float(0) %}
+          {% if trigger.id == 'seek' %}
+            {{ trigger.event.data.position | float(0) | round(0) }}
+          {% elif t - seek_at < 6 %}
+            {% set held = this.attributes.seek_value | default(0) | float(0) %}
+            {{ (held + ((t - seek_at) if is_state(e, 'playing') else 0)) | round(0) }}
+          {% else %}
+            {% set pos = state_attr(e, 'media_position') | float(0) %}
+            {% set upd = state_attr(e, 'media_position_updated_at') %}
+            {% if is_state(e, 'playing') and upd is not none %}
+              {% set pos = pos + (now() - upd).total_seconds() %}
+            {% endif %}
+            {{ [pos, state_attr(e, 'media_duration') | float(0)] | min | round(0) }}
           {% endif %}
-          {{ [pos, state_attr(e, 'media_duration') | float(0)] | min | round(0) }}
+        attributes:
+          seek_at: "{{ now().timestamp() if trigger.id == 'seek' else (this.attributes.seek_at | default(0)) }}"
+          seek_value: "{{ trigger.event.data.position if trigger.id == 'seek' else (this.attributes.seek_value | default(0)) }}"
         set_value:
           - action: media_player.media_seek
             target:
               entity_id: media_player.living_room_appletv
             data:
               seek_position: "{{ value }}"
+          - event: media_seek_requested
+            event_data:
+              entity_id: media_player.living_room_appletv
+              position: "{{ value }}"
 
   - trigger:
       - trigger: time_pattern
         seconds: "/2"
       - trigger: state
         entity_id: media_player.master_bedroom_appletv
+      - trigger: event
+        event_type: media_seek_requested
+        event_data:
+          entity_id: media_player.master_bedroom_appletv
+        id: seek
     condition:
       - condition: state
         entity_id: media_player.master_bedroom_appletv
@@ -81,30 +109,49 @@ template:
         min: 0
         max: "{{ state_attr('media_player.master_bedroom_appletv', 'media_duration') | float(1) }}"
         step: 1
-        # Take the dragged value immediately; otherwise the slider snaps back to the old
-        # position until the next refresh picks up the seek.
         optimistic: true
         availability: "{{ state_attr('media_player.master_bedroom_appletv', 'media_duration') | float(0) > 0 }}"
         state: >
           {% set e = 'media_player.master_bedroom_appletv' %}
-          {% set pos = state_attr(e, 'media_position') | float(0) %}
-          {% set upd = state_attr(e, 'media_position_updated_at') %}
-          {% if is_state(e, 'playing') and upd is not none %}
-            {% set pos = pos + (now() - upd).total_seconds() %}
+          {% set t = now().timestamp() %}
+          {% set seek_at = this.attributes.seek_at | default(0) | float(0) %}
+          {% if trigger.id == 'seek' %}
+            {{ trigger.event.data.position | float(0) | round(0) }}
+          {% elif t - seek_at < 6 %}
+            {% set held = this.attributes.seek_value | default(0) | float(0) %}
+            {{ (held + ((t - seek_at) if is_state(e, 'playing') else 0)) | round(0) }}
+          {% else %}
+            {% set pos = state_attr(e, 'media_position') | float(0) %}
+            {% set upd = state_attr(e, 'media_position_updated_at') %}
+            {% if is_state(e, 'playing') and upd is not none %}
+              {% set pos = pos + (now() - upd).total_seconds() %}
+            {% endif %}
+            {{ [pos, state_attr(e, 'media_duration') | float(0)] | min | round(0) }}
           {% endif %}
-          {{ [pos, state_attr(e, 'media_duration') | float(0)] | min | round(0) }}
+        attributes:
+          seek_at: "{{ now().timestamp() if trigger.id == 'seek' else (this.attributes.seek_at | default(0)) }}"
+          seek_value: "{{ trigger.event.data.position if trigger.id == 'seek' else (this.attributes.seek_value | default(0)) }}"
         set_value:
           - action: media_player.media_seek
             target:
               entity_id: media_player.master_bedroom_appletv
             data:
               seek_position: "{{ value }}"
+          - event: media_seek_requested
+            event_data:
+              entity_id: media_player.master_bedroom_appletv
+              position: "{{ value }}"
 
   - trigger:
       - trigger: time_pattern
         seconds: "/2"
       - trigger: state
         entity_id: media_player.family_room_appletv
+      - trigger: event
+        event_type: media_seek_requested
+        event_data:
+          entity_id: media_player.family_room_appletv
+        id: seek
     condition:
       - condition: state
         entity_id: media_player.family_room_appletv
@@ -119,21 +166,35 @@ template:
         min: 0
         max: "{{ state_attr('media_player.family_room_appletv', 'media_duration') | float(1) }}"
         step: 1
-        # Take the dragged value immediately; otherwise the slider snaps back to the old
-        # position until the next refresh picks up the seek.
         optimistic: true
         availability: "{{ state_attr('media_player.family_room_appletv', 'media_duration') | float(0) > 0 }}"
         state: >
           {% set e = 'media_player.family_room_appletv' %}
-          {% set pos = state_attr(e, 'media_position') | float(0) %}
-          {% set upd = state_attr(e, 'media_position_updated_at') %}
-          {% if is_state(e, 'playing') and upd is not none %}
-            {% set pos = pos + (now() - upd).total_seconds() %}
+          {% set t = now().timestamp() %}
+          {% set seek_at = this.attributes.seek_at | default(0) | float(0) %}
+          {% if trigger.id == 'seek' %}
+            {{ trigger.event.data.position | float(0) | round(0) }}
+          {% elif t - seek_at < 6 %}
+            {% set held = this.attributes.seek_value | default(0) | float(0) %}
+            {{ (held + ((t - seek_at) if is_state(e, 'playing') else 0)) | round(0) }}
+          {% else %}
+            {% set pos = state_attr(e, 'media_position') | float(0) %}
+            {% set upd = state_attr(e, 'media_position_updated_at') %}
+            {% if is_state(e, 'playing') and upd is not none %}
+              {% set pos = pos + (now() - upd).total_seconds() %}
+            {% endif %}
+            {{ [pos, state_attr(e, 'media_duration') | float(0)] | min | round(0) }}
           {% endif %}
-          {{ [pos, state_attr(e, 'media_duration') | float(0)] | min | round(0) }}
+        attributes:
+          seek_at: "{{ now().timestamp() if trigger.id == 'seek' else (this.attributes.seek_at | default(0)) }}"
+          seek_value: "{{ trigger.event.data.position if trigger.id == 'seek' else (this.attributes.seek_value | default(0)) }}"
         set_value:
           - action: media_player.media_seek
             target:
               entity_id: media_player.family_room_appletv
             data:
               seek_position: "{{ value }}"
+          - event: media_seek_requested
+            event_data:
+              entity_id: media_player.family_room_appletv
+              position: "{{ value }}"
