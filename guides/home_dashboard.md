@@ -28,7 +28,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 │   │                         ── Greeting (markdown: "Good <part of day>, <name>!" + briefing)
 │   │                         ── Happening now (heading + 2-up grid, shown while an appliance runs)
 │   ├── Sections 2–8       ── Room sections × 7 (Expander: heading + media card + tiles)
-│   └── Section 9          ── Pop-ups: #rooms (room tiles by floor, 2-up) + 6 rooms
+│   └── Section 9          ── Pop-ups: #rooms (room tiles by floor, 2-up) + 6 rooms + #living-room-remote
 │                             + #security #hvac #weather #vacuum #vacuum-care #laundry
 │
 └── Chores view ── Navbar Card ── chore-calendar-card
@@ -55,10 +55,17 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   player is in use — no house-wide player card. The compact card is title, play/pause, and an
   always-visible volume slider sub-button (`show_button_info`, `slider_live_update`); skip,
   power, and Bubble's own volume button are hidden, and tapping the card opens `#media` for the
-  full card. Bubble's volume button controls the Apple TV, not the speaker it plays through,
+  full card (the Living Room Apple TV opens its remote instead). Bubble's volume button controls the Apple TV, not the speaker it plays through,
   so Apple TV sliders target the real speaker (Sonos, or the bedroom TV); HomePod sliders
   target the HomePod. The compact cards carry no Media Player Enhanced module: its progress
   bar and times draw over the title and slider at one row.
+- **The Living Room Apple TV has its own remote pop-up.** `#living-room-remote` is the one
+  destination for that player: tapping its card on Home, in `#media`, or in `#living-room` opens
+  it. It is a separate pop-up rather than a collapsible section in the room pop-up, because
+  Expander Card can't be opened from a link and remembers its last state per device, so a
+  link could land on a collapsed remote. The D-pad is Universal Remote Card (HACS), the only
+  card that isn't Bubble: it sends the Apple TV `remote.send_command` keys natively, gives
+  haptics, and has a round `circlepad` element that a Bubble module could only approximate.
 - **Full media cards live in the pop-ups.** `#media` and the room pop-ups (`#living-room` and
   the others) use the Bubble Media Player Enhanced module (artwork background and colours;
   `background_opacity: 0.85` so bright artwork doesn't wash out the overlaid title and times;
@@ -85,7 +92,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 ## Prerequisites
 
 - Home Assistant 2026.9 or later
-- HACS frontend: Bubble Card ≥ 3.4, Navbar Card ≥ 1.7 (badge icons), Kiosk Mode, Battery State Card, Expander Card, apexcharts-card; theme: Home Flat (repo, `ha/themes/home_flat.yaml`)
+- HACS frontend: Bubble Card ≥ 3.4, Navbar Card ≥ 1.7 (badge icons), Kiosk Mode, Battery State Card, Expander Card, apexcharts-card, Universal Remote Card (`Nerwyn/universal-remote-card`); custom-brand-icons (`phu:` icons); theme: Home Flat (repo, `ha/themes/home_flat.yaml`)
 - HACS integrations: Bubble Card Tools and UIX, each added under **Settings → Devices &
   Services** (installing from HACS alone isn't enough)
 - AI insights (`guides/ai_insights.md`) for the greeting line, the `#weather` tip, and the AI Insight cards
@@ -316,7 +323,8 @@ tile, until they get a room hero (#13 step 4).
 
 | Hash | Contents |
 |---|---|
-| `#living-room` | Apple TV player at the top (only while active; Soundbar volume slider; Apps, Speech and Night sub-buttons), 4 lights, thermostat + fireplace (Bubble climate) |
+| `#living-room` | Apple TV player at the top (only while active; Soundbar volume slider; Apps, Speech and Night sub-buttons; tap opens `#living-room-remote`), otherwise a compact Apple TV card showing its state that opens the remote, with a power button (`media_player.turn_on`) only while it is `off`; 4 lights, thermostat + fireplace (Bubble climate) |
+| `#living-room-remote` | Apple TV player (power shown; Soundbar volume slider), sound row (Speech and Night toggles, filled while on; Soundbar volume − / level / +), app favourites (segmented, `phu:` brand icons: TV, YouTube, Disney+, Prime Video; the current app is the filled pill; an All apps dropdown of `source_list`), remote (Universal Remote Card: back = `menu`, hold = `top_menu`; `circlepad` with OK = `select`, directions repeat on hold; home) |
 | `#kitchen` | Sink light, dishwasher and refrigerator tiles, HomePod |
 | `#family-room` | Ambient lamp, 2 pinball underglows, 3 game power switches, Apple TV player (only while active; Theater volume slider; Apps, Speech and Night sub-buttons) |
 | `#office` | 7 lights, fan speed (tile `fan-speed` feature), HomePod |
@@ -495,7 +503,7 @@ row showing the lowest level. New devices appear automatically.
 | `ha/dashboards/home-main.yaml` | HA storage (`home-main`) | Dashboard mirror (HA authoritative) |
 | `ha/bubble_modules/consumable_status.yaml` | `/config/bubble_card/modules/consumable_status.yaml` | Consumable icon colour module (repo authoritative) |
 | `ha/bubble_modules/apple_tile.yaml` | `/config/bubble_card/modules/apple_tile.yaml` | Apple-style tile module for `#lights` and room tiles (repo authoritative) |
-| `ha/bubble_modules/segmented.yaml` | `/config/bubble_card/modules/segmented.yaml` | Segmented pill control for pop-up choices (repo authoritative) |
+| `ha/bubble_modules/segmented.yaml` | `/config/bubble_card/modules/segmented.yaml` | Segmented pill control for pop-up choices; on a `media_player` it follows `app_name` (repo authoritative) |
 | `ha/bubble_modules/progress_fill.yaml` | `/config/bubble_card/modules/progress_fill.yaml` | Progress-bar background for Happening now cards (repo authoritative) |
 | `scripts/dashboard_preview.py` | — (runs on the Mac) | WebKit iPhone-size screenshots of any view or pop-up as the non-admin Dashboard Preview user, for tuning; setup and options in its docstring |
 | `ha/bubble_modules/metric_tile.yaml` | `/config/bubble_card/modules/metric_tile.yaml` | Compact value-over-label tile for the `#weather` grid (repo authoritative) |

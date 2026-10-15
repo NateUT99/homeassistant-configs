@@ -406,7 +406,8 @@ views:
 
         .qa-vac ha-icon { color: {{ ''var(--red-color)'' if is_state(''binary_sensor.vacuum_stuck'',''on'') or states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable'']
         or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable''] else (''var(--amber-color)'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') or is_state(''vacuum.living_room_vacuum'',''paused'')
-        else (''var(--purple-color)'' if states(''vacuum.living_room_vacuum'') in [''cleaning'',''returning''] else (''var(--green-color)'' if is_state(''input_boolean.vacuum_ran_daytime'',''on'') else ''var(--secondary-text-color)''))) }} !important; }
+        else (''var(--purple-color)'' if states(''vacuum.living_room_vacuum'') in [''cleaning'',''returning''] else (''var(--green-color)'' if is_state(''input_boolean.vacuum_ran_daytime'',''on'') else
+        ''var(--secondary-text-color)''))) }} !important; }
 
 
         '
@@ -708,7 +709,7 @@ views:
           rows: 1
           tap_action:
             action: navigate
-            navigation_path: '#media'
+            navigation_path: '#living-room-remote'
       - type: grid
         columns: 2
         square: false
@@ -1731,6 +1732,44 @@ views:
 
             .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo),
             0 0 3px var(--bmpe-ink-halo); }'
+          tap_action:
+            action: navigate
+            navigation_path: '#living-room-remote'
+      - type: conditional
+        conditions:
+        - condition: state
+          entity: binary_sensor.living_room_appletv_active
+          state: 'off'
+        card:
+          type: custom:bubble-card
+          card_type: button
+          button_type: name
+          entity: media_player.living_room_appletv
+          name: Apple TV
+          icon: mdi:apple
+          show_state: true
+          tap_action:
+            action: navigate
+            navigation_path: '#living-room-remote'
+          button_action:
+            tap_action:
+              action: navigate
+              navigation_path: '#living-room-remote'
+          sub_button:
+            main:
+            - icon: mdi:power
+              name: Power
+              show_background: true
+              tap_action:
+                action: perform-action
+                perform_action: media_player.turn_on
+                target:
+                  entity_id: media_player.living_room_appletv
+              visibility:
+              - condition: state
+                entity: media_player.living_room_appletv
+                state: 'off'
+            bottom: []
       - type: custom:bubble-card
         card_type: separator
         name: Lights
@@ -1769,6 +1808,312 @@ views:
       - type: custom:bubble-card
         card_type: climate
         entity: climate.living_room_fireplace
+    - type: custom:bubble-card
+      card_type: pop-up
+      hash: '#living-room-remote'
+      name: Living Room TV
+      icon: mdi:television
+      button_type: name
+      popup_mode: adaptive-dialog
+      popup_style: bubble
+      cards:
+      - type: custom:bubble-card
+        card_type: media-player
+        entity: media_player.living_room_appletv
+        name: Apple TV
+        cover_background: false
+        hide:
+          volume_button: true
+          previous_button: true
+          next_button: true
+        sub_button:
+          main:
+          - entity: media_player.living_room_soundbar
+            sub_button_type: slider
+            icon: mdi:volume-high
+            always_visible: true
+            width: 130
+            show_button_info: true
+            slider_live_update: true
+          bottom: []
+        modules:
+        - bubble_media_player_enhanced
+        bubble_media_player_enhanced:
+          card_layout: default
+          progress_bar: full
+          idle_artwork: none
+          artwork_fit: original
+          progress_position: above
+          background_opacity: 0.85
+        show_icon: false
+        rows: 2
+        main_buttons_position: bottom
+        styles: '.bmpe-accent .bubble-sub-button-slider .bubble-range-fill { background-color: var(--bmpe-accent) !important; }
+
+          .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo), 0
+          0 3px var(--bmpe-ink-halo); }'
+      - type: custom:bubble-card
+        card_type: sub-buttons
+        hide_main_background: true
+        rows: 0.9
+        sub_button:
+          main: []
+          bottom:
+          - name: Sound
+            buttons_layout: inline
+            group:
+            - show_name: false
+              state_background: true
+              light_background: false
+              custom_height: 44
+              entity: switch.living_room_soundbar_speech_enhancement
+              icon: mdi:account-voice
+              name: Speech
+              css_class: rc-toggle
+              tap_action:
+                action: toggle
+            - show_name: false
+              state_background: true
+              light_background: false
+              custom_height: 44
+              entity: switch.living_room_soundbar_night_sound
+              icon: mdi:weather-night
+              name: Night
+              css_class: rc-toggle
+              tap_action:
+                action: toggle
+            - show_name: false
+              state_background: true
+              light_background: false
+              custom_height: 44
+              icon: mdi:minus
+              name: Volume down
+              css_class: rc-vol rc-vol-down
+              tap_action:
+                action: perform-action
+                perform_action: media_player.volume_down
+                target:
+                  entity_id: media_player.living_room_soundbar
+            - show_name: true
+              state_background: true
+              light_background: false
+              custom_height: 44
+              entity: media_player.living_room_soundbar
+              name: '{{ ((state_attr(''media_player.living_room_soundbar'', ''volume_level'') | float(0)) * 100) | round | int }}'
+              show_icon: false
+              css_class: rc-vol rc-vol-level
+              sub_button_type: default
+              tap_action:
+                action: none
+            - show_name: false
+              state_background: true
+              light_background: false
+              custom_height: 44
+              icon: mdi:plus
+              name: Volume up
+              css_class: rc-vol rc-vol-up
+              tap_action:
+                action: perform-action
+                perform_action: media_player.volume_up
+                target:
+                  entity_id: media_player.living_room_soundbar
+        styles: '.bubble-sub-button-bottom-container { justify-content: stretch !important; }
+
+          .bubble-sub-button-group { width: 100% !important; gap: 8px !important; flex-wrap: nowrap !important; }
+
+          .bubble-sub-button { border-radius: 16px !important; justify-content: center !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }
+
+          .rc-toggle { flex: 0 0 56px !important; }
+
+          .rc-toggle.background-on { background: var(--primary-text-color) !important; }
+
+          .rc-toggle.background-on ha-icon { color: var(--primary-background-color) !important; }
+
+          .rc-vol-down { flex: 1 1 0 !important; margin-left: 8px !important; border-radius: 16px 0 0 16px !important; }
+
+          .rc-vol-level { flex: 0 0 56px !important; border-radius: 0 !important; margin: 0 -8px !important; }
+
+          .rc-vol-level .bubble-sub-button-name-container { font-size: 17px !important; font-weight: 600 !important; }
+
+          .rc-vol-up { flex: 1 1 0 !important; border-radius: 0 16px 16px 0 !important; }
+
+          '
+      - type: custom:bubble-card
+        card_type: sub-buttons
+        entity: media_player.living_room_appletv
+        hide_main_background: true
+        rows: 0.9
+        modules:
+        - segmented
+        sub_button:
+          main: []
+          bottom:
+          - name: Apps
+            buttons_layout: inline
+            group:
+            - name: TV
+              icon: phu:apple-tv
+              show_name: false
+              css_class: seg-tv
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              sub_button_type: default
+              tap_action:
+                action: perform-action
+                perform_action: media_player.select_source
+                target:
+                  entity_id: media_player.living_room_appletv
+                data:
+                  source: TV
+            - name: YouTube
+              icon: phu:youtube
+              show_name: false
+              css_class: seg-youtube
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              sub_button_type: default
+              tap_action:
+                action: perform-action
+                perform_action: media_player.select_source
+                target:
+                  entity_id: media_player.living_room_appletv
+                data:
+                  source: YouTube
+            - name: Disney+
+              icon: phu:disney-plus
+              show_name: false
+              css_class: seg-disney
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              sub_button_type: default
+              tap_action:
+                action: perform-action
+                perform_action: media_player.select_source
+                target:
+                  entity_id: media_player.living_room_appletv
+                data:
+                  source: Disney+
+            - name: Prime Video
+              icon: phu:prime-video
+              show_name: false
+              css_class: seg-prime-video
+              state_background: false
+              light_background: false
+              fill_width: true
+              custom_height: 40
+              sub_button_type: default
+              tap_action:
+                action: perform-action
+                perform_action: media_player.select_source
+                target:
+                  entity_id: media_player.living_room_appletv
+                data:
+                  source: Prime Video
+            - entity: media_player.living_room_appletv
+              sub_button_type: select
+              select_attribute: source_list
+              icon: mdi:apps
+              name: All apps
+              show_name: false
+              css_class: seg-all
+              state_background: false
+              light_background: false
+              custom_height: 40
+        styles: '.bubble-sub-button-group:has(> .bubble-sub-button:nth-child(4)) .bubble-sub-button { flex-direction: row !important; height: 40px !important; }
+
+          .seg-all { flex: 0 0 48px !important; }
+
+          .bubble-sub-button:not(.seg-all) { --mdc-icon-size: 30px; }
+
+          '
+      - type: custom:universal-remote-card
+        platform: Apple TV
+        remote_id: remote.living_room_appletv
+        media_player_id: media_player.living_room_appletv
+        rows:
+        - - back
+          - circlepad
+          - home
+        custom_actions:
+        - type: button
+          name: back
+          icon: mdi:arrow-left
+          tap_action:
+            action: key
+            key: menu
+          hold_action:
+            action: key
+            key: top_menu
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }'
+        - type: button
+          name: home
+          icon: mdi:home
+          tap_action:
+            action: key
+            key: home
+          hold_action:
+            action: key
+            key: home
+            hold_secs: 1
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }'
+        - type: circlepad
+          name: circlepad
+          label: OK
+          tap_action:
+            action: key
+            key: select
+          up:
+            icon: mdi:chevron-up
+            tap_action:
+              action: key
+              key: up
+            hold_action:
+              action: repeat
+          down:
+            icon: mdi:chevron-down
+            tap_action:
+              action: key
+              key: down
+            hold_action:
+              action: repeat
+          left:
+            icon: mdi:chevron-left
+            tap_action:
+              action: key
+              key: left
+            hold_action:
+              action: repeat
+          right:
+            icon: mdi:chevron-right
+            tap_action:
+              action: key
+              key: right
+            hold_action:
+              action: repeat
+          styles: ':host { width: 220px; }
+
+            .circlepad { border: none; outline: none; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-color: var(--secondary-text-color); --icon-size: 28px; }
+
+            #center { flex: 0 0 84px; width: 84px; height: 84px; }
+
+            #center::part(button) { outline: none; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 12%, transparent); }
+
+            #center::part(label) { font-size: 17px; font-weight: 600; color: var(--primary-text-color); }
+
+            '
+        styles: 'ha-card { background: none !important; box-shadow: none !important; }
+
+          .row { justify-content: space-between; align-items: flex-start; padding: 8px 0 16px; }
+
+          '
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#kitchen'
@@ -4425,6 +4770,9 @@ views:
 
             .bmpe-ink .bubble-sub-button-slider, .bmpe-ink .bubble-sub-button-slider * { color: var(--bmpe-ink) !important; --icon-primary-color: currentColor; text-shadow: 0 0 1px var(--bmpe-ink-halo),
             0 0 3px var(--bmpe-ink-halo); }'
+          tap_action:
+            action: navigate
+            navigation_path: '#living-room-remote'
       - type: conditional
         conditions:
         - condition: or
