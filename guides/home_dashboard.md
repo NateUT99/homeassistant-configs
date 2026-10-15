@@ -68,8 +68,8 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   card besides YAMP that isn't Bubble: it sends the Apple TV `remote.send_command` keys natively, gives
   haptics, and has a swipe touchpad that Bubble has no equivalent for.
 - **Media cards by place.** Home uses the two-row Bubble cards above. The remote pop-ups lead
-  with a full-height Yet Another Media Player card (artwork first). `#media` uses compact YAMP
-  cards, one per active player, so the whole house fits on one screen. The room pop-ups'
+  with a full-height Yet Another Media Player card (artwork first). `#media` uses YAMP
+  cards, square for Apple TVs and compact for HomePods. The room pop-ups'
   HomePod and Family Room cards keep the large Bubble Media Player Enhanced layout (`rows: 3`,
   scrubbable progress bar, `background_opacity: 0.85`, `idle_artwork: none`, Bubble's icon
   hidden since the module draws the cover; Apple TV cards use `artwork_fit: original`); the
@@ -161,12 +161,13 @@ switch by hand are quick actions; running appliances are Happening now.
 
 **`#lights`** lists every light by room (Living Room through Utility Room) as `apple_tile`
 tiles — tap toggles, hold opens more-info. **`#media`** is the house-wide "Speakers & TVs"
-list: one compact Yet Another Media Player card (`always_collapsed`: title, controls and volume
-beside a small artwork tile) per active player, under its room heading. Apple TVs show
-play/pause with volume on the real speaker (Soundbar, bedroom TV, Theater) and the favourite-app
-fallback artwork; tapping one opens its remote pop-up (a hidden YAMP navigate action on
-`card_trigger: tap`; Family Room has no remote yet). HomePods show previous, play/pause and next
-with their own volume. Each card and room heading sits in a
+list: one Yet Another Media Player card per active player, under its room heading. Apple TVs
+get a full-width square card (`card_height: 340`, artwork first) with play/pause and volume on
+the real speaker (Soundbar, bedroom TV, Theater) and the favourite-app fallback artwork; tapping
+one opens its remote pop-up (a hidden YAMP navigate action on `card_trigger: tap`; Family Room
+has no remote yet). HomePods get a compact card (`always_collapsed`: title, previous/play/next and
+volume beside a small artwork tile). The Master Bedroom HomePod's heading shows only when the
+bedroom Apple TV isn't, so the room is labelled once. Each card and room heading sits in a
 `conditional` card keyed on the player's activity sensor (the Media chip's rule), so idle
 players are hidden; with none active the pop-up shows a single "Nothing playing" line. Both
 lists are static: a new light or player is added to the pop-up by hand, along with its
