@@ -2040,6 +2040,11 @@ views:
             state_not:
             - unavailable
             - unknown
+          - condition: state
+            entity: media_player.living_room_appletv
+            state:
+            - playing
+            - paused
           styles: '.bubble-button-card-container, .bubble-button-container { border-radius: 10px !important; overflow: hidden !important; }
 
             .bubble-range-fill, .bubble-range-slider { border-radius: 0 !important; }
@@ -3355,6 +3360,11 @@ views:
             state_not:
             - unavailable
             - unknown
+          - condition: state
+            entity: media_player.master_bedroom_appletv
+            state:
+            - playing
+            - paused
           styles: '.bubble-button-card-container, .bubble-button-container { border-radius: 10px !important; overflow: hidden !important; }
 
             .bubble-range-fill, .bubble-range-slider { border-radius: 0 !important; }
