@@ -1928,6 +1928,55 @@ views:
       - type: custom:bubble-card
         card_type: sub-buttons
         hide_main_background: true
+        rows: 0.5
+        visibility:
+        - condition: state
+          entity: sensor.living_room_appletv_info
+          state_not:
+          - none
+          - unknown
+          - unavailable
+        sub_button:
+          main: []
+          bottom:
+          - name: Details
+            buttons_layout: inline
+            group:
+            - entity: sensor.living_room_appletv_info
+              name: '{{ (state_attr(''sensor.living_room_appletv_info'', ''details'') or {}).get(''rating'', '''') }}'
+              show_name: true
+              show_icon: false
+              css_class: rc-rating
+              state_background: false
+              light_background: false
+              tap_action:
+                action: none
+            - entity: sensor.living_room_appletv_info
+              name: '{% set d = state_attr(''sensor.living_room_appletv_info'', ''details'') or {} %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', '''')] | select | join('' · '')
+                }}'
+              show_name: true
+              show_icon: false
+              css_class: rc-meta
+              state_background: false
+              light_background: false
+              tap_action:
+                action: none
+        styles: '.bubble-sub-button-bottom-container { justify-content: flex-start !important; }
+
+          .bubble-sub-button-group { gap: 10px !important; align-items: center !important; }
+
+          .bubble-sub-button { background: transparent !important; padding: 0 !important; height: 24px !important; min-width: 0 !important; }
+
+          .rc-rating { border: 1.5px solid var(--secondary-text-color) !important; border-radius: 5px !important; padding: 0 6px !important; height: 22px !important; }
+
+          .rc-rating .bubble-sub-button-name-container { font-size: 12px !important; font-weight: 700 !important; color: var(--secondary-text-color) !important; letter-spacing: 0.5px; }
+
+          .rc-meta .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }
+
+          '
+      - type: custom:bubble-card
+        card_type: sub-buttons
+        hide_main_background: true
         rows: 0.9
         sub_button:
           main: []
@@ -2686,6 +2735,55 @@ views:
           bottom: []
         modules:
         - time_slider
+      - type: custom:bubble-card
+        card_type: sub-buttons
+        hide_main_background: true
+        rows: 0.5
+        visibility:
+        - condition: state
+          entity: sensor.master_bedroom_appletv_info
+          state_not:
+          - none
+          - unknown
+          - unavailable
+        sub_button:
+          main: []
+          bottom:
+          - name: Details
+            buttons_layout: inline
+            group:
+            - entity: sensor.master_bedroom_appletv_info
+              name: '{{ (state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {}).get(''rating'', '''') }}'
+              show_name: true
+              show_icon: false
+              css_class: rc-rating
+              state_background: false
+              light_background: false
+              tap_action:
+                action: none
+            - entity: sensor.master_bedroom_appletv_info
+              name: '{% set d = state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {} %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', '''')] | select | join('' ·
+                '') }}'
+              show_name: true
+              show_icon: false
+              css_class: rc-meta
+              state_background: false
+              light_background: false
+              tap_action:
+                action: none
+        styles: '.bubble-sub-button-bottom-container { justify-content: flex-start !important; }
+
+          .bubble-sub-button-group { gap: 10px !important; align-items: center !important; }
+
+          .bubble-sub-button { background: transparent !important; padding: 0 !important; height: 24px !important; min-width: 0 !important; }
+
+          .rc-rating { border: 1.5px solid var(--secondary-text-color) !important; border-radius: 5px !important; padding: 0 6px !important; height: 22px !important; }
+
+          .rc-rating .bubble-sub-button-name-container { font-size: 12px !important; font-weight: 700 !important; color: var(--secondary-text-color) !important; letter-spacing: 0.5px; }
+
+          .rc-meta .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }
+
+          '
       - type: custom:bubble-card
         card_type: sub-buttons
         entity: media_player.master_bedroom_appletv
@@ -5193,6 +5291,69 @@ views:
               | string) == (state_attr(''media_player.living_room_appletv'', ''media_content_id'') | string) %}{{ 535 if ok else 340 }}'
             details_alignment: left
             volume_step: 0.02
+          - type: custom:bubble-card
+            card_type: sub-buttons
+            hide_main_background: true
+            rows: 0.5
+            visibility:
+            - condition: state
+              entity: sensor.living_room_appletv_info
+              state_not:
+              - none
+              - unknown
+              - unavailable
+            sub_button:
+              main: []
+              bottom:
+              - name: Details
+                buttons_layout: inline
+                group:
+                - entity: sensor.living_room_appletv_info
+                  name: '{{ (state_attr(''sensor.living_room_appletv_info'', ''details'') or {}).get(''rating'', '''') }}'
+                  show_name: true
+                  show_icon: false
+                  css_class: rc-rating
+                  state_background: false
+                  light_background: false
+                  tap_action:
+                    action: none
+                - entity: sensor.living_room_appletv_info
+                  name: '{% set d = state_attr(''sensor.living_room_appletv_info'', ''details'') or {} %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', '''')] | select | join('' ·
+                    '') }}'
+                  show_name: true
+                  show_icon: false
+                  css_class: rc-meta
+                  state_background: false
+                  light_background: false
+                  tap_action:
+                    action: none
+            styles: '.bubble-sub-button-bottom-container { justify-content: flex-start !important; }
+
+              .bubble-sub-button-group { gap: 10px !important; align-items: center !important; }
+
+              .bubble-sub-button { background: transparent !important; padding: 0 !important; height: 24px !important; min-width: 0 !important; }
+
+              .rc-rating { border: 1.5px solid var(--secondary-text-color) !important; border-radius: 5px !important; padding: 0 6px !important; height: 22px !important; }
+
+              .rc-rating .bubble-sub-button-name-container { font-size: 12px !important; font-weight: 700 !important; color: var(--secondary-text-color) !important; letter-spacing: 0.5px; }
+
+              .rc-meta .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }
+
+              '
+          - type: markdown
+            text_only: true
+            visibility:
+            - condition: state
+              entity: sensor.living_room_appletv_info
+              state_not:
+              - none
+              - unknown
+              - unavailable
+            content: '{{ ((state_attr(''sensor.living_room_appletv_info'', ''details'') or {}).get(''description'', '''')) | truncate(220) }}'
+            uix:
+              style:
+                ha-markdown$: 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
+                'ha-markdown $ ha-markdown-element:': 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
       - type: conditional
         conditions:
         - condition: state
@@ -5250,6 +5411,69 @@ views:
               ''content_id'') | string) == (state_attr(''media_player.master_bedroom_appletv'', ''media_content_id'') | string) %}{{ 535 if ok else 340 }}'
             details_alignment: left
             volume_step: 0.02
+          - type: custom:bubble-card
+            card_type: sub-buttons
+            hide_main_background: true
+            rows: 0.5
+            visibility:
+            - condition: state
+              entity: sensor.master_bedroom_appletv_info
+              state_not:
+              - none
+              - unknown
+              - unavailable
+            sub_button:
+              main: []
+              bottom:
+              - name: Details
+                buttons_layout: inline
+                group:
+                - entity: sensor.master_bedroom_appletv_info
+                  name: '{{ (state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {}).get(''rating'', '''') }}'
+                  show_name: true
+                  show_icon: false
+                  css_class: rc-rating
+                  state_background: false
+                  light_background: false
+                  tap_action:
+                    action: none
+                - entity: sensor.master_bedroom_appletv_info
+                  name: '{% set d = state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {} %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', '''')] | select | join(''
+                    · '') }}'
+                  show_name: true
+                  show_icon: false
+                  css_class: rc-meta
+                  state_background: false
+                  light_background: false
+                  tap_action:
+                    action: none
+            styles: '.bubble-sub-button-bottom-container { justify-content: flex-start !important; }
+
+              .bubble-sub-button-group { gap: 10px !important; align-items: center !important; }
+
+              .bubble-sub-button { background: transparent !important; padding: 0 !important; height: 24px !important; min-width: 0 !important; }
+
+              .rc-rating { border: 1.5px solid var(--secondary-text-color) !important; border-radius: 5px !important; padding: 0 6px !important; height: 22px !important; }
+
+              .rc-rating .bubble-sub-button-name-container { font-size: 12px !important; font-weight: 700 !important; color: var(--secondary-text-color) !important; letter-spacing: 0.5px; }
+
+              .rc-meta .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }
+
+              '
+          - type: markdown
+            text_only: true
+            visibility:
+            - condition: state
+              entity: sensor.master_bedroom_appletv_info
+              state_not:
+              - none
+              - unknown
+              - unavailable
+            content: '{{ ((state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {}).get(''description'', '''')) | truncate(220) }}'
+            uix:
+              style:
+                ha-markdown$: 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
+                'ha-markdown $ ha-markdown-element:': 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
       - type: conditional
         conditions:
         - condition: state
@@ -5414,6 +5638,69 @@ views:
               | string) == (state_attr(''media_player.family_room_appletv'', ''media_content_id'') | string) %}{{ 535 if ok else 340 }}'
             details_alignment: left
             volume_step: 0.02
+          - type: custom:bubble-card
+            card_type: sub-buttons
+            hide_main_background: true
+            rows: 0.5
+            visibility:
+            - condition: state
+              entity: sensor.family_room_appletv_info
+              state_not:
+              - none
+              - unknown
+              - unavailable
+            sub_button:
+              main: []
+              bottom:
+              - name: Details
+                buttons_layout: inline
+                group:
+                - entity: sensor.family_room_appletv_info
+                  name: '{{ (state_attr(''sensor.family_room_appletv_info'', ''details'') or {}).get(''rating'', '''') }}'
+                  show_name: true
+                  show_icon: false
+                  css_class: rc-rating
+                  state_background: false
+                  light_background: false
+                  tap_action:
+                    action: none
+                - entity: sensor.family_room_appletv_info
+                  name: '{% set d = state_attr(''sensor.family_room_appletv_info'', ''details'') or {} %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', '''')] | select | join('' ·
+                    '') }}'
+                  show_name: true
+                  show_icon: false
+                  css_class: rc-meta
+                  state_background: false
+                  light_background: false
+                  tap_action:
+                    action: none
+            styles: '.bubble-sub-button-bottom-container { justify-content: flex-start !important; }
+
+              .bubble-sub-button-group { gap: 10px !important; align-items: center !important; }
+
+              .bubble-sub-button { background: transparent !important; padding: 0 !important; height: 24px !important; min-width: 0 !important; }
+
+              .rc-rating { border: 1.5px solid var(--secondary-text-color) !important; border-radius: 5px !important; padding: 0 6px !important; height: 22px !important; }
+
+              .rc-rating .bubble-sub-button-name-container { font-size: 12px !important; font-weight: 700 !important; color: var(--secondary-text-color) !important; letter-spacing: 0.5px; }
+
+              .rc-meta .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }
+
+              '
+          - type: markdown
+            text_only: true
+            visibility:
+            - condition: state
+              entity: sensor.family_room_appletv_info
+              state_not:
+              - none
+              - unknown
+              - unavailable
+            content: '{{ ((state_attr(''sensor.family_room_appletv_info'', ''details'') or {}).get(''description'', '''')) | truncate(220) }}'
+            uix:
+              style:
+                ha-markdown$: 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
+                'ha-markdown $ ha-markdown-element:': 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
       - type: conditional
         conditions:
         - condition: state
