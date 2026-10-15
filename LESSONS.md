@@ -836,13 +836,20 @@ Confirmed 2026-09-28 on the Q8 Max Plus: with `binary_sensor.<vacuum>_mop_attach
 
 Confirmed 2026-09-28: after a Robot Trapped fault, the vacuum re-entered `cleaning` at 12:33:11 still holding live progress at 48 (from before the fault); `sensor.<vacuum>_cleaning_progress` didn't reset to 0 until 12:33:30 -- 19 seconds later. A genuine job completion the previous night showed the same lag: progress held at 94 through the `returning` transition and only reset 19 seconds afterward.
 
-A completion check keyed to the daytime-zone progress threshold only needs to sample at state transitions (entry into `cleaning`/`paused`/`error`, leaving `cleaning`, `returning`, `docked`) to reliably beat the reset -- no dedicated continuous trigger or stored running-max helper needed. But it must sample at *every* transition, not just the terminal one: in the incident above, sampling only at `returning` would have read 0, since an earlier fault-recovery cycle had already reset it by then. The intermediate `cleaning`-re-entry sample is what caught the true peak. See `guides/vacuum_cleaning_routine.md` → *Architecture* (Household: Vacuum Live Activity's daytime completion check).
+A completion check keyed to the daytime-zone progress threshold only needs to sample at state transitions (entry into `cleaning`/`paused`/`error`, leaving `cleaning`, `returning`, `docked`) to reliably beat the reset -- no dedicated continuous trigger or stored running-max helper needed. But it must sample at *every* transition, not just the terminal one: in the incident above, sampling only at `returning` would have read 0, since an earlier fault-recovery cycle had already reset it by then. The intermediate `cleaning`-re-entry sample is what caught the true peak. See `guides/vacuum_cleaning_routine.md` → *Monitoring* (Household: Vacuum Live Activity's daytime completion check).
 
 ### A `cleaning -> idle` transition can happen with no intervening state a normal active-state trigger would catch
 
 Confirmed 2026-09-28: the vacuum can drop directly from `cleaning` to `idle` while still faulted underneath -- not the `cleaning -> error -> idle` path seen elsewhere that day, but a direct edge with nothing in between for a `to: [cleaning, paused, returning, error]` trigger to match. A card or state machine watching only that enumerated list misses the transition entirely and is left showing whatever it displayed last, until the next coarse tick catches up. The reliable pattern is a `from: cleaning` trigger with no `to:` filter, so it catches every destination -- including one not yet seen -- rather than trying to enumerate all of them. See `automation.household_vacuum_live_activity`'s `left_cleaning` trigger.
 
 ---
+
+### Do Not Disturb skips the dock's auto-empty outright, and a manual empty reaches HA a minute or more late
+
+Two dock behaviors on the Q8 Max Plus, both seen in live history (October 2026):
+
+- **DND skips auto-empty; it does not defer it.** Every job that re-docked inside the 20:00–08:00 DND window went straight from `returning_home` to `charging` with no `emptying_the_bin`, and nothing emptied when the window ended. A job that re-docked after 08:00 emptied normally. Commanded starts are not blocked by DND — the nightly pass starts inside the window every night.
+- **`switch.<vacuum>_dock_dust_emptying` → `turn_on` starts a manual empty, but HA sees it late.** The service call returns with the switch still `off`; the empty runs on the dock immediately, and `switch.*_dock_dust_emptying` / `sensor.*_status: emptying_the_bin` only appear on the next coordinator poll — about a minute later, and they read `on` after the dock has already gone quiet. This works with the app's auto-empty turned off. Don't `wait_for_trigger` on the switch right after commanding it with a short timeout; trigger off its later `→ on` edge instead (see `guides/vacuum_cleaning_routine.md`).
 
 ## Zigbee & Lighting Groups
 
