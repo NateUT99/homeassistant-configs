@@ -843,15 +843,13 @@ views:
           show_icon: false
           rows: 2
           tap_action:
-            action: navigate
-            navigation_path: '#media'
+            action: none
           sub_button:
             main: []
             bottom: []
           button_action:
             tap_action:
-              action: navigate
-              navigation_path: '#media'
+              action: none
           main_buttons_position: bottom
           modules:
           - bubble_media_player_enhanced
@@ -968,15 +966,13 @@ views:
           show_icon: false
           rows: 2
           tap_action:
-            action: navigate
-            navigation_path: '#media'
+            action: none
           sub_button:
             main: []
             bottom: []
           button_action:
             tap_action:
-              action: navigate
-              navigation_path: '#media'
+              action: none
           main_buttons_position: bottom
           modules:
           - bubble_media_player_enhanced
@@ -1093,15 +1089,13 @@ views:
           rows: 2
           show_icon: false
           tap_action:
-            action: navigate
-            navigation_path: '#media'
+            action: none
           sub_button:
             main: []
             bottom: []
           button_action:
             tap_action:
-              action: navigate
-              navigation_path: '#media'
+              action: none
           main_buttons_position: bottom
           modules:
           - bubble_media_player_enhanced
@@ -1361,15 +1355,13 @@ views:
           show_icon: false
           rows: 2
           tap_action:
-            action: navigate
-            navigation_path: '#media'
+            action: none
           sub_button:
             main: []
             bottom: []
           button_action:
             tap_action:
-              action: navigate
-              navigation_path: '#media'
+              action: none
           main_buttons_position: bottom
           modules:
           - bubble_media_player_enhanced
