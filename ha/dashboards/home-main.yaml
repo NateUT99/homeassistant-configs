@@ -1901,29 +1901,7 @@ views:
 
           '
         sub_button:
-          main:
-          - icon: mdi:rewind-10
-            name: Back 10 s
-            show_background: false
-            css_class: rc-skip
-            tap_action:
-              action: perform-action
-              perform_action: remote.send_command
-              target:
-                entity_id: remote.living_room_appletv
-              data:
-                command: skip_backward
-          - icon: mdi:fast-forward-10
-            name: Forward 10 s
-            show_background: false
-            css_class: rc-skip
-            tap_action:
-              action: perform-action
-              perform_action: remote.send_command
-              target:
-                entity_id: remote.living_room_appletv
-              data:
-                command: skip_forward
+          main: []
           bottom: []
       - type: custom:bubble-card
         card_type: sub-buttons
@@ -2069,7 +2047,9 @@ views:
           - touchpad
           - - home
             - power
-        - - keyboard
+        - - skip_backward
+          - keyboard
+          - skip_forward
         custom_actions:
         - type: button
           name: back
@@ -2160,16 +2140,34 @@ views:
           styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
             }
 
-            :host { display: {{ ''flex'' if is_state(''binary_sensor.living_room_appletv_keyboard_focus'', ''on'') else ''none'' }}; }'
+            :host { visibility: {{ ''visible'' if is_state(''binary_sensor.living_room_appletv_keyboard_focus'', ''on'') else ''hidden'' }}; }'
+        - type: button
+          name: skip_backward
+          icon: mdi:rewind-10
+          tap_action:
+            action: key
+            key: skip_backward
+          hold_action:
+            action: none
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }'
+        - type: button
+          name: skip_forward
+          icon: mdi:fast-forward-10
+          tap_action:
+            action: key
+            key: skip_forward
+          hold_action:
+            action: none
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }'
         styles: 'ha-card { background: none !important; box-shadow: none !important; padding: 0 !important; }
 
           .row { justify-content: space-between; align-items: center; padding: 0; }
 
           .column { gap: 16px; }
 
-          #row-2 { padding: 8px 0 0; justify-content: center; }
-
-          #row-2:not(:has(remote-button[style*="flex"])) { padding: 0; }
+          #row-2 { padding: 8px 0 0; }
 
           '
         config_entry_id: 01M06BPM6BYHKQGSJBYR0DNKKP
@@ -2642,29 +2640,7 @@ views:
 
           '
         sub_button:
-          main:
-          - icon: mdi:rewind-10
-            name: Back 10 s
-            show_background: false
-            css_class: rc-skip
-            tap_action:
-              action: perform-action
-              perform_action: remote.send_command
-              target:
-                entity_id: remote.master_bedroom_appletv
-              data:
-                command: skip_backward
-          - icon: mdi:fast-forward-10
-            name: Forward 10 s
-            show_background: false
-            css_class: rc-skip
-            tap_action:
-              action: perform-action
-              perform_action: remote.send_command
-              target:
-                entity_id: remote.master_bedroom_appletv
-              data:
-                command: skip_forward
+          main: []
           bottom: []
       - type: custom:bubble-card
         card_type: sub-buttons
@@ -2758,7 +2734,9 @@ views:
           - touchpad
           - - home
             - power
-        - - keyboard
+        - - skip_backward
+          - keyboard
+          - skip_forward
         custom_actions:
         - type: button
           name: back
@@ -2849,16 +2827,34 @@ views:
           styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
             }
 
-            :host { display: {{ ''flex'' if is_state(''binary_sensor.master_bedroom_appletv_keyboard_focus'', ''on'') else ''none'' }}; }'
+            :host { visibility: {{ ''visible'' if is_state(''binary_sensor.master_bedroom_appletv_keyboard_focus'', ''on'') else ''hidden'' }}; }'
+        - type: button
+          name: skip_backward
+          icon: mdi:rewind-10
+          tap_action:
+            action: key
+            key: skip_backward
+          hold_action:
+            action: none
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }'
+        - type: button
+          name: skip_forward
+          icon: mdi:fast-forward-10
+          tap_action:
+            action: key
+            key: skip_forward
+          hold_action:
+            action: none
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }'
         styles: 'ha-card { background: none !important; box-shadow: none !important; padding: 0 !important; }
 
           .row { justify-content: space-between; align-items: center; padding: 0; }
 
           .column { gap: 16px; }
 
-          #row-2 { padding: 8px 0 0; justify-content: center; }
-
-          #row-2:not(:has(remote-button[style*="flex"])) { padding: 0; }
+          #row-2 { padding: 8px 0 0; }
 
           '
         config_entry_id: 01M06845CTB1QDDTEE7Q7YWDZ4
