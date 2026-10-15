@@ -274,28 +274,42 @@ template:
 ```
 
 **Media seek package** — `ha/packages/media_seek.yaml`, deployed to
-`/config/packages/media_seek.yaml`, reload with `template.reload`. HA derives
-`number.*_apple_tv_position` from the "Apple TV" names; rename the two to
-`*_appletv_position` after the first reload, like the activity sensors:
+`/config/packages/media_seek.yaml`, reload with `template.reload`; a change to its `recorder:`
+block needs a restart. It covers all three Apple TVs, Family Room included, ahead of its remote
+pop-up. HA derives `number.*_apple_tv_position` from the "Apple TV" names; rename them to
+`*_appletv_position` after the first reload, like the activity sensors (the recorder exclusion
+already uses the renamed IDs):
 
 ```yaml
-# Playback position of each remote-controlled Apple TV as a number entity, so the
+# Playback position of each Apple TV as a number entity, so the
 # home-main remote pop-ups can show it as a Bubble Card slider: drag to a point and
 # release to seek. Bubble's slider can't bind to a media player's position, only to a
 # number, and setting this number sends media_player.media_seek.
 #
 # The Apple TV only reports media_position when playback starts, pauses or seeks, so the
-# state adds the time elapsed since media_position_updated_at while playing. A 10-second
+# state adds the time elapsed since media_position_updated_at while playing. A 2-second
 # time_pattern keeps the slider moving; it is gated to playing/paused so an idle or off
-# Apple TV writes nothing to the recorder. Unavailable when the app reports no duration
-# (live TV), which hides the slider. See guides/home_dashboard.md.
+# Apple TV does no work. Unavailable when the app reports no duration (live TV), which
+# hides the slider. See guides/home_dashboard.md.
 #
-# Deployed to /config/packages/media_seek.yaml; reload with template.reload.
+# The position is excluded from the recorder: at 2 s it would write ~1,800 useless rows per
+# hour of playback. This is the only recorder config in the instance (configuration.yaml
+# has none); recorder config is not reloadable, so changing it needs a restart.
+#
+# Deployed to /config/packages/media_seek.yaml; reload with template.reload (a restart if
+# the recorder block changes).
+
+recorder:
+  exclude:
+    entities:
+      - number.living_room_appletv_position
+      - number.master_bedroom_appletv_position
+      - number.family_room_appletv_position
 
 template:
   - trigger:
       - trigger: time_pattern
-        seconds: "/10"
+        seconds: "/2"
       - trigger: state
         entity_id: media_player.living_room_appletv
     condition:
@@ -312,6 +326,9 @@ template:
         min: 0
         max: "{{ state_attr('media_player.living_room_appletv', 'media_duration') | float(1) }}"
         step: 1
+        # Take the dragged value immediately; otherwise the slider snaps back to the old
+        # position until the next refresh picks up the seek.
+        optimistic: true
         availability: "{{ state_attr('media_player.living_room_appletv', 'media_duration') | float(0) > 0 }}"
         state: >
           {% set e = 'media_player.living_room_appletv' %}
@@ -330,7 +347,7 @@ template:
 
   - trigger:
       - trigger: time_pattern
-        seconds: "/10"
+        seconds: "/2"
       - trigger: state
         entity_id: media_player.master_bedroom_appletv
     condition:
@@ -347,6 +364,9 @@ template:
         min: 0
         max: "{{ state_attr('media_player.master_bedroom_appletv', 'media_duration') | float(1) }}"
         step: 1
+        # Take the dragged value immediately; otherwise the slider snaps back to the old
+        # position until the next refresh picks up the seek.
+        optimistic: true
         availability: "{{ state_attr('media_player.master_bedroom_appletv', 'media_duration') | float(0) > 0 }}"
         state: >
           {% set e = 'media_player.master_bedroom_appletv' %}
@@ -360,6 +380,44 @@ template:
           - action: media_player.media_seek
             target:
               entity_id: media_player.master_bedroom_appletv
+            data:
+              seek_position: "{{ value }}"
+
+  - trigger:
+      - trigger: time_pattern
+        seconds: "/2"
+      - trigger: state
+        entity_id: media_player.family_room_appletv
+    condition:
+      - condition: state
+        entity_id: media_player.family_room_appletv
+        state:
+          - playing
+          - paused
+    number:
+      - name: Family Room Apple TV Position
+        unique_id: family_room_appletv_position
+        icon: mdi:play-box-outline
+        unit_of_measurement: s
+        min: 0
+        max: "{{ state_attr('media_player.family_room_appletv', 'media_duration') | float(1) }}"
+        step: 1
+        # Take the dragged value immediately; otherwise the slider snaps back to the old
+        # position until the next refresh picks up the seek.
+        optimistic: true
+        availability: "{{ state_attr('media_player.family_room_appletv', 'media_duration') | float(0) > 0 }}"
+        state: >
+          {% set e = 'media_player.family_room_appletv' %}
+          {% set pos = state_attr(e, 'media_position') | float(0) %}
+          {% set upd = state_attr(e, 'media_position_updated_at') %}
+          {% if is_state(e, 'playing') and upd is not none %}
+            {% set pos = pos + (now() - upd).total_seconds() %}
+          {% endif %}
+          {{ [pos, state_attr(e, 'media_duration') | float(0)] | min | round(0) }}
+        set_value:
+          - action: media_player.media_seek
+            target:
+              entity_id: media_player.family_room_appletv
             data:
               seek_position: "{{ value }}"
 ```
@@ -416,7 +474,7 @@ tile, until they get a room hero (#13 step 4).
 | Hash | Contents |
 |---|---|
 | `#living-room` | Apple TV card at the top, the same card as on Home (only while active; tap opens `#living-room-remote`, where volume, apps and sound settings live), otherwise a compact Apple TV card showing its state that opens the remote, with a power button (`media_player.turn_on`) only while it is `off`; 4 lights, thermostat + fireplace (Bubble climate) |
-| `#living-room-remote` | No header. Now playing: Yet Another Media Player, artwork-first (`card_height: 320`, the smallest height at which YAMP keeps its power, mute and volume row; `volume_entity` is the Soundbar; classic controls in a bar under the art, since the modern layout floats a large pause button and the title over the middle of it; artwork fills the card behind the controls (`cover`); a UIX `--accent-color` override keeps controls neutral instead of HA's default orange accent, plus dark text on the volume percentage label, which otherwise draws white on that now-white accent). Sound row: Speech, Night and Sub (`phu:sonos-sub-mini`, `switch.living_room_soundbar_subwoofer_enabled`) toggles, filled while on. App favourites (segmented, `phu:` brand icons: TV, YouTube, Disney+, Prime Video; the current app is the filled pill). Remote (Universal Remote Card, `config_entry_id` = the Living Room AppleTV entry): back = `menu`, hold = `top_menu`, with play/pause (`play_pause` key) below it; a 190 × 200 px swipe touchpad (tap = `select`, swipes repeat on hold) in the middle, with the card's padding removed so the whole pop-up fits an iPhone screen without scrolling; home, with power below it (hold-only, `media_player.toggle`, so a stray tap can't turn the TV off). Below: skip back / forward 10 s (`skip_backward` / `skip_forward`), kept here rather than in the timeline so they stay put and keep working on live TV, where the timeline hides; between them a keyboard button that is visible only while `binary_sensor.living_room_appletv_keyboard_focus` is on; it types into the focused field with `apple_tv.set_keyboard_text`. YAMP's own power and play/pause are hidden, and its menu button is hidden with a UIX `display: none` (YAMP has no option for it), so the artwork carries only mute and the volume slider; Apps that send no artwork get a fallback: `media_artwork_overrides` maps `app_name: YouTube` to `/local/media_art/youtube.svg` (`ha/www/media_art/youtube.svg`; the Apple TV gives HA no YouTube thumbnail or video ID to fetch one with). YAMP's own timeline is hidden (it seeks only on a tap on a 6 px bar). Under the YAMP card, a Bubble slider on `number.<room>_appletv_position` (from `ha/packages/media_seek.yaml`) is the timeline: it fills (purple, the media colour) to the playback position, reads e.g. "8:58 / 30:25", seeks when released (`slider_live_update: false`), and is a slim 32 px bar inset to the same edges and 7% fill as the rows below it, with 10 px corners (16 px would make a 32 px bar a pill) and a square-ended fill clipped by the bar; it is hidden while the number is unavailable, which is whenever the app reports no duration (live TV) |
+| `#living-room-remote` | No header. Now playing: Yet Another Media Player, artwork-first (`card_height: 320`, the smallest height at which YAMP keeps its power, mute and volume row; `volume_entity` is the Soundbar; classic controls in a bar under the art, since the modern layout floats a large pause button and the title over the middle of it; artwork fills the card behind the controls (`cover`); a UIX `--accent-color` override keeps controls neutral instead of HA's default orange accent, plus dark text on the volume percentage label, which otherwise draws white on that now-white accent). Sound row: Speech, Night and Sub (`phu:sonos-sub-mini`, `switch.living_room_soundbar_subwoofer_enabled`) toggles, filled while on. App favourites (segmented, `phu:` brand icons: TV, YouTube, Disney+, Prime Video; the current app is the filled pill). Remote (Universal Remote Card, `config_entry_id` = the Living Room AppleTV entry): back = `menu`, hold = `top_menu`, with play/pause (`play_pause` key) below it; a 190 × 200 px swipe touchpad (tap = `select`, swipes repeat on hold) in the middle, with the card's padding removed so the whole pop-up fits an iPhone screen without scrolling; home, with power below it (hold-only, `media_player.toggle`, so a stray tap can't turn the TV off). Below: skip back / forward 10 s (`skip_backward` / `skip_forward`), kept here rather than in the timeline so they stay put and keep working on live TV, where the timeline hides; between them a keyboard button that is visible only while `binary_sensor.living_room_appletv_keyboard_focus` is on; it types into the focused field with `apple_tv.set_keyboard_text`. YAMP's own power and play/pause are hidden, and its menu button is hidden with a UIX `display: none` (YAMP has no option for it), so the artwork carries only mute and the volume slider; Apps that send no artwork get a fallback: `media_artwork_overrides` maps `app_name: YouTube` to `/local/media_art/youtube.svg` (`ha/www/media_art/youtube.svg`; the Apple TV gives HA no YouTube thumbnail or video ID to fetch one with). YAMP's own timeline is hidden (it seeks only on a tap on a 6 px bar). Under the YAMP card, a Bubble slider on `number.<room>_appletv_position` (from `ha/packages/media_seek.yaml`; refreshed every 2 s while playing, `optimistic` so it holds the dragged value instead of snapping back, excluded from the recorder) is the timeline: it fills (purple, the media colour) to the playback position, reads e.g. "8:58 / 30:25", seeks when released (`slider_live_update: false`), and is a slim 32 px bar inset to the same edges and 7% fill as the rows below it, with 10 px corners (16 px would make a 32 px bar a pill) and a square-ended fill clipped by the bar; it is hidden while the number is unavailable, which is whenever the app reports no duration (live TV) |
 | `#kitchen` | Sink light, dishwasher and refrigerator tiles, HomePod |
 | `#family-room` | Ambient lamp, 2 pinball underglows, 3 game power switches, Apple TV player (only while active; Theater volume slider; Apps, Speech and Night sub-buttons) |
 | `#office` | 7 lights, fan speed (tile `fan-speed` feature), HomePod |

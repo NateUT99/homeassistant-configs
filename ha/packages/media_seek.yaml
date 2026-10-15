@@ -1,20 +1,32 @@
-# Playback position of each remote-controlled Apple TV as a number entity, so the
+# Playback position of each Apple TV as a number entity, so the
 # home-main remote pop-ups can show it as a Bubble Card slider: drag to a point and
 # release to seek. Bubble's slider can't bind to a media player's position, only to a
 # number, and setting this number sends media_player.media_seek.
 #
 # The Apple TV only reports media_position when playback starts, pauses or seeks, so the
-# state adds the time elapsed since media_position_updated_at while playing. A 10-second
+# state adds the time elapsed since media_position_updated_at while playing. A 2-second
 # time_pattern keeps the slider moving; it is gated to playing/paused so an idle or off
-# Apple TV writes nothing to the recorder. Unavailable when the app reports no duration
-# (live TV), which hides the slider. See guides/home_dashboard.md.
+# Apple TV does no work. Unavailable when the app reports no duration (live TV), which
+# hides the slider. See guides/home_dashboard.md.
 #
-# Deployed to /config/packages/media_seek.yaml; reload with template.reload.
+# The position is excluded from the recorder: at 2 s it would write ~1,800 useless rows per
+# hour of playback. This is the only recorder config in the instance (configuration.yaml
+# has none); recorder config is not reloadable, so changing it needs a restart.
+#
+# Deployed to /config/packages/media_seek.yaml; reload with template.reload (a restart if
+# the recorder block changes).
+
+recorder:
+  exclude:
+    entities:
+      - number.living_room_appletv_position
+      - number.master_bedroom_appletv_position
+      - number.family_room_appletv_position
 
 template:
   - trigger:
       - trigger: time_pattern
-        seconds: "/10"
+        seconds: "/2"
       - trigger: state
         entity_id: media_player.living_room_appletv
     condition:
@@ -31,6 +43,9 @@ template:
         min: 0
         max: "{{ state_attr('media_player.living_room_appletv', 'media_duration') | float(1) }}"
         step: 1
+        # Take the dragged value immediately; otherwise the slider snaps back to the old
+        # position until the next refresh picks up the seek.
+        optimistic: true
         availability: "{{ state_attr('media_player.living_room_appletv', 'media_duration') | float(0) > 0 }}"
         state: >
           {% set e = 'media_player.living_room_appletv' %}
@@ -49,7 +64,7 @@ template:
 
   - trigger:
       - trigger: time_pattern
-        seconds: "/10"
+        seconds: "/2"
       - trigger: state
         entity_id: media_player.master_bedroom_appletv
     condition:
@@ -66,6 +81,9 @@ template:
         min: 0
         max: "{{ state_attr('media_player.master_bedroom_appletv', 'media_duration') | float(1) }}"
         step: 1
+        # Take the dragged value immediately; otherwise the slider snaps back to the old
+        # position until the next refresh picks up the seek.
+        optimistic: true
         availability: "{{ state_attr('media_player.master_bedroom_appletv', 'media_duration') | float(0) > 0 }}"
         state: >
           {% set e = 'media_player.master_bedroom_appletv' %}
@@ -79,5 +97,43 @@ template:
           - action: media_player.media_seek
             target:
               entity_id: media_player.master_bedroom_appletv
+            data:
+              seek_position: "{{ value }}"
+
+  - trigger:
+      - trigger: time_pattern
+        seconds: "/2"
+      - trigger: state
+        entity_id: media_player.family_room_appletv
+    condition:
+      - condition: state
+        entity_id: media_player.family_room_appletv
+        state:
+          - playing
+          - paused
+    number:
+      - name: Family Room Apple TV Position
+        unique_id: family_room_appletv_position
+        icon: mdi:play-box-outline
+        unit_of_measurement: s
+        min: 0
+        max: "{{ state_attr('media_player.family_room_appletv', 'media_duration') | float(1) }}"
+        step: 1
+        # Take the dragged value immediately; otherwise the slider snaps back to the old
+        # position until the next refresh picks up the seek.
+        optimistic: true
+        availability: "{{ state_attr('media_player.family_room_appletv', 'media_duration') | float(0) > 0 }}"
+        state: >
+          {% set e = 'media_player.family_room_appletv' %}
+          {% set pos = state_attr(e, 'media_position') | float(0) %}
+          {% set upd = state_attr(e, 'media_position_updated_at') %}
+          {% if is_state(e, 'playing') and upd is not none %}
+            {% set pos = pos + (now() - upd).total_seconds() %}
+          {% endif %}
+          {{ [pos, state_attr(e, 'media_duration') | float(0)] | min | round(0) }}
+        set_value:
+          - action: media_player.media_seek
+            target:
+              entity_id: media_player.family_room_appletv
             data:
               seek_position: "{{ value }}"
