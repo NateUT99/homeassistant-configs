@@ -1889,6 +1889,7 @@ views:
           - shuffle
           - repeat
           - favorite
+          - play_pause
         match_theme: true
         card_height: 320
         volume_mode: slider
@@ -2053,9 +2054,11 @@ views:
         remote_id: remote.living_room_appletv
         media_player_id: media_player.living_room_appletv
         rows:
-        - - back
+        - - - back
+            - play_pause
           - circlepad
-          - home
+          - - home
+            - null
         custom_actions:
         - type: button
           name: back
@@ -2125,9 +2128,19 @@ views:
             #center::part(label) { font-size: 17px; font-weight: 600; color: var(--primary-text-color); }
 
             '
+        - type: button
+          name: play_pause
+          icon: mdi:play-pause
+          tap_action:
+            action: key
+            key: play_pause
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }'
         styles: 'ha-card { background: none !important; box-shadow: none !important; }
 
-          .row { justify-content: space-between; align-items: flex-start; padding: 8px 0 16px; }
+          .row { justify-content: space-between; align-items: center; padding: 8px 0 16px; }
+
+          .column { gap: 16px; }
 
           '
       show_header: false
