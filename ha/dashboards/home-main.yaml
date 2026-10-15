@@ -1990,11 +1990,15 @@ views:
             object_fit: cover
             object_position: center center
           uix:
-            style: ':host { --accent-color: var(--primary-text-color); }
+            style: ':host { --accent-color: var(--primary-text-color); --yamp-collapsed-artwork-size: 84px; --yamp-collapsed-artwork-clearance: 0px; }
 
               .details .title, .details .artist { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 12px rgba(0, 0, 0, 0.7); }
 
               .more-info-menu, .progress-bar-container, .timestamps-container, .controls-row, .volume-row, .collapsed-progress-bar { display: none !important; }
+
+              .yamp-card-inner { min-height: 100px !important; }
+
+              .collapsed-artwork-container { top: 0 !important; height: 100% !important; align-items: center !important; }
 
               '
           always_collapsed: true
