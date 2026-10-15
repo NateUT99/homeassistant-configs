@@ -1865,15 +1865,35 @@ views:
 
             .more-info-menu { display: none !important; }
 
-            .progress-bar { position: relative !important; height: 24px !important; cursor: pointer; overflow: visible !important; background: linear-gradient(transparent 9px, color-mix(in srgb, var(--primary-text-color)
-            25%, transparent) 9px, color-mix(in srgb, var(--primary-text-color) 25%, transparent) 15px, transparent 15px) !important; }
-
-            .progress-inner { position: absolute !important; top: 9px !important; left: 0; height: 6px !important; margin: 0 !important; border-radius: 3px; pointer-events: none; }
-
-            .timestamps-container { pointer-events: none !important; }
+            .progress-bar-container, .timestamps-container { display: none !important; }
 
             '
-        display_timestamps: true
+        display_timestamps: false
+      - type: custom:bubble-card
+        card_type: button
+        button_type: slider
+        entity: number.living_room_appletv_position
+        name: Timeline
+        show_name: false
+        show_icon: false
+        show_state: true
+        state_content: '{% set p = states(''number.living_room_appletv_position'') | int(0) %}{% set d = state_attr(''number.living_room_appletv_position'', ''max'') | int(0) %}{{ ''%d:%02d'' | format(p
+          // 60, p % 60) }} / {{ ''%d:%02d'' | format(d // 60, d % 60) }}'
+        slider_live_update: false
+        rows: 0.8
+        tap_action:
+          action: none
+        visibility:
+        - condition: state
+          entity: number.living_room_appletv_position
+          state_not:
+          - unavailable
+          - unknown
+        styles: '.bubble-range-fill { background: color-mix(in srgb, var(--primary-text-color) 22%, transparent) !important; opacity: 1 !important; }
+
+          .bubble-state { font-variant-numeric: tabular-nums; }
+
+          '
       - type: custom:bubble-card
         card_type: sub-buttons
         hide_main_background: true
@@ -2575,15 +2595,35 @@ views:
 
             .more-info-menu { display: none !important; }
 
-            .progress-bar { position: relative !important; height: 24px !important; cursor: pointer; overflow: visible !important; background: linear-gradient(transparent 9px, color-mix(in srgb, var(--primary-text-color)
-            25%, transparent) 9px, color-mix(in srgb, var(--primary-text-color) 25%, transparent) 15px, transparent 15px) !important; }
-
-            .progress-inner { position: absolute !important; top: 9px !important; left: 0; height: 6px !important; margin: 0 !important; border-radius: 3px; pointer-events: none; }
-
-            .timestamps-container { pointer-events: none !important; }
+            .progress-bar-container, .timestamps-container { display: none !important; }
 
             '
-        display_timestamps: true
+        display_timestamps: false
+      - type: custom:bubble-card
+        card_type: button
+        button_type: slider
+        entity: number.master_bedroom_appletv_position
+        name: Timeline
+        show_name: false
+        show_icon: false
+        show_state: true
+        state_content: '{% set p = states(''number.master_bedroom_appletv_position'') | int(0) %}{% set d = state_attr(''number.master_bedroom_appletv_position'', ''max'') | int(0) %}{{ ''%d:%02d'' | format(p
+          // 60, p % 60) }} / {{ ''%d:%02d'' | format(d // 60, d % 60) }}'
+        slider_live_update: false
+        rows: 0.8
+        tap_action:
+          action: none
+        visibility:
+        - condition: state
+          entity: number.master_bedroom_appletv_position
+          state_not:
+          - unavailable
+          - unknown
+        styles: '.bubble-range-fill { background: color-mix(in srgb, var(--primary-text-color) 22%, transparent) !important; opacity: 1 !important; }
+
+          .bubble-state { font-variant-numeric: tabular-nums; }
+
+          '
       - type: custom:bubble-card
         card_type: sub-buttons
         entity: media_player.master_bedroom_appletv
