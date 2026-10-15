@@ -1961,32 +1961,27 @@ views:
               - unknown
               - unavailable
         cards:
-        - type: custom:bubble-card
-          card_type: media-player
-          entity: media_player.living_room_appletv
-          name: Apple TV
-          cover_background: false
-          hide:
-            power_button: true
-            volume_button: true
-            previous_button: true
-            next_button: true
-            play_pause_button: true
-          sub_button:
-            main: []
-            bottom: []
-          show_icon: false
-          rows: 2
-          main_buttons_position: bottom
-          modules:
-          - bubble_media_player_enhanced
-          bubble_media_player_enhanced:
-            card_layout: default
-            progress_bar: none
-            idle_artwork: none
-            artwork_fit: original
-            progress_position: above
-            background_opacity: 0.85
+        - type: markdown
+          content: '{% set e = ''media_player.living_room_appletv'' %}{% set s = ''sensor.living_room_appletv_info'' %}{% set d = state_attr(s, ''details'') %}{% set ok = d is mapping and d.get(''poster'')
+            and (state_attr(s, ''content_id'') | string) == (state_attr(e, ''media_content_id'') | string) %}{% set fb = {''YouTube'': ''/local/media_art/youtube.svg'', ''TV'': ''/local/media_art/tv.svg'',
+            ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg''} %}{% set art = d.poster | replace(''1000x1000bb'', ''600x600bb'') if ok else (state_attr(e,
+            ''entity_picture'') or fb.get(state_attr(e, ''app_name''), '''')) %}{% if art %}<img src="{{ art }}">
+
+
+            {% endif %}## {{ state_attr(e, ''media_title'') or state_attr(e, ''app_name'') or ''Apple TV'' }}
+
+
+            {{ d.get(''series'') if ok and d.get(''series'') else (state_attr(e, ''media_artist'') or state_attr(e, ''app_name'') or (states(e) | title)) }}'
+          uix:
+            style:
+              ha-markdown$: 'ha-markdown-element, :host { display: grid !important; grid-template-columns: auto 1fr; grid-template-rows: 1fr 1fr; column-gap: 14px; align-items: center; } p:has(> img) {
+                grid-row: 1 / span 2; margin: 0 !important; line-height: 0; } img { display: block; max-height: 112px; width: auto; height: auto; border-radius: 12px; } p:has(> img) img { max-width: 160px;
+                } h2 { grid-column: 2; grid-row: 1; align-self: end; margin: 0 !important; font-size: 18px; line-height: 1.25; } h2 + p { grid-column: 2; grid-row: 2; align-self: start; margin: 4px 0 0
+                !important; color: var(--secondary-text-color); font-size: 14px; }'
+              'ha-markdown $ ha-markdown-element:': 'ha-markdown-element, :host { display: grid !important; grid-template-columns: auto 1fr; grid-template-rows: 1fr 1fr; column-gap: 14px; align-items: center;
+                } p:has(> img) { grid-row: 1 / span 2; margin: 0 !important; line-height: 0; } img { display: block; max-height: 112px; width: auto; height: auto; border-radius: 12px; } p:has(> img) img
+                { max-width: 160px; } h2 { grid-column: 2; grid-row: 1; align-self: end; margin: 0 !important; font-size: 18px; line-height: 1.25; } h2 + p { grid-column: 2; grid-row: 2; align-self: start;
+                margin: 4px 0 0 !important; color: var(--secondary-text-color); font-size: 14px; }'
         - type: custom:bubble-card
           card_type: button
           button_type: slider
