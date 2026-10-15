@@ -1892,7 +1892,11 @@ views:
           state_not:
           - unavailable
           - unknown
-        styles: '.bubble-button-card-container { border-radius: 16px !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }
+        styles: '.bubble-button-card-container, .bubble-button-container { border-radius: 10px !important; overflow: hidden !important; }
+
+          .bubble-range-fill, .bubble-range-slider { border-radius: 0 !important; }
+
+          .bubble-button-card-container { background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }
 
           .bubble-range-fill { background: var(--purple-color) !important; opacity: 0.55 !important; }
 
@@ -1903,6 +1907,8 @@ views:
           .rc-skip ha-icon { color: var(--primary-text-color) !important; }
 
           .bubble-button-container { margin: 0 8px !important; width: auto !important; height: 32px !important; }
+
+          ha-card { border-radius: 10px !important; }
 
           '
         sub_button:
@@ -2636,7 +2642,11 @@ views:
           state_not:
           - unavailable
           - unknown
-        styles: '.bubble-button-card-container { border-radius: 16px !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }
+        styles: '.bubble-button-card-container, .bubble-button-container { border-radius: 10px !important; overflow: hidden !important; }
+
+          .bubble-range-fill, .bubble-range-slider { border-radius: 0 !important; }
+
+          .bubble-button-card-container { background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }
 
           .bubble-range-fill { background: var(--purple-color) !important; opacity: 0.55 !important; }
 
@@ -2647,6 +2657,8 @@ views:
           .rc-skip ha-icon { color: var(--primary-text-color) !important; }
 
           .bubble-button-container { margin: 0 8px !important; width: auto !important; height: 32px !important; }
+
+          ha-card { border-radius: 10px !important; }
 
           '
         sub_button:
