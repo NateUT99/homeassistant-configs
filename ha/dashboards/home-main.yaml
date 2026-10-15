@@ -1869,6 +1869,9 @@ views:
 
             '
         display_timestamps: false
+        media_artwork_overrides:
+        - app_name: YouTube
+          image_url: /local/media_art/youtube.svg
       - type: custom:bubble-card
         card_type: button
         button_type: slider
@@ -1880,7 +1883,7 @@ views:
         state_content: '{% set p = states(''number.living_room_appletv_position'') | int(0) %}{% set d = state_attr(''number.living_room_appletv_position'', ''max'') | int(0) %}{{ ''%d:%02d'' | format(p
           // 60, p % 60) }} / {{ ''%d:%02d'' | format(d // 60, d % 60) }}'
         slider_live_update: false
-        rows: 0.8
+        rows: 0.6
         tap_action:
           action: none
         visibility:
@@ -1893,11 +1896,13 @@ views:
 
           .bubble-range-fill { background: var(--purple-color) !important; opacity: 0.55 !important; }
 
-          .bubble-state { font-variant-numeric: tabular-nums; font-weight: 600; }
+          .bubble-state { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px !important; }
 
           .rc-skip { background: transparent !important; --mdc-icon-size: 24px; }
 
           .rc-skip ha-icon { color: var(--primary-text-color) !important; }
+
+          .bubble-button-container { margin: 0 8px !important; width: auto !important; height: 32px !important; }
 
           '
         sub_button:
@@ -2608,6 +2613,9 @@ views:
 
             '
         display_timestamps: false
+        media_artwork_overrides:
+        - app_name: YouTube
+          image_url: /local/media_art/youtube.svg
       - type: custom:bubble-card
         card_type: button
         button_type: slider
@@ -2619,7 +2627,7 @@ views:
         state_content: '{% set p = states(''number.master_bedroom_appletv_position'') | int(0) %}{% set d = state_attr(''number.master_bedroom_appletv_position'', ''max'') | int(0) %}{{ ''%d:%02d'' | format(p
           // 60, p % 60) }} / {{ ''%d:%02d'' | format(d // 60, d % 60) }}'
         slider_live_update: false
-        rows: 0.8
+        rows: 0.6
         tap_action:
           action: none
         visibility:
@@ -2632,11 +2640,13 @@ views:
 
           .bubble-range-fill { background: var(--purple-color) !important; opacity: 0.55 !important; }
 
-          .bubble-state { font-variant-numeric: tabular-nums; font-weight: 600; }
+          .bubble-state { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px !important; }
 
           .rc-skip { background: transparent !important; --mdc-icon-size: 24px; }
 
           .rc-skip ha-icon { color: var(--primary-text-color) !important; }
+
+          .bubble-button-container { margin: 0 8px !important; width: auto !important; height: 32px !important; }
 
           '
         sub_button:
