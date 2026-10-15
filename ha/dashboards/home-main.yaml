@@ -1988,6 +1988,51 @@ views:
               action: none
           styles: ''
         - type: custom:bubble-card
+          card_type: button
+          button_type: slider
+          entity: number.living_room_appletv_position
+          name: Timeline
+          show_name: false
+          show_icon: false
+          show_state: true
+          state_content: '{% set p = states(''number.living_room_appletv_position'') | int(0) %}{% set d = state_attr(''number.living_room_appletv_position'', ''max'') | int(0) %}{% if d >= 3600 %}{{ ''%d:%02d:%02d''
+            | format(p // 3600, p % 3600 // 60, p % 60) }} / {{ ''%d:%02d:%02d'' | format(d // 3600, d % 3600 // 60, d % 60) }}{% else %}{{ ''%d:%02d'' | format(p // 60, p % 60) }} / {{ ''%d:%02d'' | format(d
+            // 60, d % 60) }}{% endif %}'
+          slider_live_update: false
+          rows: 0.6
+          tap_action:
+            action: none
+          visibility:
+          - condition: state
+            entity: number.living_room_appletv_position
+            state_not:
+            - unavailable
+            - unknown
+          styles: '.bubble-button-card-container, .bubble-button-container { border-radius: 10px !important; overflow: hidden !important; }
+
+            .bubble-range-fill, .bubble-range-slider { border-radius: 0 !important; }
+
+            .bubble-button-card-container { background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }
+
+            .bubble-range-fill { background: var(--purple-color) !important; opacity: 0.55 !important; }
+
+            .bubble-state { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px !important; }
+
+            .rc-skip { background: transparent !important; --mdc-icon-size: 24px; }
+
+            .rc-skip ha-icon { color: var(--primary-text-color) !important; }
+
+            .bubble-button-container { height: 32px !important; }
+
+            ha-card { border-radius: 10px !important; }
+
+            '
+          sub_button:
+            main: []
+            bottom: []
+          modules:
+          - time_slider
+        - type: custom:bubble-card
           card_type: sub-buttons
           hide_main_background: true
           rows: 0.9
@@ -2071,51 +2116,6 @@ views:
             .rc-vol-level .bubble-sub-button-name-container { color: var(--secondary-text-color) !important; }{% endif %}
 
             '
-        - type: custom:bubble-card
-          card_type: button
-          button_type: slider
-          entity: number.living_room_appletv_position
-          name: Timeline
-          show_name: false
-          show_icon: false
-          show_state: true
-          state_content: '{% set p = states(''number.living_room_appletv_position'') | int(0) %}{% set d = state_attr(''number.living_room_appletv_position'', ''max'') | int(0) %}{% if d >= 3600 %}{{ ''%d:%02d:%02d''
-            | format(p // 3600, p % 3600 // 60, p % 60) }} / {{ ''%d:%02d:%02d'' | format(d // 3600, d % 3600 // 60, d % 60) }}{% else %}{{ ''%d:%02d'' | format(p // 60, p % 60) }} / {{ ''%d:%02d'' | format(d
-            // 60, d % 60) }}{% endif %}'
-          slider_live_update: false
-          rows: 0.6
-          tap_action:
-            action: none
-          visibility:
-          - condition: state
-            entity: number.living_room_appletv_position
-            state_not:
-            - unavailable
-            - unknown
-          styles: '.bubble-button-card-container, .bubble-button-container { border-radius: 10px !important; overflow: hidden !important; }
-
-            .bubble-range-fill, .bubble-range-slider { border-radius: 0 !important; }
-
-            .bubble-button-card-container { background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }
-
-            .bubble-range-fill { background: var(--purple-color) !important; opacity: 0.55 !important; }
-
-            .bubble-state { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px !important; }
-
-            .rc-skip { background: transparent !important; --mdc-icon-size: 24px; }
-
-            .rc-skip ha-icon { color: var(--primary-text-color) !important; }
-
-            .bubble-button-container { height: 32px !important; }
-
-            ha-card { border-radius: 10px !important; }
-
-            '
-          sub_button:
-            main: []
-            bottom: []
-          modules:
-          - time_slider
         - type: custom:bubble-card
           card_type: sub-buttons
           hide_main_background: true
@@ -2469,6 +2469,87 @@ views:
                     source: Live TV
           scrolling_effect: false
           styles: '.bubble-sub-button .bubble-sub-button-name-container { font-size: 12px !important; white-space: nowrap !important; }
+
+            '
+        - type: custom:bubble-card
+          card_type: sub-buttons
+          hide_main_background: true
+          rows: 0.9
+          scrolling_effect: false
+          sub_button:
+            main: []
+            bottom:
+            - name: Channels
+              buttons_layout: inline
+              group:
+              - name: CBS
+                show_name: true
+                show_icon: false
+                css_class: rc-ch
+                state_background: false
+                light_background: false
+                custom_height: 44
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.play_media
+                  target:
+                    entity_id: media_player.living_room_tv
+                  data:
+                    media_content_type: channel
+                    media_content_id: 11-1
+              - name: ABC
+                show_name: true
+                show_icon: false
+                css_class: rc-ch
+                state_background: false
+                light_background: false
+                custom_height: 44
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.play_media
+                  target:
+                    entity_id: media_player.living_room_tv
+                  data:
+                    media_content_type: channel
+                    media_content_id: 13-1
+              - name: NBC
+                show_name: true
+                show_icon: false
+                css_class: rc-ch
+                state_background: false
+                light_background: false
+                custom_height: 44
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.play_media
+                  target:
+                    entity_id: media_player.living_room_tv
+                  data:
+                    media_content_type: channel
+                    media_content_id: 24-1
+              - name: Fox
+                show_name: true
+                show_icon: false
+                css_class: rc-ch
+                state_background: false
+                light_background: false
+                custom_height: 44
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.play_media
+                  target:
+                    entity_id: media_player.living_room_tv
+                  data:
+                    media_content_type: channel
+                    media_content_id: 36-1
+          styles: '.bubble-sub-button-bottom-container { justify-content: stretch !important; }
+
+            .bubble-sub-button-group { width: 100% !important; gap: 8px !important; flex-wrap: nowrap !important; }
+
+            .bubble-sub-button { flex: 1 1 0 !important; justify-content: center !important; border-radius: 16px !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important;
+            }
+
+            .bubble-sub-button .bubble-sub-button-name-container { font-size: 15px !important; font-weight: 600 !important; }
 
             '
         - type: custom:universal-remote-card
