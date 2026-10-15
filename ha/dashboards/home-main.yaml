@@ -1834,8 +1834,7 @@ views:
       name: Living Room TV
       icon: mdi:television
       button_type: name
-      popup_mode: adaptive-dialog
-      popup_style: bubble
+      popup_style: home-assistant
       cards:
       - type: custom:bubble-card
         card_type: sub-buttons
@@ -1867,7 +1866,7 @@ views:
                 data:
                   option: Now Playing
             - name: Apple TV
-              icon: mdi:apple
+              icon: phu:apple-tv-box
               show_name: true
               css_class: seg-apple-tv
               state_background: false
@@ -2348,7 +2347,7 @@ views:
               buttons_layout: inline
               group:
               - name: Apple TV
-                icon: mdi:apple
+                icon: phu:apple-tv-box
                 show_name: true
                 css_class: seg-appletv
                 state_background: false
@@ -3003,8 +3002,7 @@ views:
       name: Master Bedroom TV
       icon: mdi:television
       button_type: name
-      popup_mode: adaptive-dialog
-      popup_style: bubble
+      popup_style: home-assistant
       cards:
       - type: custom:yet-another-media-player
         entities:
