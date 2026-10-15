@@ -1917,7 +1917,7 @@ views:
           - name: Sound
             buttons_layout: inline
             group:
-            - show_name: true
+            - show_name: false
               state_background: true
               light_background: false
               custom_height: 44
@@ -1927,7 +1927,7 @@ views:
               css_class: rc-toggle
               tap_action:
                 action: toggle
-            - show_name: true
+            - show_name: false
               state_background: true
               light_background: false
               custom_height: 44
@@ -1937,7 +1937,7 @@ views:
               css_class: rc-toggle
               tap_action:
                 action: toggle
-            - show_name: true
+            - show_name: false
               state_background: true
               light_background: false
               custom_height: 44
@@ -1947,16 +1947,33 @@ views:
               css_class: rc-toggle
               tap_action:
                 action: toggle
+            - entity: sensor.living_room_soundbar_audio_input_format
+              icon: mdi:surround-sound
+              name: '{{ states(''sensor.living_room_soundbar_audio_input_format'') }}'
+              show_name: true
+              show_icon: true
+              state_background: false
+              light_background: false
+              custom_height: 44
+              css_class: rc-format
+              tap_action:
+                action: none
         styles: '.bubble-sub-button-bottom-container { justify-content: stretch !important; }
 
           .bubble-sub-button-group { width: 100% !important; gap: 8px !important; flex-wrap: nowrap !important; }
 
-          .bubble-sub-button { flex: 1 1 0 !important; gap: 6px !important; border-radius: 16px !important; justify-content: center !important; background: color-mix(in srgb, var(--primary-text-color) 7%,
-          transparent) !important; }
+          .bubble-sub-button { gap: 6px !important; border-radius: 16px !important; justify-content: center !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important;
+          }
+
+          .rc-toggle { flex: 0 0 56px !important; }
 
           .rc-toggle.background-on { background: var(--primary-text-color) !important; }
 
-          .rc-toggle.background-on ha-icon, .rc-toggle.background-on .bubble-sub-button-name-container { color: var(--primary-background-color) !important; }
+          .rc-toggle.background-on ha-icon { color: var(--primary-background-color) !important; }
+
+          .rc-format { flex: 1 1 0 !important; min-width: 0 !important; }
+
+          .rc-format ha-icon, .rc-format .bubble-sub-button-name-container { color: var(--secondary-text-color) !important; font-size: 14px !important; }
 
           '
       - type: custom:bubble-card
@@ -2048,9 +2065,12 @@ views:
         rows:
         - - - back
             - play_pause
-          - circlepad
+          - touchpad
           - - home
             - power
+        - - skip_backward
+          - keyboard
+          - skip_forward
         custom_actions:
         - type: button
           name: back
@@ -2075,51 +2095,6 @@ views:
             hold_secs: 1
           styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
             }'
-        - type: circlepad
-          name: circlepad
-          label: OK
-          tap_action:
-            action: key
-            key: select
-          up:
-            icon: mdi:chevron-up
-            tap_action:
-              action: key
-              key: up
-            hold_action:
-              action: repeat
-          down:
-            icon: mdi:chevron-down
-            tap_action:
-              action: key
-              key: down
-            hold_action:
-              action: repeat
-          left:
-            icon: mdi:chevron-left
-            tap_action:
-              action: key
-              key: left
-            hold_action:
-              action: repeat
-          right:
-            icon: mdi:chevron-right
-            tap_action:
-              action: key
-              key: right
-            hold_action:
-              action: repeat
-          styles: ':host { width: 220px; }
-
-            .circlepad { border: none; outline: none; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-color: var(--secondary-text-color); --icon-size: 28px; }
-
-            #center { flex: 0 0 84px; width: 84px; height: 84px; }
-
-            #center::part(button) { outline: none; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 12%, transparent); }
-
-            #center::part(label) { font-size: 17px; font-weight: 600; color: var(--primary-text-color); }
-
-            '
         - type: button
           name: play_pause
           icon: mdi:play-pause
@@ -2142,13 +2117,81 @@ views:
               entity_id: media_player.living_room_appletv
           styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
             }'
+        - type: touchpad
+          name: touchpad
+          tap_action:
+            action: key
+            key: select
+          up:
+            tap_action:
+              action: key
+              key: up
+            hold_action:
+              action: repeat
+          down:
+            tap_action:
+              action: key
+              key: down
+            hold_action:
+              action: repeat
+          left:
+            tap_action:
+              action: key
+              key: left
+            hold_action:
+              action: repeat
+          right:
+            tap_action:
+              action: key
+              key: right
+            hold_action:
+              action: repeat
+          styles: ':host { width: 210px; height: 210px; }
+
+            toucharea { border-radius: 32px; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); }
+
+            '
+        - type: button
+          name: skip_backward
+          icon: mdi:rewind-10
+          tap_action:
+            action: key
+            key: skip_backward
+          hold_action:
+            action: none
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }'
+        - type: button
+          name: skip_forward
+          icon: mdi:fast-forward-10
+          tap_action:
+            action: key
+            key: skip_forward
+          hold_action:
+            action: none
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }'
+        - type: button
+          name: keyboard
+          icon: mdi:keyboard
+          tap_action:
+            action: keyboard
+            config_entry_id: 01M06BPM6BYHKQGSJBYR0DNKKP
+            remote_id: remote.living_room_appletv
+          styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
+            }
+
+            :host { visibility: {{ ''visible'' if is_state(''binary_sensor.living_room_appletv_keyboard_focus'', ''on'') else ''hidden'' }}; }'
         styles: 'ha-card { background: none !important; box-shadow: none !important; }
 
-          .row { justify-content: space-between; align-items: center; padding: 8px 0 16px; }
+          .row { justify-content: space-between; align-items: center; padding: 8px 0; }
 
           .column { gap: 16px; }
 
+          #row-2 { padding: 4px 0 16px; }
+
           '
+        config_entry_id: 01M06BPM6BYHKQGSJBYR0DNKKP
       show_header: false
     - type: custom:bubble-card
       card_type: pop-up
