@@ -1998,7 +1998,11 @@ views:
 
               .yamp-card-inner { min-height: 100px !important; }
 
-              .collapsed-artwork-container { top: 0 !important; height: 100px !important; align-items: center !important; }
+              .collapsed-artwork-container { top: 0 !important; right: 8px !important; height: 100px !important; width: auto !important; align-items: center !important; }
+
+              .card-lower-content.collapsed .collapsed-artwork { height: 84px !important; width: auto !important; max-width: 150px !important; object-fit: cover !important; margin: 0 !important; }
+
+              .card-lower-content.collapsed.has-artwork .details { margin-right: 166px !important; }
 
               '
           always_collapsed: true
