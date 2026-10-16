@@ -219,7 +219,9 @@ name (HA adds the arrow for a tappable heading) and its temperature as a badge; 
 opens the room's pop-up (`#security` for Outside). Inside: the room's media card(s) while in
 use, then 2-up `apple_tile` tiles of the room's everyday controls: tapping the tile toggles
 it (`button_action`), tapping its icon opens more-info (card `tap_action`), and hold opens
-more-info. Living Room,
+more-info. Tiles show the entity state, except the Ceiling Light tiles: their
+`state_content: brightness` shows the brightness percentage while on and falls back to
+`Off`. Living Room,
 Master Bedroom, Avery's Room, and Office start expanded; Family Room, Kitchen, and Outside
 start collapsed.
 
