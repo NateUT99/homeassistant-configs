@@ -4,6 +4,11 @@
 # Flat dark cards with a soft fill, no glass edge or blur: the pop-up style pass (#13)
 # fought Frosted Glass's per-card ::before rim on every Bubble container.
 Home Flat:
+  # One font for every card, set here rather than left to HA's default. Cards that read
+  # their own variable (YAMP; Universal Remote Card through the legacy MDC one) point at it.
+  ha-font-family-body: "Roboto, Noto, sans-serif"
+  mdc-typography-font-family: "var(--ha-font-family-body)"
+  yamp-font-family: "var(--ha-font-family-body)"
   modes:
     dark:
       lovelace-background: "radial-gradient(ellipse at 50% 0%, #1c2027 0%, #0c0e11 65%) fixed"

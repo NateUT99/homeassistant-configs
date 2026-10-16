@@ -770,6 +770,8 @@ views:
 
               .card-lower-content-bg::after { background-size: contain; }
 
+              .vol-stepper .button { font-family: inherit !important; }
+
               '
       - type: grid
         columns: 2
@@ -928,6 +930,8 @@ views:
               .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
 
               .card-lower-content-bg::after { background-size: contain; }
+
+              .vol-stepper .button { font-family: inherit !important; }
 
               '
       - type: conditional
@@ -1400,6 +1404,8 @@ views:
               .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
 
               .card-lower-content-bg::after { background-size: contain; }
+
+              .vol-stepper .button { font-family: inherit !important; }
 
               '
       - type: grid
@@ -1959,6 +1965,8 @@ views:
               .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
 
               .card-lower-content-bg::after { background-size: contain; }
+
+              .vol-stepper .button { font-family: inherit !important; }
 
               '
       - type: conditional
@@ -3405,6 +3413,8 @@ views:
 
                 .card-lower-content-bg::after { background-size: contain; }
 
+                .vol-stepper .button { font-family: inherit !important; }
+
                 '
           - type: custom:bubble-card
             card_type: sub-buttons
@@ -3834,6 +3844,8 @@ views:
               .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
 
               .card-lower-content-bg::after { background-size: contain; }
+
+              .vol-stepper .button { font-family: inherit !important; }
 
               '
       - type: conditional
@@ -5024,6 +5036,7 @@ views:
             background: transparent
             toolbar:
               show: false
+            fontFamily: inherit
           theme:
             mode: dark
           legend:
@@ -5109,6 +5122,7 @@ views:
             background: transparent
             toolbar:
               show: false
+            fontFamily: inherit
           theme:
             mode: dark
           legend:
@@ -5362,6 +5376,7 @@ views:
             background: transparent
             toolbar:
               show: false
+            fontFamily: inherit
           theme:
             mode: dark
           legend:
@@ -6983,6 +6998,8 @@ views:
 
                   .card-lower-content-bg::after { background-size: contain; }
 
+                  .vol-stepper .button { font-family: inherit !important; }
+
                   '
             - type: custom:bubble-card
               card_type: sub-buttons
@@ -7175,6 +7192,8 @@ views:
                     .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
 
                     .card-lower-content-bg::after { background-size: contain; }
+
+                    .vol-stepper .button { font-family: inherit !important; }
 
                     '
               - type: custom:bubble-card
@@ -7480,6 +7499,8 @@ views:
                   .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
 
                   .card-lower-content-bg::after { background-size: contain; }
+
+                  .vol-stepper .button { font-family: inherit !important; }
 
                   '
               actions:

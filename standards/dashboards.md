@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.25.0 — October 2026*
+*Version 1.26.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.26.0 | October 2026 | One font, set in the theme; cards never set `font-family` |
 | 1.25.0 | October 2026 | AI Insight history keeps a month; Sunday weekly notes are teal |
 | 1.24.0 | October 2026 | AI content moves into its sections: AI Insight cards on Climate and Energy with an amber sparkle navbar badge until reviewed; briefing tip in `#weather`; AI chip and `#ai` pop-up removed |
 | 1.23.0 | October 2026 | Happening now bars follow the card's state: amber when done or paused, red on a fault |
@@ -70,6 +71,9 @@ the AI generation pipeline (`guides/ai_insights.md`).
   (§10).
 - **No brightness or colour sliders.** Adaptive Lighting owns brightness and colour
   temperature. Never expose a slider (or `read_only_slider: false`) on a light.
+- **One font, from the theme.** Home Flat sets `ha-font-family-body` (Roboto). Cards never set
+  `font-family` to a named font; where a card brings its own default, override it to `inherit`
+  (apexcharts `apex_config.chart.fontFamily`, YAMP's volume stepper buttons).
 - **Prefer native visibility.** A `visibility` condition (`state`, `numeric_state`,
   `screen`, `template`) over CSS `display: none`.
 
@@ -397,3 +401,4 @@ dependencies (§3), updated from the store and not copied into the repo.
 | Shared logic / look | `custom_templates` macro / Bubble module | §9.2 |
 | No sliders on lights | Adaptive Lighting owns brightness | §2 |
 | Confirmation | `confirmation: {text: ...}` | §12 |
+| Font | Theme `ha-font-family-body`; cards `inherit` | §2 |
