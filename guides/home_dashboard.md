@@ -50,16 +50,19 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   `input_select.household_hvac_mode_before_pause`; nothing is re-derived in the dashboard.
 - **Generator chip shows only while running.** Running means a utility outage — worth seeing
   at a glance. Exercising, warnings, and maintenance belong on the Energy view.
-- **Media lives in the room it plays in.** Each room section on Home carries a Bubble
-  `media-player` card for its Apple TV or HomePod, shown only while that player is in use, with
-  no house-wide player card. It is the two-row layout with the Media Player Enhanced artwork
-  background (Apple TV cards drop the timeline with `progress_bar: none`, since live TV has none and it lives in the remote pop-up; HomePod cards keep it) and playback controls only: play/pause, plus previous/next on HomePods (an Apple
-  TV's skip keys mean nothing to most video apps). Tapping an Apple TV card opens its remote pop-up (Living Room, Master
-  Bedroom) or `#media` (Family Room); HomePod cards don't respond to taps and show Bubble's own
-  volume button beside play/pause (it drives the HomePod itself, which is why the Apple TV
-  cards hide it: there it would change the Apple TV's volume, not the speaker's). Bubble's
-  media-player `tap_action` fires only on the icon, which these cards hide, so the navigation
-  is set in `button_action`.
+- **Media lives in the room it plays in.** Each room section on Home carries a media card for
+  its Apple TV or HomePod, shown only while that player is in use, and the room's pop-up repeats
+  it; there is no house-wide player card. The card is specified under *Room media card* in Step 3.
+- **One media card, built on Yet Another Media Player.** YAMP's `volume_entity` sends volume to
+  the speaker that actually plays an Apple TV's sound (Soundbar, bedroom TV, Theater); a Bubble
+  media card can only change the Apple TV's own volume, which does nothing audible. YAMP's own
+  layouts either shrink the artwork to a tile or need about 365 px, so CSS overrides turn it into
+  a 16:9 card the artwork fills, with the controls in one row on its bottom fade.
+- **Artwork follows what is playing.** A TV episode shows the Apple TV's own artwork, a 16:9
+  still of that episode; a movie shows TMDB's backdrop, because the Apple TV sends only a poster.
+  The rule is a JavaScript template rather than Jinja because YAMP caches a Jinja artwork
+  override per title (`LESSONS.md` → *Yet Another Media Player caches a Jinja artwork override
+  per title*).
 - **The Living Room Apple TV has its own remote pop-up.** `#living-room-remote` is the one
   destination for that player: tapping its card on Home, in `#media`, or in `#living-room` opens
   it. It is a separate pop-up rather than a collapsible section in the room pop-up, because
@@ -67,13 +70,9 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   link could land on a collapsed remote. The remote is Universal Remote Card (HACS), the only
   card besides YAMP that isn't Bubble: it sends the Apple TV `remote.send_command` keys natively, gives
   haptics, and has a swipe touchpad that Bubble has no equivalent for.
-- **Media cards by place.** Home uses the two-row Bubble cards above. The remote pop-ups' Apple TV
-  tabs lead with a Bubble button card showing the artwork, then the title (see `#living-room-remote`). `#media` uses YAMP
-  cards, square for Apple TVs and compact for HomePods. The room pop-ups'
-  HomePod and Family Room cards keep the large Bubble Media Player Enhanced layout (`rows: 3`,
-  scrubbable progress bar, `background_opacity: 0.85`, `idle_artwork: none`, Bubble's icon
-  hidden since the module draws the cover; Apple TV cards use `artwork_fit: original`); the
-  Living Room and Master Bedroom pop-ups reuse the Home card, since their remotes hold the rest.
+- **Media cards by place.** Home and the room pop-ups use the room media card. The remote
+  pop-ups' Apple TV tabs lead with a Bubble button card showing the artwork, then the title (see
+  `#living-room-remote`); `#media` uses YAMP cards shaped for posters (Step 3).
 - **Media cards follow an "active" template sensor per player**
   (`ha/packages/media_activity.yaml`), and so does the Media chip's count. Apple TVs are
   active while playing or paused (a paused show is one you'll come back to) plus 30 seconds,
@@ -166,7 +165,8 @@ switch by hand are quick actions; running appliances are Happening now.
 tiles — tap toggles, hold opens more-info. **`#media`** is the house-wide "Speakers & TVs"
 list: one Yet Another Media Player card per active player, under its room heading. Apple TVs
 get a full-width card, poster-shaped (`card_height` 535, a 2:3 card the poster fills exactly) when Apple's poster is available and square (340) otherwise, artwork first, with play/pause, the volume stepper, a dimmed progress-bar track, the same details line as the remotes plus the description (truncated to 220 characters), and volume on
-the real speaker (Soundbar, bedroom TV, Theater) and the favourite-app fallback artwork; tapping
+the real speaker (Soundbar, bedroom TV, Theater) and the favourite-app fallback artwork (a JavaScript-template override, for the
+reason under *Artwork follows what is playing*); tapping
 one opens its remote pop-up (a hidden YAMP navigate action on `card_trigger: tap`; Family Room
 has no remote yet). HomePods get a compact card (`always_collapsed`: title, previous/play/next and
 volume beside a small artwork tile). The Master Bedroom HomePod's heading shows only when the
@@ -222,6 +222,40 @@ start collapsed.
 | Family Room | Apple TV | Ambient Lamp, Alice Glow, Peanuts Glow |
 | Kitchen | HomePod | Sink Light |
 | Outside | — | Porch, Front Door, Garage |
+
+**Room media card** — one Yet Another Media Player card per player, identical on Home and in the
+room pop-ups:
+
+| Player | `volume_entity` | Controls | Tap |
+|---|---|---|---|
+| Living Room Apple TV | `media_player.living_room_soundbar` | play/pause | `#living-room-remote` |
+| Master Bedroom Apple TV | `media_player.master_bedroom_tv` | play/pause | `#master-bedroom-remote` |
+| Family Room Apple TV | `media_player.family_room_theater` | play/pause | `#media` |
+| HomePods, bathroom speaker | — (the speaker itself) | previous / play-pause / next | — |
+
+Every card sets `volume_mode: stepper` (−/+ at `volume_step: 0.02`, mute on the speaker icon),
+`match_theme: true`, `artwork_object_fit: cover` and `details_alignment: left`, and hides stop,
+shuffle, repeat, favourite and power. Apple TV cards also hide previous/next (most video apps
+ignore them) and open their remote through a hidden `navigate` action on `card_trigger: tap`.
+Their artwork is a `media_artwork_overrides` entry whose `image_url` is a JavaScript template
+(`[[[ ... ]]]`): when `sensor.<room>_appletv_info` matches the playing `media_content_id` and the
+title is a movie, TMDB's backdrop; otherwise the Apple TV's own `entity_picture` (for an episode,
+a 16:9 still of it); then the sensor's backdrop or poster; then the app's fallback image
+(`/local/media_art/`). The pop-up speaker cards show only while their activity sensor is on (the
+bathroom speaker, which has none, while `playing` or `paused`), because an idle YAMP card draws a
+large placeholder graphic. The Family Room pop-up adds an Apps · Speech · Night row under its
+card, styled like the remote's sound row.
+
+The look comes from CSS in each card's `uix.style`. The selectors are YAMP internals, so recheck
+them after a YAMP update:
+
+| Override | Why it's needed |
+|---|---|
+| `.yamp-card-inner { container-type: inline-size }` and `.card-artwork-spacer { height: max(40px, calc(56.25cqw - 85px)) }` (`110px` on speaker cards) | YAMP has no aspect-ratio option. The empty band above the title is sized so the whole card is 16:9 at any width: 56.25 % of the card's width, less the rows below the band (title and controls; speakers add the artist line). A wide backdrop or episode still then fills the card uncropped. |
+| `.card-lower-content-bg { min-height: 0; height: 100%; background-position: center }` | YAMP pins its artwork layer at 350 px inline; on a shorter card the image is scaled to 350 px and its bottom is cut off (`LESSONS.md` → *Yet Another Media Player pins its artwork layer at 350 px*). |
+| `.card-lower-content` as a two-column grid; the controls `div` in column 1, `.volume-row` in column 2 pushed right (`.volume-left { margin-left: auto }`, `.volume-center { width: auto }`) | Puts play/pause and the volume stepper on one row. YAMP stacks them, which costs about 60 px. |
+| `.details` top padding 4 px; `.progress-bar-container` hidden; `.details .artist` hidden on Apple TV cards | Keeps the rows below the artwork short so less of it is covered. An Apple TV's "artist" line is only the app name; speaker cards keep it because there it is the artist. |
+| `:host { --accent-color: var(--primary-text-color) }`, `.volume-percentage-indicator` in the background colour, `.more-info-menu` hidden | Neutral white controls instead of YAMP's orange accent, and no menu button: the menu opens YAMP's own search and source sheet, which the remotes already cover. |
 
 
 The navbar's Rooms tab (`#rooms`) stays as the at-a-glance view of every room.
@@ -1072,13 +1106,13 @@ tile, until they get a room hero (#13 step 4).
 | Hash | Contents |
 |---|---|
 | `#living-room` | Apple TV card at the top, the same card as on Home (only while active; tap opens `#living-room-remote`, where volume, apps and sound settings live), otherwise a compact Apple TV card showing its state that opens the remote, with a power button (`media_player.turn_on`) only while it is `off`; 4 lights, thermostat + fireplace (Bubble climate) |
-| `#living-room-remote` | No header; `popup_style: home-assistant` (Bubble Card ≥ the release that added it) with no `popup_mode`, so on mobile the sheet keeps the more-info dialog's full height and doesn't resize as tabs change. A segmented switch at the top (`input_select.living_room_remote_view`: Now Playing · Apple TV (`phu:appletv-sim`) · TV; the pop-up's `close_action` sets it back to Apple TV, so every open starts on that tab) shows one tab at a time through card `visibility`. **Now Playing** is information only: a markdown card led by a 2:3 poster at 62% width (Apple's store poster for a movie, the series' TMDB poster for an episode or a TV-app series, TMDB's poster for a TV-app movie; TMDB's wide background art, then Apple's art, at full width when there's no poster), the series as a small heading for a TV episode, the title, the tagline in italics, the content rating as an outlined badge (left out when there is none) with year · genre · runtime · ★ TMDB score, the director for a movie, the full description, and a Cast grid (up to 8, four to a row: round headshot, name, role; an episode lists its regulars then guest stars), all from `sensor.living_room_appletv_info`. The tab is dimmed and untappable while the sensor is `none`, and if it is selected when details disappear the Apple TV tab shows instead. **Apple TV** opens with the artwork alone (hidden while the Apple TV is off): a Bubble button card whose JS style template sets the image as its background with `background-size: contain`, so a portrait poster or square series art shows whole at up to 150 px tall (media cards fit artwork into a fixed-shape slot and crop the rest); TMDB's widescreen art instead turns the card 16:9 with no padding and fills it edge to edge; tapping it switches to Now Playing. Below it, a markdown card shows the title centred at 15 px semibold, with the series above it in 12 px secondary text (shown while playing or paused). While `sensor.living_room_appletv_info` matches what is playing, both come from it, so a store episode shows its series and episode name ("Season 2, Episode 20: The Last Page"); otherwise the player's own `media_title` is used. A TV-app stream reports only the show name, so it has no episode line. The image is TMDB's background art, else Apple's store poster, once `sensor.living_room_appletv_info` has looked up what is playing; else the Apple TV's own artwork, else the app's fallback image, else the TV app's image. Between two titles the Apple TV reports itself idle in whichever app last had a session (often YouTube) for up to about 15 s, and an Apple-store title's lookup takes a moment, so in either case the card keeps the last artwork it showed (held in a `window` variable), falling back to the app's image after 30 s. Then the timeline, then a volume row for the Soundbar (mute on the left, filled while muted, via `script.household_media_toggle_mute` since a tap action can't read the current mute state; then − / level / +, ±2% a tap, the level reading "Muted" while muted), then Speech · Night · Sub, the app favourites, and the Universal Remote Card (a left column of back, play/pause and skip −10 s, where play/pause shows pause while playing and play otherwise and runs Household: Apple TV Play Pause (`script.household_appletv_play_pause`): `media_player.media_pause` / `media_play` for a title with a duration, the `play_pause` remote key for a live stream, since the Apple TV ignores the key during a movie and refuses `media_pause` on live TV; the 190 × 232 px touchpad, which runs the full height of the side columns; a right column of home, hold-to-toggle power and skip +10 s; the keyboard sits in its own row below and takes no space unless an Apple TV text field has focus). **TV** controls the LG (`media_player.living_room_tv`): input pills (Apple TV, HDMI 3, HDMI 4, Live TV; the current input is filled, via the `segmented` module reading `source`), channel presets shown as network logos (`phu:cbs` 11.1, `phu:abc` 13.1, `phu:nbc` 24.1, `phu:fox` 36.1: `media_player.play_media` with `media_content_type: channel` and the LG's `11-1` channel-number form), and a Universal Remote Card on the LG webOS platform with a 1–9 / – 0 enter number pad, channel up and down, guide, and back. Timeline: a Bubble slider on `number.living_room_appletv_position` (from `ha/packages/media_seek.yaml`; refreshed every 2 s while playing, holding a dragged value for 6 s because the Apple TV keeps reporting the pre-seek position, excluded from the recorder) that fills purple, reads e.g. "0:21:41 / 1:47:24", seeks on release, labels the drag target as m:ss through the `time_slider` module, and hides when there is no duration (live TV) or the Apple TV isn't playing or paused (the number keeps its last value while off) |
-| `#kitchen` | Sink light, dishwasher and refrigerator tiles, HomePod |
-| `#family-room` | Ambient lamp, 2 pinball underglows, 3 game power switches, Apple TV player (only while active; Theater volume slider; Apps, Speech and Night sub-buttons) |
-| `#office` | 7 lights, fan speed (tile `fan-speed` feature), HomePod |
-| `#master-bedroom` | Ceiling light, nightstand lamp, fan speed, Apple TV card, the same as on Home (only while active; tap opens `#master-bedroom-remote`), otherwise the same compact Apple TV card as `#living-room`, HomePod, bathroom speaker |
+| `#living-room-remote` | No header; `popup_style: home-assistant` (Bubble Card ≥ the release that added it) with no `popup_mode`, so on mobile the sheet keeps the more-info dialog's full height and doesn't resize as tabs change. A segmented switch at the top (`input_select.living_room_remote_view`: Now Playing · Apple TV (`phu:appletv-sim`) · TV; the pop-up's `close_action` sets it back to Apple TV, so every open starts on that tab) shows one tab at a time through card `visibility`. **Now Playing** is information only: a markdown card led by a 2:3 poster at 62% width (Apple's store poster for a movie, the series' TMDB poster for an episode or a TV-app series, TMDB's poster for a TV-app movie; TMDB's wide background art, then Apple's art, at full width when there's no poster), the series as a small heading for a TV episode, the title, the tagline in italics, the content rating as an outlined badge (left out when there is none) with year · genre · runtime · ★ TMDB score, the director for a movie, the full description, and a Cast grid (up to 8, four to a row: round headshot, name, role; an episode lists its regulars then guest stars), all from `sensor.living_room_appletv_info`. The tab is dimmed and untappable while the sensor is `none`, and if it is selected when details disappear the Apple TV tab shows instead. **Apple TV** opens with the artwork alone (hidden while the Apple TV is off): a Bubble button card whose JS style template sets the image as its background with `background-size: contain`, so a portrait poster or square series art shows whole at up to 150 px tall (media cards fit artwork into a fixed-shape slot and crop the rest); wide art (anything but a poster or a fallback icon) instead turns the card 16:9 with no padding and fills it edge to edge; tapping it switches to Now Playing. Below it, a markdown card shows the title centred at 15 px semibold, with the series above it in 12 px secondary text (shown while playing or paused). While `sensor.living_room_appletv_info` matches what is playing, both come from it, so a store episode shows its series and episode name ("Season 2, Episode 20: The Last Page"); otherwise the player's own `media_title` is used. A TV-app stream reports only the show name, so it has no episode line. The image follows the room media card's rule (*Room media card*, Step 3): TMDB's backdrop for a movie once `sensor.living_room_appletv_info` has looked it up, otherwise the Apple TV's own artwork (a 16:9 still for a TV episode), then the sensor's art, then the app's fallback image, else the TV app's image. Between two titles the Apple TV reports itself idle in whichever app last had a session (often YouTube) for up to about 15 s, and an Apple-store title's lookup takes a moment, so in either case the card keeps the last artwork it showed (held in a `window` variable), falling back to the app's image after 30 s. Then the timeline, then a volume row for the Soundbar (mute on the left, filled while muted, via `script.household_media_toggle_mute` since a tap action can't read the current mute state; then − / level / +, ±2% a tap, the level reading "Muted" while muted), then Speech · Night · Sub, the app favourites, and the Universal Remote Card (a left column of back, play/pause and skip −10 s, where play/pause shows pause while playing and play otherwise and runs Household: Apple TV Play Pause (`script.household_appletv_play_pause`): `media_player.media_pause` / `media_play` for a title with a duration, the `play_pause` remote key for a live stream, since the Apple TV ignores the key during a movie and refuses `media_pause` on live TV; the 190 × 232 px touchpad, which runs the full height of the side columns; a right column of home, hold-to-toggle power and skip +10 s; the keyboard sits in its own row below and takes no space unless an Apple TV text field has focus). **TV** controls the LG (`media_player.living_room_tv`): input pills (Apple TV, HDMI 3, HDMI 4, Live TV; the current input is filled, via the `segmented` module reading `source`), channel presets shown as network logos (`phu:cbs` 11.1, `phu:abc` 13.1, `phu:nbc` 24.1, `phu:fox` 36.1: `media_player.play_media` with `media_content_type: channel` and the LG's `11-1` channel-number form), and a Universal Remote Card on the LG webOS platform with a 1–9 / – 0 enter number pad, channel up and down, guide, and back. Timeline: a Bubble slider on `number.living_room_appletv_position` (from `ha/packages/media_seek.yaml`; refreshed every 2 s while playing, holding a dragged value for 6 s because the Apple TV keeps reporting the pre-seek position, excluded from the recorder) that fills purple, reads e.g. "0:21:41 / 1:47:24", seeks on release, labels the drag target as m:ss through the `time_slider` module, and hides when there is no duration (live TV) or the Apple TV isn't playing or paused (the number keeps its last value while off) |
+| `#kitchen` | Sink light, dishwasher and refrigerator tiles, HomePod media card (while active) |
+| `#family-room` | Ambient lamp, 2 pinball underglows, 3 game power switches, Apple TV media card (only while active) with an Apps · Speech · Night row under it |
+| `#office` | 7 lights, fan speed (tile `fan-speed` feature), HomePod media card (while active) |
+| `#master-bedroom` | Ceiling light, nightstand lamp, fan speed, Apple TV card, the same as on Home (only while active; tap opens `#master-bedroom-remote`), otherwise the same compact Apple TV card as `#living-room`; HomePod and bathroom speaker media cards (while active) |
 | `#master-bedroom-remote` | `#living-room-remote` for the bedroom Apple TV with only the Now Playing and Apple TV tabs (`input_select.master_bedroom_remote_view`), since the bedroom TV is only used with the Apple TV, and no Speech · Night · Sub row: the volume row drives the LG TV (`media_player.master_bedroom_tv`, which reports `unavailable` while the TV is off), and the keyboard uses the Master Bedroom AppleTV config entry |
-| `#averys-room` | Ceiling light, desk and dresser lamps, fan speed, HomePod |
+| `#averys-room` | Ceiling light, desk and dresser lamps, fan speed, HomePod media card (while active) |
 | `#security` | Doorbell camera (square crop, first); lock, garage door, garage interior door, doors & windows; Water (the 4 leak sensors); outside lights |
 | `#hvac` | Hero (indoor temperature; Heating to / Cooling to / Holding range / Paused, and preset; humidity; amber or blue tint while running), heat and cool setpoint steppers, segmented presets (Home · Away · Sleep), fireplace (hold toggles off ↔ heat; amber while on), Today: three metric tiles for whichever mode has run more today (runtime, cycles, average cycle — amber under 10 min, an early short-cycling sign), Last 12 hours chart (apexcharts: indoor temperature, dashed setpoints, outside temperature, heating/cooling bands), Last 14 days chart (apexcharts on long-term statistics: daily heating/cooling hours as stacked columns via `change`, daily mean outside temperature on the right axis; `extend_to: false` so the live point doesn't narrow the columns) |
 | `#weather` | Hero (outside temperature, condition icon, condition with today's high and low, feels-like), the AI briefing tip (text-only markdown, hidden until the briefing exists), rain line (first hour in the next 24 with a 40%+ chance, or "No rain expected"), six `metric_tile` tiles (wind and direction, humidity, rain chance over 24 h, AQI and dominant pollutant in the EPA colour above 50, UV index, next sunset or sunrise), Next 24 hours chart (apexcharts from `sensor.outside_forecast`: temperature line, rain-chance columns), Next 5 days (Bubble Weather `weather_forecast` module, `card_layout: weather_only`), Air quality pollutant tiles only while AQI > 50 |
@@ -1281,5 +1315,8 @@ row showing the lowest level. New devices appear automatically.
   stale on the host — redeploy it and run `homeassistant.reload_custom_templates`.
 - **A room's light count looks wrong:** an indicator LED or group member is counting as a
   room light. Hide it in the entity registry; `room_summary` excludes hidden entities.
+- **A media card is tall, cropped, or shows its controls on two rows:** a YAMP update changed
+  a class the card's CSS targets. Inspect the card's shadow DOM and update the selectors in the
+  override table under *Room media card* (Step 3).
 - **Chip strip clipped at the top or floating with a gap:** a row is wrapping. See
   `LESSONS.md` → *Bubble `sub-buttons` cards anchor their rows to the bottom*.

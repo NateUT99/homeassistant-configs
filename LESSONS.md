@@ -537,6 +537,35 @@ changes nothing on screen. To zoom or crop the picture, style the div instead:
 `hui-image$: '.container { background-size: 135% auto !important; }'`, as the vacuum map in
 `home-main` does.
 
+### Yet Another Media Player caches a Jinja artwork override per title — use a `[[[ ]]]` JavaScript template
+
+YAMP (2026.10.1) renders a Jinja `media_artwork_overrides` `image_url` once, through a one-shot
+template render, and caches the result under the player's `media_title` + `media_artist`. It is
+never re-rendered while the title stays the same. An override that reads a sensor which fills in
+after the title appears therefore locks onto whatever the template returned first. Seen with the
+AppleTV info sensor: the AppleTV reports a movie about a second before the TMDB lookup lands, so
+the card kept Apple's poster for the whole movie. A JavaScript template (`[[[ return ...; ]]]`,
+with `states` in scope) is evaluated on every render and has no cache, so it picks up the sensor
+as soon as it changes. `card_height` and the other templated options don't have this problem:
+they use a live `render_template` subscription.
+
+### Yet Another Media Player pins its artwork layer at 350 px — a shorter card crops the image
+
+In the expanded layout YAMP sets an inline `min-height: 350px` on `.card-lower-content-bg`, the
+layer that draws the artwork with `background-size: cover`. Shrinking the card (a smaller
+`card_height`, or CSS on the inner containers) leaves that layer at 350 px, so the artwork is
+scaled to 350 px tall and everything below the card's bottom edge is cut off. It reads as the
+image being zoomed in. Override it with
+`.card-lower-content-bg { min-height: 0 !important; height: 100% !important; }`.
+
+### A Bubble slider's default double-tap toggles its entity — on a `number` that's an error
+
+A Bubble `button` card with `button_type: slider` falls back to Bubble's default actions for
+whatever isn't set. Setting only `tap_action: none` leaves double-tap on `toggle`, and toggling a
+`number` entity calls `number.turn_off`, which doesn't exist: "Action number.turn_off not found."
+Set `tap_action`, `double_tap_action` and `hold_action` to `none`, both on the card and under
+`button_action`, for any slider on an entity that can't be toggled.
+
 ---
 
 ## TTS & Media
