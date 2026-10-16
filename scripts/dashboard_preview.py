@@ -20,7 +20,7 @@ Usage:
 
 Environment:
     VIEW=climate      view path to load (default home)
-    SCROLL=700        scroll the open pop-up by N px before the screenshot
+    SCROLL=700        scroll the open pop-up (or, with '-', the view) by N px before the screenshot
     THEME=file.json   preview a trial theme ({"modes": {...}}) in place of the views' theme;
                       HA's websocket replies are rewritten in this browser only, nothing is
                       written to HA
@@ -130,7 +130,10 @@ def main():
         if hash_ and hash_ != "-":
             page.evaluate(f"window.location.hash = {json.dumps(hash_)}")
             page.wait_for_timeout(6000)
-        if scroll := int(os.environ.get("SCROLL", "0")):
+        if (scroll := int(os.environ.get("SCROLL", "0"))) and hash_ == "-":
+            page.evaluate("(y) => { window.scrollTo(0, y); document.scrollingElement.scrollTop = y; }", scroll)
+            page.wait_for_timeout(1500)
+        elif scroll:
             # Bubble pop-ups scroll inside a shadow-DOM container, not the page.
             page.evaluate(
                 """(y) => { const all = []; const walk = r => r.querySelectorAll('*').forEach(e => {
