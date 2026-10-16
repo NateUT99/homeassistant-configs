@@ -549,6 +549,12 @@ with `states` in scope) is evaluated on every render and has no cache, so it pic
 as soon as it changes. `card_height` and the other templated options don't have this problem:
 they use a live `render_template` subscription.
 
+The one-shot render also goes through HA's REST `/api/template`, which only admin users may call.
+For anyone else the override renders nothing, so the card shows YAMP's placeholder graphic, and HA
+logs each attempt as "Login attempt or request with invalid authentication … '/api/template'" —
+counted towards an IP ban if `ip_ban_enabled` is on. The JavaScript form runs in the browser and
+needs no API call.
+
 ### Yet Another Media Player pins its artwork layer at 350 px — a shorter card crops the image
 
 In the expanded layout YAMP sets an inline `min-height: 350px` on `.card-lower-content-bg`, the

@@ -56,16 +56,17 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   Step 3.
 - **Apple TVs on Yet Another Media Player, speakers on Bubble.** YAMP's `volume_entity` sends an
   Apple TV's volume to the speaker that actually plays its sound (Soundbar, bedroom TV, Theater);
-  a Bubble media card can only change the Apple TV's own volume, which does nothing audible. CSS
-  overrides make YAMP a 16:9 card the artwork fills, with the controls in one row on its bottom
-  fade. HomePods and the bathroom speaker keep Bubble Media Player Enhanced, which is built for
+  a Bubble media card can only change the Apple TV's own volume, which does nothing audible.
+  Neither YAMP layout fits as shipped (collapsed shrinks the artwork to a small tile, expanded
+  needs about 365 px), so CSS overrides make it a 16:9 card the artwork fills, with play/pause and
+  −/+ volume buttons (chosen over a slider) in one row on its bottom fade. HomePods and the bathroom speaker keep Bubble Media Player Enhanced, which is built for
   audio and whose own volume button drives the speaker itself.
 - **Artwork follows what is playing.** A TV episode shows the Apple TV's own artwork, a 16:9
   still of that episode; a movie shows TMDB's backdrop, because the Apple TV sends only a poster.
   Art of any other shape shows whole on a blurred copy of itself rather than cropped. The rule is
-  a JavaScript template rather than Jinja because YAMP caches a Jinja artwork
-  override per title (`LESSONS.md` → *Yet Another Media Player caches a Jinja artwork override
-  per title*).
+  a JavaScript template rather than Jinja because YAMP renders a Jinja artwork override once per
+  title, through an endpoint only admins may call (`LESSONS.md` → *Yet Another Media Player caches
+  a Jinja artwork override per title*).
 - **The Living Room Apple TV has its own remote pop-up.** `#living-room-remote` is the one
   destination for that player: tapping its card on Home, in `#media`, or in `#living-room` opens
   it. It is a separate pop-up rather than a collapsible section in the room pop-up, because
@@ -84,11 +85,10 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   an old app's paused session after the current one ends*), plus 30 seconds,
   because moving around the Apple TV interface drops it to `idle` for under a second at a
   time, which would otherwise hide and re-show the card. HomePods are active while playing
-  something with a track title, plus 10 minutes. The title requirement keeps a TTS
-  announcement — `playing` for a few seconds with no title or artist — from showing the card
-  for 10 minutes. The 10-minute hold exists because a HomePod usually drops from `paused` to
-  `idle` on its own 8 minutes after playing, but an app that parks a track on it without playing (`idle` → `paused`, seen with
-  AirMusic in Avery's room) leaves it paused indefinitely.
+  something with a track title (a TTS announcement has none, so it never shows the card), plus 10
+  minutes: a HomePod usually drops from `paused` to `idle` on its own 8 minutes after playing, but
+  an app that parks a track on it without playing (`idle` → `paused`, seen with AirMusic in
+  Avery's room) leaves it paused indefinitely.
 - **Areas fold into pop-ups instead of getting tiles** when they have nothing controlled
   from the dashboard more than occasionally (`standards/dashboards.md` §8.1).
 
@@ -97,7 +97,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
 ## Prerequisites
 
 - Home Assistant 2026.9 or later
-- HACS frontend: Bubble Card ≥ 3.4, Navbar Card ≥ 1.7 (badge icons), Kiosk Mode, Battery State Card, Expander Card, apexcharts-card, Universal Remote Card (`Nerwyn/universal-remote-card`), Yet Another Media Player (`jianyu-li/yet-another-media-player`); custom-brand-icons (`phu:` icons); theme: Home Flat (repo, `ha/themes/home_flat.yaml`)
+- HACS frontend: Bubble Card ≥ 3.4, Navbar Card ≥ 1.7 (badge icons), Kiosk Mode, Battery State Card, Expander Card, apexcharts-card, Universal Remote Card (`Nerwyn/universal-remote-card`), Yet Another Media Player (`jianyu-li/yet-another-media-player`, Apple TV cards' CSS checked against 2026.10.1); custom-brand-icons (`phu:` icons); theme: Home Flat (repo, `ha/themes/home_flat.yaml`)
 - HACS integrations: Bubble Card Tools and UIX, each added under **Settings → Devices &
   Services** (installing from HACS alone isn't enough)
 - AI insights (`guides/ai_insights.md`) for the greeting line, the `#weather` tip, and the AI Insight cards
@@ -174,7 +174,8 @@ plain box: `clear: false` gives it the card background, `expanded: true` with
 `show-button-users: [nobody]` hides the collapse arrow for everyone, and its title card is the
 room's name as a `title`-style heading with the area's icon (`mdi:sofa`, `mdi:bed-king`,
 `mdi:teddy-bear`, `mdi:desktop-classic`, `mdi:pac-man`, `mdi:stove`). Inside are the room's active
-players. An Apple TV gets the Apple TV room media card (*Room media cards*, below), the same as on
+players. The container is what groups them: styling the heading alone can't, because a heading
+card has a fixed height, so padding or a divider pushes its label under the next card. An Apple TV gets the Apple TV room media card (*Room media cards*, below), the same as on
 Home; Family Room's has no tap action since it is already in `#media`. Under it, once
 `sensor.<room>_appletv_info` has looked the title up, a Bubble row with the content rating as an
 outlined badge and year · genre · runtime, then the description truncated to 220 characters.
@@ -260,8 +261,10 @@ own volume button (it drives the HomePod itself) and a scrubbable progress bar
 `artwork_fit: cover`) and doesn't respond to taps; in the room pop-ups it is the larger
 `rows: 3` layout, and the bathroom speaker uses `progress_bar: compact`.
 
-The Apple TV card's look comes from CSS in its `uix.style`. The selectors are YAMP internals, so
-recheck them after a YAMP update:
+The Apple TV card's look comes from CSS in its `uix.style`. The selectors are YAMP internals,
+checked against YAMP 2026.10.1, so recheck them after a YAMP update. To measure, render a card
+with `scripts/dashboard_preview.py` and compare its height with 56.25 % of its width: if the
+title or controls row changes size, the `85px` below changes by the same amount.
 
 | Override | Why it's needed |
 |---|---|
