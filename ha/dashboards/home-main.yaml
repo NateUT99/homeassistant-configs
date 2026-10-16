@@ -1907,8 +1907,8 @@ views:
         scrolling_effect: false
       - type: markdown
         text_only: true
-        content: '{% set d = state_attr(''sensor.living_room_appletv_info'', ''details'') or {} %}{% set hero = d.get(''backdrop'') or (d.get(''poster'', '''') | replace(''1000x1000bb'', ''2000x2000bb''))
-          %}<img src="{{ hero }}">
+        content: '{% set d = state_attr(''sensor.living_room_appletv_info'', ''details'') or {} %}{% set tall = d.get(''show_poster'') or (d.get(''poster'', '''') if d.get(''kind'') == ''feature-movie''
+          else '''') %}{% set hero = tall or d.get(''backdrop'') or d.get(''poster'', '''') %}<img alt="{{ ''poster'' if tall else ''art'' }}" src="{{ hero }}">
 
 
           {% if d.get(''series'') %}### {{ d.get(''series'') }}
@@ -1953,14 +1953,16 @@ views:
               18px 4px 4px !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } table { width: 100%; border-collapse: collapse;
               table-layout: fixed; border: none !important; } tr, td { border: none !important; background: none !important; } td { vertical-align: top; text-align: center; padding: 8px 2px !important;
               font-size: 12px; line-height: 1.25; color: var(--primary-text-color); } td img { width: 56px !important; height: 56px; border-radius: 50% !important; object-fit: cover; object-position: center
-              top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); }'
+              top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); } img[alt="poster"] { width: 62% !important; margin: 4px auto 12px !important; border-radius:
+              14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }'
             'ha-markdown $ ha-markdown-element:': 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px
               4px !important; color: var(--secondary-text-color); line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding:
               0 5px; font-size: 12px; } h3 { margin: 14px 4px 0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3
               + h2 { margin-top: 2px !important; } h4 { margin: 18px 4px 4px !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color);
               } table { width: 100%; border-collapse: collapse; table-layout: fixed; border: none !important; } tr, td { border: none !important; background: none !important; } td { vertical-align: top;
               text-align: center; padding: 8px 2px !important; font-size: 12px; line-height: 1.25; color: var(--primary-text-color); } td img { width: 56px !important; height: 56px; border-radius: 50% !important;
-              object-fit: cover; object-position: center top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); }'
+              object-fit: cover; object-position: center top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); } img[alt="poster"] { width: 62% !important;
+              margin: 4px auto 12px !important; border-radius: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }'
       - type: vertical-stack
         visibility:
         - condition: or
@@ -3244,8 +3246,8 @@ views:
         scrolling_effect: false
       - type: markdown
         text_only: true
-        content: '{% set d = state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {} %}{% set hero = d.get(''backdrop'') or (d.get(''poster'', '''') | replace(''1000x1000bb'', ''2000x2000bb''))
-          %}<img src="{{ hero }}">
+        content: '{% set d = state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {} %}{% set tall = d.get(''show_poster'') or (d.get(''poster'', '''') if d.get(''kind'') == ''feature-movie''
+          else '''') %}{% set hero = tall or d.get(''backdrop'') or d.get(''poster'', '''') %}<img alt="{{ ''poster'' if tall else ''art'' }}" src="{{ hero }}">
 
 
           {% if d.get(''series'') %}### {{ d.get(''series'') }}
@@ -3290,14 +3292,16 @@ views:
               18px 4px 4px !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } table { width: 100%; border-collapse: collapse;
               table-layout: fixed; border: none !important; } tr, td { border: none !important; background: none !important; } td { vertical-align: top; text-align: center; padding: 8px 2px !important;
               font-size: 12px; line-height: 1.25; color: var(--primary-text-color); } td img { width: 56px !important; height: 56px; border-radius: 50% !important; object-fit: cover; object-position: center
-              top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); }'
+              top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); } img[alt="poster"] { width: 62% !important; margin: 4px auto 12px !important; border-radius:
+              14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }'
             'ha-markdown $ ha-markdown-element:': 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px
               4px !important; color: var(--secondary-text-color); line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding:
               0 5px; font-size: 12px; } h3 { margin: 14px 4px 0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3
               + h2 { margin-top: 2px !important; } h4 { margin: 18px 4px 4px !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color);
               } table { width: 100%; border-collapse: collapse; table-layout: fixed; border: none !important; } tr, td { border: none !important; background: none !important; } td { vertical-align: top;
               text-align: center; padding: 8px 2px !important; font-size: 12px; line-height: 1.25; color: var(--primary-text-color); } td img { width: 56px !important; height: 56px; border-radius: 50% !important;
-              object-fit: cover; object-position: center top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); }'
+              object-fit: cover; object-position: center top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); } img[alt="poster"] { width: 62% !important;
+              margin: 4px auto 12px !important; border-radius: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }'
       - type: vertical-stack
         visibility:
         - condition: or
