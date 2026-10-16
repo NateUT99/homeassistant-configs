@@ -699,17 +699,16 @@ views:
             - repeat
             - favorite
             - power
-          always_collapsed: true
           volume_mode: stepper
           volume_step: 0.02
           match_theme: true
           media_artwork_overrides:
           - entity_id: media_player.living_room_appletv
+            object_fit: cover
             image_url: '{% set mp = ''media_player.living_room_appletv'' %}{% set se = ''sensor.living_room_appletv_info'' %}{% set d = state_attr(se, ''details'') or {} %}{% set ok = states(se) not in
               [''none'', ''unknown'', ''unavailable''] and (state_attr(se, ''content_id'') | string) == (state_attr(mp, ''media_content_id'') | string) %}{% set fb = {''YouTube'': ''/local/media_art/youtube.svg'',
-              ''TV'': ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg''} %}{% set tmdb = (d.get(''show_poster'') or (d.get(''poster'',
-              '''') | replace(''1000x1000bb'', ''600x600bb'')) or d.get(''backdrop'')) if ok else '''' %}{{ tmdb or state_attr(mp, ''entity_picture'') or fb.get(state_attr(mp, ''app_name''), '''') }}'
-            object_fit: contain
+              ''TV'': ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg''} %}{% set tmdb = (d.get(''backdrop'') or d.get(''show_poster'')
+              or (d.get(''poster'', '''') | replace(''1000x1000bb'', ''600x600bb''))) if ok else '''' %}{{ tmdb or state_attr(mp, ''entity_picture'') or fb.get(state_attr(mp, ''app_name''), '''') }}'
           actions:
           - name: Remote
             icon: mdi:remote-tv
@@ -726,9 +725,9 @@ views:
 
               .progress-bar { background: color-mix(in srgb, var(--primary-text-color) 25%, transparent) !important; }
 
-              .collapsed-artwork { width: auto !important; height: auto !important; max-width: 102px !important; max-height: 102px !important; border-radius: 12px !important; }
-
               '
+          artwork_object_fit: cover
+          details_alignment: left
       - type: grid
         columns: 2
         square: false
