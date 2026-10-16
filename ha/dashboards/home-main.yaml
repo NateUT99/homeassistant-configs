@@ -3349,31 +3349,65 @@ views:
               - unavailable
         cards:
         - type: custom:bubble-card
-          card_type: media-player
-          entity: media_player.master_bedroom_appletv
-          name: Apple TV
-          cover_background: false
-          hide:
-            power_button: true
-            volume_button: true
-            previous_button: true
-            next_button: true
-            play_pause_button: true
-          sub_button:
-            main: []
-            bottom: []
+          card_type: button
+          button_type: name
+          name: Artwork
+          show_name: false
           show_icon: false
-          rows: 2
-          main_buttons_position: bottom
-          modules:
-          - bubble_media_player_enhanced
-          bubble_media_player_enhanced:
-            card_layout: default
-            progress_bar: none
-            idle_artwork: none
-            artwork_fit: original
-            progress_position: above
-            background_opacity: 0.85
+          show_state: false
+          tap_action:
+            action: perform-action
+            perform_action: input_select.select_option
+            target:
+              entity_id: input_select.master_bedroom_remote_view
+            data:
+              option: Now Playing
+          button_action:
+            tap_action:
+              action: perform-action
+              perform_action: input_select.select_option
+              target:
+                entity_id: input_select.master_bedroom_remote_view
+              data:
+                option: Now Playing
+          styles: "${(() => {\n  const st = hass.states['media_player.master_bedroom_appletv'];\n  const a = st?.attributes || {};\n  const sa = hass.states['sensor.master_bedroom_appletv_info']?.attributes\
+            \ || {};\n  const d = sa.details || {};\n  const cid = String(a.media_content_id ?? '');\n  const fb = ({ 'YouTube': '/local/media_art/youtube.svg', 'TV': '/local/media_art/tv.svg', 'Disney+':\
+            \ '/local/media_art/disney_plus.svg', 'Prime Video': '/local/media_art/prime_video.svg' })[a.app_name] || '';\n  const last = window.__mbAppleTvArt || {};\n  const settled = ['playing', 'paused'].includes(st?.state)\
+            \ && cid !== '';\n  const pending = /^[0-9]+$/.test(cid) && String(sa.content_id ?? '') !== cid;\n  let art;\n  if (settled && !pending) {\n    art = String(sa.content_id ?? '') === cid && (d.backdrop\
+            \ || d.poster) ? (d.backdrop || d.poster.replace('1000x1000bb', '600x600bb')) : (a.entity_picture || fb);\n    window.__mbAppleTvArt = { art, t: Date.now() };\n  } else {\n    art = last.art\
+            \ && Date.now() - last.t < 30000 ? last.art : fb;\n  }\n  const wide = /image\\.tmdb\\.org/.test(art || '');\n  return `.bubble-button-card-container { background-image: url(\"${art || '/local/media_art/tv.svg'}\"\
+            ) !important; }` + (wide ? `\nha-card:not(#w), .bubble-button-container:not(#w) { height: auto !important; }\n.bubble-button-card-container:not(#w) { height: auto !important; aspect-ratio: 16\
+            \ / 9; padding: 0 !important; background-size: cover !important; }` : '');\n})()}\n.bubble-button-card-container { background-size: contain !important; background-position: center !important;\
+            \ background-repeat: no-repeat !important; background-origin: content-box !important; padding: 12px !important; box-sizing: border-box !important; }\nha-card, .bubble-button-card-container,\
+            \ .bubble-button-container { height: 174px !important; }\n.bubble-icon-container, .bubble-name-container { display: none !important; }\n"
+          visibility:
+          - condition: state
+            entity: media_player.master_bedroom_appletv
+            state_not:
+            - 'off'
+            - standby
+            - unavailable
+            - unknown
+        - type: markdown
+          text_only: true
+          content: '{% set mp = ''media_player.master_bedroom_appletv'' %}{% set se = ''sensor.master_bedroom_appletv_info'' %}{% set d = state_attr(se, ''details'') or {} %}{% set ok = states(se) not in
+            [''none'', ''unknown'', ''unavailable''] and (state_attr(se, ''content_id'') | string) == (state_attr(mp, ''media_content_id'') | string) %}{% set series = d.get(''series'') if ok else state_attr(mp,
+            ''media_series_title'') %}{% if series %}#### {{ series }}
+
+
+            {% endif %}### {{ states(se) if ok else state_attr(mp, ''media_title'') }}'
+          visibility:
+          - condition: state
+            entity: media_player.master_bedroom_appletv
+            state:
+            - playing
+            - paused
+          uix:
+            style:
+              ha-markdown$: 'h4 { margin: 2px 4px 0 !important; font-size: 12px; font-weight: 500; text-align: center; color: var(--secondary-text-color); } h3 { margin: 2px 4px 2px !important; font-size:
+                15px; font-weight: 600; line-height: 1.25; text-align: center; color: var(--primary-text-color); }'
+              'ha-markdown $ ha-markdown-element:': 'h4 { margin: 2px 4px 0 !important; font-size: 12px; font-weight: 500; text-align: center; color: var(--secondary-text-color); } h3 { margin: 2px 4px
+                2px !important; font-size: 15px; font-weight: 600; line-height: 1.25; text-align: center; color: var(--primary-text-color); }'
         - type: custom:bubble-card
           card_type: button
           button_type: slider

@@ -67,8 +67,8 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   link could land on a collapsed remote. The remote is Universal Remote Card (HACS), the only
   card besides YAMP that isn't Bubble: it sends the Apple TV `remote.send_command` keys natively, gives
   haptics, and has a swipe touchpad that Bubble has no equivalent for.
-- **Media cards by place.** Home uses the two-row Bubble cards above. The remote pop-ups lead
-  with a full-height Yet Another Media Player card (artwork first). `#media` uses YAMP
+- **Media cards by place.** Home uses the two-row Bubble cards above. The remote pop-ups' Apple TV
+  tabs lead with a Bubble button card showing the artwork, then the title (see `#living-room-remote`). `#media` uses YAMP
   cards, square for Apple TVs and compact for HomePods. The room pop-ups'
   HomePod and Family Room cards keep the large Bubble Media Player Enhanced layout (`rows: 3`,
   scrubbable progress bar, `background_opacity: 0.85`, `idle_artwork: none`, Bubble's icon
