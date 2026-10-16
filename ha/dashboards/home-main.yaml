@@ -3279,21 +3279,110 @@ views:
       cards:
       - type: markdown
         text_only: true
-        content: '{% set d = state_attr(''sensor.family_room_appletv_info'', ''details'') or {} %}{% set tall = d.get(''show_poster'') or (d.get(''poster'', '''') if d.get(''kind'') == ''feature-movie''
-          else '''') %}{% set hero = tall or d.get(''backdrop'') or d.get(''poster'', '''') %}<img alt="{{ ''poster'' if tall else ''art'' }}" src="{{ hero }}">
+        content: '{% set d = state_attr(''sensor.family_room_appletv_info'', ''details'') or {} %}{% set ok = states(''sensor.family_room_appletv_info'') not in [''none'', ''unknown'', ''unavailable'']
+          %}{% set a = states.media_player.family_room_appletv.attributes if states.media_player.family_room_appletv else {} %}{% set tall = (d.get(''show_poster'') or (d.get(''poster'', '''') if d.get(''kind'')
+          == ''feature-movie'' else '''')) if ok else '''' %}###### <ha-icon icon="mdi:{{ ''play'' if is_state(''media_player.family_room_appletv'', ''playing'') else ''pause'' }}"></ha-icon>Now Playing
+          · Family Room{% if a.app_name %} `{{ a.app_name }}`{% endif %}
 
 
-          {% if d.get(''series'') %}### {{ d.get(''series'') }}
+          {% set hero = tall or (d.get(''backdrop'') or d.get(''poster'', '''') if ok else '''') or a.entity_picture %}{% if hero %}<img alt="{{ ''poster'' if tall else ''art'' }}" src="{{ hero }}">{% endif
+          %}
 
 
-          {% endif %}## {{ states(''sensor.family_room_appletv_info'') }}
+          {% if ok and d.get(''series'') %}### {{ d.get(''series'') }}
 
 
-          {% if d.get(''tagline'') %}*{{ d.get(''tagline'') }}*
+          {% endif %}## {{ states(''sensor.family_room_appletv_info'') if ok else (a.media_title or ''Nothing playing'') }}
 
 
-          {% endif %}{% if d.get(''rating'') %}**{{ d.get(''rating'') }}** · {% endif %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', ''''), (''★ '' ~ d.get(''score'')) if d.get(''score'')
-          else ''''] | select | join('' · '') }}
+          {% if ok and d.get(''tagline'') %}*{{ d.get(''tagline'') }}*{% endif %}'
+        uix:
+          style:
+            ha-markdown$: 'h6 { display: flex; align-items: center; gap: 6px; margin: 2px 4px 10px !important; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--secondary-text-color);
+              } h6 ha-icon { --mdc-icon-size: 14px; color: var(--purple-color); } h6 code { margin-left: auto; font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0.3px; text-transform:
+              none; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, var(--primary-text-color) 10%, transparent); color: var(--primary-text-color); } p { margin: 0 4px !important;
+              text-align: center; color: var(--secondary-text-color); line-height: 1.4; } img { display: block; } img[alt="poster"] { width: 80%; margin: 4px auto 0; border-radius: 14px; box-shadow: 0 8px
+              24px rgba(0, 0, 0, 0.45); } img[alt="art"] { width: 100%; border-radius: 22px; } h3 { margin: 14px 4px 0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform:
+              uppercase; text-align: center; color: var(--secondary-text-color); } h2 { margin: 14px 4px 2px !important; font-size: 24px; font-weight: 700; text-align: center; color: var(--primary-text-color);
+              } h3 + h2 { margin-top: 2px !important; } em { font-size: 14px; }'
+            'ha-markdown $ ha-markdown-element:': 'h6 { display: flex; align-items: center; gap: 6px; margin: 2px 4px 10px !important; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform:
+              uppercase; color: var(--secondary-text-color); } h6 ha-icon { --mdc-icon-size: 14px; color: var(--purple-color); } h6 code { margin-left: auto; font-family: inherit; font-size: 11px; font-weight:
+              600; letter-spacing: 0.3px; text-transform: none; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, var(--primary-text-color) 10%, transparent); color: var(--primary-text-color);
+              } p { margin: 0 4px !important; text-align: center; color: var(--secondary-text-color); line-height: 1.4; } img { display: block; } img[alt="poster"] { width: 80%; margin: 4px auto 0; border-radius:
+              14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); } img[alt="art"] { width: 100%; border-radius: 22px; } h3 { margin: 14px 4px 0 !important; font-size: 13px; font-weight: 600; letter-spacing:
+              0.4px; text-transform: uppercase; text-align: center; color: var(--secondary-text-color); } h2 { margin: 14px 4px 2px !important; font-size: 24px; font-weight: 700; text-align: center; color:
+              var(--primary-text-color); } h3 + h2 { margin-top: 2px !important; } em { font-size: 14px; }'
+      - type: custom:bubble-card
+        card_type: button
+        button_type: slider
+        entity: number.family_room_appletv_position
+        name: Timeline
+        show_name: false
+        show_icon: false
+        show_state: true
+        state_content: '{% set p = states(''number.family_room_appletv_position'') | int(0) %}{% set d = state_attr(''number.family_room_appletv_position'', ''max'') | int(0) %}{% if d >= 3600 %}{{ ''%d:%02d:%02d''
+          | format(p // 3600, p % 3600 // 60, p % 60) }} / {{ ''%d:%02d:%02d'' | format(d // 3600, d % 3600 // 60, d % 60) }}{% else %}{{ ''%d:%02d'' | format(p // 60, p % 60) }} / {{ ''%d:%02d'' | format(d
+          // 60, d % 60) }}{% endif %}'
+        slider_live_update: false
+        rows: 0.6
+        tap_action:
+          action: none
+        visibility:
+        - condition: state
+          entity: number.family_room_appletv_position
+          state_not:
+          - unavailable
+          - unknown
+        - condition: state
+          entity: media_player.family_room_appletv
+          state:
+          - playing
+          - paused
+        styles: '.bubble-button-card-container, .bubble-button-container { border-radius: 10px !important; overflow: hidden !important; }
+
+          .bubble-range-fill, .bubble-range-slider { border-radius: 0 !important; }
+
+          .bubble-button-card-container { background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }
+
+          .bubble-range-fill { background: var(--purple-color) !important; opacity: 0.55 !important; }
+
+          .bubble-state { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px !important; }
+
+          .rc-skip { background: transparent !important; --mdc-icon-size: 24px; }
+
+          .rc-skip ha-icon { color: var(--primary-text-color) !important; }
+
+          .bubble-button-container { height: 32px !important; }
+
+          ha-card { border-radius: 10px !important; }
+
+          '
+        sub_button:
+          main: []
+          bottom: []
+        modules:
+        - time_slider
+        double_tap_action:
+          action: none
+        hold_action:
+          action: none
+        button_action:
+          tap_action:
+            action: none
+          double_tap_action:
+            action: none
+          hold_action:
+            action: none
+      - type: markdown
+        text_only: true
+        content: '{% set d = state_attr(''sensor.family_room_appletv_info'', ''details'') or {} %}{% set ok = states(''sensor.family_room_appletv_info'') not in [''none'', ''unknown'', ''unavailable'']
+          %}{% set p = states(''number.family_room_appletv_position'') | int(-1) %}{% set m = state_attr(''number.family_room_appletv_position'', ''max'') | int(0) %}{% if p >= 0 and m > p %}{% set left
+          = m - p %}##### {{ ((left // 3600) ~ ''h '' if left >= 3600 else '''') ~ (left % 3600 // 60) ~ ''m left'' }}{% if is_state(''media_player.family_room_appletv'', ''playing'') %} · Ends at {{ (now()
+          + timedelta(seconds=left)).strftime(''%-I:%M %p'') }}{% endif %}
+
+
+          {% endif %}{% if ok %}{% if d.get(''rating'') %}**{{ d.get(''rating'') }}** · {% endif %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', ''''), (''★ '' ~ d.get(''score''))
+          if d.get(''score'') else ''''] | select | join('' · '') }}
 
 
           {% if d.get(''director'') %}Directed by {{ d.get(''director'') }}
@@ -3306,14 +3395,7 @@ views:
 
 
           <table>{% for row in cast | batch(4) %}<tr>{% for p in row %}<td>{% if p.photo %}<img src="{{ p.photo }}">{% endif %}{{ p.name }}<br><em>{{ p.role }}</em></td>{% endfor %}</tr>{% endfor %}</table>{%
-          endif %}'
-        visibility:
-        - condition: state
-          entity: sensor.family_room_appletv_info
-          state_not:
-          - none
-          - unknown
-          - unavailable
+          endif %}{% endif %}'
         uix:
           style:
             ha-markdown$: 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px 4px !important; color: var(--secondary-text-color);
@@ -3323,7 +3405,8 @@ views:
               table-layout: fixed; border: none !important; } tr, td { border: none !important; background: none !important; } td { vertical-align: top; text-align: center; padding: 8px 2px !important;
               font-size: 12px; line-height: 1.25; color: var(--primary-text-color); } td img { width: 56px !important; height: 56px; border-radius: 50% !important; object-fit: cover; object-position: center
               top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); } img[alt="poster"] { width: 62% !important; margin: 4px auto 12px !important; border-radius:
-              14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }'
+              14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); } h5 { margin: 2px 4px 12px !important; font-size: 13px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; color:
+              var(--primary-text-color); }'
             'ha-markdown $ ha-markdown-element:': 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px
               4px !important; color: var(--secondary-text-color); line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding:
               0 5px; font-size: 12px; } h3 { margin: 14px 4px 0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3
@@ -3331,41 +3414,8 @@ views:
               } table { width: 100%; border-collapse: collapse; table-layout: fixed; border: none !important; } tr, td { border: none !important; background: none !important; } td { vertical-align: top;
               text-align: center; padding: 8px 2px !important; font-size: 12px; line-height: 1.25; color: var(--primary-text-color); } td img { width: 56px !important; height: 56px; border-radius: 50% !important;
               object-fit: cover; object-position: center top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); } img[alt="poster"] { width: 62% !important;
-              margin: 4px auto 12px !important; border-radius: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }'
-      - type: markdown
-        text_only: true
-        content: '{% set a = states.media_player.family_room_appletv.attributes %}{% if a.entity_picture %}<img alt="art" src="{{ a.entity_picture }}">
-
-
-          {% endif %}## {{ a.media_title or ''Nothing playing'' }}
-
-
-          {{ a.app_name or '''' }}'
-        visibility:
-        - condition: state
-          entity: sensor.family_room_appletv_info
-          state:
-          - none
-          - unknown
-          - unavailable
-        uix:
-          style:
-            ha-markdown$: 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px 4px !important; color: var(--secondary-text-color);
-              line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding: 0 5px; font-size: 12px; } h3 { margin: 14px 4px
-              0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3 + h2 { margin-top: 2px !important; } h4 { margin:
-              18px 4px 4px !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } table { width: 100%; border-collapse: collapse;
-              table-layout: fixed; border: none !important; } tr, td { border: none !important; background: none !important; } td { vertical-align: top; text-align: center; padding: 8px 2px !important;
-              font-size: 12px; line-height: 1.25; color: var(--primary-text-color); } td img { width: 56px !important; height: 56px; border-radius: 50% !important; object-fit: cover; object-position: center
-              top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); } img[alt="poster"] { width: 62% !important; margin: 4px auto 12px !important; border-radius:
-              14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }'
-            'ha-markdown $ ha-markdown-element:': 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px
-              4px !important; color: var(--secondary-text-color); line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding:
-              0 5px; font-size: 12px; } h3 { margin: 14px 4px 0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3
-              + h2 { margin-top: 2px !important; } h4 { margin: 18px 4px 4px !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color);
-              } table { width: 100%; border-collapse: collapse; table-layout: fixed; border: none !important; } tr, td { border: none !important; background: none !important; } td { vertical-align: top;
-              text-align: center; padding: 8px 2px !important; font-size: 12px; line-height: 1.25; color: var(--primary-text-color); } td img { width: 56px !important; height: 56px; border-radius: 50% !important;
-              object-fit: cover; object-position: center top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); } img[alt="poster"] { width: 62% !important;
-              margin: 4px auto 12px !important; border-radius: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }'
+              margin: 4px auto 12px !important; border-radius: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); } h5 { margin: 2px 4px 12px !important; font-size: 13px; font-weight: 600; text-align: center;
+              font-variant-numeric: tabular-nums; color: var(--primary-text-color); }'
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#office'

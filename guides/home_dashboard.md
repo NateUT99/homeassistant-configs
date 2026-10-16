@@ -249,7 +249,7 @@ start collapsed.
 |---|---|---|
 | Living Room Apple TV | `media_player.living_room_soundbar` | `#living-room-remote` |
 | Master Bedroom Apple TV | `media_player.master_bedroom_tv` | `#master-bedroom-remote` |
-| Family Room Apple TV | `media_player.family_room_theater` | `#family-room-now-playing` |
+| Family Room Apple TV | `media_player.family_room_theater` | `#family-room-now-playing` | No header; `popup_style: home-assistant`, like the remote pop-ups. Three cards, all from `sensor.family_room_appletv_info` and the player. **Header** (markdown): a small-caps label row (play or pause icon in purple, "Now Playing · Family Room", the app name as a pill on the right), then one image picked like the remote's Now Playing tab (the 2:3 poster at 80% width for a movie or series, otherwise TMDB's wide background art, Apple's art, or the player's own artwork at full width), the series as a small heading for an episode, the title, and the tagline in italics. While the sensor is `none` (an app it can't look up, such as YouTube) the header still shows the player's artwork, `media_title` and app. **Timeline**: the remote's Bubble slider on `number.family_room_appletv_position`. **Details** (markdown): time left and, while playing, "Ends at" a clock time (from the position number's value and `max`; hidden for live TV, which has no duration), then the rating badge with year · genre · runtime · ★ score, the director, the full description, and the Cast grid |
 
 Each sets `volume_mode: stepper` (−/+ at `volume_step: 0.02`, mute on the speaker icon),
 `match_theme: true`, `artwork_object_fit: cover` and `details_alignment: left`, hides every
