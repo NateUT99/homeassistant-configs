@@ -755,6 +755,15 @@ views:
 
               .details .artist { display: none !important; }
 
+              .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+              .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+              }
+
+              .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+              .card-lower-content-bg::after { background-size: contain; }
+
               '
       - type: grid
         columns: 2
@@ -899,6 +908,15 @@ views:
 
               .details .artist { display: none !important; }
 
+              .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+              .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+              }
+
+              .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+              .card-lower-content-bg::after { background-size: contain; }
+
               '
       - type: conditional
         conditions:
@@ -954,6 +972,15 @@ views:
               .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
 
               .progress-bar-container { display: none !important; }
+
+              .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+              .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+              }
+
+              .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+              .card-lower-content-bg::after { background-size: contain; }
 
               '
       - type: grid
@@ -1098,6 +1125,15 @@ views:
 
               .progress-bar-container { display: none !important; }
 
+              .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+              .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+              }
+
+              .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+              .card-lower-content-bg::after { background-size: contain; }
+
               '
       - type: grid
         columns: 2
@@ -1240,6 +1276,15 @@ views:
               .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
 
               .progress-bar-container { display: none !important; }
+
+              .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+              .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+              }
+
+              .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+              .card-lower-content-bg::after { background-size: contain; }
 
               '
       - type: grid
@@ -1422,6 +1467,15 @@ views:
 
               .details .artist { display: none !important; }
 
+              .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+              .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+              }
+
+              .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+              .card-lower-content-bg::after { background-size: contain; }
+
               '
       - type: grid
         columns: 2
@@ -1564,6 +1618,15 @@ views:
               .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
 
               .progress-bar-container { display: none !important; }
+
+              .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+              .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+              }
+
+              .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+              .card-lower-content-bg::after { background-size: contain; }
 
               '
       - type: grid
@@ -1985,6 +2048,15 @@ views:
               .progress-bar-container { display: none !important; }
 
               .details .artist { display: none !important; }
+
+              .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+              .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+              }
+
+              .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+              .card-lower-content-bg::after { background-size: contain; }
 
               '
       - type: conditional
@@ -3150,6 +3222,15 @@ views:
 
             .progress-bar-container { display: none !important; }
 
+            .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+            .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+            }
+
+            .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+            .card-lower-content-bg::after { background-size: contain; }
+
             '
         visibility:
         - condition: state
@@ -3289,6 +3370,15 @@ views:
                 .progress-bar-container { display: none !important; }
 
                 .details .artist { display: none !important; }
+
+                .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+                .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+                }
+
+                .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+                .card-lower-content-bg::after { background-size: contain; }
 
                 '
           - type: custom:bubble-card
@@ -3459,6 +3549,15 @@ views:
 
             .progress-bar-container { display: none !important; }
 
+            .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+            .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+            }
+
+            .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+            .card-lower-content-bg::after { background-size: contain; }
+
             '
         visibility:
         - condition: state
@@ -3577,6 +3676,15 @@ views:
 
               .details .artist { display: none !important; }
 
+              .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+              .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+              }
+
+              .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+              .card-lower-content-bg::after { background-size: contain; }
+
               '
       - type: conditional
         conditions:
@@ -3662,6 +3770,15 @@ views:
 
             .progress-bar-container { display: none !important; }
 
+            .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+            .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+            }
+
+            .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+            .card-lower-content-bg::after { background-size: contain; }
+
             '
         visibility:
         - condition: state
@@ -3715,6 +3832,15 @@ views:
             .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
 
             .progress-bar-container { display: none !important; }
+
+            .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+            .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+            }
+
+            .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+            .card-lower-content-bg::after { background-size: contain; }
 
             '
         visibility:
@@ -4390,6 +4516,15 @@ views:
             .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
 
             .progress-bar-container { display: none !important; }
+
+            .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+            .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+            }
+
+            .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+            .card-lower-content-bg::after { background-size: contain; }
 
             '
         visibility:
@@ -6585,6 +6720,7 @@ views:
             entities:
             - entity_id: media_player.living_room_appletv
               name: Living Room
+              volume_entity: media_player.living_room_soundbar
               hidden_controls:
               - previous
               - next
@@ -6593,29 +6729,19 @@ views:
               - repeat
               - favorite
               - power
-              volume_entity: media_player.living_room_soundbar
-            match_theme: true
             volume_mode: stepper
+            volume_step: 0.02
+            match_theme: true
             artwork_object_fit: cover
-            uix:
-              style: ':host { --accent-color: var(--primary-text-color); }
-
-                .volume-percentage-indicator { color: var(--primary-background-color) !important; }
-
-                .more-info-menu { display: none !important; }
-
-                .progress-bar { background: color-mix(in srgb, var(--primary-text-color) 25%, transparent) !important; }
-
-                '
+            details_alignment: left
             media_artwork_overrides:
             - entity_id: media_player.living_room_appletv
-              image_url: '[[[ const a = states[''media_player.living_room_appletv'']?.attributes || {}; const sa = states[''sensor.living_room_appletv_info'']; const d = sa?.attributes?.details || {}; const
-                ok = !!sa && !!d.poster && String(sa.attributes.content_id ?? '''') === String(a.media_content_id ?? ''''); const fb = { ''YouTube'': ''/local/media_art/youtube.svg'', ''TV'': ''/local/media_art/tv.svg'',
-                ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg'' }[a.app_name] || ''''; return (ok && d.poster.replace(''1000x1000bb'', ''2000x2000bb''))
-                || a.entity_picture || fb; ]]]'
-              size_percentage: 100
               object_fit: cover
-              object_position: top center
+              image_url: '[[[ const a = states[''media_player.living_room_appletv'']?.attributes || {}; const sa = states[''sensor.living_room_appletv_info'']; const d = sa?.attributes?.details || {}; const
+                ok = !!sa && ![''none'', ''unknown'', ''unavailable''].includes(sa.state) && String(sa.attributes.content_id ?? '''') === String(a.media_content_id ?? ''''); const fb = { ''YouTube'': ''/local/media_art/youtube.svg'',
+                ''TV'': ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg'' }[a.app_name] || ''''; const poster = (d.poster
+                || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return a.entity_picture || (ok && (d.backdrop
+                || d.show_poster || poster)) || fb; ]]]'
             actions:
             - name: Remote
               icon: mdi:remote-tv
@@ -6623,10 +6749,52 @@ views:
               navigation_path: '#living-room-remote'
               placement: hidden
               card_trigger: tap
-            card_height: '{% set d = state_attr(''sensor.living_room_appletv_info'', ''details'') %}{% set ok = d is mapping and d.get(''poster'') and (state_attr(''sensor.living_room_appletv_info'', ''content_id'')
-              | string) == (state_attr(''media_player.living_room_appletv'', ''media_content_id'') | string) %}{{ 535 if ok else 340 }}'
-            details_alignment: left
-            volume_step: 0.02
+            uix:
+              style: ':host { --accent-color: var(--primary-text-color); }
+
+                .volume-percentage-indicator { color: var(--primary-background-color) !important; }
+
+                .more-info-menu { display: none !important; }
+
+                .yamp-card-inner { container-type: inline-size; }
+
+                .card-lower-content-bg { min-height: 0 !important; height: 100% !important; background-position: center !important; }
+
+                .card-artwork-spacer { height: max(40px, calc(56.25cqw - 85px)) !important; min-height: 0 !important; }
+
+                .card-lower-content { display: grid !important; grid-template-columns: auto 1fr; align-items: center; }
+
+                .card-lower-content > * { grid-column: 1 / -1; }
+
+                .card-lower-content > div:has(> .controls-row) { grid-column: 1; }
+
+                .card-lower-content > .volume-row { grid-column: 2; display: flex !important; justify-content: flex-end !important; gap: 4px; padding: 0 12px 0 0 !important; min-height: 0 !important; height:
+                auto !important; }
+
+                .volume-row > * { flex: 0 0 auto !important; }
+
+                .volume-left { margin-left: auto !important; }
+
+                .volume-center { width: auto !important; }
+
+                .controls-row { padding: 6px 0 10px 16px !important; }
+
+                .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
+
+                .progress-bar-container { display: none !important; }
+
+                .details .artist { display: none !important; }
+
+                .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+                .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+                }
+
+                .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+                .card-lower-content-bg::after { background-size: contain; }
+
+                '
           - type: custom:bubble-card
             card_type: sub-buttons
             hide_main_background: true
@@ -6717,6 +6885,7 @@ views:
             entities:
             - entity_id: media_player.master_bedroom_appletv
               name: Master Bedroom
+              volume_entity: media_player.master_bedroom_tv
               hidden_controls:
               - previous
               - next
@@ -6725,29 +6894,19 @@ views:
               - repeat
               - favorite
               - power
-              volume_entity: media_player.master_bedroom_tv
-            match_theme: true
             volume_mode: stepper
+            volume_step: 0.02
+            match_theme: true
             artwork_object_fit: cover
-            uix:
-              style: ':host { --accent-color: var(--primary-text-color); }
-
-                .volume-percentage-indicator { color: var(--primary-background-color) !important; }
-
-                .more-info-menu { display: none !important; }
-
-                .progress-bar { background: color-mix(in srgb, var(--primary-text-color) 25%, transparent) !important; }
-
-                '
+            details_alignment: left
             media_artwork_overrides:
             - entity_id: media_player.master_bedroom_appletv
-              image_url: '[[[ const a = states[''media_player.master_bedroom_appletv'']?.attributes || {}; const sa = states[''sensor.master_bedroom_appletv_info'']; const d = sa?.attributes?.details ||
-                {}; const ok = !!sa && !!d.poster && String(sa.attributes.content_id ?? '''') === String(a.media_content_id ?? ''''); const fb = { ''YouTube'': ''/local/media_art/youtube.svg'', ''TV'':
-                ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg'' }[a.app_name] || ''''; return (ok && d.poster.replace(''1000x1000bb'',
-                ''2000x2000bb'')) || a.entity_picture || fb; ]]]'
-              size_percentage: 100
               object_fit: cover
-              object_position: top center
+              image_url: '[[[ const a = states[''media_player.master_bedroom_appletv'']?.attributes || {}; const sa = states[''sensor.master_bedroom_appletv_info'']; const d = sa?.attributes?.details ||
+                {}; const ok = !!sa && ![''none'', ''unknown'', ''unavailable''].includes(sa.state) && String(sa.attributes.content_id ?? '''') === String(a.media_content_id ?? ''''); const fb = { ''YouTube'':
+                ''/local/media_art/youtube.svg'', ''TV'': ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg'' }[a.app_name]
+                || ''''; const poster = (d.poster || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return
+                a.entity_picture || (ok && (d.backdrop || d.show_poster || poster)) || fb; ]]]'
             actions:
             - name: Remote
               icon: mdi:remote-tv
@@ -6755,10 +6914,52 @@ views:
               navigation_path: '#master-bedroom-remote'
               placement: hidden
               card_trigger: tap
-            card_height: '{% set d = state_attr(''sensor.master_bedroom_appletv_info'', ''details'') %}{% set ok = d is mapping and d.get(''poster'') and (state_attr(''sensor.master_bedroom_appletv_info'',
-              ''content_id'') | string) == (state_attr(''media_player.master_bedroom_appletv'', ''media_content_id'') | string) %}{{ 535 if ok else 340 }}'
-            details_alignment: left
-            volume_step: 0.02
+            uix:
+              style: ':host { --accent-color: var(--primary-text-color); }
+
+                .volume-percentage-indicator { color: var(--primary-background-color) !important; }
+
+                .more-info-menu { display: none !important; }
+
+                .yamp-card-inner { container-type: inline-size; }
+
+                .card-lower-content-bg { min-height: 0 !important; height: 100% !important; background-position: center !important; }
+
+                .card-artwork-spacer { height: max(40px, calc(56.25cqw - 85px)) !important; min-height: 0 !important; }
+
+                .card-lower-content { display: grid !important; grid-template-columns: auto 1fr; align-items: center; }
+
+                .card-lower-content > * { grid-column: 1 / -1; }
+
+                .card-lower-content > div:has(> .controls-row) { grid-column: 1; }
+
+                .card-lower-content > .volume-row { grid-column: 2; display: flex !important; justify-content: flex-end !important; gap: 4px; padding: 0 12px 0 0 !important; min-height: 0 !important; height:
+                auto !important; }
+
+                .volume-row > * { flex: 0 0 auto !important; }
+
+                .volume-left { margin-left: auto !important; }
+
+                .volume-center { width: auto !important; }
+
+                .controls-row { padding: 6px 0 10px 16px !important; }
+
+                .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
+
+                .progress-bar-container { display: none !important; }
+
+                .details .artist { display: none !important; }
+
+                .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+                .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+                }
+
+                .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+                .card-lower-content-bg::after { background-size: contain; }
+
+                '
           - type: custom:bubble-card
             card_type: sub-buttons
             hide_main_background: true
@@ -6963,6 +7164,7 @@ views:
             entities:
             - entity_id: media_player.family_room_appletv
               name: Family Room
+              volume_entity: media_player.family_room_theater
               hidden_controls:
               - previous
               - next
@@ -6971,10 +7173,19 @@ views:
               - repeat
               - favorite
               - power
-              volume_entity: media_player.family_room_theater
-            match_theme: true
             volume_mode: stepper
+            volume_step: 0.02
+            match_theme: true
             artwork_object_fit: cover
+            details_alignment: left
+            media_artwork_overrides:
+            - entity_id: media_player.family_room_appletv
+              object_fit: cover
+              image_url: '[[[ const a = states[''media_player.family_room_appletv'']?.attributes || {}; const sa = states[''sensor.family_room_appletv_info'']; const d = sa?.attributes?.details || {}; const
+                ok = !!sa && ![''none'', ''unknown'', ''unavailable''].includes(sa.state) && String(sa.attributes.content_id ?? '''') === String(a.media_content_id ?? ''''); const fb = { ''YouTube'': ''/local/media_art/youtube.svg'',
+                ''TV'': ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg'' }[a.app_name] || ''''; const poster = (d.poster
+                || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return a.entity_picture || (ok && (d.backdrop
+                || d.show_poster || poster)) || fb; ]]]'
             uix:
               style: ':host { --accent-color: var(--primary-text-color); }
 
@@ -6982,22 +7193,45 @@ views:
 
                 .more-info-menu { display: none !important; }
 
-                .progress-bar { background: color-mix(in srgb, var(--primary-text-color) 25%, transparent) !important; }
+                .yamp-card-inner { container-type: inline-size; }
+
+                .card-lower-content-bg { min-height: 0 !important; height: 100% !important; background-position: center !important; }
+
+                .card-artwork-spacer { height: max(40px, calc(56.25cqw - 85px)) !important; min-height: 0 !important; }
+
+                .card-lower-content { display: grid !important; grid-template-columns: auto 1fr; align-items: center; }
+
+                .card-lower-content > * { grid-column: 1 / -1; }
+
+                .card-lower-content > div:has(> .controls-row) { grid-column: 1; }
+
+                .card-lower-content > .volume-row { grid-column: 2; display: flex !important; justify-content: flex-end !important; gap: 4px; padding: 0 12px 0 0 !important; min-height: 0 !important; height:
+                auto !important; }
+
+                .volume-row > * { flex: 0 0 auto !important; }
+
+                .volume-left { margin-left: auto !important; }
+
+                .volume-center { width: auto !important; }
+
+                .controls-row { padding: 6px 0 10px 16px !important; }
+
+                .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
+
+                .progress-bar-container { display: none !important; }
+
+                .details .artist { display: none !important; }
+
+                .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+                .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
+                }
+
+                .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+                .card-lower-content-bg::after { background-size: contain; }
 
                 '
-            media_artwork_overrides:
-            - entity_id: media_player.family_room_appletv
-              image_url: '[[[ const a = states[''media_player.family_room_appletv'']?.attributes || {}; const sa = states[''sensor.family_room_appletv_info'']; const d = sa?.attributes?.details || {}; const
-                ok = !!sa && !!d.poster && String(sa.attributes.content_id ?? '''') === String(a.media_content_id ?? ''''); const fb = { ''YouTube'': ''/local/media_art/youtube.svg'', ''TV'': ''/local/media_art/tv.svg'',
-                ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg'' }[a.app_name] || ''''; return (ok && d.poster.replace(''1000x1000bb'', ''2000x2000bb''))
-                || a.entity_picture || fb; ]]]'
-              size_percentage: 100
-              object_fit: cover
-              object_position: top center
-            card_height: '{% set d = state_attr(''sensor.family_room_appletv_info'', ''details'') %}{% set ok = d is mapping and d.get(''poster'') and (state_attr(''sensor.family_room_appletv_info'', ''content_id'')
-              | string) == (state_attr(''media_player.family_room_appletv'', ''media_content_id'') | string) %}{{ 535 if ok else 340 }}'
-            details_alignment: left
-            volume_step: 0.02
           - type: custom:bubble-card
             card_type: sub-buttons
             hide_main_background: true

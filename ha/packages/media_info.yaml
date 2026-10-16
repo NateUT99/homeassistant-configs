@@ -17,7 +17,9 @@
 # Titles streamed in the TV app (Apple TV+ and the like) report a non-numeric ID (e.g.
 # A0006203008) and only a title, so they skip Apple's lookup and go straight to a TMDB search
 # by that title (the series name when the player reports one). Only an exact, case-insensitive
-# name match is used; anything looser could show the wrong show. These get TMDB's fields only:
+# name match is used, or failing that a TMDB title of the form "<prefix>: <title>" -- specials
+# are often listed under their franchise ("Snoopy Presents: A Summer Musical" when the Apple TV
+# says "A Summer Musical"); anything looser could show the wrong show. These get TMDB's fields only:
 # the US content rating from TMDB, the player's own duration as runtime, and the series (not
 # the episode) for TV. Other apps (YouTube, Disney+) and live TV (no duration) get no details.
 #
@@ -30,9 +32,10 @@
 # timer. The home-main remote pop-ups and #media show the details. See guides/home_dashboard.md.
 #
 # Top-level variables can't see `this`, so `changed` reads the sensor by entity ID (the
-# renamed sensor.<room>_appletv_info). For a store title `changed` is also true for details
-# stored before the `show_poster` field existed, so they are fetched once more. A TV-app title
-# with no TMDB match stores its ID with empty details, so it is searched only once.
+# renamed sensor.<room>_appletv_info). `lookup_version` marks which lookup rules produced the
+# stored details; `changed` is also true when it differs, so raising it re-fetches whatever is
+# playing once under the new rules. A TV-app title with no TMDB match stores its ID with empty
+# details, so it is searched only once per version.
 #
 # Deployed to /config/packages/media_info.yaml; reload with rest_command.reload then
 # template.reload.
@@ -66,7 +69,7 @@ template:
       owned: "{{ new_id is match('^[0-9]+$') }}"
       tvapp: "{{ not owned and new_id != '' and is_state_attr('media_player.living_room_appletv', 'app_id', 'com.apple.TVWatchList') and (state_attr('media_player.living_room_appletv', 'media_duration') or 0) > 0 }}"
       title: "{{ state_attr('media_player.living_room_appletv', 'media_series_title') or state_attr('media_player.living_room_appletv', 'media_title') or '' }}"
-      changed: "{{ new_id != (state_attr('sensor.living_room_appletv_info', 'content_id') | default('', true) | string) or (owned and 'show_poster' not in (state_attr('sensor.living_room_appletv_info', 'details') or {})) }}"
+      changed: "{{ new_id != (state_attr('sensor.living_room_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.living_room_appletv_info', 'lookup_version') | int(0)) != 2 }}"
     actions:
       - if:
           - condition: template
@@ -113,7 +116,7 @@ template:
           # Only an exact (case-insensitive) title match is trusted; anything else shows no details.
           - variables:
               hit: >
-                {% set ns = namespace(m=[]) %}{% if msearch is defined and msearch.status == 200 %}{% for x in msearch.content.results | default([]) %}{% if x.get('media_type') in ['movie', 'tv'] and (x.get('name') or x.get('title') or '') | lower == title | lower %}{% set ns.m = ns.m + [x] %}{% endif %}{% endfor %}{% endif %}{{ ns.m | first | default({}) }}
+                {% set ns = namespace(m=[], p=[]) %}{% set t = title | lower %}{% if msearch is defined and msearch.status == 200 %}{% for x in msearch.content.results | default([]) if x.get('media_type') in ['movie', 'tv'] %}{% set n = (x.get('name') or x.get('title') or '') | lower %}{% if n == t %}{% set ns.m = ns.m + [x] %}{% elif n.endswith(': ' ~ t) %}{% set ns.p = ns.p + [x] %}{% endif %}{% endfor %}{% endif %}{{ (ns.m or ns.p) | first | default({}) }}
           - if:
               - condition: template
                 value_template: "{{ hit.get('id') is not none }}"
@@ -140,6 +143,7 @@ template:
           {% endif %}
         attributes:
           content_id: "{{ new_id if (active and (owned or tvapp)) else '' }}"
+          lookup_version: "{{ 2 }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
               {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
@@ -218,7 +222,7 @@ template:
       owned: "{{ new_id is match('^[0-9]+$') }}"
       tvapp: "{{ not owned and new_id != '' and is_state_attr('media_player.master_bedroom_appletv', 'app_id', 'com.apple.TVWatchList') and (state_attr('media_player.master_bedroom_appletv', 'media_duration') or 0) > 0 }}"
       title: "{{ state_attr('media_player.master_bedroom_appletv', 'media_series_title') or state_attr('media_player.master_bedroom_appletv', 'media_title') or '' }}"
-      changed: "{{ new_id != (state_attr('sensor.master_bedroom_appletv_info', 'content_id') | default('', true) | string) or (owned and 'show_poster' not in (state_attr('sensor.master_bedroom_appletv_info', 'details') or {})) }}"
+      changed: "{{ new_id != (state_attr('sensor.master_bedroom_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.master_bedroom_appletv_info', 'lookup_version') | int(0)) != 2 }}"
     actions:
       - if:
           - condition: template
@@ -265,7 +269,7 @@ template:
           # Only an exact (case-insensitive) title match is trusted; anything else shows no details.
           - variables:
               hit: >
-                {% set ns = namespace(m=[]) %}{% if msearch is defined and msearch.status == 200 %}{% for x in msearch.content.results | default([]) %}{% if x.get('media_type') in ['movie', 'tv'] and (x.get('name') or x.get('title') or '') | lower == title | lower %}{% set ns.m = ns.m + [x] %}{% endif %}{% endfor %}{% endif %}{{ ns.m | first | default({}) }}
+                {% set ns = namespace(m=[], p=[]) %}{% set t = title | lower %}{% if msearch is defined and msearch.status == 200 %}{% for x in msearch.content.results | default([]) if x.get('media_type') in ['movie', 'tv'] %}{% set n = (x.get('name') or x.get('title') or '') | lower %}{% if n == t %}{% set ns.m = ns.m + [x] %}{% elif n.endswith(': ' ~ t) %}{% set ns.p = ns.p + [x] %}{% endif %}{% endfor %}{% endif %}{{ (ns.m or ns.p) | first | default({}) }}
           - if:
               - condition: template
                 value_template: "{{ hit.get('id') is not none }}"
@@ -292,6 +296,7 @@ template:
           {% endif %}
         attributes:
           content_id: "{{ new_id if (active and (owned or tvapp)) else '' }}"
+          lookup_version: "{{ 2 }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
               {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
@@ -370,7 +375,7 @@ template:
       owned: "{{ new_id is match('^[0-9]+$') }}"
       tvapp: "{{ not owned and new_id != '' and is_state_attr('media_player.family_room_appletv', 'app_id', 'com.apple.TVWatchList') and (state_attr('media_player.family_room_appletv', 'media_duration') or 0) > 0 }}"
       title: "{{ state_attr('media_player.family_room_appletv', 'media_series_title') or state_attr('media_player.family_room_appletv', 'media_title') or '' }}"
-      changed: "{{ new_id != (state_attr('sensor.family_room_appletv_info', 'content_id') | default('', true) | string) or (owned and 'show_poster' not in (state_attr('sensor.family_room_appletv_info', 'details') or {})) }}"
+      changed: "{{ new_id != (state_attr('sensor.family_room_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.family_room_appletv_info', 'lookup_version') | int(0)) != 2 }}"
     actions:
       - if:
           - condition: template
@@ -417,7 +422,7 @@ template:
           # Only an exact (case-insensitive) title match is trusted; anything else shows no details.
           - variables:
               hit: >
-                {% set ns = namespace(m=[]) %}{% if msearch is defined and msearch.status == 200 %}{% for x in msearch.content.results | default([]) %}{% if x.get('media_type') in ['movie', 'tv'] and (x.get('name') or x.get('title') or '') | lower == title | lower %}{% set ns.m = ns.m + [x] %}{% endif %}{% endfor %}{% endif %}{{ ns.m | first | default({}) }}
+                {% set ns = namespace(m=[], p=[]) %}{% set t = title | lower %}{% if msearch is defined and msearch.status == 200 %}{% for x in msearch.content.results | default([]) if x.get('media_type') in ['movie', 'tv'] %}{% set n = (x.get('name') or x.get('title') or '') | lower %}{% if n == t %}{% set ns.m = ns.m + [x] %}{% elif n.endswith(': ' ~ t) %}{% set ns.p = ns.p + [x] %}{% endif %}{% endfor %}{% endif %}{{ (ns.m or ns.p) | first | default({}) }}
           - if:
               - condition: template
                 value_template: "{{ hit.get('id') is not none }}"
@@ -444,6 +449,7 @@ template:
           {% endif %}
         attributes:
           content_id: "{{ new_id if (active and (owned or tvapp)) else '' }}"
+          lookup_version: "{{ 2 }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
               {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}

@@ -60,7 +60,8 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   a 16:9 card the artwork fills, with the controls in one row on its bottom fade.
 - **Artwork follows what is playing.** A TV episode shows the Apple TV's own artwork, a 16:9
   still of that episode; a movie shows TMDB's backdrop, because the Apple TV sends only a poster.
-  The rule is a JavaScript template rather than Jinja because YAMP caches a Jinja artwork
+  Art of any other shape shows whole on a blurred copy of itself rather than cropped. The rule is
+  a JavaScript template rather than Jinja because YAMP caches a Jinja artwork
   override per title (`LESSONS.md` → *Yet Another Media Player caches a Jinja artwork override
   per title*).
 - **The Living Room Apple TV has its own remote pop-up.** `#living-room-remote` is the one
@@ -72,7 +73,7 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   haptics, and has a swipe touchpad that Bubble has no equivalent for.
 - **Media cards by place.** Home and the room pop-ups use the room media card. The remote
   pop-ups' Apple TV tabs lead with a Bubble button card showing the artwork, then the title (see
-  `#living-room-remote`); `#media` uses YAMP cards shaped for posters (Step 3).
+  `#living-room-remote`); `#media` adds each Apple TV's rating, details line and description under the same card, and gives HomePods a compact card (Step 3).
 - **Media cards follow an "active" template sensor per player**
   (`ha/packages/media_activity.yaml`), and so does the Media chip's count. Apple TVs are
   active while playing, or paused in the app that last played (a paused show is one you'll come
@@ -166,11 +167,10 @@ switch by hand are quick actions; running appliances are Happening now.
 **`#lights`** lists every light by room (Living Room through Utility Room) as `apple_tile`
 tiles — tap toggles, hold opens more-info. **`#media`** is the house-wide "Speakers & TVs"
 list: one Yet Another Media Player card per active player, under its room heading. Apple TVs
-get a full-width card, poster-shaped (`card_height` 535, a 2:3 card the poster fills exactly) when Apple's poster is available and square (340) otherwise, artwork first, with play/pause, the volume stepper, a dimmed progress-bar track, the same details line as the remotes plus the description (truncated to 220 characters), and volume on
-the real speaker (Soundbar, bedroom TV, Theater) and the favourite-app fallback artwork (a JavaScript-template override, for the
-reason under *Artwork follows what is playing*); tapping
-one opens its remote pop-up (a hidden YAMP navigate action on `card_trigger: tap`; Family Room
-has no remote yet). HomePods get a compact card (`always_collapsed`: title, previous/play/next and
+get the room media card (*Room media card*, below), the same as on Home; Family Room's has no
+tap action since it is already in `#media`. Under it, once `sensor.<room>_appletv_info` has
+looked the title up, a Bubble row with the content rating as an outlined badge and year ·
+genre · runtime, then the description truncated to 220 characters. HomePods get a compact card (`always_collapsed`: title, previous/play/next and
 volume beside a small artwork tile). The Master Bedroom HomePod's heading shows only when the
 bedroom Apple TV isn't, so the room is labelled once. Each card and room heading sits in a
 `conditional` card keyed on the player's activity sensor (the Media chip's rule), so idle
@@ -255,6 +255,7 @@ them after a YAMP update:
 |---|---|
 | `.yamp-card-inner { container-type: inline-size }` and `.card-artwork-spacer { height: max(40px, calc(56.25cqw - 85px)) }` (`110px` on speaker cards) | YAMP has no aspect-ratio option. The empty band above the title is sized so the whole card is 16:9 at any width: 56.25 % of the card's width, less the rows below the band (title and controls; speakers add the artist line). A wide backdrop or episode still then fills the card uncropped. |
 | `.card-lower-content-bg { min-height: 0; height: 100%; background-position: center }` | YAMP pins its artwork layer at 350 px inline; on a shorter card the image is scaled to 350 px and its bottom is cut off (`LESSONS.md` → *Yet Another Media Player pins its artwork layer at 350 px*). |
+| `.card-lower-content-bg` drawn by two pseudo-elements that inherit its `background-image` (its own `background-size: 0 0`): `::before` at `cover`, blurred and darkened; `::after` at `contain` | Artwork that isn't 16:9 — a film's 2:3 poster when TMDB has no backdrop, a song's square album art — shows whole and centred on a blurred copy of itself instead of being cropped. 16:9 art fills the card exactly, so it looks the same either way. |
 | `.card-lower-content` as a two-column grid; the controls `div` in column 1, `.volume-row` in column 2 pushed right (`.volume-left { margin-left: auto }`, `.volume-center { width: auto }`) | Puts play/pause and the volume stepper on one row. YAMP stacks them, which costs about 60 px. |
 | `.details` top padding 4 px; `.progress-bar-container` hidden; `.details .artist` hidden on Apple TV cards | Keeps the rows below the artwork short so less of it is covered. An Apple TV's "artist" line is only the app name; speaker cards keep it because there it is the artist. |
 | `:host { --accent-color: var(--primary-text-color) }`, `.volume-percentage-indicator` in the background colour, `.more-info-menu` hidden | Neutral white controls instead of YAMP's orange accent, and no menu button: the menu opens YAMP's own search and source sheet, which the remotes already cover. |
@@ -440,7 +441,9 @@ and every TV-app title's name to TMDB:
 # Titles streamed in the TV app (Apple TV+ and the like) report a non-numeric ID (e.g.
 # A0006203008) and only a title, so they skip Apple's lookup and go straight to a TMDB search
 # by that title (the series name when the player reports one). Only an exact, case-insensitive
-# name match is used; anything looser could show the wrong show. These get TMDB's fields only:
+# name match is used, or failing that a TMDB title of the form "<prefix>: <title>" -- specials
+# are often listed under their franchise ("Snoopy Presents: A Summer Musical" when the Apple TV
+# says "A Summer Musical"); anything looser could show the wrong show. These get TMDB's fields only:
 # the US content rating from TMDB, the player's own duration as runtime, and the series (not
 # the episode) for TV. Other apps (YouTube, Disney+) and live TV (no duration) get no details.
 #
@@ -453,9 +456,10 @@ and every TV-app title's name to TMDB:
 # timer. The home-main remote pop-ups and #media show the details. See guides/home_dashboard.md.
 #
 # Top-level variables can't see `this`, so `changed` reads the sensor by entity ID (the
-# renamed sensor.<room>_appletv_info). For a store title `changed` is also true for details
-# stored before the `show_poster` field existed, so they are fetched once more. A TV-app title
-# with no TMDB match stores its ID with empty details, so it is searched only once.
+# renamed sensor.<room>_appletv_info). `lookup_version` marks which lookup rules produced the
+# stored details; `changed` is also true when it differs, so raising it re-fetches whatever is
+# playing once under the new rules. A TV-app title with no TMDB match stores its ID with empty
+# details, so it is searched only once per version.
 #
 # Deployed to /config/packages/media_info.yaml; reload with rest_command.reload then
 # template.reload.
@@ -489,7 +493,7 @@ template:
       owned: "{{ new_id is match('^[0-9]+$') }}"
       tvapp: "{{ not owned and new_id != '' and is_state_attr('media_player.living_room_appletv', 'app_id', 'com.apple.TVWatchList') and (state_attr('media_player.living_room_appletv', 'media_duration') or 0) > 0 }}"
       title: "{{ state_attr('media_player.living_room_appletv', 'media_series_title') or state_attr('media_player.living_room_appletv', 'media_title') or '' }}"
-      changed: "{{ new_id != (state_attr('sensor.living_room_appletv_info', 'content_id') | default('', true) | string) or (owned and 'show_poster' not in (state_attr('sensor.living_room_appletv_info', 'details') or {})) }}"
+      changed: "{{ new_id != (state_attr('sensor.living_room_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.living_room_appletv_info', 'lookup_version') | int(0)) != 2 }}"
     actions:
       - if:
           - condition: template
@@ -536,7 +540,7 @@ template:
           # Only an exact (case-insensitive) title match is trusted; anything else shows no details.
           - variables:
               hit: >
-                {% set ns = namespace(m=[]) %}{% if msearch is defined and msearch.status == 200 %}{% for x in msearch.content.results | default([]) %}{% if x.get('media_type') in ['movie', 'tv'] and (x.get('name') or x.get('title') or '') | lower == title | lower %}{% set ns.m = ns.m + [x] %}{% endif %}{% endfor %}{% endif %}{{ ns.m | first | default({}) }}
+                {% set ns = namespace(m=[], p=[]) %}{% set t = title | lower %}{% if msearch is defined and msearch.status == 200 %}{% for x in msearch.content.results | default([]) if x.get('media_type') in ['movie', 'tv'] %}{% set n = (x.get('name') or x.get('title') or '') | lower %}{% if n == t %}{% set ns.m = ns.m + [x] %}{% elif n.endswith(': ' ~ t) %}{% set ns.p = ns.p + [x] %}{% endif %}{% endfor %}{% endif %}{{ (ns.m or ns.p) | first | default({}) }}
           - if:
               - condition: template
                 value_template: "{{ hit.get('id') is not none }}"
@@ -563,6 +567,7 @@ template:
           {% endif %}
         attributes:
           content_id: "{{ new_id if (active and (owned or tvapp)) else '' }}"
+          lookup_version: "{{ 2 }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
               {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
@@ -641,7 +646,7 @@ template:
       owned: "{{ new_id is match('^[0-9]+$') }}"
       tvapp: "{{ not owned and new_id != '' and is_state_attr('media_player.master_bedroom_appletv', 'app_id', 'com.apple.TVWatchList') and (state_attr('media_player.master_bedroom_appletv', 'media_duration') or 0) > 0 }}"
       title: "{{ state_attr('media_player.master_bedroom_appletv', 'media_series_title') or state_attr('media_player.master_bedroom_appletv', 'media_title') or '' }}"
-      changed: "{{ new_id != (state_attr('sensor.master_bedroom_appletv_info', 'content_id') | default('', true) | string) or (owned and 'show_poster' not in (state_attr('sensor.master_bedroom_appletv_info', 'details') or {})) }}"
+      changed: "{{ new_id != (state_attr('sensor.master_bedroom_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.master_bedroom_appletv_info', 'lookup_version') | int(0)) != 2 }}"
     actions:
       - if:
           - condition: template
@@ -688,7 +693,7 @@ template:
           # Only an exact (case-insensitive) title match is trusted; anything else shows no details.
           - variables:
               hit: >
-                {% set ns = namespace(m=[]) %}{% if msearch is defined and msearch.status == 200 %}{% for x in msearch.content.results | default([]) %}{% if x.get('media_type') in ['movie', 'tv'] and (x.get('name') or x.get('title') or '') | lower == title | lower %}{% set ns.m = ns.m + [x] %}{% endif %}{% endfor %}{% endif %}{{ ns.m | first | default({}) }}
+                {% set ns = namespace(m=[], p=[]) %}{% set t = title | lower %}{% if msearch is defined and msearch.status == 200 %}{% for x in msearch.content.results | default([]) if x.get('media_type') in ['movie', 'tv'] %}{% set n = (x.get('name') or x.get('title') or '') | lower %}{% if n == t %}{% set ns.m = ns.m + [x] %}{% elif n.endswith(': ' ~ t) %}{% set ns.p = ns.p + [x] %}{% endif %}{% endfor %}{% endif %}{{ (ns.m or ns.p) | first | default({}) }}
           - if:
               - condition: template
                 value_template: "{{ hit.get('id') is not none }}"
@@ -715,6 +720,7 @@ template:
           {% endif %}
         attributes:
           content_id: "{{ new_id if (active and (owned or tvapp)) else '' }}"
+          lookup_version: "{{ 2 }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
               {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
@@ -793,7 +799,7 @@ template:
       owned: "{{ new_id is match('^[0-9]+$') }}"
       tvapp: "{{ not owned and new_id != '' and is_state_attr('media_player.family_room_appletv', 'app_id', 'com.apple.TVWatchList') and (state_attr('media_player.family_room_appletv', 'media_duration') or 0) > 0 }}"
       title: "{{ state_attr('media_player.family_room_appletv', 'media_series_title') or state_attr('media_player.family_room_appletv', 'media_title') or '' }}"
-      changed: "{{ new_id != (state_attr('sensor.family_room_appletv_info', 'content_id') | default('', true) | string) or (owned and 'show_poster' not in (state_attr('sensor.family_room_appletv_info', 'details') or {})) }}"
+      changed: "{{ new_id != (state_attr('sensor.family_room_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.family_room_appletv_info', 'lookup_version') | int(0)) != 2 }}"
     actions:
       - if:
           - condition: template
@@ -840,7 +846,7 @@ template:
           # Only an exact (case-insensitive) title match is trusted; anything else shows no details.
           - variables:
               hit: >
-                {% set ns = namespace(m=[]) %}{% if msearch is defined and msearch.status == 200 %}{% for x in msearch.content.results | default([]) %}{% if x.get('media_type') in ['movie', 'tv'] and (x.get('name') or x.get('title') or '') | lower == title | lower %}{% set ns.m = ns.m + [x] %}{% endif %}{% endfor %}{% endif %}{{ ns.m | first | default({}) }}
+                {% set ns = namespace(m=[], p=[]) %}{% set t = title | lower %}{% if msearch is defined and msearch.status == 200 %}{% for x in msearch.content.results | default([]) if x.get('media_type') in ['movie', 'tv'] %}{% set n = (x.get('name') or x.get('title') or '') | lower %}{% if n == t %}{% set ns.m = ns.m + [x] %}{% elif n.endswith(': ' ~ t) %}{% set ns.p = ns.p + [x] %}{% endif %}{% endfor %}{% endif %}{{ (ns.m or ns.p) | first | default({}) }}
           - if:
               - condition: template
                 value_template: "{{ hit.get('id') is not none }}"
@@ -867,6 +873,7 @@ template:
           {% endif %}
         attributes:
           content_id: "{{ new_id if (active and (owned or tvapp)) else '' }}"
+          lookup_version: "{{ 2 }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
               {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
