@@ -750,6 +750,8 @@ views:
 
               .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
 
+              .card-lower-content-bg { min-height: 0 !important; height: 100% !important; background-position: center !important; }
+
               '
           artwork_object_fit: cover
           details_alignment: left
