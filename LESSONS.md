@@ -701,6 +701,17 @@ Calling `media_player.play_media` (with `announce: true`) on an Apple TV integra
 
 Neither play/pause path works everywhere. On a live TV-app stream the AppleTV refused `media_player.media_pause` (2026-10-14), while `remote.send_command` with `play_pause` worked. During a purchased movie in the TV app the key did nothing, while `media_pause` / `media_play` paused and resumed it within half a second (2026-10-15). Neither failure is logged. Pick the method by content: a title has `media_duration`, a live stream doesn't. `script.household_appletv_play_pause` does this; anything else that pauses an AppleTV should call it rather than either method directly.
 
+### The AppleTV reports an old app's paused session after the current one ends
+
+When the session that was playing ends (leaving the TV app, pressing Home), the AppleTV
+integration reports another app's paused session as the current one: `paused`, that app's
+`app_id`, and its title and artwork. On 2026-10-16 the Living Room AppleTV went straight from a
+paused movie in the TV app to a YouTube video paused hours earlier, and reported it for 2½
+minutes until the movie was restarted. Nothing in the state marks it as stale; it looks exactly
+like a video you just paused. What gives it away is the app: it isn't the app that last reached
+`playing`. `ha/packages/media_activity.yaml` records the last-played `app_id` per AppleTV and
+counts a paused session only from that app, so dashboards treat the leftover as nothing playing.
+
 ### AirPlay to an AppleTV plays quietly, and HA can't raise it — announce on the Sonos instead
 
 An announcement streamed to `media_player.living_room_appletv` plays well below the show it interrupts. The AppleTV reports no `volume_level` (its volume is passed through to the Sonos over HDMI), so pyatv streams AirPlay at its own level, falling back to a 33% default (`INITIAL_VOLUME` in pyatv's RAOP code). Live-tested 2026-10-11: `media_player.volume_set` on the AppleTV changed neither the show nor the announcement, and a `Volume 250%` clip (about 4 dB louder RMS than 150%, already clipping) sounded no louder.
