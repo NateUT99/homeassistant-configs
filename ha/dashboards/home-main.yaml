@@ -3215,74 +3215,127 @@ views:
           entity: binary_sensor.family_room_appletv_active
           state: 'on'
         card:
-          type: custom:yet-another-media-player
-          entities:
-          - entity_id: media_player.family_room_appletv
-            name: Family Room
-            volume_entity: media_player.family_room_theater
-            hidden_controls:
-            - previous
-            - next
-            - stop
-            - shuffle
-            - repeat
-            - favorite
-            - power
-          volume_mode: stepper
-          volume_step: 0.02
-          match_theme: true
-          artwork_object_fit: cover
-          details_alignment: left
-          media_artwork_overrides:
-          - entity_id: media_player.family_room_appletv
-            object_fit: cover
-            image_url: '[[[ const a = states[''media_player.family_room_appletv'']?.attributes || {}; const sa = states[''sensor.family_room_appletv_info'']; const d = sa?.attributes?.details || {}; const
-              ok = !!sa && ![''none'', ''unknown'', ''unavailable''].includes(sa.state) && String(sa.attributes.content_id ?? '''') === String(a.media_content_id ?? ''''); const fb = { ''YouTube'': ''/local/media_art/youtube.svg'',
-              ''TV'': ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg'' }[a.app_name] || ''''; const poster = (d.poster
-              || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return a.entity_picture || (ok && (d.backdrop
-              || d.show_poster || poster)) || fb; ]]]'
-          actions:
-          - name: Remote
-            icon: mdi:remote-tv
-            action: navigate
-            navigation_path: '#media'
-            placement: hidden
-            card_trigger: tap
-          uix:
-            style: ':host { --accent-color: var(--primary-text-color); }
+          type: vertical-stack
+          cards:
+          - type: custom:yet-another-media-player
+            entities:
+            - entity_id: media_player.family_room_appletv
+              name: Family Room
+              volume_entity: media_player.family_room_theater
+              hidden_controls:
+              - previous
+              - next
+              - stop
+              - shuffle
+              - repeat
+              - favorite
+              - power
+            volume_mode: stepper
+            volume_step: 0.02
+            match_theme: true
+            artwork_object_fit: cover
+            details_alignment: left
+            media_artwork_overrides:
+            - entity_id: media_player.family_room_appletv
+              object_fit: cover
+              image_url: '[[[ const a = states[''media_player.family_room_appletv'']?.attributes || {}; const sa = states[''sensor.family_room_appletv_info'']; const d = sa?.attributes?.details || {}; const
+                ok = !!sa && ![''none'', ''unknown'', ''unavailable''].includes(sa.state) && String(sa.attributes.content_id ?? '''') === String(a.media_content_id ?? ''''); const fb = { ''YouTube'': ''/local/media_art/youtube.svg'',
+                ''TV'': ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg'' }[a.app_name] || ''''; const poster = (d.poster
+                || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return a.entity_picture || (ok && (d.backdrop
+                || d.show_poster || poster)) || fb; ]]]'
+            actions:
+            - name: Remote
+              icon: mdi:remote-tv
+              action: navigate
+              navigation_path: '#media'
+              placement: hidden
+              card_trigger: tap
+            uix:
+              style: ':host { --accent-color: var(--primary-text-color); }
 
-              .volume-percentage-indicator { color: var(--primary-background-color) !important; }
+                .volume-percentage-indicator { color: var(--primary-background-color) !important; }
 
-              .more-info-menu { display: none !important; }
+                .more-info-menu { display: none !important; }
 
-              .yamp-card-inner { container-type: inline-size; }
+                .yamp-card-inner { container-type: inline-size; }
 
-              .card-lower-content-bg { min-height: 0 !important; height: 100% !important; background-position: center !important; }
+                .card-lower-content-bg { min-height: 0 !important; height: 100% !important; background-position: center !important; }
 
-              .card-artwork-spacer { height: max(40px, calc(56.25cqw - 85px)) !important; min-height: 0 !important; }
+                .card-artwork-spacer { height: max(40px, calc(56.25cqw - 85px)) !important; min-height: 0 !important; }
 
-              .card-lower-content { display: grid !important; grid-template-columns: auto 1fr; align-items: center; }
+                .card-lower-content { display: grid !important; grid-template-columns: auto 1fr; align-items: center; }
 
-              .card-lower-content > * { grid-column: 1 / -1; }
+                .card-lower-content > * { grid-column: 1 / -1; }
 
-              .card-lower-content > div:has(> .controls-row) { grid-column: 1; }
+                .card-lower-content > div:has(> .controls-row) { grid-column: 1; }
 
-              .card-lower-content > .volume-row { grid-column: 2; display: flex !important; justify-content: flex-end !important; gap: 4px; padding: 0 12px 0 0 !important; min-height: 0 !important; height:
-              auto !important; }
+                .card-lower-content > .volume-row { grid-column: 2; display: flex !important; justify-content: flex-end !important; gap: 4px; padding: 0 12px 0 0 !important; min-height: 0 !important; height:
+                auto !important; }
 
-              .volume-row > * { flex: 0 0 auto !important; }
+                .volume-row > * { flex: 0 0 auto !important; }
 
-              .volume-left { margin-left: auto !important; }
+                .volume-left { margin-left: auto !important; }
 
-              .volume-center { width: auto !important; }
+                .volume-center { width: auto !important; }
 
-              .controls-row { padding: 6px 0 10px 16px !important; }
+                .controls-row { padding: 6px 0 10px 16px !important; }
 
-              .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
+                .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
 
-              .progress-bar-container { display: none !important; }
+                .progress-bar-container { display: none !important; }
 
-              .details .artist { display: none !important; }
+                .details .artist { display: none !important; }
+
+                '
+          - type: custom:bubble-card
+            card_type: sub-buttons
+            hide_main_background: true
+            rows: 0.9
+            sub_button:
+              main: []
+              bottom:
+              - name: Sound
+                buttons_layout: inline
+                group:
+                - show_name: true
+                  state_background: false
+                  light_background: false
+                  custom_height: 44
+                  entity: media_player.family_room_appletv
+                  icon: mdi:apps
+                  name: Apps
+                  sub_button_type: select
+                  select_attribute: source_list
+                - show_name: true
+                  state_background: true
+                  light_background: false
+                  custom_height: 44
+                  entity: switch.family_room_theater_speech_enhancement
+                  icon: mdi:account-voice
+                  name: Speech
+                  css_class: rc-toggle
+                  tap_action:
+                    action: toggle
+                - show_name: true
+                  state_background: true
+                  light_background: false
+                  custom_height: 44
+                  entity: switch.family_room_theater_night_sound
+                  icon: mdi:weather-night
+                  name: Night
+                  css_class: rc-toggle
+                  tap_action:
+                    action: toggle
+            styles: '.bubble-sub-button-bottom-container { justify-content: stretch !important; }
+
+              .bubble-sub-button-group { width: 100% !important; gap: 8px !important; flex-wrap: nowrap !important; }
+
+              .bubble-sub-button { flex: 1 1 0 !important; gap: 6px !important; border-radius: 16px !important; justify-content: center !important; background: color-mix(in srgb, var(--primary-text-color)
+              7%, transparent) !important; }
+
+              .rc-toggle.background-on { background: var(--primary-text-color) !important; }
+
+              .rc-toggle.background-on ha-icon, .rc-toggle.background-on .bubble-sub-button-name-container { color: var(--primary-background-color) !important; }
 
               '
     - type: custom:bubble-card
