@@ -668,6 +668,10 @@ The fix is to list every entity a call could plausibly target as separate litera
 
 Calling `media_player.play_media` (with `announce: true`) on an Apple TV integration entity while it's mid-video changes its `app_id` from the video app (e.g. `com.apple.TVWatchList`) to `com.apple.TVAirPlay` for the duration of the clip. Live-verified 2026-09-26: once the clip finishes, the entity automatically switches back to the original app at the same playback position — but in `paused`, not `playing`. A caller relying on `announce: true`'s "restores after" behavior for a HomePod-style idle speaker still needs an explicit `media_player.media_play` afterward when the target is a video app, since the auto-restore doesn't resume it.
 
+### AppleTV play/pause: `media_pause` fails on live TV, the `play_pause` key fails on titles
+
+Neither play/pause path works everywhere. On a live TV-app stream the AppleTV refused `media_player.media_pause` (2026-10-14), while `remote.send_command` with `play_pause` worked. During a purchased movie in the TV app the key did nothing, while `media_pause` / `media_play` paused and resumed it within half a second (2026-10-15). Neither failure is logged. Pick the method by content: a title has `media_duration`, a live stream doesn't. `script.household_appletv_play_pause` does this; anything else that pauses an AppleTV should call it rather than either method directly.
+
 ### AirPlay to an AppleTV plays quietly, and HA can't raise it — announce on the Sonos instead
 
 An announcement streamed to `media_player.living_room_appletv` plays well below the show it interrupts. The AppleTV reports no `volume_level` (its volume is passed through to the Sonos over HDMI), so pyatv streams AirPlay at its own level, falling back to a 33% default (`INITIAL_VOLUME` in pyatv's RAOP code). Live-tested 2026-10-11: `media_player.volume_set` on the AppleTV changed neither the show nor the announcement, and a `Volume 250%` clip (about 4 dB louder RMS than 150%, already clipping) sounded no louder.
