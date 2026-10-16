@@ -2024,10 +2024,12 @@ views:
             - unknown
         - type: markdown
           text_only: true
-          content: '{% set s = state_attr(''media_player.living_room_appletv'', ''media_series_title'') %}{% if s %}#### {{ s }}
+          content: '{% set mp = ''media_player.living_room_appletv'' %}{% set se = ''sensor.living_room_appletv_info'' %}{% set d = state_attr(se, ''details'') or {} %}{% set ok = states(se) not in [''none'',
+            ''unknown'', ''unavailable''] and (state_attr(se, ''content_id'') | string) == (state_attr(mp, ''media_content_id'') | string) %}{% set series = d.get(''series'') if ok else state_attr(mp, ''media_series_title'')
+            %}{% if series %}#### {{ series }}
 
 
-            {% endif %}### {{ state_attr(''media_player.living_room_appletv'', ''media_title'') }}'
+            {% endif %}### {{ states(se) if ok else state_attr(mp, ''media_title'') }}'
           visibility:
           - condition: state
             entity: media_player.living_room_appletv
@@ -2036,10 +2038,10 @@ views:
             - paused
           uix:
             style:
-              ha-markdown$: 'h4 { margin: 2px 4px 0 !important; font-size: 13px; font-weight: 500; text-align: center; color: var(--secondary-text-color); } h3 { margin: 2px 4px 2px !important; font-size:
-                17px; font-weight: 600; line-height: 1.25; text-align: center; color: var(--primary-text-color); }'
-              'ha-markdown $ ha-markdown-element:': 'h4 { margin: 2px 4px 0 !important; font-size: 13px; font-weight: 500; text-align: center; color: var(--secondary-text-color); } h3 { margin: 2px 4px
-                2px !important; font-size: 17px; font-weight: 600; line-height: 1.25; text-align: center; color: var(--primary-text-color); }'
+              ha-markdown$: 'h4 { margin: 2px 4px 0 !important; font-size: 12px; font-weight: 500; text-align: center; color: var(--secondary-text-color); } h3 { margin: 2px 4px 2px !important; font-size:
+                15px; font-weight: 600; line-height: 1.25; text-align: center; color: var(--primary-text-color); }'
+              'ha-markdown $ ha-markdown-element:': 'h4 { margin: 2px 4px 0 !important; font-size: 12px; font-weight: 500; text-align: center; color: var(--secondary-text-color); } h3 { margin: 2px 4px
+                2px !important; font-size: 15px; font-weight: 600; line-height: 1.25; text-align: center; color: var(--primary-text-color); }'
         - type: custom:bubble-card
           card_type: button
           button_type: slider
