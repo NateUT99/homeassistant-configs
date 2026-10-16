@@ -6354,7 +6354,12 @@ views:
           cards:
           - type: heading
             heading: Living Room
-            heading_style: subtitle
+            heading_style: title
+            icon: mdi:sofa
+            uix:
+              style: 'ha-card { background: color-mix(in srgb, var(--primary-text-color) 9%, transparent) !important; border-radius: 12px !important; padding: 0 12px !important; }
+
+                '
           - type: custom:yet-another-media-player
             entities:
             - entity_id: media_player.living_room_appletv
@@ -6519,7 +6524,12 @@ views:
           cards:
           - type: heading
             heading: Master Bedroom
-            heading_style: subtitle
+            heading_style: title
+            icon: mdi:bed-king
+            uix:
+              style: 'ha-card { background: color-mix(in srgb, var(--primary-text-color) 9%, transparent) !important; border-radius: 12px !important; padding: 0 12px !important; }
+
+                '
           - type: custom:yet-another-media-player
             entities:
             - entity_id: media_player.master_bedroom_appletv
@@ -6685,7 +6695,12 @@ views:
         card:
           type: heading
           heading: Master Bedroom
-          heading_style: subtitle
+          heading_style: title
+          icon: mdi:bed-king
+          uix:
+            style: 'ha-card { background: color-mix(in srgb, var(--primary-text-color) 9%, transparent) !important; border-radius: 12px !important; padding: 0 12px !important; }
+
+              '
       - type: conditional
         conditions:
         - condition: state
@@ -6730,7 +6745,12 @@ views:
         card:
           type: heading
           heading: Avery's Room
-          heading_style: subtitle
+          heading_style: title
+          icon: mdi:teddy-bear
+          uix:
+            style: 'ha-card { background: color-mix(in srgb, var(--primary-text-color) 9%, transparent) !important; border-radius: 12px !important; padding: 0 12px !important; }
+
+              '
       - type: conditional
         conditions:
         - condition: state
@@ -6775,7 +6795,12 @@ views:
         card:
           type: heading
           heading: Office
-          heading_style: subtitle
+          heading_style: title
+          icon: mdi:desktop-classic
+          uix:
+            style: 'ha-card { background: color-mix(in srgb, var(--primary-text-color) 9%, transparent) !important; border-radius: 12px !important; padding: 0 12px !important; }
+
+              '
       - type: conditional
         conditions:
         - condition: state
@@ -6822,7 +6847,12 @@ views:
           cards:
           - type: heading
             heading: Family Room
-            heading_style: subtitle
+            heading_style: title
+            icon: mdi:pac-man
+            uix:
+              style: 'ha-card { background: color-mix(in srgb, var(--primary-text-color) 9%, transparent) !important; border-radius: 12px !important; padding: 0 12px !important; }
+
+                '
           - type: custom:yet-another-media-player
             entities:
             - entity_id: media_player.family_room_appletv
@@ -6978,7 +7008,12 @@ views:
         card:
           type: heading
           heading: Kitchen
-          heading_style: subtitle
+          heading_style: title
+          icon: mdi:stove
+          uix:
+            style: 'ha-card { background: color-mix(in srgb, var(--primary-text-color) 9%, transparent) !important; border-radius: 12px !important; padding: 0 12px !important; }
+
+              '
       - type: conditional
         conditions:
         - condition: state
