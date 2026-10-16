@@ -2326,10 +2326,12 @@ views:
               }'
           - type: button
             name: play_pause
-            icon: mdi:play-pause
+            icon: '{{ ''mdi:pause'' if is_state(''media_player.living_room_appletv'', ''playing'') else ''mdi:play'' }}'
             tap_action:
-              action: key
-              key: play_pause
+              action: perform-action
+              perform_action: media_player.media_{{ 'pause' if is_state('media_player.living_room_appletv', 'playing') else 'play' }}
+              target:
+                entity_id: media_player.living_room_appletv
             styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
               }'
             hold_action:
@@ -3594,10 +3596,12 @@ views:
               }'
           - type: button
             name: play_pause
-            icon: mdi:play-pause
+            icon: '{{ ''mdi:pause'' if is_state(''media_player.master_bedroom_appletv'', ''playing'') else ''mdi:play'' }}'
             tap_action:
-              action: key
-              key: play_pause
+              action: perform-action
+              perform_action: media_player.media_{{ 'pause' if is_state('media_player.master_bedroom_appletv', 'playing') else 'play' }}
+              target:
+                entity_id: media_player.master_bedroom_appletv
             styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
               }'
             hold_action:
