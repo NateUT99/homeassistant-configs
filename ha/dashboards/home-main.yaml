@@ -713,12 +713,18 @@ views:
               || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return a.entity_picture || (ok && (d.backdrop
               || d.show_poster || poster)) || fb; ]]]'
           actions:
+          - name: Now Playing
+            icon: mdi:information-outline
+            action: navigate
+            navigation_path: '#living-room-now-playing'
+            placement: hidden
+            card_trigger: tap
           - name: Remote
             icon: mdi:remote-tv
             action: navigate
             navigation_path: '#living-room-remote'
             placement: hidden
-            card_trigger: tap
+            card_trigger: hold
           uix:
             style: ':host { --accent-color: var(--primary-text-color); }
 
@@ -866,12 +872,18 @@ views:
               || ''''; const poster = (d.poster || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return a.entity_picture
               || (ok && (d.backdrop || d.show_poster || poster)) || fb; ]]]'
           actions:
+          - name: Now Playing
+            icon: mdi:information-outline
+            action: navigate
+            navigation_path: '#master-bedroom-now-playing'
+            placement: hidden
+            card_trigger: tap
           - name: Remote
             icon: mdi:remote-tv
             action: navigate
             navigation_path: '#master-bedroom-remote'
             placement: hidden
-            card_trigger: tap
+            card_trigger: hold
           uix:
             style: ':host { --accent-color: var(--primary-text-color); }
 
@@ -1891,12 +1903,18 @@ views:
               || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return a.entity_picture || (ok && (d.backdrop
               || d.show_poster || poster)) || fb; ]]]'
           actions:
+          - name: Now Playing
+            icon: mdi:information-outline
+            action: navigate
+            navigation_path: '#living-room-now-playing'
+            placement: hidden
+            card_trigger: tap
           - name: Remote
             icon: mdi:remote-tv
             action: navigate
             navigation_path: '#living-room-remote'
             placement: hidden
-            card_trigger: tap
+            card_trigger: hold
           uix:
             style: ':host { --accent-color: var(--primary-text-color); }
 
@@ -3021,6 +3039,177 @@ views:
           option: Apple TV
     - type: custom:bubble-card
       card_type: pop-up
+      button_type: name
+      popup_style: home-assistant
+      show_header: false
+      hash: '#living-room-now-playing'
+      name: Now Playing
+      icon: mdi:information-outline
+      cards:
+      - type: markdown
+        text_only: true
+        content: '{% set d = state_attr(''sensor.living_room_appletv_info'', ''details'') or {} %}{% set ok = states(''sensor.living_room_appletv_info'') not in [''none'', ''unknown'', ''unavailable'']
+          %}{% set a = states.media_player.living_room_appletv.attributes if states.media_player.living_room_appletv else {} %}{% set ep = d.get(''episode'') or {} %}{% set tall = (d.get(''show_poster'')
+          or (d.get(''poster'', '''') if d.get(''kind'') == ''feature-movie'' else '''')) if ok else '''' %}###### <ha-icon icon="mdi:{{ ''play'' if is_state(''media_player.living_room_appletv'', ''playing'')
+          else ''pause'' }}"></ha-icon>Now Playing · Living Room{% if a.get(''app_name'') %} `{{ a.get(''app_name'') }}`{% endif %} [<ha-icon icon="mdi:remote-tv"></ha-icon>Remote](#living-room-remote)
+
+
+          {% set hero = tall or (d.get(''backdrop'') or d.get(''poster'', '''') if ok else '''') or a.get(''entity_picture'') %}{% if hero %}<img alt="{{ ''poster'' if tall else ''art'' }}" src="{{ hero
+          }}">{% endif %}
+
+
+          {% if ok and d.get(''series'') %}### {{ d.get(''series'') }}
+
+
+          {% endif %}## {{ (ep.get(''name'') or states(''sensor.living_room_appletv_info'')) if ok else (a.get(''media_title'') or ''Nothing playing'') }}
+
+
+          {% if ok and ep %}##### Season {{ ep.season }}, Episode {{ ep.number }}{% if ep.get(''air_date'') %} · Aired {{ as_datetime(ep.air_date).strftime(''%b %-d, %Y'') }}{% endif %}
+
+
+          {% endif %}{% if ok and d.get(''tagline'') %}*{{ d.get(''tagline'') }}*{% endif %}'
+        uix:
+          style:
+            ha-markdown$: 'h6 { display: flex; align-items: center; gap: 6px; margin: 2px 4px 10px !important; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--secondary-text-color);
+              } h6 ha-icon { --mdc-icon-size: 14px; color: var(--purple-color); } h6 code { margin-left: auto; font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0.3px; text-transform:
+              none; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, var(--primary-text-color) 10%, transparent); color: var(--primary-text-color); } p { margin: 0 4px !important;
+              text-align: center; color: var(--secondary-text-color); line-height: 1.4; } img { display: block; } img[alt="poster"] { width: 80%; margin: 4px auto 0; border-radius: 14px; box-shadow: 0 8px
+              24px rgba(0, 0, 0, 0.45); } img[alt="art"] { width: 100%; border-radius: 22px; } h3 { margin: 14px 4px 0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform:
+              uppercase; text-align: center; color: var(--secondary-text-color); } h2 { margin: 14px 4px 2px !important; font-size: 24px; font-weight: 700; text-align: center; color: var(--primary-text-color);
+              } h3 + h2 { margin-top: 2px !important; } em { font-size: 14px; } h5 { margin: 4px 4px 0 !important; font-size: 13px; font-weight: 500; text-align: center; color: var(--secondary-text-color);
+              } h6 a { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+              text-transform: none; text-decoration: none; color: var(--primary-text-color); background: color-mix(in srgb, var(--purple-color) 35%, transparent); } h6 a ha-icon { --mdc-icon-size: 14px;
+              color: var(--primary-text-color); } h6 code + a { margin-left: 6px; }'
+            'ha-markdown $ ha-markdown-element:': 'h6 { display: flex; align-items: center; gap: 6px; margin: 2px 4px 10px !important; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform:
+              uppercase; color: var(--secondary-text-color); } h6 ha-icon { --mdc-icon-size: 14px; color: var(--purple-color); } h6 code { margin-left: auto; font-family: inherit; font-size: 11px; font-weight:
+              600; letter-spacing: 0.3px; text-transform: none; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, var(--primary-text-color) 10%, transparent); color: var(--primary-text-color);
+              } p { margin: 0 4px !important; text-align: center; color: var(--secondary-text-color); line-height: 1.4; } img { display: block; } img[alt="poster"] { width: 80%; margin: 4px auto 0; border-radius:
+              14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); } img[alt="art"] { width: 100%; border-radius: 22px; } h3 { margin: 14px 4px 0 !important; font-size: 13px; font-weight: 600; letter-spacing:
+              0.4px; text-transform: uppercase; text-align: center; color: var(--secondary-text-color); } h2 { margin: 14px 4px 2px !important; font-size: 24px; font-weight: 700; text-align: center; color:
+              var(--primary-text-color); } h3 + h2 { margin-top: 2px !important; } em { font-size: 14px; } h5 { margin: 4px 4px 0 !important; font-size: 13px; font-weight: 500; text-align: center; color:
+              var(--secondary-text-color); } h6 a { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px 2px 8px; border-radius: 999px; font-size: 11px; font-weight:
+              600; letter-spacing: 0.3px; text-transform: none; text-decoration: none; color: var(--primary-text-color); background: color-mix(in srgb, var(--purple-color) 35%, transparent); } h6 a ha-icon
+              { --mdc-icon-size: 14px; color: var(--primary-text-color); } h6 code + a { margin-left: 6px; }'
+      - type: custom:bubble-card
+        card_type: button
+        button_type: slider
+        entity: number.living_room_appletv_position
+        name: Timeline
+        show_name: false
+        show_icon: false
+        show_state: true
+        state_content: '{% set p = states(''number.living_room_appletv_position'') | int(0) %}{% set d = state_attr(''number.living_room_appletv_position'', ''max'') | int(0) %}{% if d >= 3600 %}{{ ''%d:%02d:%02d''
+          | format(p // 3600, p % 3600 // 60, p % 60) }} / {{ ''%d:%02d:%02d'' | format(d // 3600, d % 3600 // 60, d % 60) }}{% else %}{{ ''%d:%02d'' | format(p // 60, p % 60) }} / {{ ''%d:%02d'' | format(d
+          // 60, d % 60) }}{% endif %}'
+        slider_live_update: false
+        rows: 0.6
+        tap_action:
+          action: none
+        visibility:
+        - condition: state
+          entity: number.living_room_appletv_position
+          state_not:
+          - unavailable
+          - unknown
+        - condition: state
+          entity: media_player.living_room_appletv
+          state:
+          - playing
+          - paused
+        styles: '.bubble-button-card-container, .bubble-button-container { border-radius: 10px !important; overflow: hidden !important; }
+
+          .bubble-range-fill, .bubble-range-slider { border-radius: 0 !important; }
+
+          .bubble-button-card-container { background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }
+
+          .bubble-range-fill { background: var(--purple-color) !important; opacity: 0.55 !important; }
+
+          .bubble-state { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px !important; }
+
+          .rc-skip { background: transparent !important; --mdc-icon-size: 24px; }
+
+          .rc-skip ha-icon { color: var(--primary-text-color) !important; }
+
+          .bubble-button-container { height: 32px !important; }
+
+          ha-card { border-radius: 10px !important; }
+
+          ha-card, .bubble-button-card-container { pointer-events: none !important; }
+
+          '
+        sub_button:
+          main: []
+          bottom: []
+        modules:
+        - time_slider
+        double_tap_action:
+          action: none
+        hold_action:
+          action: none
+        button_action:
+          tap_action:
+            action: none
+          double_tap_action:
+            action: none
+          hold_action:
+            action: none
+        read_only_slider: true
+      - type: markdown
+        text_only: true
+        content: '{% set d = state_attr(''sensor.living_room_appletv_info'', ''details'') or {} %}{% set ok = states(''sensor.living_room_appletv_info'') not in [''none'', ''unknown'', ''unavailable'']
+          %}{% set p = states(''number.living_room_appletv_position'') | int(-1) %}{% set m = state_attr(''number.living_room_appletv_position'', ''max'') | int(0) %}{% if p >= 0 and m > p and is_state(''media_player.living_room_appletv'',
+          [''playing'', ''paused'']) %}{% set left = m - p %}##### {{ ((left // 3600) ~ ''h '' if left >= 3600 else '''') ~ (left % 3600 // 60) ~ ''m left'' }}{% if is_state(''media_player.living_room_appletv'',
+          ''playing'') %} · Ends at {{ (now() + timedelta(seconds=left)).strftime(''%-I:%M %p'') }}{% endif %}
+
+
+          {% endif %}{% if ok %}{% if d.get(''rating'') %}**{{ d.get(''rating'') }}** · {% endif %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', ''''), (''★ '' ~ d.get(''score''))
+          if d.get(''score'') else ''''] | select | join('' · '') }}
+
+
+          {{ d.get(''description'', '''') }}{% set rows = [] %}{% if d.get(''director'') %}{% set rows = rows + [[''Director'', d.director]] %}{% endif %}{% if d.get(''writers'') %}{% set rows = rows +
+          [[''Written by'', d.writers | join('', '')]] %}{% endif %}{% if d.get(''creators'') %}{% set rows = rows + [[''Created by'', d.creators | join('', '')]] %}{% endif %}{% if d.get(''studio'') %}{%
+          set rows = rows + [[''Studio'', d.studio]] %}{% endif %}{% if d.get(''network'') %}{% set rows = rows + [[''Network'', d.network]] %}{% endif %}{% if d.get(''release_date'') %}{% set rows = rows
+          + [[''Released'', as_datetime(d.release_date).strftime(''%b %-d, %Y'')]] %}{% endif %}{% if d.get(''seasons'') %}{% set rows = rows + [[''Seasons'', (d.seasons ~ ('' · '' ~ d.status if d.get(''status'')
+          else ''''))]] %}{% endif %}{% if d.get(''language'') %}{% set rows = rows + [[''Language'', d.language]] %}{% endif %}{% if rows %}
+
+
+          #### Information
+
+
+          <table>{% for r in rows %}<tr><th>{{ r[0] }}</th><td>{{ r[1] }}</td></tr>{% endfor %}</table>{% endif %}{% set cast = d.get(''cast'') or [] %}{% if cast %}
+
+
+          #### Cast
+
+
+          <table>{% for row in cast | batch(4) %}<tr>{% for p in row %}<td>{% if p.photo %}<img src="{{ p.photo }}">{% endif %}{{ p.name }}<br><em>{{ p.role }}</em></td>{% endfor %}</tr>{% endfor %}</table>{%
+          endif %}{% endif %}'
+        uix:
+          style:
+            ha-markdown$: 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px 4px !important; color: var(--secondary-text-color);
+              line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding: 0 5px; font-size: 12px; } h3 { margin: 14px 4px
+              0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3 + h2 { margin-top: 2px !important; } h4 { margin:
+              18px 4px 4px !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } table { width: 100%; border-collapse: collapse;
+              table-layout: fixed; border: none !important; } tr, td { border: none !important; background: none !important; } td { vertical-align: top; text-align: center; padding: 8px 2px !important;
+              font-size: 12px; line-height: 1.25; color: var(--primary-text-color); } td img { width: 56px !important; height: 56px; border-radius: 50% !important; object-fit: cover; object-position: center
+              top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); } img[alt="poster"] { width: 62% !important; margin: 4px auto 12px !important; border-radius:
+              14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); } h5 { margin: 2px 4px 12px !important; font-size: 13px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; color:
+              var(--primary-text-color); } th { text-align: left; vertical-align: top; width: 32%; padding: 7px 4px !important; font-size: 13px; font-weight: 500; color: var(--secondary-text-color); border:
+              none !important; background: none !important; } tr:has(th) td { text-align: left; padding: 7px 4px !important; font-size: 13px; line-height: 1.35; } tr:has(th) + tr:has(th) th, tr:has(th)
+              + tr:has(th) td { border-top: 1px solid color-mix(in srgb, var(--primary-text-color) 10%, transparent) !important; }'
+            'ha-markdown $ ha-markdown-element:': 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px
+              4px !important; color: var(--secondary-text-color); line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding:
+              0 5px; font-size: 12px; } h3 { margin: 14px 4px 0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3
+              + h2 { margin-top: 2px !important; } h4 { margin: 18px 4px 4px !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color);
+              } table { width: 100%; border-collapse: collapse; table-layout: fixed; border: none !important; } tr, td { border: none !important; background: none !important; } td { vertical-align: top;
+              text-align: center; padding: 8px 2px !important; font-size: 12px; line-height: 1.25; color: var(--primary-text-color); } td img { width: 56px !important; height: 56px; border-radius: 50% !important;
+              object-fit: cover; object-position: center top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); } img[alt="poster"] { width: 62% !important;
+              margin: 4px auto 12px !important; border-radius: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); } h5 { margin: 2px 4px 12px !important; font-size: 13px; font-weight: 600; text-align: center;
+              font-variant-numeric: tabular-nums; color: var(--primary-text-color); } th { text-align: left; vertical-align: top; width: 32%; padding: 7px 4px !important; font-size: 13px; font-weight: 500;
+              color: var(--secondary-text-color); border: none !important; background: none !important; } tr:has(th) td { text-align: left; padding: 7px 4px !important; font-size: 13px; line-height: 1.35;
+              } tr:has(th) + tr:has(th) th, tr:has(th) + tr:has(th) td { border-top: 1px solid color-mix(in srgb, var(--primary-text-color) 10%, transparent) !important; }'
+    - type: custom:bubble-card
+      card_type: pop-up
       hash: '#kitchen'
       name: Kitchen
       icon: mdi:stove
@@ -3282,17 +3471,17 @@ views:
         content: '{% set d = state_attr(''sensor.family_room_appletv_info'', ''details'') or {} %}{% set ok = states(''sensor.family_room_appletv_info'') not in [''none'', ''unknown'', ''unavailable'']
           %}{% set a = states.media_player.family_room_appletv.attributes if states.media_player.family_room_appletv else {} %}{% set ep = d.get(''episode'') or {} %}{% set tall = (d.get(''show_poster'')
           or (d.get(''poster'', '''') if d.get(''kind'') == ''feature-movie'' else '''')) if ok else '''' %}###### <ha-icon icon="mdi:{{ ''play'' if is_state(''media_player.family_room_appletv'', ''playing'')
-          else ''pause'' }}"></ha-icon>Now Playing · Family Room{% if a.app_name %} `{{ a.app_name }}`{% endif %}
+          else ''pause'' }}"></ha-icon>Now Playing · Family Room{% if a.get(''app_name'') %} `{{ a.get(''app_name'') }}`{% endif %}
 
 
-          {% set hero = tall or (d.get(''backdrop'') or d.get(''poster'', '''') if ok else '''') or a.entity_picture %}{% if hero %}<img alt="{{ ''poster'' if tall else ''art'' }}" src="{{ hero }}">{% endif
-          %}
+          {% set hero = tall or (d.get(''backdrop'') or d.get(''poster'', '''') if ok else '''') or a.get(''entity_picture'') %}{% if hero %}<img alt="{{ ''poster'' if tall else ''art'' }}" src="{{ hero
+          }}">{% endif %}
 
 
           {% if ok and d.get(''series'') %}### {{ d.get(''series'') }}
 
 
-          {% endif %}## {{ (ep.get(''name'') or states(''sensor.family_room_appletv_info'')) if ok else (a.media_title or ''Nothing playing'') }}
+          {% endif %}## {{ (ep.get(''name'') or states(''sensor.family_room_appletv_info'')) if ok else (a.get(''media_title'') or ''Nothing playing'') }}
 
 
           {% if ok and ep %}##### Season {{ ep.season }}, Episode {{ ep.number }}{% if ep.get(''air_date'') %} · Aired {{ as_datetime(ep.air_date).strftime(''%b %-d, %Y'') }}{% endif %}
@@ -3384,9 +3573,9 @@ views:
       - type: markdown
         text_only: true
         content: '{% set d = state_attr(''sensor.family_room_appletv_info'', ''details'') or {} %}{% set ok = states(''sensor.family_room_appletv_info'') not in [''none'', ''unknown'', ''unavailable'']
-          %}{% set p = states(''number.family_room_appletv_position'') | int(-1) %}{% set m = state_attr(''number.family_room_appletv_position'', ''max'') | int(0) %}{% if p >= 0 and m > p %}{% set left
-          = m - p %}##### {{ ((left // 3600) ~ ''h '' if left >= 3600 else '''') ~ (left % 3600 // 60) ~ ''m left'' }}{% if is_state(''media_player.family_room_appletv'', ''playing'') %} · Ends at {{ (now()
-          + timedelta(seconds=left)).strftime(''%-I:%M %p'') }}{% endif %}
+          %}{% set p = states(''number.family_room_appletv_position'') | int(-1) %}{% set m = state_attr(''number.family_room_appletv_position'', ''max'') | int(0) %}{% if p >= 0 and m > p and is_state(''media_player.family_room_appletv'',
+          [''playing'', ''paused'']) %}{% set left = m - p %}##### {{ ((left // 3600) ~ ''h '' if left >= 3600 else '''') ~ (left % 3600 // 60) ~ ''m left'' }}{% if is_state(''media_player.family_room_appletv'',
+          ''playing'') %} · Ends at {{ (now() + timedelta(seconds=left)).strftime(''%-I:%M %p'') }}{% endif %}
 
 
           {% endif %}{% if ok %}{% if d.get(''rating'') %}**{{ d.get(''rating'') }}** · {% endif %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', ''''), (''★ '' ~ d.get(''score''))
@@ -3589,12 +3778,18 @@ views:
               || ''''; const poster = (d.poster || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return a.entity_picture
               || (ok && (d.backdrop || d.show_poster || poster)) || fb; ]]]'
           actions:
+          - name: Now Playing
+            icon: mdi:information-outline
+            action: navigate
+            navigation_path: '#master-bedroom-now-playing'
+            placement: hidden
+            card_trigger: tap
           - name: Remote
             icon: mdi:remote-tv
             action: navigate
             navigation_path: '#master-bedroom-remote'
             placement: hidden
-            card_trigger: tap
+            card_trigger: hold
           uix:
             style: ':host { --accent-color: var(--primary-text-color); }
 
@@ -4278,6 +4473,177 @@ views:
           entity_id: input_select.master_bedroom_remote_view
         data:
           option: Apple TV
+    - type: custom:bubble-card
+      card_type: pop-up
+      button_type: name
+      popup_style: home-assistant
+      show_header: false
+      hash: '#master-bedroom-now-playing'
+      name: Now Playing
+      icon: mdi:information-outline
+      cards:
+      - type: markdown
+        text_only: true
+        content: '{% set d = state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {} %}{% set ok = states(''sensor.master_bedroom_appletv_info'') not in [''none'', ''unknown'', ''unavailable'']
+          %}{% set a = states.media_player.master_bedroom_appletv.attributes if states.media_player.master_bedroom_appletv else {} %}{% set ep = d.get(''episode'') or {} %}{% set tall = (d.get(''show_poster'')
+          or (d.get(''poster'', '''') if d.get(''kind'') == ''feature-movie'' else '''')) if ok else '''' %}###### <ha-icon icon="mdi:{{ ''play'' if is_state(''media_player.master_bedroom_appletv'', ''playing'')
+          else ''pause'' }}"></ha-icon>Now Playing · Master Bedroom{% if a.get(''app_name'') %} `{{ a.get(''app_name'') }}`{% endif %} [<ha-icon icon="mdi:remote-tv"></ha-icon>Remote](#master-bedroom-remote)
+
+
+          {% set hero = tall or (d.get(''backdrop'') or d.get(''poster'', '''') if ok else '''') or a.get(''entity_picture'') %}{% if hero %}<img alt="{{ ''poster'' if tall else ''art'' }}" src="{{ hero
+          }}">{% endif %}
+
+
+          {% if ok and d.get(''series'') %}### {{ d.get(''series'') }}
+
+
+          {% endif %}## {{ (ep.get(''name'') or states(''sensor.master_bedroom_appletv_info'')) if ok else (a.get(''media_title'') or ''Nothing playing'') }}
+
+
+          {% if ok and ep %}##### Season {{ ep.season }}, Episode {{ ep.number }}{% if ep.get(''air_date'') %} · Aired {{ as_datetime(ep.air_date).strftime(''%b %-d, %Y'') }}{% endif %}
+
+
+          {% endif %}{% if ok and d.get(''tagline'') %}*{{ d.get(''tagline'') }}*{% endif %}'
+        uix:
+          style:
+            ha-markdown$: 'h6 { display: flex; align-items: center; gap: 6px; margin: 2px 4px 10px !important; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--secondary-text-color);
+              } h6 ha-icon { --mdc-icon-size: 14px; color: var(--purple-color); } h6 code { margin-left: auto; font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0.3px; text-transform:
+              none; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, var(--primary-text-color) 10%, transparent); color: var(--primary-text-color); } p { margin: 0 4px !important;
+              text-align: center; color: var(--secondary-text-color); line-height: 1.4; } img { display: block; } img[alt="poster"] { width: 80%; margin: 4px auto 0; border-radius: 14px; box-shadow: 0 8px
+              24px rgba(0, 0, 0, 0.45); } img[alt="art"] { width: 100%; border-radius: 22px; } h3 { margin: 14px 4px 0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform:
+              uppercase; text-align: center; color: var(--secondary-text-color); } h2 { margin: 14px 4px 2px !important; font-size: 24px; font-weight: 700; text-align: center; color: var(--primary-text-color);
+              } h3 + h2 { margin-top: 2px !important; } em { font-size: 14px; } h5 { margin: 4px 4px 0 !important; font-size: 13px; font-weight: 500; text-align: center; color: var(--secondary-text-color);
+              } h6 a { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+              text-transform: none; text-decoration: none; color: var(--primary-text-color); background: color-mix(in srgb, var(--purple-color) 35%, transparent); } h6 a ha-icon { --mdc-icon-size: 14px;
+              color: var(--primary-text-color); } h6 code + a { margin-left: 6px; }'
+            'ha-markdown $ ha-markdown-element:': 'h6 { display: flex; align-items: center; gap: 6px; margin: 2px 4px 10px !important; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform:
+              uppercase; color: var(--secondary-text-color); } h6 ha-icon { --mdc-icon-size: 14px; color: var(--purple-color); } h6 code { margin-left: auto; font-family: inherit; font-size: 11px; font-weight:
+              600; letter-spacing: 0.3px; text-transform: none; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, var(--primary-text-color) 10%, transparent); color: var(--primary-text-color);
+              } p { margin: 0 4px !important; text-align: center; color: var(--secondary-text-color); line-height: 1.4; } img { display: block; } img[alt="poster"] { width: 80%; margin: 4px auto 0; border-radius:
+              14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); } img[alt="art"] { width: 100%; border-radius: 22px; } h3 { margin: 14px 4px 0 !important; font-size: 13px; font-weight: 600; letter-spacing:
+              0.4px; text-transform: uppercase; text-align: center; color: var(--secondary-text-color); } h2 { margin: 14px 4px 2px !important; font-size: 24px; font-weight: 700; text-align: center; color:
+              var(--primary-text-color); } h3 + h2 { margin-top: 2px !important; } em { font-size: 14px; } h5 { margin: 4px 4px 0 !important; font-size: 13px; font-weight: 500; text-align: center; color:
+              var(--secondary-text-color); } h6 a { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px 2px 8px; border-radius: 999px; font-size: 11px; font-weight:
+              600; letter-spacing: 0.3px; text-transform: none; text-decoration: none; color: var(--primary-text-color); background: color-mix(in srgb, var(--purple-color) 35%, transparent); } h6 a ha-icon
+              { --mdc-icon-size: 14px; color: var(--primary-text-color); } h6 code + a { margin-left: 6px; }'
+      - type: custom:bubble-card
+        card_type: button
+        button_type: slider
+        entity: number.master_bedroom_appletv_position
+        name: Timeline
+        show_name: false
+        show_icon: false
+        show_state: true
+        state_content: '{% set p = states(''number.master_bedroom_appletv_position'') | int(0) %}{% set d = state_attr(''number.master_bedroom_appletv_position'', ''max'') | int(0) %}{% if d >= 3600 %}{{
+          ''%d:%02d:%02d'' | format(p // 3600, p % 3600 // 60, p % 60) }} / {{ ''%d:%02d:%02d'' | format(d // 3600, d % 3600 // 60, d % 60) }}{% else %}{{ ''%d:%02d'' | format(p // 60, p % 60) }} / {{ ''%d:%02d''
+          | format(d // 60, d % 60) }}{% endif %}'
+        slider_live_update: false
+        rows: 0.6
+        tap_action:
+          action: none
+        visibility:
+        - condition: state
+          entity: number.master_bedroom_appletv_position
+          state_not:
+          - unavailable
+          - unknown
+        - condition: state
+          entity: media_player.master_bedroom_appletv
+          state:
+          - playing
+          - paused
+        styles: '.bubble-button-card-container, .bubble-button-container { border-radius: 10px !important; overflow: hidden !important; }
+
+          .bubble-range-fill, .bubble-range-slider { border-radius: 0 !important; }
+
+          .bubble-button-card-container { background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }
+
+          .bubble-range-fill { background: var(--purple-color) !important; opacity: 0.55 !important; }
+
+          .bubble-state { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px !important; }
+
+          .rc-skip { background: transparent !important; --mdc-icon-size: 24px; }
+
+          .rc-skip ha-icon { color: var(--primary-text-color) !important; }
+
+          .bubble-button-container { height: 32px !important; }
+
+          ha-card { border-radius: 10px !important; }
+
+          ha-card, .bubble-button-card-container { pointer-events: none !important; }
+
+          '
+        sub_button:
+          main: []
+          bottom: []
+        modules:
+        - time_slider
+        double_tap_action:
+          action: none
+        hold_action:
+          action: none
+        button_action:
+          tap_action:
+            action: none
+          double_tap_action:
+            action: none
+          hold_action:
+            action: none
+        read_only_slider: true
+      - type: markdown
+        text_only: true
+        content: '{% set d = state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {} %}{% set ok = states(''sensor.master_bedroom_appletv_info'') not in [''none'', ''unknown'', ''unavailable'']
+          %}{% set p = states(''number.master_bedroom_appletv_position'') | int(-1) %}{% set m = state_attr(''number.master_bedroom_appletv_position'', ''max'') | int(0) %}{% if p >= 0 and m > p and is_state(''media_player.master_bedroom_appletv'',
+          [''playing'', ''paused'']) %}{% set left = m - p %}##### {{ ((left // 3600) ~ ''h '' if left >= 3600 else '''') ~ (left % 3600 // 60) ~ ''m left'' }}{% if is_state(''media_player.master_bedroom_appletv'',
+          ''playing'') %} · Ends at {{ (now() + timedelta(seconds=left)).strftime(''%-I:%M %p'') }}{% endif %}
+
+
+          {% endif %}{% if ok %}{% if d.get(''rating'') %}**{{ d.get(''rating'') }}** · {% endif %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', ''''), (''★ '' ~ d.get(''score''))
+          if d.get(''score'') else ''''] | select | join('' · '') }}
+
+
+          {{ d.get(''description'', '''') }}{% set rows = [] %}{% if d.get(''director'') %}{% set rows = rows + [[''Director'', d.director]] %}{% endif %}{% if d.get(''writers'') %}{% set rows = rows +
+          [[''Written by'', d.writers | join('', '')]] %}{% endif %}{% if d.get(''creators'') %}{% set rows = rows + [[''Created by'', d.creators | join('', '')]] %}{% endif %}{% if d.get(''studio'') %}{%
+          set rows = rows + [[''Studio'', d.studio]] %}{% endif %}{% if d.get(''network'') %}{% set rows = rows + [[''Network'', d.network]] %}{% endif %}{% if d.get(''release_date'') %}{% set rows = rows
+          + [[''Released'', as_datetime(d.release_date).strftime(''%b %-d, %Y'')]] %}{% endif %}{% if d.get(''seasons'') %}{% set rows = rows + [[''Seasons'', (d.seasons ~ ('' · '' ~ d.status if d.get(''status'')
+          else ''''))]] %}{% endif %}{% if d.get(''language'') %}{% set rows = rows + [[''Language'', d.language]] %}{% endif %}{% if rows %}
+
+
+          #### Information
+
+
+          <table>{% for r in rows %}<tr><th>{{ r[0] }}</th><td>{{ r[1] }}</td></tr>{% endfor %}</table>{% endif %}{% set cast = d.get(''cast'') or [] %}{% if cast %}
+
+
+          #### Cast
+
+
+          <table>{% for row in cast | batch(4) %}<tr>{% for p in row %}<td>{% if p.photo %}<img src="{{ p.photo }}">{% endif %}{{ p.name }}<br><em>{{ p.role }}</em></td>{% endfor %}</tr>{% endfor %}</table>{%
+          endif %}{% endif %}'
+        uix:
+          style:
+            ha-markdown$: 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px 4px !important; color: var(--secondary-text-color);
+              line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding: 0 5px; font-size: 12px; } h3 { margin: 14px 4px
+              0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3 + h2 { margin-top: 2px !important; } h4 { margin:
+              18px 4px 4px !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } table { width: 100%; border-collapse: collapse;
+              table-layout: fixed; border: none !important; } tr, td { border: none !important; background: none !important; } td { vertical-align: top; text-align: center; padding: 8px 2px !important;
+              font-size: 12px; line-height: 1.25; color: var(--primary-text-color); } td img { width: 56px !important; height: 56px; border-radius: 50% !important; object-fit: cover; object-position: center
+              top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); } img[alt="poster"] { width: 62% !important; margin: 4px auto 12px !important; border-radius:
+              14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); } h5 { margin: 2px 4px 12px !important; font-size: 13px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; color:
+              var(--primary-text-color); } th { text-align: left; vertical-align: top; width: 32%; padding: 7px 4px !important; font-size: 13px; font-weight: 500; color: var(--secondary-text-color); border:
+              none !important; background: none !important; } tr:has(th) td { text-align: left; padding: 7px 4px !important; font-size: 13px; line-height: 1.35; } tr:has(th) + tr:has(th) th, tr:has(th)
+              + tr:has(th) td { border-top: 1px solid color-mix(in srgb, var(--primary-text-color) 10%, transparent) !important; }'
+            'ha-markdown $ ha-markdown-element:': 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px
+              4px !important; color: var(--secondary-text-color); line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding:
+              0 5px; font-size: 12px; } h3 { margin: 14px 4px 0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3
+              + h2 { margin-top: 2px !important; } h4 { margin: 18px 4px 4px !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color);
+              } table { width: 100%; border-collapse: collapse; table-layout: fixed; border: none !important; } tr, td { border: none !important; background: none !important; } td { vertical-align: top;
+              text-align: center; padding: 8px 2px !important; font-size: 12px; line-height: 1.25; color: var(--primary-text-color); } td img { width: 56px !important; height: 56px; border-radius: 50% !important;
+              object-fit: cover; object-position: center top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); } img[alt="poster"] { width: 62% !important;
+              margin: 4px auto 12px !important; border-radius: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); } h5 { margin: 2px 4px 12px !important; font-size: 13px; font-weight: 600; text-align: center;
+              font-variant-numeric: tabular-nums; color: var(--primary-text-color); } th { text-align: left; vertical-align: top; width: 32%; padding: 7px 4px !important; font-size: 13px; font-weight: 500;
+              color: var(--secondary-text-color); border: none !important; background: none !important; } tr:has(th) td { text-align: left; padding: 7px 4px !important; font-size: 13px; line-height: 1.35;
+              } tr:has(th) + tr:has(th) th, tr:has(th) + tr:has(th) td { border-top: 1px solid color-mix(in srgb, var(--primary-text-color) 10%, transparent) !important; }'
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#averys-room'
@@ -6560,12 +6926,18 @@ views:
                   || ''''; const poster = (d.poster || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return
                   a.entity_picture || (ok && (d.backdrop || d.show_poster || poster)) || fb; ]]]'
               actions:
+              - name: Now Playing
+                icon: mdi:information-outline
+                action: navigate
+                navigation_path: '#living-room-now-playing'
+                placement: hidden
+                card_trigger: tap
               - name: Remote
                 icon: mdi:remote-tv
                 action: navigate
                 navigation_path: '#living-room-remote'
                 placement: hidden
-                card_trigger: tap
+                card_trigger: hold
               uix:
                 style: ':host { --accent-color: var(--primary-text-color); }
 
@@ -6747,12 +7119,18 @@ views:
                     }[a.app_name] || ''''; const poster = (d.poster || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster
                     || fb; return a.entity_picture || (ok && (d.backdrop || d.show_poster || poster)) || fb; ]]]'
                 actions:
+                - name: Now Playing
+                  icon: mdi:information-outline
+                  action: navigate
+                  navigation_path: '#master-bedroom-now-playing'
+                  placement: hidden
+                  card_trigger: tap
                 - name: Remote
                   icon: mdi:remote-tv
                   action: navigate
                   navigation_path: '#master-bedroom-remote'
                   placement: hidden
-                  card_trigger: tap
+                  card_trigger: hold
                 uix:
                   style: ':host { --accent-color: var(--primary-text-color); }
 
