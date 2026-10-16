@@ -705,10 +705,10 @@ views:
           media_artwork_overrides:
           - entity_id: media_player.living_room_appletv
             object_fit: cover
-            image_url: '{% set mp = ''media_player.living_room_appletv'' %}{% set se = ''sensor.living_room_appletv_info'' %}{% set d = state_attr(se, ''details'') or {} %}{% set ok = states(se) not in
-              [''none'', ''unknown'', ''unavailable''] and (state_attr(se, ''content_id'') | string) == (state_attr(mp, ''media_content_id'') | string) %}{% set fb = {''YouTube'': ''/local/media_art/youtube.svg'',
-              ''TV'': ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg''} %}{% set tmdb = (d.get(''backdrop'') or d.get(''show_poster'')
-              or (d.get(''poster'', '''') | replace(''1000x1000bb'', ''600x600bb''))) if ok else '''' %}{{ tmdb or state_attr(mp, ''entity_picture'') or fb.get(state_attr(mp, ''app_name''), '''') }}'
+            image_url: '[[[ const a = states[''media_player.living_room_appletv'']?.attributes || {}; const sa = states[''sensor.living_room_appletv_info'']; const d = sa?.attributes?.details || {}; const
+              ok = !!sa && ![''none'', ''unknown'', ''unavailable''].includes(sa.state) && String(sa.attributes.content_id ?? '''') === String(a.media_content_id ?? ''''); const fb = { ''YouTube'': ''/local/media_art/youtube.svg'',
+              ''TV'': ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg'' }[a.app_name] || ''''; return (ok && (d.backdrop
+              || d.show_poster || (d.poster || '''').replace(''1000x1000bb'', ''600x600bb''))) || a.entity_picture || fb; ]]]'
           actions:
           - name: Remote
             icon: mdi:remote-tv
@@ -2121,6 +2121,17 @@ views:
             bottom: []
           modules:
           - time_slider
+          double_tap_action:
+            action: none
+          hold_action:
+            action: none
+          button_action:
+            tap_action:
+              action: none
+            double_tap_action:
+              action: none
+            hold_action:
+              action: none
         - type: custom:bubble-card
           card_type: sub-buttons
           hide_main_background: true
@@ -3487,6 +3498,17 @@ views:
             bottom: []
           modules:
           - time_slider
+          double_tap_action:
+            action: none
+          hold_action:
+            action: none
+          button_action:
+            tap_action:
+              action: none
+            double_tap_action:
+              action: none
+            hold_action:
+              action: none
         - type: custom:bubble-card
           card_type: sub-buttons
           hide_main_background: true
