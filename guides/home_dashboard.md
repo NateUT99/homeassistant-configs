@@ -85,10 +85,10 @@ home-main  (storage-mode dashboard, kiosk_mode.hide_header, navbar-templates.mai
   an old app's paused session after the current one ends*), plus 30 seconds,
   because moving around the Apple TV interface drops it to `idle` for under a second at a
   time, which would otherwise hide and re-show the card. HomePods are active while playing
-  something with a track title (a TTS announcement has none, so it never shows the card), plus 10
-  minutes: a HomePod usually drops from `paused` to `idle` on its own 8 minutes after playing, but
-  an app that parks a track on it without playing (`idle` → `paused`, seen with AirMusic in
-  Avery's room) leaves it paused indefinitely.
+  something with a track title (a TTS announcement has none, so it never shows the card), and
+  while paused straight after that for up to 10 minutes, but hide as soon as they go `idle`: an
+  app that parks a track on a HomePod without playing (`idle` → `paused`, seen with AirMusic in
+  Avery's room) leaves it paused indefinitely, so a pause only counts after playback.
 - **Areas fold into pop-ups instead of getting tiles** when they have nothing controlled
   from the dashboard more than occasionally (`standards/dashboards.md` §8.1).
 
@@ -289,11 +289,14 @@ rename:
 # "Recently active" flags for the HomePods and Apple TVs, used to show a room's media card
 # on the home-main dashboard and to count it in the Media chip.
 #
-# HomePods: on while playing something with a track title, held on for 10 minutes after it
-# stops (delay_off). A TTS announcement plays with no title, so it never shows the card. A
-# HomePod usually drops from paused to idle by itself after 8 minutes, but not when an app
-# parks a track on it without playing (idle -> paused directly), which can sit paused
-# indefinitely -- so the card can't rely on "paused".
+# HomePods: on while playing something with a track title, and while paused straight after
+# that, for up to 10 minutes from the pause; off as soon as the HomePod goes idle or off. A TTS
+# announcement plays with no title, so it never shows the card. `this.state == 'on'` limits the
+# paused hold to a pause that follows playback: an app that parks a track on a HomePod without
+# playing it (idle -> paused directly) can leave it paused indefinitely and never shows. The
+# 10 minutes are counted with now(), which re-renders the template every minute; a delay_off
+# can't be used, because HA fixes its length when the flag turns off, so a later idle
+# couldn't cut it short.
 #
 # Apple TVs: on while playing or paused (a paused show is one you'll come back to), held on
 # for 30 seconds. Moving around the Apple TV interface drops it to idle for under a second
@@ -314,27 +317,31 @@ template:
       - name: Kitchen HomePod Active
         unique_id: kitchen_homepod_active
         state: >-
-          {{ is_state('media_player.kitchen_homepod', 'playing')
-             and state_attr('media_player.kitchen_homepod', 'media_title') not in [none, ''] }}
-        delay_off: "00:10:00"
+          {{ (is_state('media_player.kitchen_homepod', 'playing')
+                and state_attr('media_player.kitchen_homepod', 'media_title') not in [none, ''])
+             or (is_state('media_player.kitchen_homepod', 'paused') and this.state == 'on'
+                 and (now() - states.media_player.kitchen_homepod.last_changed).total_seconds() < 600) }}
       - name: Office HomePod Active
         unique_id: office_homepod_active
         state: >-
-          {{ is_state('media_player.office_homepod', 'playing')
-             and state_attr('media_player.office_homepod', 'media_title') not in [none, ''] }}
-        delay_off: "00:10:00"
+          {{ (is_state('media_player.office_homepod', 'playing')
+                and state_attr('media_player.office_homepod', 'media_title') not in [none, ''])
+             or (is_state('media_player.office_homepod', 'paused') and this.state == 'on'
+                 and (now() - states.media_player.office_homepod.last_changed).total_seconds() < 600) }}
       - name: Master Bedroom HomePod Active
         unique_id: master_bedroom_homepod_active
         state: >-
-          {{ is_state('media_player.master_bedroom_homepod', 'playing')
-             and state_attr('media_player.master_bedroom_homepod', 'media_title') not in [none, ''] }}
-        delay_off: "00:10:00"
+          {{ (is_state('media_player.master_bedroom_homepod', 'playing')
+                and state_attr('media_player.master_bedroom_homepod', 'media_title') not in [none, ''])
+             or (is_state('media_player.master_bedroom_homepod', 'paused') and this.state == 'on'
+                 and (now() - states.media_player.master_bedroom_homepod.last_changed).total_seconds() < 600) }}
       - name: Averys Room HomePod Active
         unique_id: averys_room_homepod_active
         state: >-
-          {{ is_state('media_player.averys_room_homepod', 'playing')
-             and state_attr('media_player.averys_room_homepod', 'media_title') not in [none, ''] }}
-        delay_off: "00:10:00"
+          {{ (is_state('media_player.averys_room_homepod', 'playing')
+                and state_attr('media_player.averys_room_homepod', 'media_title') not in [none, ''])
+             or (is_state('media_player.averys_room_homepod', 'paused') and this.state == 'on'
+                 and (now() - states.media_player.averys_room_homepod.last_changed).total_seconds() < 600) }}
       - name: Living Room Apple TV Active
         unique_id: living_room_appletv_active
         state: >-
