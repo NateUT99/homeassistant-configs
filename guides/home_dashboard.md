@@ -249,7 +249,7 @@ start collapsed.
 |---|---|---|
 | Living Room Apple TV | `media_player.living_room_soundbar` | `#living-room-remote` |
 | Master Bedroom Apple TV | `media_player.master_bedroom_tv` | `#master-bedroom-remote` |
-| Family Room Apple TV | `media_player.family_room_theater` | `#family-room-now-playing` | No header; `popup_style: home-assistant`, like the remote pop-ups. Three cards, all from `sensor.family_room_appletv_info` and the player. **Header** (markdown): a small-caps label row (play or pause icon in purple, "Now Playing · Family Room", the app name as a pill on the right), then one image picked like the remote's Now Playing tab (the 2:3 poster at 80% width for a movie or series, otherwise TMDB's wide background art, Apple's art, or the player's own artwork at full width), the series as a small heading for an episode, the title, and the tagline in italics. While the sensor is `none` (an app it can't look up, such as YouTube) the header still shows the player's artwork, `media_title` and app. **Timeline**: the remote's Bubble slider on `number.family_room_appletv_position`. **Details** (markdown): time left and, while playing, "Ends at" a clock time (from the position number's value and `max`; hidden for live TV, which has no duration), then the rating badge with year · genre · runtime · ★ score, the director, the full description, and the Cast grid |
+| Family Room Apple TV | `media_player.family_room_theater` | `#family-room-now-playing` | No header; `popup_style: home-assistant`, like the remote pop-ups. Three cards, all from `sensor.family_room_appletv_info` and the player. **Header** (markdown): a small-caps label row (play or pause icon in purple, "Now Playing · Family Room", the app name as a pill on the right), then one image picked like the remote's Now Playing tab (the 2:3 poster at 80% width for a movie or series, otherwise TMDB's wide background art, Apple's art, or the player's own artwork at full width), the series as a small heading for an episode, the title (the episode's name for an episode), "Season 2, Episode 20 · Aired Mar 4, 1984" for an episode, and the tagline in italics. While the sensor is `none` (an app it can't look up, such as YouTube) the header still shows the player's artwork, `media_title` and app. **Timeline**: the remote's Bubble slider on `number.family_room_appletv_position`, display-only (`read_only_slider` plus `pointer-events: none`, so a scroll can't seek). **Details** (markdown): time left and, while playing, "Ends at" a clock time (from the position number's value and `max`; hidden for live TV, which has no duration); the rating badge with year · genre · runtime · ★ score; the full description; an **Information** table (a `<th>` label column, so the CSS styles it apart from the cast grid) listing whichever of Director, Written by, Created by, Studio, Network, Released, Seasons (count · status) and Language the sensor has; then the Cast grid |
 
 Each sets `volume_mode: stepper` (−/+ at `volume_step: 0.02`, mute on the speaker icon),
 `match_theme: true`, `artwork_object_fit: cover` and `details_alignment: left`, hides every
@@ -461,8 +461,9 @@ and every TV-app title's name to TMDB:
 # episode).
 #
 # TMDB (The Movie Database) then adds the cast with headshots, tagline, audience score, wide
-# background art and, for an episode, the series' 2:3 poster. TMDB doesn't know Apple's IDs, so
-# it is matched by name: a movie by title and release year; an episode by series name (Apple's
+# background art, the writers, the studio, the original language when it isn't English,
+# and for an episode the series' 2:3 poster, its director, and its name and air date. TMDB
+# doesn't know Apple's IDs, so it is matched by name: a movie by title and release year; an episode by series name (Apple's
 # "(Original)"-style suffix removed), taking the newest series that started no later than the
 # episode aired (so Magnum, P.I. 1982 finds the 1980 series, not the 2018 one), then the season
 # and episode numbers from Apple's track name ("Season 2, Episode 20: ..."). An unmatched title
@@ -475,7 +476,9 @@ and every TV-app title's name to TMDB:
 # are often listed under their franchise ("Snoopy Presents: A Summer Musical" when the Apple TV
 # says "A Summer Musical"); anything looser could show the wrong show. These get TMDB's fields only:
 # the US content rating from TMDB, the player's own duration as runtime, and the series (not
-# the episode) for TV. Other apps (YouTube, Disney+) and live TV (no duration) get no details.
+# the episode) for TV, plus the series' network, creators, season count and status, and the
+# player's own season and episode numbers when it reports them. Other apps (YouTube, Disney+) and
+# live TV (no duration) get no details.
 #
 # Security: the TMDB API Read Access Token lives in /config/secrets.yaml as
 # `tmdb_token: "Bearer <token>"` and is sent as a request header, never in a URL (so it never
@@ -523,7 +526,7 @@ template:
       owned: "{{ new_id is match('^[0-9]+$') }}"
       tvapp: "{{ not owned and new_id != '' and is_state_attr('media_player.living_room_appletv', 'app_id', 'com.apple.TVWatchList') and (state_attr('media_player.living_room_appletv', 'media_duration') or 0) > 0 }}"
       title: "{{ state_attr('media_player.living_room_appletv', 'media_series_title') or state_attr('media_player.living_room_appletv', 'media_title') or '' }}"
-      changed: "{{ new_id != (state_attr('sensor.living_room_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.living_room_appletv_info', 'lookup_version') | int(0)) != 2 }}"
+      changed: "{{ new_id != (state_attr('sensor.living_room_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.living_room_appletv_info', 'lookup_version') | int(0)) != 3 }}"
     actions:
       - if:
           - condition: template
@@ -597,7 +600,7 @@ template:
           {% endif %}
         attributes:
           content_id: "{{ new_id if (active and (owned or tvapp)) else '' }}"
-          lookup_version: "{{ 2 }}"
+          lookup_version: "{{ 3 }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
               {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
@@ -612,6 +615,10 @@ template:
               {% set sres = tsearch.content.results if (tsearch is defined and tsearch.status == 200) else [] %}
               {% set shows = sres | selectattr('first_air_date', 'defined') | rejectattr('first_air_date', 'eq', '') | selectattr('first_air_date', 'le', (r.releaseDate | default(''))[:10]) | sort(attribute='first_air_date', reverse=true) | list %}
               {% set sp = ((shows or sres) | first | default({})).get('poster_path') if r.kind | default('') == 'tv-episode' else none %}
+              {% set ep = r.kind | default('') == 'tv-episode' %}
+              {% set crew = ((t.get('credits') or {}).get('crew') or []) + (t.get('crew') or []) %}
+              {% set se = (r.trackName | default('')) | regex_findall('Season (\\d+), Episode (\\d+)(?:: (.*))?') | first | default([]) %}
+              {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
               {{ {
                 'year': (r.releaseDate | default(''))[:4],
                 'rating': r.contentAdvisoryRating | default(''),
@@ -619,14 +626,23 @@ template:
                 'runtime': ((mins // 60) ~ 'h ' ~ (mins % 60) ~ 'm') if mins >= 60 else ((mins ~ 'm') if mins else ''),
                 'kind': r.kind | default(''),
                 'series': r.artistName | default('') if r.kind | default('') == 'tv-episode' else '',
-                'director': r.artistName | default('') if r.kind | default('') == 'feature-movie' else '',
+                'director': r.artistName | default('') if r.kind | default('') == 'feature-movie' else ((crew | selectattr('job', 'eq', 'Director') | map(attribute='name') | first | default('')) if ep else ''),
                 'description': r.longDescription | default(r.shortDescription | default('')),
                 'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb'),
                 'show_poster': ('https://image.tmdb.org/t/p/w780' ~ sp) if sp else '',
                 'tagline': t.get('tagline') or '',
                 'score': ('%.1f' | format(t.vote_average)) if (t.get('vote_count') or 0) > 0 else '',
                 'cast': ns.cast,
-                'backdrop': ('https://image.tmdb.org/t/p/w1280' ~ art) if art else ''
+                'backdrop': ('https://image.tmdb.org/t/p/w1280' ~ art) if art else '',
+                'writers': (crew | selectattr('job', 'in', ['Screenplay', 'Writer', 'Story', 'Teleplay', 'Novel']) | map(attribute='name') | unique | list)[:3],
+                'creators': [],
+                'studio': '' if ep else ((t.get('production_companies') or []) | map(attribute='name') | first | default('', true)),
+                'network': '',
+                'release_date': '' if ep else (t.get('release_date') or (r.releaseDate | default(''))[:10]),
+                'language': lang,
+                'seasons': 0,
+                'status': '',
+                'episode': {'season': se[0] | int, 'number': se[1] | int, 'name': t.get('name') or se[2], 'air_date': t.get('air_date') or (r.releaseDate | default(''))[:10]} if ep and se else {}
               } }}
             {% elif active and tvapp and tdetail is defined and tdetail.status == 200 and tdetail.content is mapping %}
               {% set t = tdetail.content %}{% set tv = 'first_air_date' in t %}
@@ -641,6 +657,9 @@ template:
                 {% set rating = (t.get('release_dates') or {}).get('results', []) | selectattr('iso_3166_1', 'eq', 'US') | map(attribute='release_dates') | first | default([]) | map(attribute='certification') | reject('eq', '') | first | default('') %}
               {% endif %}
               {% set poster = ('https://image.tmdb.org/t/p/w780' ~ t.poster_path) if t.get('poster_path') else '' %}
+              {% set crew = (t.get('credits') or {}).get('crew') or [] %}
+              {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
+              {% set ps = state_attr('media_player.living_room_appletv', 'media_season') %}{% set pe = state_attr('media_player.living_room_appletv', 'media_episode') %}{% set pt = state_attr('media_player.living_room_appletv', 'media_title') or '' %}
               {{ {
                 'year': (t.get('first_air_date') or t.get('release_date') or '')[:4],
                 'rating': rating,
@@ -655,7 +674,16 @@ template:
                 'tagline': t.get('tagline') or '',
                 'score': ('%.1f' | format(t.vote_average)) if (t.get('vote_count') or 0) > 0 else '',
                 'cast': ns.cast,
-                'backdrop': ('https://image.tmdb.org/t/p/w1280' ~ t.backdrop_path) if t.get('backdrop_path') else ''
+                'backdrop': ('https://image.tmdb.org/t/p/w1280' ~ t.backdrop_path) if t.get('backdrop_path') else '',
+                'writers': [] if tv else (crew | selectattr('job', 'in', ['Screenplay', 'Writer', 'Story', 'Teleplay', 'Novel']) | map(attribute='name') | unique | list)[:3],
+                'creators': ((t.get('created_by') or []) | map(attribute='name') | list)[:2] if tv else [],
+                'studio': '' if tv else ((t.get('production_companies') or []) | map(attribute='name') | first | default('', true)),
+                'network': ((t.get('networks') or []) | map(attribute='name') | first | default('', true)) if tv else '',
+                'release_date': '' if tv else (t.get('release_date') or ''),
+                'language': lang,
+                'seasons': (t.get('number_of_seasons') or 0) if tv else 0,
+                'status': (t.get('status') or '') if tv else '',
+                'episode': {'season': ps | int, 'number': pe | int, 'name': pt if pt != title else '', 'air_date': ''} if tv and ps and pe else {}
               } }}
             {% elif active and (owned or tvapp) and not changed %}
               {{ this.attributes.details | default({}) }}
@@ -676,7 +704,7 @@ template:
       owned: "{{ new_id is match('^[0-9]+$') }}"
       tvapp: "{{ not owned and new_id != '' and is_state_attr('media_player.master_bedroom_appletv', 'app_id', 'com.apple.TVWatchList') and (state_attr('media_player.master_bedroom_appletv', 'media_duration') or 0) > 0 }}"
       title: "{{ state_attr('media_player.master_bedroom_appletv', 'media_series_title') or state_attr('media_player.master_bedroom_appletv', 'media_title') or '' }}"
-      changed: "{{ new_id != (state_attr('sensor.master_bedroom_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.master_bedroom_appletv_info', 'lookup_version') | int(0)) != 2 }}"
+      changed: "{{ new_id != (state_attr('sensor.master_bedroom_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.master_bedroom_appletv_info', 'lookup_version') | int(0)) != 3 }}"
     actions:
       - if:
           - condition: template
@@ -750,7 +778,7 @@ template:
           {% endif %}
         attributes:
           content_id: "{{ new_id if (active and (owned or tvapp)) else '' }}"
-          lookup_version: "{{ 2 }}"
+          lookup_version: "{{ 3 }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
               {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
@@ -765,6 +793,10 @@ template:
               {% set sres = tsearch.content.results if (tsearch is defined and tsearch.status == 200) else [] %}
               {% set shows = sres | selectattr('first_air_date', 'defined') | rejectattr('first_air_date', 'eq', '') | selectattr('first_air_date', 'le', (r.releaseDate | default(''))[:10]) | sort(attribute='first_air_date', reverse=true) | list %}
               {% set sp = ((shows or sres) | first | default({})).get('poster_path') if r.kind | default('') == 'tv-episode' else none %}
+              {% set ep = r.kind | default('') == 'tv-episode' %}
+              {% set crew = ((t.get('credits') or {}).get('crew') or []) + (t.get('crew') or []) %}
+              {% set se = (r.trackName | default('')) | regex_findall('Season (\\d+), Episode (\\d+)(?:: (.*))?') | first | default([]) %}
+              {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
               {{ {
                 'year': (r.releaseDate | default(''))[:4],
                 'rating': r.contentAdvisoryRating | default(''),
@@ -772,14 +804,23 @@ template:
                 'runtime': ((mins // 60) ~ 'h ' ~ (mins % 60) ~ 'm') if mins >= 60 else ((mins ~ 'm') if mins else ''),
                 'kind': r.kind | default(''),
                 'series': r.artistName | default('') if r.kind | default('') == 'tv-episode' else '',
-                'director': r.artistName | default('') if r.kind | default('') == 'feature-movie' else '',
+                'director': r.artistName | default('') if r.kind | default('') == 'feature-movie' else ((crew | selectattr('job', 'eq', 'Director') | map(attribute='name') | first | default('')) if ep else ''),
                 'description': r.longDescription | default(r.shortDescription | default('')),
                 'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb'),
                 'show_poster': ('https://image.tmdb.org/t/p/w780' ~ sp) if sp else '',
                 'tagline': t.get('tagline') or '',
                 'score': ('%.1f' | format(t.vote_average)) if (t.get('vote_count') or 0) > 0 else '',
                 'cast': ns.cast,
-                'backdrop': ('https://image.tmdb.org/t/p/w1280' ~ art) if art else ''
+                'backdrop': ('https://image.tmdb.org/t/p/w1280' ~ art) if art else '',
+                'writers': (crew | selectattr('job', 'in', ['Screenplay', 'Writer', 'Story', 'Teleplay', 'Novel']) | map(attribute='name') | unique | list)[:3],
+                'creators': [],
+                'studio': '' if ep else ((t.get('production_companies') or []) | map(attribute='name') | first | default('', true)),
+                'network': '',
+                'release_date': '' if ep else (t.get('release_date') or (r.releaseDate | default(''))[:10]),
+                'language': lang,
+                'seasons': 0,
+                'status': '',
+                'episode': {'season': se[0] | int, 'number': se[1] | int, 'name': t.get('name') or se[2], 'air_date': t.get('air_date') or (r.releaseDate | default(''))[:10]} if ep and se else {}
               } }}
             {% elif active and tvapp and tdetail is defined and tdetail.status == 200 and tdetail.content is mapping %}
               {% set t = tdetail.content %}{% set tv = 'first_air_date' in t %}
@@ -794,6 +835,9 @@ template:
                 {% set rating = (t.get('release_dates') or {}).get('results', []) | selectattr('iso_3166_1', 'eq', 'US') | map(attribute='release_dates') | first | default([]) | map(attribute='certification') | reject('eq', '') | first | default('') %}
               {% endif %}
               {% set poster = ('https://image.tmdb.org/t/p/w780' ~ t.poster_path) if t.get('poster_path') else '' %}
+              {% set crew = (t.get('credits') or {}).get('crew') or [] %}
+              {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
+              {% set ps = state_attr('media_player.master_bedroom_appletv', 'media_season') %}{% set pe = state_attr('media_player.master_bedroom_appletv', 'media_episode') %}{% set pt = state_attr('media_player.master_bedroom_appletv', 'media_title') or '' %}
               {{ {
                 'year': (t.get('first_air_date') or t.get('release_date') or '')[:4],
                 'rating': rating,
@@ -808,7 +852,16 @@ template:
                 'tagline': t.get('tagline') or '',
                 'score': ('%.1f' | format(t.vote_average)) if (t.get('vote_count') or 0) > 0 else '',
                 'cast': ns.cast,
-                'backdrop': ('https://image.tmdb.org/t/p/w1280' ~ t.backdrop_path) if t.get('backdrop_path') else ''
+                'backdrop': ('https://image.tmdb.org/t/p/w1280' ~ t.backdrop_path) if t.get('backdrop_path') else '',
+                'writers': [] if tv else (crew | selectattr('job', 'in', ['Screenplay', 'Writer', 'Story', 'Teleplay', 'Novel']) | map(attribute='name') | unique | list)[:3],
+                'creators': ((t.get('created_by') or []) | map(attribute='name') | list)[:2] if tv else [],
+                'studio': '' if tv else ((t.get('production_companies') or []) | map(attribute='name') | first | default('', true)),
+                'network': ((t.get('networks') or []) | map(attribute='name') | first | default('', true)) if tv else '',
+                'release_date': '' if tv else (t.get('release_date') or ''),
+                'language': lang,
+                'seasons': (t.get('number_of_seasons') or 0) if tv else 0,
+                'status': (t.get('status') or '') if tv else '',
+                'episode': {'season': ps | int, 'number': pe | int, 'name': pt if pt != title else '', 'air_date': ''} if tv and ps and pe else {}
               } }}
             {% elif active and (owned or tvapp) and not changed %}
               {{ this.attributes.details | default({}) }}
@@ -829,7 +882,7 @@ template:
       owned: "{{ new_id is match('^[0-9]+$') }}"
       tvapp: "{{ not owned and new_id != '' and is_state_attr('media_player.family_room_appletv', 'app_id', 'com.apple.TVWatchList') and (state_attr('media_player.family_room_appletv', 'media_duration') or 0) > 0 }}"
       title: "{{ state_attr('media_player.family_room_appletv', 'media_series_title') or state_attr('media_player.family_room_appletv', 'media_title') or '' }}"
-      changed: "{{ new_id != (state_attr('sensor.family_room_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.family_room_appletv_info', 'lookup_version') | int(0)) != 2 }}"
+      changed: "{{ new_id != (state_attr('sensor.family_room_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.family_room_appletv_info', 'lookup_version') | int(0)) != 3 }}"
     actions:
       - if:
           - condition: template
@@ -903,7 +956,7 @@ template:
           {% endif %}
         attributes:
           content_id: "{{ new_id if (active and (owned or tvapp)) else '' }}"
-          lookup_version: "{{ 2 }}"
+          lookup_version: "{{ 3 }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
               {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
@@ -918,6 +971,10 @@ template:
               {% set sres = tsearch.content.results if (tsearch is defined and tsearch.status == 200) else [] %}
               {% set shows = sres | selectattr('first_air_date', 'defined') | rejectattr('first_air_date', 'eq', '') | selectattr('first_air_date', 'le', (r.releaseDate | default(''))[:10]) | sort(attribute='first_air_date', reverse=true) | list %}
               {% set sp = ((shows or sres) | first | default({})).get('poster_path') if r.kind | default('') == 'tv-episode' else none %}
+              {% set ep = r.kind | default('') == 'tv-episode' %}
+              {% set crew = ((t.get('credits') or {}).get('crew') or []) + (t.get('crew') or []) %}
+              {% set se = (r.trackName | default('')) | regex_findall('Season (\\d+), Episode (\\d+)(?:: (.*))?') | first | default([]) %}
+              {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
               {{ {
                 'year': (r.releaseDate | default(''))[:4],
                 'rating': r.contentAdvisoryRating | default(''),
@@ -925,14 +982,23 @@ template:
                 'runtime': ((mins // 60) ~ 'h ' ~ (mins % 60) ~ 'm') if mins >= 60 else ((mins ~ 'm') if mins else ''),
                 'kind': r.kind | default(''),
                 'series': r.artistName | default('') if r.kind | default('') == 'tv-episode' else '',
-                'director': r.artistName | default('') if r.kind | default('') == 'feature-movie' else '',
+                'director': r.artistName | default('') if r.kind | default('') == 'feature-movie' else ((crew | selectattr('job', 'eq', 'Director') | map(attribute='name') | first | default('')) if ep else ''),
                 'description': r.longDescription | default(r.shortDescription | default('')),
                 'poster': (r.artworkUrl100 | default('')) | replace('100x100bb', '1000x1000bb'),
                 'show_poster': ('https://image.tmdb.org/t/p/w780' ~ sp) if sp else '',
                 'tagline': t.get('tagline') or '',
                 'score': ('%.1f' | format(t.vote_average)) if (t.get('vote_count') or 0) > 0 else '',
                 'cast': ns.cast,
-                'backdrop': ('https://image.tmdb.org/t/p/w1280' ~ art) if art else ''
+                'backdrop': ('https://image.tmdb.org/t/p/w1280' ~ art) if art else '',
+                'writers': (crew | selectattr('job', 'in', ['Screenplay', 'Writer', 'Story', 'Teleplay', 'Novel']) | map(attribute='name') | unique | list)[:3],
+                'creators': [],
+                'studio': '' if ep else ((t.get('production_companies') or []) | map(attribute='name') | first | default('', true)),
+                'network': '',
+                'release_date': '' if ep else (t.get('release_date') or (r.releaseDate | default(''))[:10]),
+                'language': lang,
+                'seasons': 0,
+                'status': '',
+                'episode': {'season': se[0] | int, 'number': se[1] | int, 'name': t.get('name') or se[2], 'air_date': t.get('air_date') or (r.releaseDate | default(''))[:10]} if ep and se else {}
               } }}
             {% elif active and tvapp and tdetail is defined and tdetail.status == 200 and tdetail.content is mapping %}
               {% set t = tdetail.content %}{% set tv = 'first_air_date' in t %}
@@ -947,6 +1013,9 @@ template:
                 {% set rating = (t.get('release_dates') or {}).get('results', []) | selectattr('iso_3166_1', 'eq', 'US') | map(attribute='release_dates') | first | default([]) | map(attribute='certification') | reject('eq', '') | first | default('') %}
               {% endif %}
               {% set poster = ('https://image.tmdb.org/t/p/w780' ~ t.poster_path) if t.get('poster_path') else '' %}
+              {% set crew = (t.get('credits') or {}).get('crew') or [] %}
+              {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
+              {% set ps = state_attr('media_player.family_room_appletv', 'media_season') %}{% set pe = state_attr('media_player.family_room_appletv', 'media_episode') %}{% set pt = state_attr('media_player.family_room_appletv', 'media_title') or '' %}
               {{ {
                 'year': (t.get('first_air_date') or t.get('release_date') or '')[:4],
                 'rating': rating,
@@ -961,7 +1030,16 @@ template:
                 'tagline': t.get('tagline') or '',
                 'score': ('%.1f' | format(t.vote_average)) if (t.get('vote_count') or 0) > 0 else '',
                 'cast': ns.cast,
-                'backdrop': ('https://image.tmdb.org/t/p/w1280' ~ t.backdrop_path) if t.get('backdrop_path') else ''
+                'backdrop': ('https://image.tmdb.org/t/p/w1280' ~ t.backdrop_path) if t.get('backdrop_path') else '',
+                'writers': [] if tv else (crew | selectattr('job', 'in', ['Screenplay', 'Writer', 'Story', 'Teleplay', 'Novel']) | map(attribute='name') | unique | list)[:3],
+                'creators': ((t.get('created_by') or []) | map(attribute='name') | list)[:2] if tv else [],
+                'studio': '' if tv else ((t.get('production_companies') or []) | map(attribute='name') | first | default('', true)),
+                'network': ((t.get('networks') or []) | map(attribute='name') | first | default('', true)) if tv else '',
+                'release_date': '' if tv else (t.get('release_date') or ''),
+                'language': lang,
+                'seasons': (t.get('number_of_seasons') or 0) if tv else 0,
+                'status': (t.get('status') or '') if tv else '',
+                'episode': {'season': ps | int, 'number': pe | int, 'name': pt if pt != title else '', 'air_date': ''} if tv and ps and pe else {}
               } }}
             {% elif active and (owned or tvapp) and not changed %}
               {{ this.attributes.details | default({}) }}
@@ -1422,7 +1500,7 @@ row showing the lowest level. New devices appear automatically.
 | `ha/themes/home_flat.yaml` | `/config/themes/home_flat.yaml` | Dashboard theme; `frontend.reload_themes` after a change (repo authoritative) |
 | `ha/packages/media_activity.yaml` | `/config/packages/media_activity.yaml` | HomePod and Apple TV "recently active" sensors for room media cards and the Media chip, and each Apple TV's last-played app (repo authoritative) |
 | `ha/www/media_art/*.svg` | `/config/www/media_art/` | Fallback artwork for the favourite Apple TV apps (YouTube, TV, Disney+, Prime Video) in the remote pop-ups (repo authoritative) |
-| `ha/packages/media_info.yaml` | `/config/packages/media_info.yaml` | Apple TV now-playing details from the iTunes lookup, plus cast, tagline, score, background art and series posters from TMDB (repo authoritative) |
+| `ha/packages/media_info.yaml` | `/config/packages/media_info.yaml` | Apple TV now-playing details from the iTunes lookup, plus cast, tagline, score, background art, series posters, writers, studio or network, release date, language, an episode's name, air date and director, and a series' creators, season count and status from TMDB (repo authoritative) |
 | `ha/packages/media_seek.yaml` | `/config/packages/media_seek.yaml` | Apple TV playback-position numbers behind the remote pop-ups' timeline sliders (repo authoritative) |
 
 ---
