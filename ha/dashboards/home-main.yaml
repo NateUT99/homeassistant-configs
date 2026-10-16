@@ -1920,8 +1920,8 @@ views:
           {% if d.get(''tagline'') %}*{{ d.get(''tagline'') }}*
 
 
-          {% endif %}**{{ d.get(''rating'', '''') }}** · {{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', ''''), (''★ '' ~ d.get(''score'')) if d.get(''score'') else ''''] | select
-          | join('' · '') }}
+          {% endif %}{% if d.get(''rating'') %}**{{ d.get(''rating'') }}** · {% endif %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', ''''), (''★ '' ~ d.get(''score'')) if d.get(''score'')
+          else ''''] | select | join('' · '') }}
 
 
           {% if d.get(''director'') %}Directed by {{ d.get(''director'') }}
@@ -2022,6 +2022,24 @@ views:
             - standby
             - unavailable
             - unknown
+        - type: markdown
+          text_only: true
+          content: '{% set s = state_attr(''media_player.living_room_appletv'', ''media_series_title'') %}{% if s %}#### {{ s }}
+
+
+            {% endif %}### {{ state_attr(''media_player.living_room_appletv'', ''media_title'') }}'
+          visibility:
+          - condition: state
+            entity: media_player.living_room_appletv
+            state:
+            - playing
+            - paused
+          uix:
+            style:
+              ha-markdown$: 'h4 { margin: 2px 4px 0 !important; font-size: 13px; font-weight: 500; text-align: center; color: var(--secondary-text-color); } h3 { margin: 2px 4px 2px !important; font-size:
+                17px; font-weight: 600; line-height: 1.25; text-align: center; color: var(--primary-text-color); }'
+              'ha-markdown $ ha-markdown-element:': 'h4 { margin: 2px 4px 0 !important; font-size: 13px; font-weight: 500; text-align: center; color: var(--secondary-text-color); } h3 { margin: 2px 4px
+                2px !important; font-size: 17px; font-weight: 600; line-height: 1.25; text-align: center; color: var(--primary-text-color); }'
         - type: custom:bubble-card
           card_type: button
           button_type: slider
@@ -3259,8 +3277,8 @@ views:
           {% if d.get(''tagline'') %}*{{ d.get(''tagline'') }}*
 
 
-          {% endif %}**{{ d.get(''rating'', '''') }}** · {{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', ''''), (''★ '' ~ d.get(''score'')) if d.get(''score'') else ''''] | select
-          | join('' · '') }}
+          {% endif %}{% if d.get(''rating'') %}**{{ d.get(''rating'') }}** · {% endif %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', ''''), (''★ '' ~ d.get(''score'')) if d.get(''score'')
+          else ''''] | select | join('' · '') }}
 
 
           {% if d.get(''director'') %}Directed by {{ d.get(''director'') }}
