@@ -1,0 +1,52 @@
+alias: 'Household: Apple TV Play Pause'
+description: Pauses or resumes an Apple TV from the home-main remote pop-ups. Titles
+  with a duration take media_pause / media_play; live streams take the play_pause
+  remote key, since the Apple TV refuses media_pause on live TV and ignores the key
+  during a movie. See guides/home_dashboard.md.
+icon: mdi:play-pause
+mode: parallel
+fields:
+  media_player:
+    name: Media player
+    description: The Apple TV's media player.
+    required: true
+    selector:
+      entity:
+        domain: media_player
+  remote:
+    name: Remote
+    description: The same Apple TV's remote entity, for the live-stream key.
+    required: true
+    selector:
+      entity:
+        domain: remote
+sequence:
+- alias: Pick the method
+  choose:
+  - alias: 'Live stream: send the remote key'
+    conditions:
+    - alias: No duration (live)
+      condition: template
+      value_template: '{{ not state_attr(media_player, ''media_duration'') }}'
+    sequence:
+    - alias: Send play_pause key
+      action: remote.send_command
+      target:
+        entity_id: '{{ remote }}'
+      data:
+        command: play_pause
+  - alias: 'Playing: pause'
+    conditions:
+    - alias: Is playing
+      condition: template
+      value_template: '{{ is_state(media_player, ''playing'') }}'
+    sequence:
+    - alias: Pause
+      action: media_player.media_pause
+      target:
+        entity_id: '{{ media_player }}'
+  default:
+  - alias: Play
+    action: media_player.media_play
+    target:
+      entity_id: '{{ media_player }}'

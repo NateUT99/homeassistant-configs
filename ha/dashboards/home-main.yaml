@@ -2007,10 +2007,11 @@ views:
             \ '/local/media_art/disney_plus.svg', 'Prime Video': '/local/media_art/prime_video.svg' })[a.app_name] || '';\n  const last = window.__lrAppleTvArt || {};\n  const settled = ['playing', 'paused'].includes(st?.state)\
             \ && cid !== '';\n  const pending = /^[0-9]+$/.test(cid) && String(sa.content_id ?? '') !== cid;\n  let art;\n  if (settled && !pending) {\n    art = String(sa.content_id ?? '') === cid && (d.backdrop\
             \ || d.poster) ? (d.backdrop || d.poster.replace('1000x1000bb', '600x600bb')) : (a.entity_picture || fb);\n    window.__lrAppleTvArt = { art, t: Date.now() };\n  } else {\n    art = last.art\
-            \ && Date.now() - last.t < 30000 ? last.art : fb;\n  }\n  return `.bubble-button-card-container { background-image: url(\"${art || '/local/media_art/tv.svg'}\") !important; }`;\n})()}\n.bubble-button-card-container\
-            \ { background-size: contain !important; background-position: center !important; background-repeat: no-repeat !important; background-origin: content-box !important; padding: 12px !important;\
-            \ box-sizing: border-box !important; }\nha-card, .bubble-button-card-container, .bubble-button-container { height: 174px !important; }\n.bubble-icon-container, .bubble-name-container { display:\
-            \ none !important; }\n"
+            \ && Date.now() - last.t < 30000 ? last.art : fb;\n  }\n  const wide = /image\\.tmdb\\.org/.test(art || '');\n  return `.bubble-button-card-container { background-image: url(\"${art || '/local/media_art/tv.svg'}\"\
+            ) !important; }` + (wide ? `\nha-card:not(#w), .bubble-button-container:not(#w) { height: auto !important; }\n.bubble-button-card-container:not(#w) { height: auto !important; aspect-ratio: 16\
+            \ / 9; padding: 0 !important; background-size: cover !important; }` : '');\n})()}\n.bubble-button-card-container { background-size: contain !important; background-position: center !important;\
+            \ background-repeat: no-repeat !important; background-origin: content-box !important; padding: 12px !important; box-sizing: border-box !important; }\nha-card, .bubble-button-card-container,\
+            \ .bubble-button-container { height: 174px !important; }\n.bubble-icon-container, .bubble-name-container { display: none !important; }\n"
           visibility:
           - condition: state
             entity: media_player.living_room_appletv
@@ -2329,9 +2330,10 @@ views:
             icon: '{{ ''mdi:pause'' if is_state(''media_player.living_room_appletv'', ''playing'') else ''mdi:play'' }}'
             tap_action:
               action: perform-action
-              perform_action: media_player.media_{{ 'pause' if is_state('media_player.living_room_appletv', 'playing') else 'play' }}
-              target:
-                entity_id: media_player.living_room_appletv
+              perform_action: script.household_appletv_play_pause
+              data:
+                media_player: media_player.living_room_appletv
+                remote: remote.living_room_appletv
             styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
               }'
             hold_action:
@@ -3599,9 +3601,10 @@ views:
             icon: '{{ ''mdi:pause'' if is_state(''media_player.master_bedroom_appletv'', ''playing'') else ''mdi:play'' }}'
             tap_action:
               action: perform-action
-              perform_action: media_player.media_{{ 'pause' if is_state('media_player.master_bedroom_appletv', 'playing') else 'play' }}
-              target:
-                entity_id: media_player.master_bedroom_appletv
+              perform_action: script.household_appletv_play_pause
+              data:
+                media_player: media_player.master_bedroom_appletv
+                remote: remote.master_bedroom_appletv
             styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
               }'
             hold_action:
