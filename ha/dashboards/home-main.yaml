@@ -725,6 +725,25 @@ views:
 
               .progress-bar { background: color-mix(in srgb, var(--primary-text-color) 25%, transparent) !important; }
 
+              .card-lower-content { display: grid !important; grid-template-columns: auto 1fr; align-items: center; }
+
+              .card-lower-content > * { grid-column: 1 / -1; }
+
+              .card-artwork-spacer { height: 110px !important; min-height: 0 !important; }
+
+              .card-lower-content > div:has(> .controls-row) { grid-column: 1; }
+
+              .card-lower-content > .volume-row { grid-column: 2; display: flex !important; justify-content: flex-end !important; gap: 4px; padding: 0 12px 0 0 !important; min-height: 0 !important; height:
+              auto !important; }
+
+              .volume-row > * { flex: 0 0 auto !important; }
+
+              .volume-left { margin-left: auto !important; }
+
+              .volume-center { width: auto !important; }
+
+              .controls-row { padding: 6px 0 10px 16px !important; }
+
               '
           artwork_object_fit: cover
           details_alignment: left
