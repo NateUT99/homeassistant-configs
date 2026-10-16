@@ -729,7 +729,9 @@ views:
 
               .card-lower-content > * { grid-column: 1 / -1; }
 
-              .card-artwork-spacer { height: 110px !important; min-height: 0 !important; }
+              .yamp-card-inner { container-type: inline-size; }
+
+              .card-artwork-spacer { height: max(40px, calc(56.25cqw - 85px)) !important; min-height: 0 !important; }
 
               .card-lower-content > div:has(> .controls-row) { grid-column: 1; }
 
@@ -743,6 +745,10 @@ views:
               .volume-center { width: auto !important; }
 
               .controls-row { padding: 6px 0 10px 16px !important; }
+
+              .details .artist, .progress-bar-container { display: none !important; }
+
+              .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
 
               '
           artwork_object_fit: cover
