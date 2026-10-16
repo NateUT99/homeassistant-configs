@@ -6350,706 +6350,718 @@ views:
           entity: binary_sensor.living_room_appletv_active
           state: 'on'
         card:
-          type: vertical-stack
-          cards:
-          - type: heading
+          type: custom:expander-card
+          expanded: true
+          clear: false
+          show-button-users:
+          - nobody
+          title-card-clickable: false
+          padding: 4px 10px 10px 10px
+          child-margin-top: 0.6em
+          title-card:
+            type: heading
             heading: Living Room
             heading_style: title
             icon: mdi:sofa
-            uix:
-              style: 'ha-card { background: color-mix(in srgb, var(--primary-text-color) 9%, transparent) !important; border-radius: 12px !important; padding: 0 12px !important; }
+          cards:
+          - type: vertical-stack
+            cards:
+            - type: custom:yet-another-media-player
+              entities:
+              - entity_id: media_player.living_room_appletv
+                name: Living Room
+                volume_entity: media_player.living_room_soundbar
+                hidden_controls:
+                - previous
+                - next
+                - stop
+                - shuffle
+                - repeat
+                - favorite
+                - power
+              volume_mode: stepper
+              volume_step: 0.02
+              match_theme: true
+              artwork_object_fit: cover
+              details_alignment: left
+              media_artwork_overrides:
+              - entity_id: media_player.living_room_appletv
+                object_fit: cover
+                image_url: '[[[ const a = states[''media_player.living_room_appletv'']?.attributes || {}; const sa = states[''sensor.living_room_appletv_info'']; const d = sa?.attributes?.details || {};
+                  const ok = !!sa && ![''none'', ''unknown'', ''unavailable''].includes(sa.state) && String(sa.attributes.content_id ?? '''') === String(a.media_content_id ?? ''''); const fb = { ''YouTube'':
+                  ''/local/media_art/youtube.svg'', ''TV'': ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg'' }[a.app_name]
+                  || ''''; const poster = (d.poster || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return
+                  a.entity_picture || (ok && (d.backdrop || d.show_poster || poster)) || fb; ]]]'
+              actions:
+              - name: Remote
+                icon: mdi:remote-tv
+                action: navigate
+                navigation_path: '#living-room-remote'
+                placement: hidden
+                card_trigger: tap
+              uix:
+                style: ':host { --accent-color: var(--primary-text-color); }
+
+                  .volume-percentage-indicator { color: var(--primary-background-color) !important; }
+
+                  .more-info-menu { display: none !important; }
+
+                  .yamp-card-inner { container-type: inline-size; }
+
+                  .card-lower-content-bg { min-height: 0 !important; height: 100% !important; background-position: center !important; }
+
+                  .card-artwork-spacer { height: max(40px, calc(56.25cqw - 85px)) !important; min-height: 0 !important; }
+
+                  .card-lower-content { display: grid !important; grid-template-columns: auto 1fr; align-items: center; }
+
+                  .card-lower-content > * { grid-column: 1 / -1; }
+
+                  .card-lower-content > div:has(> .controls-row) { grid-column: 1; }
+
+                  .card-lower-content > .volume-row { grid-column: 2; display: flex !important; justify-content: flex-end !important; gap: 4px; padding: 0 12px 0 0 !important; min-height: 0 !important;
+                  height: auto !important; }
+
+                  .volume-row > * { flex: 0 0 auto !important; }
+
+                  .volume-left { margin-left: auto !important; }
+
+                  .volume-center { width: auto !important; }
+
+                  .controls-row { padding: 6px 0 10px 16px !important; }
+
+                  .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
+
+                  .progress-bar-container { display: none !important; }
+
+                  .details .artist { display: none !important; }
+
+                  .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+                  .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat:
+                  no-repeat; }
+
+                  .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+                  .card-lower-content-bg::after { background-size: contain; }
+
+                  '
+            - type: custom:bubble-card
+              card_type: sub-buttons
+              hide_main_background: true
+              rows: 0.5
+              visibility:
+              - condition: state
+                entity: sensor.living_room_appletv_info
+                state_not:
+                - none
+                - unknown
+                - unavailable
+              sub_button:
+                main: []
+                bottom:
+                - name: Details
+                  buttons_layout: inline
+                  group:
+                  - entity: sensor.living_room_appletv_info
+                    name: '{{ (state_attr(''sensor.living_room_appletv_info'', ''details'') or {}).get(''rating'', '''') }}'
+                    show_name: true
+                    show_icon: false
+                    css_class: rc-rating
+                    state_background: false
+                    light_background: false
+                    tap_action:
+                      action: none
+                  - entity: sensor.living_room_appletv_info
+                    name: '{% set d = state_attr(''sensor.living_room_appletv_info'', ''details'') or {} %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', '''')] | select | join(''
+                      · '') }}'
+                    show_name: true
+                    show_icon: false
+                    css_class: rc-meta
+                    state_background: false
+                    light_background: false
+                    tap_action:
+                      action: none
+              styles: '.bubble-sub-button-bottom-container { justify-content: flex-start !important; }
+
+                .bubble-sub-button-group { gap: 10px !important; align-items: center !important; }
+
+                .bubble-sub-button { background: transparent !important; padding: 0 !important; height: 24px !important; min-width: 0 !important; }
+
+                .rc-rating { border: 1.5px solid var(--secondary-text-color) !important; border-radius: 5px !important; padding: 0 6px !important; height: 22px !important; }
+
+                .rc-rating .bubble-sub-button-name-container { font-size: 12px !important; font-weight: 700 !important; color: var(--secondary-text-color) !important; letter-spacing: 0.5px; }
+
+                .rc-meta .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }
+
+                .bubble-sub-button.rc-rating { flex: 0 0 auto !important; width: auto !important; }
+
+                .bubble-sub-button.rc-meta { flex: 1 1 auto !important; width: auto !important; justify-content: flex-start !important; overflow: hidden !important; }
+
+                .rc-meta .bubble-sub-button-name-container, .rc-meta .scrolling-container, .rc-meta .scrolling-container span { white-space: nowrap !important; overflow: hidden !important; text-overflow:
+                ellipsis !important; animation: none !important; transform: none !important; }
+
+                .rc-meta .bubble-sub-button-name-container { margin: 0 !important; text-align: left !important; flex: 1 1 auto !important; }
+
+                .bubble-sub-button-group { justify-content: flex-start !important; width: 100% !important; }
 
                 '
-          - type: custom:yet-another-media-player
-            entities:
-            - entity_id: media_player.living_room_appletv
-              name: Living Room
-              volume_entity: media_player.living_room_soundbar
-              hidden_controls:
-              - previous
-              - next
-              - stop
-              - shuffle
-              - repeat
-              - favorite
-              - power
-            volume_mode: stepper
-            volume_step: 0.02
-            match_theme: true
-            artwork_object_fit: cover
-            details_alignment: left
-            media_artwork_overrides:
-            - entity_id: media_player.living_room_appletv
-              object_fit: cover
-              image_url: '[[[ const a = states[''media_player.living_room_appletv'']?.attributes || {}; const sa = states[''sensor.living_room_appletv_info'']; const d = sa?.attributes?.details || {}; const
-                ok = !!sa && ![''none'', ''unknown'', ''unavailable''].includes(sa.state) && String(sa.attributes.content_id ?? '''') === String(a.media_content_id ?? ''''); const fb = { ''YouTube'': ''/local/media_art/youtube.svg'',
-                ''TV'': ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg'' }[a.app_name] || ''''; const poster = (d.poster
-                || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return a.entity_picture || (ok && (d.backdrop
-                || d.show_poster || poster)) || fb; ]]]'
-            actions:
-            - name: Remote
-              icon: mdi:remote-tv
-              action: navigate
-              navigation_path: '#living-room-remote'
-              placement: hidden
-              card_trigger: tap
-            uix:
-              style: ':host { --accent-color: var(--primary-text-color); }
-
-                .volume-percentage-indicator { color: var(--primary-background-color) !important; }
-
-                .more-info-menu { display: none !important; }
-
-                .yamp-card-inner { container-type: inline-size; }
-
-                .card-lower-content-bg { min-height: 0 !important; height: 100% !important; background-position: center !important; }
-
-                .card-artwork-spacer { height: max(40px, calc(56.25cqw - 85px)) !important; min-height: 0 !important; }
-
-                .card-lower-content { display: grid !important; grid-template-columns: auto 1fr; align-items: center; }
-
-                .card-lower-content > * { grid-column: 1 / -1; }
-
-                .card-lower-content > div:has(> .controls-row) { grid-column: 1; }
-
-                .card-lower-content > .volume-row { grid-column: 2; display: flex !important; justify-content: flex-end !important; gap: 4px; padding: 0 12px 0 0 !important; min-height: 0 !important; height:
-                auto !important; }
-
-                .volume-row > * { flex: 0 0 auto !important; }
-
-                .volume-left { margin-left: auto !important; }
-
-                .volume-center { width: auto !important; }
-
-                .controls-row { padding: 6px 0 10px 16px !important; }
-
-                .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
-
-                .progress-bar-container { display: none !important; }
-
-                .details .artist { display: none !important; }
-
-                .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
-
-                .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
-                }
-
-                .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
-
-                .card-lower-content-bg::after { background-size: contain; }
-
-                '
-          - type: custom:bubble-card
-            card_type: sub-buttons
-            hide_main_background: true
-            rows: 0.5
-            visibility:
-            - condition: state
-              entity: sensor.living_room_appletv_info
-              state_not:
-              - none
-              - unknown
-              - unavailable
-            sub_button:
-              main: []
-              bottom:
-              - name: Details
-                buttons_layout: inline
-                group:
-                - entity: sensor.living_room_appletv_info
-                  name: '{{ (state_attr(''sensor.living_room_appletv_info'', ''details'') or {}).get(''rating'', '''') }}'
-                  show_name: true
-                  show_icon: false
-                  css_class: rc-rating
-                  state_background: false
-                  light_background: false
-                  tap_action:
-                    action: none
-                - entity: sensor.living_room_appletv_info
-                  name: '{% set d = state_attr(''sensor.living_room_appletv_info'', ''details'') or {} %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', '''')] | select | join('' ·
-                    '') }}'
-                  show_name: true
-                  show_icon: false
-                  css_class: rc-meta
-                  state_background: false
-                  light_background: false
-                  tap_action:
-                    action: none
-            styles: '.bubble-sub-button-bottom-container { justify-content: flex-start !important; }
-
-              .bubble-sub-button-group { gap: 10px !important; align-items: center !important; }
-
-              .bubble-sub-button { background: transparent !important; padding: 0 !important; height: 24px !important; min-width: 0 !important; }
-
-              .rc-rating { border: 1.5px solid var(--secondary-text-color) !important; border-radius: 5px !important; padding: 0 6px !important; height: 22px !important; }
-
-              .rc-rating .bubble-sub-button-name-container { font-size: 12px !important; font-weight: 700 !important; color: var(--secondary-text-color) !important; letter-spacing: 0.5px; }
-
-              .rc-meta .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }
-
-              .bubble-sub-button.rc-rating { flex: 0 0 auto !important; width: auto !important; }
-
-              .bubble-sub-button.rc-meta { flex: 1 1 auto !important; width: auto !important; justify-content: flex-start !important; overflow: hidden !important; }
-
-              .rc-meta .bubble-sub-button-name-container, .rc-meta .scrolling-container, .rc-meta .scrolling-container span { white-space: nowrap !important; overflow: hidden !important; text-overflow:
-              ellipsis !important; animation: none !important; transform: none !important; }
-
-              .rc-meta .bubble-sub-button-name-container { margin: 0 !important; text-align: left !important; flex: 1 1 auto !important; }
-
-              .bubble-sub-button-group { justify-content: flex-start !important; width: 100% !important; }
-
-              '
-            scrolling_effect: false
-          - type: markdown
-            text_only: true
-            visibility:
-            - condition: state
-              entity: sensor.living_room_appletv_info
-              state_not:
-              - none
-              - unknown
-              - unavailable
-            content: '{{ ((state_attr(''sensor.living_room_appletv_info'', ''details'') or {}).get(''description'', '''')) | truncate(220) }}'
-            uix:
-              style:
-                ha-markdown$: 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
-                'ha-markdown $ ha-markdown-element:': 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
+              scrolling_effect: false
+            - type: markdown
+              text_only: true
+              visibility:
+              - condition: state
+                entity: sensor.living_room_appletv_info
+                state_not:
+                - none
+                - unknown
+                - unavailable
+              content: '{{ ((state_attr(''sensor.living_room_appletv_info'', ''details'') or {}).get(''description'', '''')) | truncate(220) }}'
+              uix:
+                style:
+                  ha-markdown$: 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
+                  'ha-markdown $ ha-markdown-element:': 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
       - type: conditional
         conditions:
-        - condition: state
-          entity: binary_sensor.master_bedroom_appletv_active
-          state: 'on'
+        - condition: or
+          conditions:
+          - condition: state
+            entity: binary_sensor.master_bedroom_appletv_active
+            state: 'on'
+          - condition: state
+            entity: binary_sensor.master_bedroom_homepod_active
+            state: 'on'
         card:
-          type: vertical-stack
-          cards:
-          - type: heading
+          type: custom:expander-card
+          expanded: true
+          clear: false
+          show-button-users:
+          - nobody
+          title-card-clickable: false
+          padding: 4px 10px 10px 10px
+          child-margin-top: 0.6em
+          title-card:
+            type: heading
             heading: Master Bedroom
             heading_style: title
             icon: mdi:bed-king
-            uix:
-              style: 'ha-card { background: color-mix(in srgb, var(--primary-text-color) 9%, transparent) !important; border-radius: 12px !important; padding: 0 12px !important; }
-
-                '
-          - type: custom:yet-another-media-player
-            entities:
-            - entity_id: media_player.master_bedroom_appletv
-              name: Master Bedroom
-              volume_entity: media_player.master_bedroom_tv
-              hidden_controls:
-              - previous
-              - next
-              - stop
-              - shuffle
-              - repeat
-              - favorite
-              - power
-            volume_mode: stepper
-            volume_step: 0.02
-            match_theme: true
-            artwork_object_fit: cover
-            details_alignment: left
-            media_artwork_overrides:
-            - entity_id: media_player.master_bedroom_appletv
-              object_fit: cover
-              image_url: '[[[ const a = states[''media_player.master_bedroom_appletv'']?.attributes || {}; const sa = states[''sensor.master_bedroom_appletv_info'']; const d = sa?.attributes?.details ||
-                {}; const ok = !!sa && ![''none'', ''unknown'', ''unavailable''].includes(sa.state) && String(sa.attributes.content_id ?? '''') === String(a.media_content_id ?? ''''); const fb = { ''YouTube'':
-                ''/local/media_art/youtube.svg'', ''TV'': ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg'' }[a.app_name]
-                || ''''; const poster = (d.poster || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return
-                a.entity_picture || (ok && (d.backdrop || d.show_poster || poster)) || fb; ]]]'
-            actions:
-            - name: Remote
-              icon: mdi:remote-tv
-              action: navigate
-              navigation_path: '#master-bedroom-remote'
-              placement: hidden
-              card_trigger: tap
-            uix:
-              style: ':host { --accent-color: var(--primary-text-color); }
-
-                .volume-percentage-indicator { color: var(--primary-background-color) !important; }
-
-                .more-info-menu { display: none !important; }
-
-                .yamp-card-inner { container-type: inline-size; }
-
-                .card-lower-content-bg { min-height: 0 !important; height: 100% !important; background-position: center !important; }
-
-                .card-artwork-spacer { height: max(40px, calc(56.25cqw - 85px)) !important; min-height: 0 !important; }
-
-                .card-lower-content { display: grid !important; grid-template-columns: auto 1fr; align-items: center; }
-
-                .card-lower-content > * { grid-column: 1 / -1; }
-
-                .card-lower-content > div:has(> .controls-row) { grid-column: 1; }
-
-                .card-lower-content > .volume-row { grid-column: 2; display: flex !important; justify-content: flex-end !important; gap: 4px; padding: 0 12px 0 0 !important; min-height: 0 !important; height:
-                auto !important; }
-
-                .volume-row > * { flex: 0 0 auto !important; }
-
-                .volume-left { margin-left: auto !important; }
-
-                .volume-center { width: auto !important; }
-
-                .controls-row { padding: 6px 0 10px 16px !important; }
-
-                .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
-
-                .progress-bar-container { display: none !important; }
-
-                .details .artist { display: none !important; }
-
-                .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
-
-                .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
-                }
-
-                .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
-
-                .card-lower-content-bg::after { background-size: contain; }
-
-                '
-          - type: custom:bubble-card
-            card_type: sub-buttons
-            hide_main_background: true
-            rows: 0.5
-            visibility:
+          cards:
+          - type: conditional
+            conditions:
             - condition: state
-              entity: sensor.master_bedroom_appletv_info
-              state_not:
-              - none
-              - unknown
-              - unavailable
+              entity: binary_sensor.master_bedroom_appletv_active
+              state: 'on'
+            card:
+              type: vertical-stack
+              cards:
+              - type: custom:yet-another-media-player
+                entities:
+                - entity_id: media_player.master_bedroom_appletv
+                  name: Master Bedroom
+                  volume_entity: media_player.master_bedroom_tv
+                  hidden_controls:
+                  - previous
+                  - next
+                  - stop
+                  - shuffle
+                  - repeat
+                  - favorite
+                  - power
+                volume_mode: stepper
+                volume_step: 0.02
+                match_theme: true
+                artwork_object_fit: cover
+                details_alignment: left
+                media_artwork_overrides:
+                - entity_id: media_player.master_bedroom_appletv
+                  object_fit: cover
+                  image_url: '[[[ const a = states[''media_player.master_bedroom_appletv'']?.attributes || {}; const sa = states[''sensor.master_bedroom_appletv_info'']; const d = sa?.attributes?.details
+                    || {}; const ok = !!sa && ![''none'', ''unknown'', ''unavailable''].includes(sa.state) && String(sa.attributes.content_id ?? '''') === String(a.media_content_id ?? ''''); const fb =
+                    { ''YouTube'': ''/local/media_art/youtube.svg'', ''TV'': ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg''
+                    }[a.app_name] || ''''; const poster = (d.poster || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster
+                    || fb; return a.entity_picture || (ok && (d.backdrop || d.show_poster || poster)) || fb; ]]]'
+                actions:
+                - name: Remote
+                  icon: mdi:remote-tv
+                  action: navigate
+                  navigation_path: '#master-bedroom-remote'
+                  placement: hidden
+                  card_trigger: tap
+                uix:
+                  style: ':host { --accent-color: var(--primary-text-color); }
+
+                    .volume-percentage-indicator { color: var(--primary-background-color) !important; }
+
+                    .more-info-menu { display: none !important; }
+
+                    .yamp-card-inner { container-type: inline-size; }
+
+                    .card-lower-content-bg { min-height: 0 !important; height: 100% !important; background-position: center !important; }
+
+                    .card-artwork-spacer { height: max(40px, calc(56.25cqw - 85px)) !important; min-height: 0 !important; }
+
+                    .card-lower-content { display: grid !important; grid-template-columns: auto 1fr; align-items: center; }
+
+                    .card-lower-content > * { grid-column: 1 / -1; }
+
+                    .card-lower-content > div:has(> .controls-row) { grid-column: 1; }
+
+                    .card-lower-content > .volume-row { grid-column: 2; display: flex !important; justify-content: flex-end !important; gap: 4px; padding: 0 12px 0 0 !important; min-height: 0 !important;
+                    height: auto !important; }
+
+                    .volume-row > * { flex: 0 0 auto !important; }
+
+                    .volume-left { margin-left: auto !important; }
+
+                    .volume-center { width: auto !important; }
+
+                    .controls-row { padding: 6px 0 10px 16px !important; }
+
+                    .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
+
+                    .progress-bar-container { display: none !important; }
+
+                    .details .artist { display: none !important; }
+
+                    .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+                    .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat:
+                    no-repeat; }
+
+                    .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+                    .card-lower-content-bg::after { background-size: contain; }
+
+                    '
+              - type: custom:bubble-card
+                card_type: sub-buttons
+                hide_main_background: true
+                rows: 0.5
+                visibility:
+                - condition: state
+                  entity: sensor.master_bedroom_appletv_info
+                  state_not:
+                  - none
+                  - unknown
+                  - unavailable
+                sub_button:
+                  main: []
+                  bottom:
+                  - name: Details
+                    buttons_layout: inline
+                    group:
+                    - entity: sensor.master_bedroom_appletv_info
+                      name: '{{ (state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {}).get(''rating'', '''') }}'
+                      show_name: true
+                      show_icon: false
+                      css_class: rc-rating
+                      state_background: false
+                      light_background: false
+                      tap_action:
+                        action: none
+                    - entity: sensor.master_bedroom_appletv_info
+                      name: '{% set d = state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {} %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', '''')] | select | join(''
+                        · '') }}'
+                      show_name: true
+                      show_icon: false
+                      css_class: rc-meta
+                      state_background: false
+                      light_background: false
+                      tap_action:
+                        action: none
+                styles: '.bubble-sub-button-bottom-container { justify-content: flex-start !important; }
+
+                  .bubble-sub-button-group { gap: 10px !important; align-items: center !important; }
+
+                  .bubble-sub-button { background: transparent !important; padding: 0 !important; height: 24px !important; min-width: 0 !important; }
+
+                  .rc-rating { border: 1.5px solid var(--secondary-text-color) !important; border-radius: 5px !important; padding: 0 6px !important; height: 22px !important; }
+
+                  .rc-rating .bubble-sub-button-name-container { font-size: 12px !important; font-weight: 700 !important; color: var(--secondary-text-color) !important; letter-spacing: 0.5px; }
+
+                  .rc-meta .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }
+
+                  .bubble-sub-button.rc-rating { flex: 0 0 auto !important; width: auto !important; }
+
+                  .bubble-sub-button.rc-meta { flex: 1 1 auto !important; width: auto !important; justify-content: flex-start !important; overflow: hidden !important; }
+
+                  .rc-meta .bubble-sub-button-name-container, .rc-meta .scrolling-container, .rc-meta .scrolling-container span { white-space: nowrap !important; overflow: hidden !important; text-overflow:
+                  ellipsis !important; animation: none !important; transform: none !important; }
+
+                  .rc-meta .bubble-sub-button-name-container { margin: 0 !important; text-align: left !important; flex: 1 1 auto !important; }
+
+                  .bubble-sub-button-group { justify-content: flex-start !important; width: 100% !important; }
+
+                  '
+                scrolling_effect: false
+              - type: markdown
+                text_only: true
+                visibility:
+                - condition: state
+                  entity: sensor.master_bedroom_appletv_info
+                  state_not:
+                  - none
+                  - unknown
+                  - unavailable
+                content: '{{ ((state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {}).get(''description'', '''')) | truncate(220) }}'
+                uix:
+                  style:
+                    ha-markdown$: 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
+                    'ha-markdown $ ha-markdown-element:': 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
+          - type: conditional
+            conditions:
+            - condition: state
+              entity: binary_sensor.master_bedroom_homepod_active
+              state: 'on'
+            card:
+              type: custom:bubble-card
+              card_type: media-player
+              entity: media_player.master_bedroom_homepod
+              name: HomePod
+              cover_background: false
+              hide:
+                power_button: true
+                volume_button: false
+                previous_button: false
+                next_button: false
+              show_icon: false
+              rows: 2
+              tap_action:
+                action: none
+              sub_button:
+                main: []
+                bottom: []
+              button_action:
+                tap_action:
+                  action: none
+              main_buttons_position: bottom
+              modules:
+              - bubble_media_player_enhanced
+              bubble_media_player_enhanced:
+                card_layout: default
+                progress_bar: full
+                idle_artwork: none
+                artwork_fit: cover
+                progress_position: above
+                background_opacity: 0.85
+      - type: conditional
+        conditions:
+        - condition: state
+          entity: binary_sensor.averys_room_homepod_active
+          state: 'on'
+        card:
+          type: custom:expander-card
+          expanded: true
+          clear: false
+          show-button-users:
+          - nobody
+          title-card-clickable: false
+          padding: 4px 10px 10px 10px
+          child-margin-top: 0.6em
+          title-card:
+            type: heading
+            heading: Avery's Room
+            heading_style: title
+            icon: mdi:teddy-bear
+          cards:
+          - type: custom:bubble-card
+            card_type: media-player
+            entity: media_player.averys_room_homepod
+            name: HomePod
+            cover_background: false
+            hide:
+              power_button: true
+              volume_button: false
+              previous_button: false
+              next_button: false
+            show_icon: false
+            rows: 2
+            tap_action:
+              action: none
             sub_button:
               main: []
-              bottom:
-              - name: Details
-                buttons_layout: inline
-                group:
-                - entity: sensor.master_bedroom_appletv_info
-                  name: '{{ (state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {}).get(''rating'', '''') }}'
-                  show_name: true
-                  show_icon: false
-                  css_class: rc-rating
-                  state_background: false
-                  light_background: false
-                  tap_action:
-                    action: none
-                - entity: sensor.master_bedroom_appletv_info
-                  name: '{% set d = state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {} %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', '''')] | select | join(''
-                    · '') }}'
-                  show_name: true
-                  show_icon: false
-                  css_class: rc-meta
-                  state_background: false
-                  light_background: false
-                  tap_action:
-                    action: none
-            styles: '.bubble-sub-button-bottom-container { justify-content: flex-start !important; }
-
-              .bubble-sub-button-group { gap: 10px !important; align-items: center !important; }
-
-              .bubble-sub-button { background: transparent !important; padding: 0 !important; height: 24px !important; min-width: 0 !important; }
-
-              .rc-rating { border: 1.5px solid var(--secondary-text-color) !important; border-radius: 5px !important; padding: 0 6px !important; height: 22px !important; }
-
-              .rc-rating .bubble-sub-button-name-container { font-size: 12px !important; font-weight: 700 !important; color: var(--secondary-text-color) !important; letter-spacing: 0.5px; }
-
-              .rc-meta .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }
-
-              .bubble-sub-button.rc-rating { flex: 0 0 auto !important; width: auto !important; }
-
-              .bubble-sub-button.rc-meta { flex: 1 1 auto !important; width: auto !important; justify-content: flex-start !important; overflow: hidden !important; }
-
-              .rc-meta .bubble-sub-button-name-container, .rc-meta .scrolling-container, .rc-meta .scrolling-container span { white-space: nowrap !important; overflow: hidden !important; text-overflow:
-              ellipsis !important; animation: none !important; transform: none !important; }
-
-              .rc-meta .bubble-sub-button-name-container { margin: 0 !important; text-align: left !important; flex: 1 1 auto !important; }
-
-              .bubble-sub-button-group { justify-content: flex-start !important; width: 100% !important; }
-
-              '
-            scrolling_effect: false
-          - type: markdown
-            text_only: true
-            visibility:
-            - condition: state
-              entity: sensor.master_bedroom_appletv_info
-              state_not:
-              - none
-              - unknown
-              - unavailable
-            content: '{{ ((state_attr(''sensor.master_bedroom_appletv_info'', ''details'') or {}).get(''description'', '''')) | truncate(220) }}'
-            uix:
-              style:
-                ha-markdown$: 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
-                'ha-markdown $ ha-markdown-element:': 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
-      - type: conditional
-        conditions:
-        - condition: state
-          entity: binary_sensor.master_bedroom_homepod_active
-          state: 'on'
-        - condition: state
-          entity: binary_sensor.master_bedroom_appletv_active
-          state: 'off'
-        card:
-          type: heading
-          heading: Master Bedroom
-          heading_style: title
-          icon: mdi:bed-king
-          uix:
-            style: 'ha-card { background: color-mix(in srgb, var(--primary-text-color) 9%, transparent) !important; border-radius: 12px !important; padding: 0 12px !important; }
-
-              '
-      - type: conditional
-        conditions:
-        - condition: state
-          entity: binary_sensor.master_bedroom_homepod_active
-          state: 'on'
-        card:
-          type: custom:bubble-card
-          card_type: media-player
-          entity: media_player.master_bedroom_homepod
-          name: HomePod
-          cover_background: false
-          hide:
-            power_button: true
-            volume_button: false
-            previous_button: false
-            next_button: false
-          show_icon: false
-          rows: 2
-          tap_action:
-            action: none
-          sub_button:
-            main: []
-            bottom: []
-          button_action:
-            tap_action:
-              action: none
-          main_buttons_position: bottom
-          modules:
-          - bubble_media_player_enhanced
-          bubble_media_player_enhanced:
-            card_layout: default
-            progress_bar: full
-            idle_artwork: none
-            artwork_fit: cover
-            progress_position: above
-            background_opacity: 0.85
-      - type: conditional
-        conditions:
-        - condition: state
-          entity: binary_sensor.averys_room_homepod_active
-          state: 'on'
-        card:
-          type: heading
-          heading: Avery's Room
-          heading_style: title
-          icon: mdi:teddy-bear
-          uix:
-            style: 'ha-card { background: color-mix(in srgb, var(--primary-text-color) 9%, transparent) !important; border-radius: 12px !important; padding: 0 12px !important; }
-
-              '
-      - type: conditional
-        conditions:
-        - condition: state
-          entity: binary_sensor.averys_room_homepod_active
-          state: 'on'
-        card:
-          type: custom:bubble-card
-          card_type: media-player
-          entity: media_player.averys_room_homepod
-          name: HomePod
-          cover_background: false
-          hide:
-            power_button: true
-            volume_button: false
-            previous_button: false
-            next_button: false
-          show_icon: false
-          rows: 2
-          tap_action:
-            action: none
-          sub_button:
-            main: []
-            bottom: []
-          button_action:
-            tap_action:
-              action: none
-          main_buttons_position: bottom
-          modules:
-          - bubble_media_player_enhanced
-          bubble_media_player_enhanced:
-            card_layout: default
-            progress_bar: full
-            idle_artwork: none
-            artwork_fit: cover
-            progress_position: above
-            background_opacity: 0.85
+              bottom: []
+            button_action:
+              tap_action:
+                action: none
+            main_buttons_position: bottom
+            modules:
+            - bubble_media_player_enhanced
+            bubble_media_player_enhanced:
+              card_layout: default
+              progress_bar: full
+              idle_artwork: none
+              artwork_fit: cover
+              progress_position: above
+              background_opacity: 0.85
       - type: conditional
         conditions:
         - condition: state
           entity: binary_sensor.office_homepod_active
           state: 'on'
         card:
-          type: heading
-          heading: Office
-          heading_style: title
-          icon: mdi:desktop-classic
-          uix:
-            style: 'ha-card { background: color-mix(in srgb, var(--primary-text-color) 9%, transparent) !important; border-radius: 12px !important; padding: 0 12px !important; }
-
-              '
-      - type: conditional
-        conditions:
-        - condition: state
-          entity: binary_sensor.office_homepod_active
-          state: 'on'
-        card:
-          type: custom:bubble-card
-          card_type: media-player
-          entity: media_player.office_homepod
-          name: HomePod
-          cover_background: false
-          hide:
-            power_button: true
-            volume_button: false
-            previous_button: false
-            next_button: false
-          rows: 2
-          show_icon: false
-          tap_action:
-            action: none
-          sub_button:
-            main: []
-            bottom: []
-          button_action:
+          type: custom:expander-card
+          expanded: true
+          clear: false
+          show-button-users:
+          - nobody
+          title-card-clickable: false
+          padding: 4px 10px 10px 10px
+          child-margin-top: 0.6em
+          title-card:
+            type: heading
+            heading: Office
+            heading_style: title
+            icon: mdi:desktop-classic
+          cards:
+          - type: custom:bubble-card
+            card_type: media-player
+            entity: media_player.office_homepod
+            name: HomePod
+            cover_background: false
+            hide:
+              power_button: true
+              volume_button: false
+              previous_button: false
+              next_button: false
+            rows: 2
+            show_icon: false
             tap_action:
               action: none
-          main_buttons_position: bottom
-          modules:
-          - bubble_media_player_enhanced
-          bubble_media_player_enhanced:
-            card_layout: default
-            progress_bar: full
-            idle_artwork: none
-            artwork_fit: cover
-            progress_position: above
-            background_opacity: 0.85
+            sub_button:
+              main: []
+              bottom: []
+            button_action:
+              tap_action:
+                action: none
+            main_buttons_position: bottom
+            modules:
+            - bubble_media_player_enhanced
+            bubble_media_player_enhanced:
+              card_layout: default
+              progress_bar: full
+              idle_artwork: none
+              artwork_fit: cover
+              progress_position: above
+              background_opacity: 0.85
       - type: conditional
         conditions:
         - condition: state
           entity: binary_sensor.family_room_appletv_active
           state: 'on'
         card:
-          type: vertical-stack
-          cards:
-          - type: heading
+          type: custom:expander-card
+          expanded: true
+          clear: false
+          show-button-users:
+          - nobody
+          title-card-clickable: false
+          padding: 4px 10px 10px 10px
+          child-margin-top: 0.6em
+          title-card:
+            type: heading
             heading: Family Room
             heading_style: title
             icon: mdi:pac-man
-            uix:
-              style: 'ha-card { background: color-mix(in srgb, var(--primary-text-color) 9%, transparent) !important; border-radius: 12px !important; padding: 0 12px !important; }
+          cards:
+          - type: vertical-stack
+            cards:
+            - type: custom:yet-another-media-player
+              entities:
+              - entity_id: media_player.family_room_appletv
+                name: Family Room
+                volume_entity: media_player.family_room_theater
+                hidden_controls:
+                - previous
+                - next
+                - stop
+                - shuffle
+                - repeat
+                - favorite
+                - power
+              volume_mode: stepper
+              volume_step: 0.02
+              match_theme: true
+              artwork_object_fit: cover
+              details_alignment: left
+              media_artwork_overrides:
+              - entity_id: media_player.family_room_appletv
+                object_fit: cover
+                image_url: '[[[ const a = states[''media_player.family_room_appletv'']?.attributes || {}; const sa = states[''sensor.family_room_appletv_info'']; const d = sa?.attributes?.details || {};
+                  const ok = !!sa && ![''none'', ''unknown'', ''unavailable''].includes(sa.state) && String(sa.attributes.content_id ?? '''') === String(a.media_content_id ?? ''''); const fb = { ''YouTube'':
+                  ''/local/media_art/youtube.svg'', ''TV'': ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg'' }[a.app_name]
+                  || ''''; const poster = (d.poster || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return
+                  a.entity_picture || (ok && (d.backdrop || d.show_poster || poster)) || fb; ]]]'
+              uix:
+                style: ':host { --accent-color: var(--primary-text-color); }
+
+                  .volume-percentage-indicator { color: var(--primary-background-color) !important; }
+
+                  .more-info-menu { display: none !important; }
+
+                  .yamp-card-inner { container-type: inline-size; }
+
+                  .card-lower-content-bg { min-height: 0 !important; height: 100% !important; background-position: center !important; }
+
+                  .card-artwork-spacer { height: max(40px, calc(56.25cqw - 85px)) !important; min-height: 0 !important; }
+
+                  .card-lower-content { display: grid !important; grid-template-columns: auto 1fr; align-items: center; }
+
+                  .card-lower-content > * { grid-column: 1 / -1; }
+
+                  .card-lower-content > div:has(> .controls-row) { grid-column: 1; }
+
+                  .card-lower-content > .volume-row { grid-column: 2; display: flex !important; justify-content: flex-end !important; gap: 4px; padding: 0 12px 0 0 !important; min-height: 0 !important;
+                  height: auto !important; }
+
+                  .volume-row > * { flex: 0 0 auto !important; }
+
+                  .volume-left { margin-left: auto !important; }
+
+                  .volume-center { width: auto !important; }
+
+                  .controls-row { padding: 6px 0 10px 16px !important; }
+
+                  .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
+
+                  .progress-bar-container { display: none !important; }
+
+                  .details .artist { display: none !important; }
+
+                  .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
+
+                  .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat:
+                  no-repeat; }
+
+                  .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
+
+                  .card-lower-content-bg::after { background-size: contain; }
+
+                  '
+            - type: custom:bubble-card
+              card_type: sub-buttons
+              hide_main_background: true
+              rows: 0.5
+              visibility:
+              - condition: state
+                entity: sensor.family_room_appletv_info
+                state_not:
+                - none
+                - unknown
+                - unavailable
+              sub_button:
+                main: []
+                bottom:
+                - name: Details
+                  buttons_layout: inline
+                  group:
+                  - entity: sensor.family_room_appletv_info
+                    name: '{{ (state_attr(''sensor.family_room_appletv_info'', ''details'') or {}).get(''rating'', '''') }}'
+                    show_name: true
+                    show_icon: false
+                    css_class: rc-rating
+                    state_background: false
+                    light_background: false
+                    tap_action:
+                      action: none
+                  - entity: sensor.family_room_appletv_info
+                    name: '{% set d = state_attr(''sensor.family_room_appletv_info'', ''details'') or {} %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', '''')] | select | join(''
+                      · '') }}'
+                    show_name: true
+                    show_icon: false
+                    css_class: rc-meta
+                    state_background: false
+                    light_background: false
+                    tap_action:
+                      action: none
+              styles: '.bubble-sub-button-bottom-container { justify-content: flex-start !important; }
+
+                .bubble-sub-button-group { gap: 10px !important; align-items: center !important; }
+
+                .bubble-sub-button { background: transparent !important; padding: 0 !important; height: 24px !important; min-width: 0 !important; }
+
+                .rc-rating { border: 1.5px solid var(--secondary-text-color) !important; border-radius: 5px !important; padding: 0 6px !important; height: 22px !important; }
+
+                .rc-rating .bubble-sub-button-name-container { font-size: 12px !important; font-weight: 700 !important; color: var(--secondary-text-color) !important; letter-spacing: 0.5px; }
+
+                .rc-meta .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }
+
+                .bubble-sub-button.rc-rating { flex: 0 0 auto !important; width: auto !important; }
+
+                .bubble-sub-button.rc-meta { flex: 1 1 auto !important; width: auto !important; justify-content: flex-start !important; overflow: hidden !important; }
+
+                .rc-meta .bubble-sub-button-name-container, .rc-meta .scrolling-container, .rc-meta .scrolling-container span { white-space: nowrap !important; overflow: hidden !important; text-overflow:
+                ellipsis !important; animation: none !important; transform: none !important; }
+
+                .rc-meta .bubble-sub-button-name-container { margin: 0 !important; text-align: left !important; flex: 1 1 auto !important; }
+
+                .bubble-sub-button-group { justify-content: flex-start !important; width: 100% !important; }
 
                 '
-          - type: custom:yet-another-media-player
-            entities:
-            - entity_id: media_player.family_room_appletv
-              name: Family Room
-              volume_entity: media_player.family_room_theater
-              hidden_controls:
-              - previous
-              - next
-              - stop
-              - shuffle
-              - repeat
-              - favorite
-              - power
-            volume_mode: stepper
-            volume_step: 0.02
-            match_theme: true
-            artwork_object_fit: cover
-            details_alignment: left
-            media_artwork_overrides:
-            - entity_id: media_player.family_room_appletv
-              object_fit: cover
-              image_url: '[[[ const a = states[''media_player.family_room_appletv'']?.attributes || {}; const sa = states[''sensor.family_room_appletv_info'']; const d = sa?.attributes?.details || {}; const
-                ok = !!sa && ![''none'', ''unknown'', ''unavailable''].includes(sa.state) && String(sa.attributes.content_id ?? '''') === String(a.media_content_id ?? ''''); const fb = { ''YouTube'': ''/local/media_art/youtube.svg'',
-                ''TV'': ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg'' }[a.app_name] || ''''; const poster = (d.poster
-                || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return a.entity_picture || (ok && (d.backdrop
-                || d.show_poster || poster)) || fb; ]]]'
-            uix:
-              style: ':host { --accent-color: var(--primary-text-color); }
-
-                .volume-percentage-indicator { color: var(--primary-background-color) !important; }
-
-                .more-info-menu { display: none !important; }
-
-                .yamp-card-inner { container-type: inline-size; }
-
-                .card-lower-content-bg { min-height: 0 !important; height: 100% !important; background-position: center !important; }
-
-                .card-artwork-spacer { height: max(40px, calc(56.25cqw - 85px)) !important; min-height: 0 !important; }
-
-                .card-lower-content { display: grid !important; grid-template-columns: auto 1fr; align-items: center; }
-
-                .card-lower-content > * { grid-column: 1 / -1; }
-
-                .card-lower-content > div:has(> .controls-row) { grid-column: 1; }
-
-                .card-lower-content > .volume-row { grid-column: 2; display: flex !important; justify-content: flex-end !important; gap: 4px; padding: 0 12px 0 0 !important; min-height: 0 !important; height:
-                auto !important; }
-
-                .volume-row > * { flex: 0 0 auto !important; }
-
-                .volume-left { margin-left: auto !important; }
-
-                .volume-center { width: auto !important; }
-
-                .controls-row { padding: 6px 0 10px 16px !important; }
-
-                .details { min-height: 0 !important; height: auto !important; padding-top: 4px !important; padding-bottom: 0 !important; margin: 0 !important; }
-
-                .progress-bar-container { display: none !important; }
-
-                .details .artist { display: none !important; }
-
-                .card-lower-content-bg { background-size: 0 0 !important; overflow: hidden; isolation: isolate; }
-
-                .card-lower-content-bg::before, .card-lower-content-bg::after { content: ''''; position: absolute; inset: 0; background-image: inherit; background-position: center; background-repeat: no-repeat;
-                }
-
-                .card-lower-content-bg::before { background-size: cover; filter: blur(24px) brightness(0.55); transform: scale(1.15); }
-
-                .card-lower-content-bg::after { background-size: contain; }
-
-                '
+              scrolling_effect: false
+            - type: markdown
+              text_only: true
+              visibility:
+              - condition: state
+                entity: sensor.family_room_appletv_info
+                state_not:
+                - none
+                - unknown
+                - unavailable
+              content: '{{ ((state_attr(''sensor.family_room_appletv_info'', ''details'') or {}).get(''description'', '''')) | truncate(220) }}'
+              uix:
+                style:
+                  ha-markdown$: 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
+                  'ha-markdown $ ha-markdown-element:': 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
+      - type: conditional
+        conditions:
+        - condition: state
+          entity: binary_sensor.kitchen_homepod_active
+          state: 'on'
+        card:
+          type: custom:expander-card
+          expanded: true
+          clear: false
+          show-button-users:
+          - nobody
+          title-card-clickable: false
+          padding: 4px 10px 10px 10px
+          child-margin-top: 0.6em
+          title-card:
+            type: heading
+            heading: Kitchen
+            heading_style: title
+            icon: mdi:stove
+          cards:
           - type: custom:bubble-card
-            card_type: sub-buttons
-            hide_main_background: true
-            rows: 0.5
-            visibility:
-            - condition: state
-              entity: sensor.family_room_appletv_info
-              state_not:
-              - none
-              - unknown
-              - unavailable
-            sub_button:
-              main: []
-              bottom:
-              - name: Details
-                buttons_layout: inline
-                group:
-                - entity: sensor.family_room_appletv_info
-                  name: '{{ (state_attr(''sensor.family_room_appletv_info'', ''details'') or {}).get(''rating'', '''') }}'
-                  show_name: true
-                  show_icon: false
-                  css_class: rc-rating
-                  state_background: false
-                  light_background: false
-                  tap_action:
-                    action: none
-                - entity: sensor.family_room_appletv_info
-                  name: '{% set d = state_attr(''sensor.family_room_appletv_info'', ''details'') or {} %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', '''')] | select | join('' ·
-                    '') }}'
-                  show_name: true
-                  show_icon: false
-                  css_class: rc-meta
-                  state_background: false
-                  light_background: false
-                  tap_action:
-                    action: none
-            styles: '.bubble-sub-button-bottom-container { justify-content: flex-start !important; }
-
-              .bubble-sub-button-group { gap: 10px !important; align-items: center !important; }
-
-              .bubble-sub-button { background: transparent !important; padding: 0 !important; height: 24px !important; min-width: 0 !important; }
-
-              .rc-rating { border: 1.5px solid var(--secondary-text-color) !important; border-radius: 5px !important; padding: 0 6px !important; height: 22px !important; }
-
-              .rc-rating .bubble-sub-button-name-container { font-size: 12px !important; font-weight: 700 !important; color: var(--secondary-text-color) !important; letter-spacing: 0.5px; }
-
-              .rc-meta .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }
-
-              .bubble-sub-button.rc-rating { flex: 0 0 auto !important; width: auto !important; }
-
-              .bubble-sub-button.rc-meta { flex: 1 1 auto !important; width: auto !important; justify-content: flex-start !important; overflow: hidden !important; }
-
-              .rc-meta .bubble-sub-button-name-container, .rc-meta .scrolling-container, .rc-meta .scrolling-container span { white-space: nowrap !important; overflow: hidden !important; text-overflow:
-              ellipsis !important; animation: none !important; transform: none !important; }
-
-              .rc-meta .bubble-sub-button-name-container { margin: 0 !important; text-align: left !important; flex: 1 1 auto !important; }
-
-              .bubble-sub-button-group { justify-content: flex-start !important; width: 100% !important; }
-
-              '
-            scrolling_effect: false
-          - type: markdown
-            text_only: true
-            visibility:
-            - condition: state
-              entity: sensor.family_room_appletv_info
-              state_not:
-              - none
-              - unknown
-              - unavailable
-            content: '{{ ((state_attr(''sensor.family_room_appletv_info'', ''details'') or {}).get(''description'', '''')) | truncate(220) }}'
-            uix:
-              style:
-                ha-markdown$: 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
-                'ha-markdown $ ha-markdown-element:': 'p { margin: 0 4px !important; font-size: 13px; line-height: 1.35; color: var(--secondary-text-color); }'
-      - type: conditional
-        conditions:
-        - condition: state
-          entity: binary_sensor.kitchen_homepod_active
-          state: 'on'
-        card:
-          type: heading
-          heading: Kitchen
-          heading_style: title
-          icon: mdi:stove
-          uix:
-            style: 'ha-card { background: color-mix(in srgb, var(--primary-text-color) 9%, transparent) !important; border-radius: 12px !important; padding: 0 12px !important; }
-
-              '
-      - type: conditional
-        conditions:
-        - condition: state
-          entity: binary_sensor.kitchen_homepod_active
-          state: 'on'
-        card:
-          type: custom:bubble-card
-          card_type: media-player
-          entity: media_player.kitchen_homepod
-          name: HomePod
-          cover_background: false
-          hide:
-            power_button: true
-            volume_button: false
-            previous_button: false
-            next_button: false
-          show_icon: false
-          rows: 2
-          tap_action:
-            action: none
-          sub_button:
-            main: []
-            bottom: []
-          button_action:
+            card_type: media-player
+            entity: media_player.kitchen_homepod
+            name: HomePod
+            cover_background: false
+            hide:
+              power_button: true
+              volume_button: false
+              previous_button: false
+              next_button: false
+            show_icon: false
+            rows: 2
             tap_action:
               action: none
-          main_buttons_position: bottom
-          modules:
-          - bubble_media_player_enhanced
-          bubble_media_player_enhanced:
-            card_layout: default
-            progress_bar: full
-            idle_artwork: none
-            artwork_fit: cover
-            progress_position: above
-            background_opacity: 0.85
+            sub_button:
+              main: []
+              bottom: []
+            button_action:
+              tap_action:
+                action: none
+            main_buttons_position: bottom
+            modules:
+            - bubble_media_player_enhanced
+            bubble_media_player_enhanced:
+              card_layout: default
+              progress_bar: full
+              idle_artwork: none
+              artwork_fit: cover
+              progress_position: above
+              background_opacity: 0.85
       show_header: false
 - title: Climate
   path: climate

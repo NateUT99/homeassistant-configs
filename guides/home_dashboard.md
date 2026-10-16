@@ -169,17 +169,18 @@ switch by hand are quick actions; running appliances are Happening now.
 
 **`#lights`** lists every light by room (Living Room through Utility Room) as `apple_tile`
 tiles — tap toggles, hold opens more-info. **`#media`** is the house-wide "Speakers & TVs"
-list: one Yet Another Media Player card per active player, under its room heading. Apple TVs
-get the Apple TV room media card (*Room media cards*, below), the same as on Home; Family Room's has no
-tap action since it is already in `#media`. Under it, once `sensor.<room>_appletv_info` has
-looked the title up, a Bubble row with the content rating as an outlined badge and year ·
-genre · runtime, then the description truncated to 220 characters. HomePods get the same Bubble card as on Home. Each room label is a heading card in
-the `title` style with the area's icon (`mdi:sofa`, `mdi:bed-king`, `mdi:teddy-bear`,
-`mdi:desktop-classic`, `mdi:pac-man`, `mdi:stove`) on a tinted bar (`uix`: a 9 % text-colour
-background, 12 px radius), so each room's group is easy to pick out. Spacing or a divider can't
-do it: a heading card has a fixed height, so added padding pushes its label under the next card. The Master Bedroom HomePod's heading shows only when the
-bedroom Apple TV isn't, so the room is labelled once. Each card and room heading sits in a
-`conditional` card keyed on the player's activity sensor (the Media chip's rule), so idle
+list, one container per room with something playing. Each container is an Expander Card used as a
+plain box: `clear: false` gives it the card background, `expanded: true` with
+`show-button-users: [nobody]` hides the collapse arrow for everyone, and its title card is the
+room's name as a `title`-style heading with the area's icon (`mdi:sofa`, `mdi:bed-king`,
+`mdi:teddy-bear`, `mdi:desktop-classic`, `mdi:pac-man`, `mdi:stove`). Inside are the room's active
+players. An Apple TV gets the Apple TV room media card (*Room media cards*, below), the same as on
+Home; Family Room's has no tap action since it is already in `#media`. Under it, once
+`sensor.<room>_appletv_info` has looked the title up, a Bubble row with the content rating as an
+outlined badge and year · genre · runtime, then the description truncated to 220 characters.
+HomePods get the same Bubble card as on Home. Master Bedroom's container holds both its Apple TV
+and its HomePod, each in its own `conditional`. Each container sits in a `conditional` keyed on
+its players' activity sensors (the Media chip's rule; `or` for Master Bedroom), so idle
 players are hidden; with none active the pop-up shows a single "Nothing playing" line. Both
 lists are static: a new light or player is added to the pop-up by hand, along with its
 activity sensor in the conditions.
