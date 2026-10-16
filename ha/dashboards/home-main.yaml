@@ -2295,12 +2295,12 @@ views:
           rows:
           - - - back
               - play_pause
+              - skip_backward
             - touchpad
             - - home
               - power
-          - - skip_backward
-            - keyboard
-            - skip_forward
+              - skip_forward
+          - - keyboard
           custom_actions:
           - type: button
             name: back
@@ -2381,7 +2381,7 @@ views:
                 action: repeat
             styles: ':host { width: 190px; }
 
-              toucharea { height: 170px; border-radius: 32px; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); }
+              toucharea { height: 232px; border-radius: 32px; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); }
 
               '
           - type: button
@@ -2394,7 +2394,7 @@ views:
             styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
               }
 
-              :host { visibility: {{ ''visible'' if is_state(''binary_sensor.living_room_appletv_keyboard_focus'', ''on'') else ''hidden'' }}; }'
+              :host { display: {{ ''flex'' if is_state(''binary_sensor.living_room_appletv_keyboard_focus'', ''on'') else ''none'' }}; }'
           - type: button
             name: skip_backward
             icon: mdi:rewind-10
@@ -2419,7 +2419,7 @@ views:
 
             .row { justify-content: space-between; align-items: center; padding: 0; }
 
-            .column { gap: 16px; }
+            .column { gap: 32px; }
 
             #row-2 { padding: 8px 0 0; }
 
@@ -3566,12 +3566,12 @@ views:
           rows:
           - - - back
               - play_pause
+              - skip_backward
             - touchpad
             - - home
               - power
-          - - skip_backward
-            - keyboard
-            - skip_forward
+              - skip_forward
+          - - keyboard
           custom_actions:
           - type: button
             name: back
@@ -3652,7 +3652,7 @@ views:
                 action: repeat
             styles: ':host { width: 190px; }
 
-              toucharea { height: 170px; border-radius: 32px; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); }
+              toucharea { height: 232px; border-radius: 32px; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); }
 
               '
           - type: button
@@ -3665,7 +3665,7 @@ views:
             styles: ':host { width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent); --icon-size: 24px; --icon-color: var(--primary-text-color);
               }
 
-              :host { visibility: {{ ''visible'' if is_state(''binary_sensor.master_bedroom_appletv_keyboard_focus'', ''on'') else ''hidden'' }}; }'
+              :host { display: {{ ''flex'' if is_state(''binary_sensor.master_bedroom_appletv_keyboard_focus'', ''on'') else ''none'' }}; }'
           - type: button
             name: skip_backward
             icon: mdi:rewind-10
@@ -3690,7 +3690,7 @@ views:
 
             .row { justify-content: space-between; align-items: center; padding: 0; }
 
-            .column { gap: 16px; }
+            .column { gap: 32px; }
 
             #row-2 { padding: 8px 0 0; }
 
