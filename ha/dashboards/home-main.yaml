@@ -1338,10 +1338,10 @@ views:
               || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return a.entity_picture || (ok && (d.backdrop
               || d.show_poster || poster)) || fb; ]]]'
           actions:
-          - name: Remote
-            icon: mdi:remote-tv
+          - name: Now Playing
+            icon: mdi:information-outline
             action: navigate
-            navigation_path: '#media'
+            navigation_path: '#family-room-now-playing'
             placement: hidden
             card_trigger: tap
           uix:
@@ -3165,10 +3165,10 @@ views:
                 || '''').replace(''1000x1000bb'', ''600x600bb''); if (ok && d.kind === ''feature-movie'') return d.backdrop || a.entity_picture || poster || fb; return a.entity_picture || (ok && (d.backdrop
                 || d.show_poster || poster)) || fb; ]]]'
             actions:
-            - name: Remote
-              icon: mdi:remote-tv
+            - name: Now Playing
+              icon: mdi:information-outline
               action: navigate
-              navigation_path: '#media'
+              navigation_path: '#family-room-now-playing'
               placement: hidden
               card_trigger: tap
             uix:
@@ -3268,6 +3268,104 @@ views:
               .rc-toggle.background-on ha-icon, .rc-toggle.background-on .bubble-sub-button-name-container { color: var(--primary-background-color) !important; }
 
               '
+    - type: custom:bubble-card
+      card_type: pop-up
+      button_type: name
+      popup_style: home-assistant
+      show_header: false
+      hash: '#family-room-now-playing'
+      name: Now Playing
+      icon: mdi:information-outline
+      cards:
+      - type: markdown
+        text_only: true
+        content: '{% set d = state_attr(''sensor.family_room_appletv_info'', ''details'') or {} %}{% set tall = d.get(''show_poster'') or (d.get(''poster'', '''') if d.get(''kind'') == ''feature-movie''
+          else '''') %}{% set hero = tall or d.get(''backdrop'') or d.get(''poster'', '''') %}<img alt="{{ ''poster'' if tall else ''art'' }}" src="{{ hero }}">
+
+
+          {% if d.get(''series'') %}### {{ d.get(''series'') }}
+
+
+          {% endif %}## {{ states(''sensor.family_room_appletv_info'') }}
+
+
+          {% if d.get(''tagline'') %}*{{ d.get(''tagline'') }}*
+
+
+          {% endif %}{% if d.get(''rating'') %}**{{ d.get(''rating'') }}** · {% endif %}{{ [d.get(''year'', ''''), d.get(''genre'', ''''), d.get(''runtime'', ''''), (''★ '' ~ d.get(''score'')) if d.get(''score'')
+          else ''''] | select | join('' · '') }}
+
+
+          {% if d.get(''director'') %}Directed by {{ d.get(''director'') }}
+
+
+          {% endif %}{{ d.get(''description'', '''') }}{% set cast = d.get(''cast'') or [] %}{% if cast %}
+
+
+          #### Cast
+
+
+          <table>{% for row in cast | batch(4) %}<tr>{% for p in row %}<td>{% if p.photo %}<img src="{{ p.photo }}">{% endif %}{{ p.name }}<br><em>{{ p.role }}</em></td>{% endfor %}</tr>{% endfor %}</table>{%
+          endif %}'
+        visibility:
+        - condition: state
+          entity: sensor.family_room_appletv_info
+          state_not:
+          - none
+          - unknown
+          - unavailable
+        uix:
+          style:
+            ha-markdown$: 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px 4px !important; color: var(--secondary-text-color);
+              line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding: 0 5px; font-size: 12px; } h3 { margin: 14px 4px
+              0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3 + h2 { margin-top: 2px !important; } h4 { margin:
+              18px 4px 4px !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } table { width: 100%; border-collapse: collapse;
+              table-layout: fixed; border: none !important; } tr, td { border: none !important; background: none !important; } td { vertical-align: top; text-align: center; padding: 8px 2px !important;
+              font-size: 12px; line-height: 1.25; color: var(--primary-text-color); } td img { width: 56px !important; height: 56px; border-radius: 50% !important; object-fit: cover; object-position: center
+              top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); } img[alt="poster"] { width: 62% !important; margin: 4px auto 12px !important; border-radius:
+              14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }'
+            'ha-markdown $ ha-markdown-element:': 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px
+              4px !important; color: var(--secondary-text-color); line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding:
+              0 5px; font-size: 12px; } h3 { margin: 14px 4px 0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3
+              + h2 { margin-top: 2px !important; } h4 { margin: 18px 4px 4px !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color);
+              } table { width: 100%; border-collapse: collapse; table-layout: fixed; border: none !important; } tr, td { border: none !important; background: none !important; } td { vertical-align: top;
+              text-align: center; padding: 8px 2px !important; font-size: 12px; line-height: 1.25; color: var(--primary-text-color); } td img { width: 56px !important; height: 56px; border-radius: 50% !important;
+              object-fit: cover; object-position: center top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); } img[alt="poster"] { width: 62% !important;
+              margin: 4px auto 12px !important; border-radius: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }'
+      - type: markdown
+        text_only: true
+        content: '{% set a = states.media_player.family_room_appletv.attributes %}{% if a.entity_picture %}<img alt="art" src="{{ a.entity_picture }}">
+
+
+          {% endif %}## {{ a.media_title or ''Nothing playing'' }}
+
+
+          {{ a.app_name or '''' }}'
+        visibility:
+        - condition: state
+          entity: sensor.family_room_appletv_info
+          state:
+          - none
+          - unknown
+          - unavailable
+        uix:
+          style:
+            ha-markdown$: 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px 4px !important; color: var(--secondary-text-color);
+              line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding: 0 5px; font-size: 12px; } h3 { margin: 14px 4px
+              0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3 + h2 { margin-top: 2px !important; } h4 { margin:
+              18px 4px 4px !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } table { width: 100%; border-collapse: collapse;
+              table-layout: fixed; border: none !important; } tr, td { border: none !important; background: none !important; } td { vertical-align: top; text-align: center; padding: 8px 2px !important;
+              font-size: 12px; line-height: 1.25; color: var(--primary-text-color); } td img { width: 56px !important; height: 56px; border-radius: 50% !important; object-fit: cover; object-position: center
+              top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); } img[alt="poster"] { width: 62% !important; margin: 4px auto 12px !important; border-radius:
+              14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }'
+            'ha-markdown $ ha-markdown-element:': 'img { width: 100%; border-radius: 22px; display: block; margin-bottom: 4px; } h2 { margin: 12px 4px 4px !important; font-size: 22px; } p { margin: 6px
+              4px !important; color: var(--secondary-text-color); line-height: 1.4; } strong { color: var(--primary-text-color); border: 1.5px solid var(--secondary-text-color); border-radius: 5px; padding:
+              0 5px; font-size: 12px; } h3 { margin: 14px 4px 0 !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color); } h3
+              + h2 { margin-top: 2px !important; } h4 { margin: 18px 4px 4px !important; font-size: 13px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--secondary-text-color);
+              } table { width: 100%; border-collapse: collapse; table-layout: fixed; border: none !important; } tr, td { border: none !important; background: none !important; } td { vertical-align: top;
+              text-align: center; padding: 8px 2px !important; font-size: 12px; line-height: 1.25; color: var(--primary-text-color); } td img { width: 56px !important; height: 56px; border-radius: 50% !important;
+              object-fit: cover; object-position: center top; margin: 0 auto 6px !important; } td em { font-style: normal; color: var(--secondary-text-color); } img[alt="poster"] { width: 62% !important;
+              margin: 4px auto 12px !important; border-radius: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }'
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#office'
@@ -6315,7 +6413,7 @@ views:
       icon: mdi:speaker-multiple
       button_type: name
       popup_mode: adaptive-dialog
-      popup_style: bubble
+      popup_style: home-assistant
       cards:
       - type: conditional
         conditions:
@@ -6937,6 +7035,13 @@ views:
                   .card-lower-content-bg::after { background-size: contain; }
 
                   '
+              actions:
+              - name: Now Playing
+                icon: mdi:information-outline
+                action: navigate
+                navigation_path: '#family-room-now-playing'
+                placement: hidden
+                card_trigger: tap
             - type: custom:bubble-card
               card_type: sub-buttons
               hide_main_background: true
@@ -7063,6 +7168,7 @@ views:
               progress_position: above
               background_opacity: 0.85
       show_header: false
+      with_bottom_offset: false
 - title: Climate
   path: climate
   type: sections
