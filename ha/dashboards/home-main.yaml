@@ -686,38 +686,49 @@ views:
           entity: binary_sensor.living_room_appletv_active
           state: 'on'
         card:
-          type: custom:bubble-card
-          card_type: media-player
-          entity: media_player.living_room_appletv
-          name: Apple TV
-          cover_background: false
-          hide:
-            power_button: true
-            volume_button: true
-            previous_button: true
-            next_button: true
-          sub_button:
-            main: []
-            bottom: []
-          show_icon: false
-          rows: 2
-          tap_action:
+          type: custom:yet-another-media-player
+          entities:
+          - entity_id: media_player.living_room_appletv
+            name: Living Room
+            volume_entity: media_player.living_room_soundbar
+            hidden_controls:
+            - previous
+            - next
+            - stop
+            - shuffle
+            - repeat
+            - favorite
+            - power
+          always_collapsed: true
+          volume_mode: stepper
+          volume_step: 0.02
+          match_theme: true
+          media_artwork_overrides:
+          - entity_id: media_player.living_room_appletv
+            image_url: '{% set mp = ''media_player.living_room_appletv'' %}{% set se = ''sensor.living_room_appletv_info'' %}{% set d = state_attr(se, ''details'') or {} %}{% set ok = states(se) not in
+              [''none'', ''unknown'', ''unavailable''] and (state_attr(se, ''content_id'') | string) == (state_attr(mp, ''media_content_id'') | string) %}{% set fb = {''YouTube'': ''/local/media_art/youtube.svg'',
+              ''TV'': ''/local/media_art/tv.svg'', ''Disney+'': ''/local/media_art/disney_plus.svg'', ''Prime Video'': ''/local/media_art/prime_video.svg''} %}{% set tmdb = (d.get(''show_poster'') or (d.get(''poster'',
+              '''') | replace(''1000x1000bb'', ''600x600bb'')) or d.get(''backdrop'')) if ok else '''' %}{{ tmdb or state_attr(mp, ''entity_picture'') or fb.get(state_attr(mp, ''app_name''), '''') }}'
+            object_fit: contain
+          actions:
+          - name: Remote
+            icon: mdi:remote-tv
             action: navigate
             navigation_path: '#living-room-remote'
-          button_action:
-            tap_action:
-              action: navigate
-              navigation_path: '#living-room-remote'
-          main_buttons_position: bottom
-          modules:
-          - bubble_media_player_enhanced
-          bubble_media_player_enhanced:
-            card_layout: default
-            progress_bar: none
-            idle_artwork: none
-            artwork_fit: original
-            progress_position: above
-            background_opacity: 0.85
+            placement: hidden
+            card_trigger: tap
+          uix:
+            style: ':host { --accent-color: var(--primary-text-color); }
+
+              .volume-percentage-indicator { color: var(--primary-background-color) !important; }
+
+              .more-info-menu { display: none !important; }
+
+              .progress-bar { background: color-mix(in srgb, var(--primary-text-color) 25%, transparent) !important; }
+
+              .collapsed-artwork { width: auto !important; height: auto !important; max-width: 102px !important; max-height: 102px !important; border-radius: 12px !important; }
+
+              '
       - type: grid
         columns: 2
         square: false
