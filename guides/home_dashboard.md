@@ -230,7 +230,8 @@ it (`button_action`), tapping its icon opens more-info (card `tap_action`), and 
 more-info. Tiles show the entity state, except the Ceiling Light tiles: their
 `state_content: brightness` shows the brightness percentage while on and falls back to
 `Off`. The Fireplace tile is the exception to the tap rule: hold turns it on and any tap
-(tile or icon) turns it off, so a stray tap can never light it. Living Room,
+(tile or icon) turns it off, so a stray tap can never light it. While on it shows its auto-off
+time (`Until 3:53 PM`) instead of the state. Living Room,
 Master Bedroom, Avery's Room, and Office start expanded; Family Room, Kitchen, and Outside
 start collapsed.
 

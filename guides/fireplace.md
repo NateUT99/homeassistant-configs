@@ -154,7 +154,8 @@ bedtimes with the fireplace off send nothing.
 Three `home-main` cards control `switch.living_room_fireplace`, all with hold → `turn_on`,
 tap → `turn_off`, double-tap disabled (see `guides/home_dashboard.md`):
 
-- Home view, Living Room section — an `apple_tile` tile beside Ceiling Light and Fan
+- Home view, Living Room section — an `apple_tile` tile beside Ceiling Light and Fan,
+  showing the auto-off time while on (`Until 3:53 PM`)
 - `#hvac` and `#living-room` pop-ups — a tile styled like the thermostat hero, showing
   `On · shuts off in 3h 12m` (time left on the 4-hour limit) or `Off · hold to light`
 

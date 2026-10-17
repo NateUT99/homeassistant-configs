@@ -824,7 +824,8 @@ views:
           entity: switch.living_room_fireplace
           name: Fireplace
           icon: mdi:fireplace
-          state_content: state
+          state_content: '{% set r = ''switch.living_room_fireplace'' %}{{ ''Until '' ~ ((states[r].last_changed + timedelta(hours=4)) | as_local | as_timestamp | timestamp_custom(''%-I:%M %p'')) if is_state(r,
+            ''on'') else ''Off'' }}'
           tap_action:
             action: perform-action
             perform_action: switch.turn_off
@@ -850,6 +851,7 @@ views:
                 entity_id: switch.living_room_fireplace
             double_tap_action:
               action: none
+          show_state: true
     background: true
   - type: grid
     cards:
