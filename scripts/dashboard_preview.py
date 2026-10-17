@@ -24,6 +24,12 @@ Environment:
     THEME=file.json   preview a trial theme ({"modes": {...}}) in place of the views' theme;
                       HA's websocket replies are rewritten in this browser only, nothing is
                       written to HA
+    STATES=file.json  pretend entities are in a given state, to render a conditional card
+                      without changing the device: {"media_player.x": {"state": "on",
+                      "attributes": {...}}}; attributes merge over the real ones, and live
+                      updates to those entities are dropped. Browser-only, like THEME, so it
+                      reaches card conditions and JS templates but not Jinja templates, which
+                      HA renders server-side from the real state
 
 The optional third argument is a JavaScript expression evaluated in the page; its result is
 printed (used to inspect Bubble Card's shadow DOM). The token is never printed.
@@ -98,6 +104,30 @@ def _trial_theme_patcher(trial):
     return patch
 
 
+def _fake_states_patcher(fake):
+    # subscribe_entities sends compressed states: "a" adds {entity: {"s", "a", ...}} and "c"
+    # changes {entity: {"+": ..., "-": ...}}. Overwrite the adds, drop the changes.
+    def patch(msg):
+        if not isinstance(msg, str) or not any(e in msg for e in fake) and '"a":' not in msg:
+            return msg
+        data = json.loads(msg)
+        for m in data if isinstance(data, list) else [data]:
+            ev = m.get("event") if isinstance(m, dict) else None
+            if not isinstance(ev, dict):
+                continue
+            if isinstance(ev.get("a"), dict):
+                for eid, f in fake.items():
+                    cur = ev["a"].setdefault(eid, {"a": {}, "c": "", "lc": time.time()})
+                    cur["s"] = f.get("state", cur.get("s"))
+                    cur["a"] = {**cur.get("a", {}), **f.get("attributes", {})}
+            if isinstance(ev.get("c"), dict):
+                for eid in fake:
+                    ev["c"].pop(eid, None)
+        return json.dumps(data)
+
+    return patch
+
+
 def main():
     hash_, out = sys.argv[1], sys.argv[2]
     js = sys.argv[3] if len(sys.argv) > 3 else None
@@ -115,8 +145,16 @@ def main():
         ctx.add_init_script(f"localStorage.setItem('hassTokens', {json.dumps(tokens)});")
         page = ctx.new_page()
 
+        patches = []
         if os.environ.get("THEME"):
-            patch = _trial_theme_patcher(json.loads(pathlib.Path(os.environ["THEME"]).read_text()))
+            patches.append(_trial_theme_patcher(json.loads(pathlib.Path(os.environ["THEME"]).read_text())))
+        if os.environ.get("STATES"):
+            patches.append(_fake_states_patcher(json.loads(pathlib.Path(os.environ["STATES"]).read_text())))
+        if patches:
+            def patch(m):
+                for f in patches:
+                    m = f(m)
+                return m
 
             def on_ws(route):
                 server = route.connect_to_server()

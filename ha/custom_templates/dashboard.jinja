@@ -128,8 +128,10 @@ living_room,master_bedroom,averys_room,office,entertainment_room,kitchen,entranc
 {% macro media_playing_count() -%}
 {#- Players with a room media card showing, same rule as the cards: each player's "active"
     sensor (ha/packages/media_activity.yaml) — Apple TVs playing or paused plus 30 seconds,
-    HomePods playing plus 10 minutes. -#}
-{{- ['binary_sensor.living_room_appletv_active', 'binary_sensor.family_room_appletv_active', 'binary_sensor.master_bedroom_appletv_active', 'binary_sensor.kitchen_homepod_active', 'binary_sensor.office_homepod_active', 'binary_sensor.master_bedroom_homepod_active', 'binary_sensor.averys_room_homepod_active'] | select('is_state', 'on') | list | count -}}
+    HomePods playing plus 10 minutes. The Living Room counts once, for either its Apple TV
+    card or its Live TV card. -#}
+{%- set lr = is_state('binary_sensor.living_room_appletv_active', 'on') or is_state('binary_sensor.living_room_tv_live_active', 'on') -%}
+{{- (1 if lr else 0) + ['binary_sensor.family_room_appletv_active', 'binary_sensor.master_bedroom_appletv_active', 'binary_sensor.kitchen_homepod_active', 'binary_sensor.office_homepod_active', 'binary_sensor.master_bedroom_homepod_active', 'binary_sensor.averys_room_homepod_active'] | select('is_state', 'on') | list | count -}}
 {%- endmacro %}
 
 {#-

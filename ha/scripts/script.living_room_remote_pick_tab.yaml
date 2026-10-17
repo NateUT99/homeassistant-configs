@@ -1,0 +1,29 @@
+alias: 'Living Room: Remote Pick Tab'
+description: 'Points the #living-room-remote pop-up at the tab for what''s on screen:
+  TV while the LG is on Live TV, otherwise Apple TV. Runs as the pop-up''s open and
+  close action. See guides/home_dashboard.md.'
+icon: mdi:remote-tv
+mode: restart
+sequence:
+- alias: Pick the tab
+  choose:
+  - alias: 'Live TV: TV tab'
+    conditions:
+    - alias: TV on Live TV
+      condition: state
+      entity_id: binary_sensor.living_room_tv_live_active
+      state: 'on'
+    sequence:
+    - alias: Select TV
+      action: input_select.select_option
+      target:
+        entity_id: input_select.living_room_remote_view
+      data:
+        option: TV
+  default:
+  - alias: Select Apple TV
+    action: input_select.select_option
+    target:
+      entity_id: input_select.living_room_remote_view
+    data:
+      option: Apple TV

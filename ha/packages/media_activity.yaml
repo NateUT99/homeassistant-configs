@@ -22,6 +22,11 @@
 # session from any other app turns the flag off at once, with no 30-second hold, so the
 # leftover title and artwork never show. See guides/home_dashboard.md.
 #
+# Living Room TV live: on while the LG is on and its input is Live TV (the antenna), so the
+# Live TV card takes the Apple TV card's place. The LG reports only the station's call sign
+# as media_title (no program, no channel number); the attributes map the four preset
+# stations to their network, channel and logo, and fall back to the call sign as-is.
+#
 # Deployed to /config/packages/media_activity.yaml; reload with template.reload.
 
 template:
@@ -63,6 +68,24 @@ template:
         delay_off: >-
           {{ '00:00:00' if is_state('media_player.living_room_appletv', 'paused')
                 and state_attr('media_player.living_room_appletv', 'app_id') != states('sensor.living_room_appletv_last_played_app') else '00:00:30' }}
+      - name: Living Room TV Live Active
+        unique_id: living_room_tv_live_active
+        state: >-
+          {{ is_state('media_player.living_room_tv', 'on')
+             and is_state_attr('media_player.living_room_tv', 'source', 'Live TV') }}
+        attributes:
+          network: >-
+            {% set t = state_attr('media_player.living_room_tv', 'media_title') or '' %}
+            {% set m = {'WTOL': 'CBS', 'WTVG': 'ABC', 'WNWO': 'NBC', 'NBC': 'NBC', 'WUPW': 'FOX'} %}
+            {{ m.get(t.split(' ')[0], t or 'Live TV') }}
+          channel: >-
+            {% set t = state_attr('media_player.living_room_tv', 'media_title') or '' %}
+            {% set m = {'WTOL': '11.1', 'WTVG': '13.1', 'WNWO': '24.1', 'NBC': '24.1', 'WUPW': '36.1'} %}
+            {{ m.get(t.split(' ')[0], '') }}
+          icon: >-
+            {% set t = state_attr('media_player.living_room_tv', 'media_title') or '' %}
+            {% set m = {'WTOL': 'phu:cbs', 'WTVG': 'phu:abc', 'WNWO': 'phu:nbc', 'NBC': 'phu:nbc', 'WUPW': 'phu:fox'} %}
+            {{ m.get(t.split(' ')[0], 'mdi:antenna') }}
       - name: Family Room Apple TV Active
         unique_id: family_room_appletv_active
         state: >-
