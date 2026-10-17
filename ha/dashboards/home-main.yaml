@@ -3311,11 +3311,12 @@ views:
                 sub_button_type: default
                 tap_action:
                   action: perform-action
-                  perform_action: media_player.select_source
-                  target:
-                    entity_id: media_player.living_room_tv
+                  perform_action: webostv.command
                   data:
-                    source: AppleTV
+                    entity_id: media_player.living_room_tv
+                    command: system.launcher/launch
+                    payload:
+                      id: com.webos.app.hdmi1
               - name: HDMI 3
                 icon: mdi:video-input-hdmi
                 show_name: true
@@ -4813,8 +4814,8 @@ views:
                 light_background: false
                 custom_height: 44
                 entity: media_player.master_bedroom_tv
-                name: '{{ ''Muted'' if state_attr(''media_player.master_bedroom_tv'', ''is_volume_muted'') else ((((state_attr(''media_player.master_bedroom_tv'', ''volume_level'') | float(0)) * 100) |
-                  round | int) ~ ''%'') }}'
+                name: '{{ ''Off'' if states(''media_player.master_bedroom_tv'') in [''off'', ''unavailable'', ''unknown''] else ''Muted'' if state_attr(''media_player.master_bedroom_tv'', ''is_volume_muted'')
+                  else ((((state_attr(''media_player.master_bedroom_tv'', ''volume_level'') | float(0)) * 100) | round | int) ~ ''%'') }}'
                 show_name: true
                 show_icon: false
                 sub_button_type: default
@@ -4855,6 +4856,9 @@ views:
             .rc-mute ha-icon { color: var(--primary-background-color) !important; }
 
             .rc-vol-level .bubble-sub-button-name-container { color: var(--secondary-text-color) !important; }{% endif %}
+
+            {% if states(''media_player.master_bedroom_tv'') in [''unavailable'', ''unknown'', ''off''] %}.rc-vol-level .bubble-sub-button-name-container { color: var(--secondary-text-color) !important;
+            }{% endif %}
 
             '
         - type: custom:bubble-card
