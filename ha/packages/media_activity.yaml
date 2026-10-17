@@ -27,6 +27,14 @@
 # as media_title (no program, no channel number); the attributes map the four preset
 # stations to their network, channel and logo, and fall back to the call sign as-is.
 #
+# Living Room Apple TV browsing: on while the LG is on the Apple TV's input and the Apple TV is
+# neither playing nor paused in the app that last played, so the dashboard shows a touchpad in
+# place of the artwork card. A paused session from another app is the leftover described above
+# (backing out of a show often reports one), so it counts as browsing.
+# It doesn't use the Apple TV Active flag above, whose 30-second hold would keep the artwork up
+# after backing out to the menus. The 3-second delay_on skips the sub-second idle blips the
+# Apple TV reports while moving around during playback.
+#
 # Deployed to /config/packages/media_activity.yaml; reload with template.reload.
 
 template:
@@ -86,6 +94,14 @@ template:
             {% set t = state_attr('media_player.living_room_tv', 'media_title') or '' %}
             {% set m = {'WTOL': 'phu:cbs', 'WTVG': 'phu:abc', 'WNWO': 'phu:nbc', 'NBC': 'phu:nbc', 'WUPW': 'phu:fox'} %}
             {{ m.get(t.split(' ')[0], 'mdi:antenna') }}
+      - name: Living Room Apple TV Browsing
+        unique_id: living_room_appletv_browsing
+        state: >-
+          {{ is_state('select.living_room_tv_input', 'Apple TV')
+             and not (is_state('media_player.living_room_appletv', 'playing')
+                      or (is_state('media_player.living_room_appletv', 'paused')
+                          and state_attr('media_player.living_room_appletv', 'app_id') == states('sensor.living_room_appletv_last_played_app'))) }}
+        delay_on: "00:00:03"
       - name: Family Room Apple TV Active
         unique_id: family_room_appletv_active
         state: >-

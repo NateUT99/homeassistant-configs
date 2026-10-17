@@ -1,0 +1,46 @@
+# TV input selectors for TVs with more than one source, used by the home-main dashboard's room
+# heading badge (tap -> pick an input) and to decide which media card a room shows.
+#
+# The state is read from the LG's app_id, not `source`: a renamed HDMI input can be missing from
+# source_list, and `source` goes blank for a moment while the TV switches. Picking an option
+# launches the input's app directly (system.launcher/launch) for the same reason --
+# media_player.select_source rejects an input missing from source_list (LESSONS.md -> "An LG
+# webOS HDMI input can be missing from `source_list`"). Anything not in the list (an LG app,
+# the Home Hub input picker) leaves the state unknown.
+#
+# Available only while the TV is on; an LG drops to `unavailable` in standby. The icon follows the
+# input, so the dashboard badge can show it without text. Picking Apple TV wakes it first: the TV
+# can switch to its input while the Apple TV itself is still asleep.
+#
+# Deployed to /config/packages/media_inputs.yaml; reload with template.reload.
+
+template:
+  - select:
+      - name: Living Room TV Input
+        unique_id: living_room_tv_input
+        icon: >-
+          {{ {'com.webos.app.hdmi1': 'phu:appletv-sim', 'com.webos.app.livetv': 'mdi:antenna'}
+               .get(state_attr('media_player.living_room_tv', 'app_id'), 'mdi:television') }}
+        availability: "{{ is_state('media_player.living_room_tv', 'on') }}"
+        options: "{{ ['Apple TV', 'Live TV'] }}"
+        state: >-
+          {{ {'com.webos.app.hdmi1': 'Apple TV', 'com.webos.app.livetv': 'Live TV'}
+               .get(state_attr('media_player.living_room_tv', 'app_id')) }}
+        select_option:
+          - alias: Wake the Apple TV
+            if:
+              - alias: Apple TV picked
+                condition: template
+                value_template: "{{ option == 'Apple TV' }}"
+            then:
+              - alias: Turn on the Apple TV
+                action: remote.turn_on
+                target:
+                  entity_id: remote.living_room_appletv
+          - alias: Launch the input
+            action: webostv.command
+            data:
+              entity_id: media_player.living_room_tv
+              command: system.launcher/launch
+              payload:
+                id: "{{ {'Apple TV': 'com.webos.app.hdmi1', 'Live TV': 'com.webos.app.livetv'}[option] }}"

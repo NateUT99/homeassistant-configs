@@ -236,7 +236,7 @@ Before v3.4, Bubble Card's `state_display` field half-supported Jinja: simple `s
 
 Use `state_content` (not `state_display`) for the line under the name. Always quote templates — unquoted `{{ }}` is read by YAML as a mapping and the card rejects it. Prefer templates over the old JavaScript `${...}` / `innerText` injection in `styles`; reserve JS templates for things Jinja can't reach.
 
-Because the server renders them from the real state, `scripts/dashboard_preview.py`'s `STATES=` override (which fakes state in the preview browser only) doesn't reach Jinja templates — only card conditions and JS templates see the fake. A preview mixing the two can show a header from the real state next to styling from the fake one.
+Because the server renders them from the real state, `scripts/dashboard_preview.py`'s `STATES=` override (which fakes state in the preview browser only) doesn't reach Jinja templates. It doesn't reach `conditional` card conditions either (seen on HA 2026.10: the browser's `hass.states` held the faked values, yet the cards still showed and hid by the real ones) — only JS templates and plain state displays such as heading badges see the fake. A preview mixing them can show a header from the real state next to styling from the fake one.
 
 ### Native HA cards do not auto-format `device_class: date` template sensors
 
@@ -565,6 +565,16 @@ layer that draws the artwork with `background-size: cover`. Shrinking the card (
 scaled to 350 px tall and everything below the card's bottom edge is cut off. It reads as the
 image being zoomed in. Override it with
 `.card-lower-content-bg { min-height: 0 !important; height: 100% !important; }`.
+
+### Yet Another Media Player's first frame ignores `uix` sizing
+
+When a `conditional` card brings a YAMP card back, its first frame renders at YAMP's own
+default height (about 175 px taller than our 16:9 layout on a phone) before the `uix` styles
+reach it, then snaps to size. Everything below jumps for one frame — caught in Oct 2026 by
+sampling a heading's position every 50 ms while swapping YAMP and a touchpad (913 px for one
+sample, 737 px after). Settled screenshots never show it. Put a YAMP card that appears and
+disappears inside a container of fixed size that clips (`vertical-stack` with `uix`
+`aspect-ratio: 16 / 9; overflow: hidden`), so the oversized frame happens inside it.
 
 ### A Bubble slider's default double-tap toggles its entity — on a `number` that's an error
 

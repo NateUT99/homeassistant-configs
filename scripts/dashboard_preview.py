@@ -27,9 +27,10 @@ Environment:
     STATES=file.json  pretend entities are in a given state, to render a conditional card
                       without changing the device: {"media_player.x": {"state": "on",
                       "attributes": {...}}}; attributes merge over the real ones, and live
-                      updates to those entities are dropped. Browser-only, like THEME, so it
-                      reaches card conditions and JS templates but not Jinja templates, which
-                      HA renders server-side from the real state
+                      updates to those entities are dropped. Browser-only, like THEME: it
+                      reaches JS templates and plain state displays (badges), but not Jinja
+                      templates or conditional-card / visibility conditions, which follow the
+                      real state (seen on HA 2026.10)
 
 The optional third argument is a JavaScript expression evaluated in the page; its result is
 printed (used to inspect Bubble Card's shadow DOM). The token is never printed.

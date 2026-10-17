@@ -1,0 +1,38 @@
+id: "1792269491055"
+alias: "Living Room: AppleTV Touchpad Reset"
+description: >-
+  Turns off the Home dashboard's touchpad toggle
+  (input_boolean.living_room_appletv_touchpad) when the TV turns off, the
+  AppleTV goes back to its menus, or a new title starts playing, so playback
+  always shows the artwork card. Resuming from pause keeps the touchpad. See
+  guides/home_dashboard.md.
+triggers:
+  - alias: TV turned off
+    trigger: media_player.turned_off
+    target:
+      entity_id: media_player.living_room_tv
+  - alias: AppleTV back in its menus
+    trigger: state
+    entity_id: binary_sensor.living_room_appletv_browsing
+    to: "on"
+  - alias: New title started
+    trigger: state
+    entity_id: media_player.living_room_appletv
+    from:
+      - idle
+      - "off"
+      - standby
+      - unknown
+    to: playing
+    note: >-
+      Starting a title from the touchpad drops the AppleTV to idle for under 2
+      seconds, too short for the browsing sensor's 3-second delay_on, so it
+      needs its own trigger. From paused is left out so resuming keeps the
+      touchpad.
+actions:
+  - alias: Turn off the touchpad toggle
+    action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.living_room_appletv_touchpad
+mode: single
+category: 01M2C49AVVEG94R66QZA8BTV2Y
