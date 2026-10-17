@@ -980,8 +980,8 @@ views:
                   light_background: false
                   custom_height: 44
                   entity: media_player.living_room_soundbar
-                  name: '{{ ''Muted'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'') else ((((state_attr(''media_player.living_room_soundbar'', ''volume_level'') | float(0)) *
-                    100) | round | int) ~ ''%'') }}'
+                  name: '{{ ''Unavailable'' if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] else ''Muted'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'')
+                    else ((((state_attr(''media_player.living_room_soundbar'', ''volume_level'') | float(0)) * 100) | round | int) ~ ''%'') }}'
                   show_name: true
                   show_icon: false
                   sub_button_type: default
@@ -1022,6 +1022,10 @@ views:
               .rc-mute ha-icon { color: var(--primary-background-color) !important; }
 
               .rc-vol-level .bubble-sub-button-name-container { color: var(--secondary-text-color) !important; }{% endif %}
+
+              {% if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] %}.rc-vol-level { flex: 0 0 110px !important; }
+
+              .rc-vol-level .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }{% endif %}
 
               '
       - type: grid
@@ -2464,8 +2468,8 @@ views:
                   light_background: false
                   custom_height: 44
                   entity: media_player.living_room_soundbar
-                  name: '{{ ''Muted'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'') else ((((state_attr(''media_player.living_room_soundbar'', ''volume_level'') | float(0)) *
-                    100) | round | int) ~ ''%'') }}'
+                  name: '{{ ''Unavailable'' if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] else ''Muted'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'')
+                    else ((((state_attr(''media_player.living_room_soundbar'', ''volume_level'') | float(0)) * 100) | round | int) ~ ''%'') }}'
                   show_name: true
                   show_icon: false
                   sub_button_type: default
@@ -2506,6 +2510,10 @@ views:
               .rc-mute ha-icon { color: var(--primary-background-color) !important; }
 
               .rc-vol-level .bubble-sub-button-name-container { color: var(--secondary-text-color) !important; }{% endif %}
+
+              {% if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] %}.rc-vol-level { flex: 0 0 110px !important; }
+
+              .rc-vol-level .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }{% endif %}
 
               '
       - type: conditional
@@ -2950,8 +2958,8 @@ views:
                 light_background: false
                 custom_height: 44
                 entity: media_player.living_room_soundbar
-                name: '{{ ''Muted'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'') else ((((state_attr(''media_player.living_room_soundbar'', ''volume_level'') | float(0)) * 100)
-                  | round | int) ~ ''%'') }}'
+                name: '{{ ''Unavailable'' if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] else ''Muted'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'')
+                  else ((((state_attr(''media_player.living_room_soundbar'', ''volume_level'') | float(0)) * 100) | round | int) ~ ''%'') }}'
                 show_name: true
                 show_icon: false
                 sub_button_type: default
@@ -2992,6 +3000,10 @@ views:
             .rc-mute ha-icon { color: var(--primary-background-color) !important; }
 
             .rc-vol-level .bubble-sub-button-name-container { color: var(--secondary-text-color) !important; }{% endif %}
+
+            {% if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] %}.rc-vol-level { flex: 0 0 110px !important; }
+
+            .rc-vol-level .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }{% endif %}
 
             '
         - type: custom:bubble-card
@@ -7895,8 +7907,8 @@ views:
                       light_background: false
                       custom_height: 44
                       entity: media_player.living_room_soundbar
-                      name: '{{ ''Muted'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'') else ((((state_attr(''media_player.living_room_soundbar'', ''volume_level'') | float(0))
-                        * 100) | round | int) ~ ''%'') }}'
+                      name: '{{ ''Unavailable'' if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] else ''Muted'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'')
+                        else ((((state_attr(''media_player.living_room_soundbar'', ''volume_level'') | float(0)) * 100) | round | int) ~ ''%'') }}'
                       show_name: true
                       show_icon: false
                       sub_button_type: default
@@ -7937,6 +7949,10 @@ views:
                   .rc-mute ha-icon { color: var(--primary-background-color) !important; }
 
                   .rc-vol-level .bubble-sub-button-name-container { color: var(--secondary-text-color) !important; }{% endif %}
+
+                  {% if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] %}.rc-vol-level { flex: 0 0 110px !important; }
+
+                  .rc-vol-level .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }{% endif %}
 
                   '
       - type: conditional
