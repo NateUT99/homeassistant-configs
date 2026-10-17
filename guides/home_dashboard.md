@@ -463,13 +463,13 @@ and every TV-app title's name to TMDB:
 # episode).
 #
 # TMDB (The Movie Database) then adds the cast with headshots, tagline, audience score, wide
-# background art, the writers, the studio, the original language when it isn't English,
-# and for an episode the series' 2:3 poster, its director, and its name and air date. TMDB
-# doesn't know Apple's IDs, so it is matched by name: a movie by title and release year; an episode by series name (Apple's
-# "(Original)"-style suffix removed), taking the newest series that started no later than the
-# episode aired (so Magnum, P.I. 1982 finds the 1980 series, not the 2018 one), then the season
-# and episode numbers from Apple's track name ("Season 2, Episode 20: ..."). An unmatched title
-# just gets no TMDB fields.
+# background art, the writers, the studio, the original language when it isn't English, and for
+# an episode the series' and the season's 2:3 posters, its director, and its name and air date.
+# TMDB doesn't know Apple's IDs, so it is matched by name: a movie by title and release year; an
+# episode by series name (Apple's "(Original)"-style suffix removed), taking the newest series
+# that started no later than the episode aired (so Magnum, P.I. 1982 finds the 1980 series, not
+# the 2018 one), then the season and episode numbers from Apple's track name ("Season 2, Episode
+# 20: ..."). An unmatched title just gets no TMDB fields.
 #
 # Titles streamed in the TV app (Apple TV+ and the like) report a non-numeric ID (e.g.
 # A0006203008) and only a title, so they skip Apple's lookup and go straight to a TMDB search
@@ -528,7 +528,7 @@ template:
       owned: "{{ new_id is match('^[0-9]+$') }}"
       tvapp: "{{ not owned and new_id != '' and is_state_attr('media_player.living_room_appletv', 'app_id', 'com.apple.TVWatchList') and (state_attr('media_player.living_room_appletv', 'media_duration') or 0) > 0 }}"
       title: "{{ state_attr('media_player.living_room_appletv', 'media_series_title') or state_attr('media_player.living_room_appletv', 'media_title') or '' }}"
-      changed: "{{ new_id != (state_attr('sensor.living_room_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.living_room_appletv_info', 'lookup_version') | int(0)) != 3 }}"
+      changed: "{{ new_id != (state_attr('sensor.living_room_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.living_room_appletv_info', 'lookup_version') | int(0)) != 4 }}"
     actions:
       - if:
           - condition: template
@@ -563,6 +563,18 @@ template:
                         {%- if se %}tv/{{ show.id }}/season/{{ se[0] }}/episode/{{ se[1] }}?append_to_response=credits{% else %}tv/{{ show.id }}?append_to_response=credits{% endif %}{% endif %}
                     response_variable: tdetail
                     continue_on_error: true
+                  # The series' own details carry each season's poster.
+                  - if:
+                      - condition: template
+                        value_template: >
+                          {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{{ r.kind == 'tv-episode' and (r.trackName | regex_findall('Season (\\d+), Episode (\\d+)') | count) > 0 }}
+                    then:
+                      - action: rest_command.tmdb_get
+                        data:
+                          path: >
+                            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{% set res = tsearch.content.results %}{% set shows = res | selectattr('first_air_date', 'defined') | rejectattr('first_air_date', 'eq', '') | selectattr('first_air_date', 'le', r.releaseDate[:10]) | sort(attribute='first_air_date', reverse=true) | list %}tv/{{ ((shows or res) | first).id }}
+                        response_variable: tshow
+                        continue_on_error: true
       - if:
           - condition: template
             value_template: "{{ active and tvapp and changed and title != '' }}"
@@ -602,7 +614,7 @@ template:
           {% endif %}
         attributes:
           content_id: "{{ new_id if (active and (owned or tvapp)) else '' }}"
-          lookup_version: "{{ 3 }}"
+          lookup_version: "{{ 4 }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
               {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
@@ -620,6 +632,8 @@ template:
               {% set ep = r.kind | default('') == 'tv-episode' %}
               {% set crew = ((t.get('credits') or {}).get('crew') or []) + (t.get('crew') or []) %}
               {% set se = (r.trackName | default('')) | regex_findall('Season (\\d+), Episode (\\d+)(?:: (.*))?') | first | default([]) %}
+              {% set tsh = tshow.content if (tshow is defined and tshow.status == 200 and tshow.content is mapping) else {} %}
+              {% set spp = ((tsh.get('seasons') or []) | selectattr('season_number', 'eq', se[0] | int) | map(attribute='poster_path') | select | first | default('', true)) if se else '' %}
               {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
               {{ {
                 'year': (r.releaseDate | default(''))[:4],
@@ -644,7 +658,8 @@ template:
                 'language': lang,
                 'seasons': 0,
                 'status': '',
-                'episode': {'season': se[0] | int, 'number': se[1] | int, 'name': t.get('name') or se[2], 'air_date': t.get('air_date') or (r.releaseDate | default(''))[:10]} if ep and se else {}
+                'episode': {'season': se[0] | int, 'number': se[1] | int, 'name': t.get('name') or se[2], 'air_date': t.get('air_date') or (r.releaseDate | default(''))[:10]} if ep and se else {},
+                'season_poster': ('https://image.tmdb.org/t/p/w780' ~ spp) if spp else ''
               } }}
             {% elif active and tvapp and tdetail is defined and tdetail.status == 200 and tdetail.content is mapping %}
               {% set t = tdetail.content %}{% set tv = 'first_air_date' in t %}
@@ -662,6 +677,7 @@ template:
               {% set crew = (t.get('credits') or {}).get('crew') or [] %}
               {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
               {% set ps = state_attr('media_player.living_room_appletv', 'media_season') %}{% set pe = state_attr('media_player.living_room_appletv', 'media_episode') %}{% set pt = state_attr('media_player.living_room_appletv', 'media_title') or '' %}
+              {% set spp = ((t.get('seasons') or []) | selectattr('season_number', 'eq', ps | int(0)) | map(attribute='poster_path') | select | first | default('', true)) if tv and ps else '' %}
               {{ {
                 'year': (t.get('first_air_date') or t.get('release_date') or '')[:4],
                 'rating': rating,
@@ -685,7 +701,8 @@ template:
                 'language': lang,
                 'seasons': (t.get('number_of_seasons') or 0) if tv else 0,
                 'status': (t.get('status') or '') if tv else '',
-                'episode': {'season': ps | int, 'number': pe | int, 'name': pt if pt != title else '', 'air_date': ''} if tv and ps and pe else {}
+                'episode': {'season': ps | int, 'number': pe | int, 'name': pt if pt != title else '', 'air_date': ''} if tv and ps and pe else {},
+                'season_poster': ('https://image.tmdb.org/t/p/w780' ~ spp) if spp else ''
               } }}
             {% elif active and (owned or tvapp) and not changed %}
               {{ this.attributes.details | default({}) }}
@@ -706,7 +723,7 @@ template:
       owned: "{{ new_id is match('^[0-9]+$') }}"
       tvapp: "{{ not owned and new_id != '' and is_state_attr('media_player.master_bedroom_appletv', 'app_id', 'com.apple.TVWatchList') and (state_attr('media_player.master_bedroom_appletv', 'media_duration') or 0) > 0 }}"
       title: "{{ state_attr('media_player.master_bedroom_appletv', 'media_series_title') or state_attr('media_player.master_bedroom_appletv', 'media_title') or '' }}"
-      changed: "{{ new_id != (state_attr('sensor.master_bedroom_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.master_bedroom_appletv_info', 'lookup_version') | int(0)) != 3 }}"
+      changed: "{{ new_id != (state_attr('sensor.master_bedroom_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.master_bedroom_appletv_info', 'lookup_version') | int(0)) != 4 }}"
     actions:
       - if:
           - condition: template
@@ -741,6 +758,18 @@ template:
                         {%- if se %}tv/{{ show.id }}/season/{{ se[0] }}/episode/{{ se[1] }}?append_to_response=credits{% else %}tv/{{ show.id }}?append_to_response=credits{% endif %}{% endif %}
                     response_variable: tdetail
                     continue_on_error: true
+                  # The series' own details carry each season's poster.
+                  - if:
+                      - condition: template
+                        value_template: >
+                          {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{{ r.kind == 'tv-episode' and (r.trackName | regex_findall('Season (\\d+), Episode (\\d+)') | count) > 0 }}
+                    then:
+                      - action: rest_command.tmdb_get
+                        data:
+                          path: >
+                            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{% set res = tsearch.content.results %}{% set shows = res | selectattr('first_air_date', 'defined') | rejectattr('first_air_date', 'eq', '') | selectattr('first_air_date', 'le', r.releaseDate[:10]) | sort(attribute='first_air_date', reverse=true) | list %}tv/{{ ((shows or res) | first).id }}
+                        response_variable: tshow
+                        continue_on_error: true
       - if:
           - condition: template
             value_template: "{{ active and tvapp and changed and title != '' }}"
@@ -780,7 +809,7 @@ template:
           {% endif %}
         attributes:
           content_id: "{{ new_id if (active and (owned or tvapp)) else '' }}"
-          lookup_version: "{{ 3 }}"
+          lookup_version: "{{ 4 }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
               {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
@@ -798,6 +827,8 @@ template:
               {% set ep = r.kind | default('') == 'tv-episode' %}
               {% set crew = ((t.get('credits') or {}).get('crew') or []) + (t.get('crew') or []) %}
               {% set se = (r.trackName | default('')) | regex_findall('Season (\\d+), Episode (\\d+)(?:: (.*))?') | first | default([]) %}
+              {% set tsh = tshow.content if (tshow is defined and tshow.status == 200 and tshow.content is mapping) else {} %}
+              {% set spp = ((tsh.get('seasons') or []) | selectattr('season_number', 'eq', se[0] | int) | map(attribute='poster_path') | select | first | default('', true)) if se else '' %}
               {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
               {{ {
                 'year': (r.releaseDate | default(''))[:4],
@@ -822,7 +853,8 @@ template:
                 'language': lang,
                 'seasons': 0,
                 'status': '',
-                'episode': {'season': se[0] | int, 'number': se[1] | int, 'name': t.get('name') or se[2], 'air_date': t.get('air_date') or (r.releaseDate | default(''))[:10]} if ep and se else {}
+                'episode': {'season': se[0] | int, 'number': se[1] | int, 'name': t.get('name') or se[2], 'air_date': t.get('air_date') or (r.releaseDate | default(''))[:10]} if ep and se else {},
+                'season_poster': ('https://image.tmdb.org/t/p/w780' ~ spp) if spp else ''
               } }}
             {% elif active and tvapp and tdetail is defined and tdetail.status == 200 and tdetail.content is mapping %}
               {% set t = tdetail.content %}{% set tv = 'first_air_date' in t %}
@@ -840,6 +872,7 @@ template:
               {% set crew = (t.get('credits') or {}).get('crew') or [] %}
               {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
               {% set ps = state_attr('media_player.master_bedroom_appletv', 'media_season') %}{% set pe = state_attr('media_player.master_bedroom_appletv', 'media_episode') %}{% set pt = state_attr('media_player.master_bedroom_appletv', 'media_title') or '' %}
+              {% set spp = ((t.get('seasons') or []) | selectattr('season_number', 'eq', ps | int(0)) | map(attribute='poster_path') | select | first | default('', true)) if tv and ps else '' %}
               {{ {
                 'year': (t.get('first_air_date') or t.get('release_date') or '')[:4],
                 'rating': rating,
@@ -863,7 +896,8 @@ template:
                 'language': lang,
                 'seasons': (t.get('number_of_seasons') or 0) if tv else 0,
                 'status': (t.get('status') or '') if tv else '',
-                'episode': {'season': ps | int, 'number': pe | int, 'name': pt if pt != title else '', 'air_date': ''} if tv and ps and pe else {}
+                'episode': {'season': ps | int, 'number': pe | int, 'name': pt if pt != title else '', 'air_date': ''} if tv and ps and pe else {},
+                'season_poster': ('https://image.tmdb.org/t/p/w780' ~ spp) if spp else ''
               } }}
             {% elif active and (owned or tvapp) and not changed %}
               {{ this.attributes.details | default({}) }}
@@ -884,7 +918,7 @@ template:
       owned: "{{ new_id is match('^[0-9]+$') }}"
       tvapp: "{{ not owned and new_id != '' and is_state_attr('media_player.family_room_appletv', 'app_id', 'com.apple.TVWatchList') and (state_attr('media_player.family_room_appletv', 'media_duration') or 0) > 0 }}"
       title: "{{ state_attr('media_player.family_room_appletv', 'media_series_title') or state_attr('media_player.family_room_appletv', 'media_title') or '' }}"
-      changed: "{{ new_id != (state_attr('sensor.family_room_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.family_room_appletv_info', 'lookup_version') | int(0)) != 3 }}"
+      changed: "{{ new_id != (state_attr('sensor.family_room_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.family_room_appletv_info', 'lookup_version') | int(0)) != 4 }}"
     actions:
       - if:
           - condition: template
@@ -919,6 +953,18 @@ template:
                         {%- if se %}tv/{{ show.id }}/season/{{ se[0] }}/episode/{{ se[1] }}?append_to_response=credits{% else %}tv/{{ show.id }}?append_to_response=credits{% endif %}{% endif %}
                     response_variable: tdetail
                     continue_on_error: true
+                  # The series' own details carry each season's poster.
+                  - if:
+                      - condition: template
+                        value_template: >
+                          {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{{ r.kind == 'tv-episode' and (r.trackName | regex_findall('Season (\\d+), Episode (\\d+)') | count) > 0 }}
+                    then:
+                      - action: rest_command.tmdb_get
+                        data:
+                          path: >
+                            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{% set res = tsearch.content.results %}{% set shows = res | selectattr('first_air_date', 'defined') | rejectattr('first_air_date', 'eq', '') | selectattr('first_air_date', 'le', r.releaseDate[:10]) | sort(attribute='first_air_date', reverse=true) | list %}tv/{{ ((shows or res) | first).id }}
+                        response_variable: tshow
+                        continue_on_error: true
       - if:
           - condition: template
             value_template: "{{ active and tvapp and changed and title != '' }}"
@@ -958,7 +1004,7 @@ template:
           {% endif %}
         attributes:
           content_id: "{{ new_id if (active and (owned or tvapp)) else '' }}"
-          lookup_version: "{{ 3 }}"
+          lookup_version: "{{ 4 }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
               {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
@@ -976,6 +1022,8 @@ template:
               {% set ep = r.kind | default('') == 'tv-episode' %}
               {% set crew = ((t.get('credits') or {}).get('crew') or []) + (t.get('crew') or []) %}
               {% set se = (r.trackName | default('')) | regex_findall('Season (\\d+), Episode (\\d+)(?:: (.*))?') | first | default([]) %}
+              {% set tsh = tshow.content if (tshow is defined and tshow.status == 200 and tshow.content is mapping) else {} %}
+              {% set spp = ((tsh.get('seasons') or []) | selectattr('season_number', 'eq', se[0] | int) | map(attribute='poster_path') | select | first | default('', true)) if se else '' %}
               {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
               {{ {
                 'year': (r.releaseDate | default(''))[:4],
@@ -1000,7 +1048,8 @@ template:
                 'language': lang,
                 'seasons': 0,
                 'status': '',
-                'episode': {'season': se[0] | int, 'number': se[1] | int, 'name': t.get('name') or se[2], 'air_date': t.get('air_date') or (r.releaseDate | default(''))[:10]} if ep and se else {}
+                'episode': {'season': se[0] | int, 'number': se[1] | int, 'name': t.get('name') or se[2], 'air_date': t.get('air_date') or (r.releaseDate | default(''))[:10]} if ep and se else {},
+                'season_poster': ('https://image.tmdb.org/t/p/w780' ~ spp) if spp else ''
               } }}
             {% elif active and tvapp and tdetail is defined and tdetail.status == 200 and tdetail.content is mapping %}
               {% set t = tdetail.content %}{% set tv = 'first_air_date' in t %}
@@ -1018,6 +1067,7 @@ template:
               {% set crew = (t.get('credits') or {}).get('crew') or [] %}
               {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
               {% set ps = state_attr('media_player.family_room_appletv', 'media_season') %}{% set pe = state_attr('media_player.family_room_appletv', 'media_episode') %}{% set pt = state_attr('media_player.family_room_appletv', 'media_title') or '' %}
+              {% set spp = ((t.get('seasons') or []) | selectattr('season_number', 'eq', ps | int(0)) | map(attribute='poster_path') | select | first | default('', true)) if tv and ps else '' %}
               {{ {
                 'year': (t.get('first_air_date') or t.get('release_date') or '')[:4],
                 'rating': rating,
@@ -1041,7 +1091,8 @@ template:
                 'language': lang,
                 'seasons': (t.get('number_of_seasons') or 0) if tv else 0,
                 'status': (t.get('status') or '') if tv else '',
-                'episode': {'season': ps | int, 'number': pe | int, 'name': pt if pt != title else '', 'air_date': ''} if tv and ps and pe else {}
+                'episode': {'season': ps | int, 'number': pe | int, 'name': pt if pt != title else '', 'air_date': ''} if tv and ps and pe else {},
+                'season_poster': ('https://image.tmdb.org/t/p/w780' ~ spp) if spp else ''
               } }}
             {% elif active and (owned or tvapp) and not changed %}
               {{ this.attributes.details | default({}) }}
@@ -1315,7 +1366,7 @@ tile, until they get a room hero (#13 step 4).
 | `#living-room-remote` | No header; `popup_style: home-assistant` (Bubble Card ≥ the release that added it) with no `popup_mode`, so on mobile the sheet keeps the more-info dialog's full height and doesn't resize as tabs change. A segmented switch at the top (`input_select.living_room_remote_view`: Now Playing · Apple TV (`phu:appletv-sim`) · TV; the pop-up's `close_action` sets it back to Apple TV, so every open starts on that tab) shows one tab at a time through card `visibility`. **Now Playing** is information only: a markdown card led by a 2:3 poster at 62% width (Apple's store poster for a movie, the series' TMDB poster for an episode or a TV-app series, TMDB's poster for a TV-app movie; TMDB's wide background art, then Apple's art, at full width when there's no poster), the series as a small heading for a TV episode, the title, the tagline in italics, the content rating as an outlined badge (left out when there is none) with year · genre · runtime · ★ TMDB score, the director for a movie, the full description, and a Cast grid (up to 8, four to a row: round headshot, name, role; an episode lists its regulars then guest stars), all from `sensor.living_room_appletv_info`. The tab is dimmed and untappable while the sensor is `none`, and if it is selected when details disappear the Apple TV tab shows instead. **Apple TV** opens with the artwork alone (hidden while the Apple TV is off): a Bubble button card whose JS style template sets the image as its background with `background-size: contain`, so a portrait poster or square series art shows whole at up to 150 px tall (media cards fit artwork into a fixed-shape slot and crop the rest); wide art (anything but a poster or a fallback icon) instead turns the card 16:9 with no padding and fills it edge to edge; tapping it switches to Now Playing. Below it, a markdown card shows the title centred at 15 px semibold, with the series above it in 12 px secondary text (shown while playing or paused). While `sensor.living_room_appletv_info` matches what is playing, both come from it, so a store episode shows its series and episode name ("Season 2, Episode 20: The Last Page"); otherwise the player's own `media_title` is used. A TV-app stream reports only the show name, so it has no episode line. The image follows the room media card's rule (*Room media cards*, Step 3): TMDB's backdrop for a movie once `sensor.living_room_appletv_info` has looked it up, otherwise the Apple TV's own artwork (a 16:9 still for a TV episode), then the sensor's art, then the app's fallback image, else the TV app's image. Between two titles the Apple TV reports itself idle for up to about 15 s, and an Apple-store title's lookup takes a moment, so in either case the card keeps the last artwork it showed (held in a `window` variable), falling back to the app's image after 30 s. A leftover paused session from another app (`binary_sensor.living_room_appletv_active` off while the player is `paused`) counts as nothing playing: the title card hides and the hold falls back to the TV app's image rather than that app's. Then the timeline, then a volume row for the Soundbar (mute on the left, filled while muted, via `script.household_media_toggle_mute` since a tap action can't read the current mute state; then − / level / +, ±2% a tap, the level reading "Muted" while muted), then Speech · Night · Sub, the app favourites, and the Universal Remote Card (a left column of back, play/pause and skip −10 s, where play/pause shows pause while playing and play otherwise and runs Household: Apple TV Play Pause (`script.household_appletv_play_pause`): `media_player.media_pause` / `media_play` for a title with a duration, the `play_pause` remote key for a live stream, since the Apple TV ignores the key during a movie and refuses `media_pause` on live TV; the 190 × 232 px touchpad, which runs the full height of the side columns; a right column of home, hold-to-toggle power and skip +10 s; the keyboard sits in its own row below and takes no space unless an Apple TV text field has focus). **TV** controls the LG (`media_player.living_room_tv`): input pills (Apple TV, HDMI 3, HDMI 4, Live TV; the current input is filled, via the `segmented` module reading `source`), channel presets shown as network logos (`phu:cbs` 11.1, `phu:abc` 13.1, `phu:nbc` 24.1, `phu:fox` 36.1: `media_player.play_media` with `media_content_type: channel` and the LG's `11-1` channel-number form), and a Universal Remote Card on the LG webOS platform with a 1–9 / – 0 enter number pad, channel up and down, guide, and back. Timeline: a Bubble slider on `number.living_room_appletv_position` (from `ha/packages/media_seek.yaml`; refreshed every 2 s while playing, holding a dragged value for 6 s because the Apple TV keeps reporting the pre-seek position, excluded from the recorder) that fills purple, reads e.g. "0:21:41 / 1:47:24", seeks on release, labels the drag target as m:ss through the `time_slider` module, and hides when there is no duration (live TV) or the Apple TV isn't playing or paused (the number keeps its last value while off) |
 | `#kitchen` | Sink light, dishwasher and refrigerator tiles, HomePod |
 | `#family-room` | Ambient lamp, 2 pinball underglows, 3 game power switches, Apple TV media card (only while active) with an Apps · Speech · Night row under it |
-| `#family-room-now-playing` | No header; `popup_style: home-assistant`, like the remote pop-ups. Three cards, all from `sensor.family_room_appletv_info` and the player. **Header** (markdown): a small-caps label row (play or pause icon in purple, "Now Playing · Family Room", the app name as a pill on the right), then one image picked like the remote's Now Playing tab (the 2:3 poster at 80% width for a movie or series, otherwise TMDB's wide background art, Apple's art, or the player's own artwork at full width), the series as a small heading for an episode, the title (the episode's name for an episode), "Season 2, Episode 20 · Aired Mar 4, 1984" for an episode, and the tagline in italics. Player attributes are read with `.get()`, because an undefined attribute (every one, while the Apple TV is off) makes the markdown card render nothing. While the sensor is `none` (an app it can't look up, such as YouTube) the header still shows the player's artwork, `media_title` and app. **Timeline**: the remote's Bubble slider on `number.family_room_appletv_position`, display-only (`read_only_slider` plus `pointer-events: none`, so a scroll can't seek). **Details** (markdown): time left and, while playing, "Ends at" a clock time (from the position number's value and `max`; shown only while the Apple TV is playing or paused, since the number keeps its last value, and hidden for live TV, which has no duration); the rating badge with year · genre · runtime · ★ score; the full description; an **Information** table (a `<th>` label column, so the CSS styles it apart from the cast grid) listing whichever of Director, Written by, Created by, Studio, Network, Released, Seasons (count · status) and Language the sensor has; then the Cast grid |
+| `#family-room-now-playing` | No header; `popup_style: home-assistant`, like the remote pop-ups. Three cards, all from `sensor.family_room_appletv_info` and the player. **Header** (markdown): a small-caps label row (play or pause icon in purple, "Now Playing · Family Room", the app name as a pill on the right), then one image picked like the remote's Now Playing tab except that an episode prefers its season's poster (`season_poster`) over the series' (the 2:3 poster at 80% width for a movie or series, otherwise TMDB's wide background art, Apple's art, or the player's own artwork at full width), the series as a small heading for an episode, the title (the episode's name for an episode), "Season 2, Episode 20 · Aired Mar 4, 1984" for an episode, and the tagline in italics. Player attributes are read with `.get()`, because an undefined attribute (every one, while the Apple TV is off) makes the markdown card render nothing. While the sensor is `none` (an app it can't look up, such as YouTube) the header still shows the player's artwork, `media_title` and app. **Timeline**: the remote's Bubble slider on `number.family_room_appletv_position`, display-only (`read_only_slider` plus `pointer-events: none`, so a scroll can't seek). **Details** (markdown): time left and, while playing, "Ends at" a clock time (from the position number's value and `max`; shown only while the Apple TV is playing or paused, since the number keeps its last value, and hidden for live TV, which has no duration); the rating badge with year · genre · runtime · ★ score; the full description; an **Information** table (a `<th>` label column, so the CSS styles it apart from the cast grid) listing whichever of Director, Written by, Created by, Studio, Network, Released, Seasons (count · status) and Language the sensor has; then the Cast grid |
 | `#living-room-now-playing` | `#family-room-now-playing` for the Living Room Apple TV, plus a **Remote** pill at the right of the label row (purple tint, `mdi:remote-tv`): a markdown link to `#living-room-remote`. HA intercepts the link click and navigates in-app, so Bubble opens the remote pop-up |
 | `#office` | 7 lights, fan speed (tile `fan-speed` feature), HomePod |
 | `#master-bedroom` | Ceiling light, nightstand lamp, fan speed, Apple TV card, the same as on Home (only while active; tap opens `#master-bedroom-now-playing`, hold opens `#master-bedroom-remote`), otherwise the same compact Apple TV card as `#living-room`, HomePod, bathroom speaker |
@@ -1504,7 +1555,7 @@ row showing the lowest level. New devices appear automatically.
 | `ha/themes/home_flat.yaml` | `/config/themes/home_flat.yaml` | Dashboard theme; `frontend.reload_themes` after a change (repo authoritative) |
 | `ha/packages/media_activity.yaml` | `/config/packages/media_activity.yaml` | HomePod and Apple TV "recently active" sensors for room media cards and the Media chip, and each Apple TV's last-played app (repo authoritative) |
 | `ha/www/media_art/*.svg` | `/config/www/media_art/` | Fallback artwork for the favourite Apple TV apps (YouTube, TV, Disney+, Prime Video) in the remote pop-ups (repo authoritative) |
-| `ha/packages/media_info.yaml` | `/config/packages/media_info.yaml` | Apple TV now-playing details from the iTunes lookup, plus cast, tagline, score, background art, series posters, writers, studio or network, release date, language, an episode's name, air date and director, and a series' creators, season count and status from TMDB (repo authoritative) |
+| `ha/packages/media_info.yaml` | `/config/packages/media_info.yaml` | Apple TV now-playing details from the iTunes lookup, plus cast, tagline, score, background art, series and season posters, writers, studio or network, release date, language, an episode's name, air date and director, and a series' creators, season count and status from TMDB (repo authoritative) |
 | `ha/packages/media_seek.yaml` | `/config/packages/media_seek.yaml` | Apple TV playback-position numbers behind the remote pop-ups' timeline sliders (repo authoritative) |
 
 ---

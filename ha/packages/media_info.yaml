@@ -7,13 +7,13 @@
 # episode).
 #
 # TMDB (The Movie Database) then adds the cast with headshots, tagline, audience score, wide
-# background art, the writers, the studio, the original language when it isn't English,
-# and for an episode the series' 2:3 poster, its director, and its name and air date. TMDB
-# doesn't know Apple's IDs, so it is matched by name: a movie by title and release year; an episode by series name (Apple's
-# "(Original)"-style suffix removed), taking the newest series that started no later than the
-# episode aired (so Magnum, P.I. 1982 finds the 1980 series, not the 2018 one), then the season
-# and episode numbers from Apple's track name ("Season 2, Episode 20: ..."). An unmatched title
-# just gets no TMDB fields.
+# background art, the writers, the studio, the original language when it isn't English, and for
+# an episode the series' and the season's 2:3 posters, its director, and its name and air date.
+# TMDB doesn't know Apple's IDs, so it is matched by name: a movie by title and release year; an
+# episode by series name (Apple's "(Original)"-style suffix removed), taking the newest series
+# that started no later than the episode aired (so Magnum, P.I. 1982 finds the 1980 series, not
+# the 2018 one), then the season and episode numbers from Apple's track name ("Season 2, Episode
+# 20: ..."). An unmatched title just gets no TMDB fields.
 #
 # Titles streamed in the TV app (Apple TV+ and the like) report a non-numeric ID (e.g.
 # A0006203008) and only a title, so they skip Apple's lookup and go straight to a TMDB search
@@ -72,7 +72,7 @@ template:
       owned: "{{ new_id is match('^[0-9]+$') }}"
       tvapp: "{{ not owned and new_id != '' and is_state_attr('media_player.living_room_appletv', 'app_id', 'com.apple.TVWatchList') and (state_attr('media_player.living_room_appletv', 'media_duration') or 0) > 0 }}"
       title: "{{ state_attr('media_player.living_room_appletv', 'media_series_title') or state_attr('media_player.living_room_appletv', 'media_title') or '' }}"
-      changed: "{{ new_id != (state_attr('sensor.living_room_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.living_room_appletv_info', 'lookup_version') | int(0)) != 3 }}"
+      changed: "{{ new_id != (state_attr('sensor.living_room_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.living_room_appletv_info', 'lookup_version') | int(0)) != 4 }}"
     actions:
       - if:
           - condition: template
@@ -107,6 +107,18 @@ template:
                         {%- if se %}tv/{{ show.id }}/season/{{ se[0] }}/episode/{{ se[1] }}?append_to_response=credits{% else %}tv/{{ show.id }}?append_to_response=credits{% endif %}{% endif %}
                     response_variable: tdetail
                     continue_on_error: true
+                  # The series' own details carry each season's poster.
+                  - if:
+                      - condition: template
+                        value_template: >
+                          {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{{ r.kind == 'tv-episode' and (r.trackName | regex_findall('Season (\\d+), Episode (\\d+)') | count) > 0 }}
+                    then:
+                      - action: rest_command.tmdb_get
+                        data:
+                          path: >
+                            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{% set res = tsearch.content.results %}{% set shows = res | selectattr('first_air_date', 'defined') | rejectattr('first_air_date', 'eq', '') | selectattr('first_air_date', 'le', r.releaseDate[:10]) | sort(attribute='first_air_date', reverse=true) | list %}tv/{{ ((shows or res) | first).id }}
+                        response_variable: tshow
+                        continue_on_error: true
       - if:
           - condition: template
             value_template: "{{ active and tvapp and changed and title != '' }}"
@@ -146,7 +158,7 @@ template:
           {% endif %}
         attributes:
           content_id: "{{ new_id if (active and (owned or tvapp)) else '' }}"
-          lookup_version: "{{ 3 }}"
+          lookup_version: "{{ 4 }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
               {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
@@ -164,6 +176,8 @@ template:
               {% set ep = r.kind | default('') == 'tv-episode' %}
               {% set crew = ((t.get('credits') or {}).get('crew') or []) + (t.get('crew') or []) %}
               {% set se = (r.trackName | default('')) | regex_findall('Season (\\d+), Episode (\\d+)(?:: (.*))?') | first | default([]) %}
+              {% set tsh = tshow.content if (tshow is defined and tshow.status == 200 and tshow.content is mapping) else {} %}
+              {% set spp = ((tsh.get('seasons') or []) | selectattr('season_number', 'eq', se[0] | int) | map(attribute='poster_path') | select | first | default('', true)) if se else '' %}
               {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
               {{ {
                 'year': (r.releaseDate | default(''))[:4],
@@ -188,7 +202,8 @@ template:
                 'language': lang,
                 'seasons': 0,
                 'status': '',
-                'episode': {'season': se[0] | int, 'number': se[1] | int, 'name': t.get('name') or se[2], 'air_date': t.get('air_date') or (r.releaseDate | default(''))[:10]} if ep and se else {}
+                'episode': {'season': se[0] | int, 'number': se[1] | int, 'name': t.get('name') or se[2], 'air_date': t.get('air_date') or (r.releaseDate | default(''))[:10]} if ep and se else {},
+                'season_poster': ('https://image.tmdb.org/t/p/w780' ~ spp) if spp else ''
               } }}
             {% elif active and tvapp and tdetail is defined and tdetail.status == 200 and tdetail.content is mapping %}
               {% set t = tdetail.content %}{% set tv = 'first_air_date' in t %}
@@ -206,6 +221,7 @@ template:
               {% set crew = (t.get('credits') or {}).get('crew') or [] %}
               {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
               {% set ps = state_attr('media_player.living_room_appletv', 'media_season') %}{% set pe = state_attr('media_player.living_room_appletv', 'media_episode') %}{% set pt = state_attr('media_player.living_room_appletv', 'media_title') or '' %}
+              {% set spp = ((t.get('seasons') or []) | selectattr('season_number', 'eq', ps | int(0)) | map(attribute='poster_path') | select | first | default('', true)) if tv and ps else '' %}
               {{ {
                 'year': (t.get('first_air_date') or t.get('release_date') or '')[:4],
                 'rating': rating,
@@ -229,7 +245,8 @@ template:
                 'language': lang,
                 'seasons': (t.get('number_of_seasons') or 0) if tv else 0,
                 'status': (t.get('status') or '') if tv else '',
-                'episode': {'season': ps | int, 'number': pe | int, 'name': pt if pt != title else '', 'air_date': ''} if tv and ps and pe else {}
+                'episode': {'season': ps | int, 'number': pe | int, 'name': pt if pt != title else '', 'air_date': ''} if tv and ps and pe else {},
+                'season_poster': ('https://image.tmdb.org/t/p/w780' ~ spp) if spp else ''
               } }}
             {% elif active and (owned or tvapp) and not changed %}
               {{ this.attributes.details | default({}) }}
@@ -250,7 +267,7 @@ template:
       owned: "{{ new_id is match('^[0-9]+$') }}"
       tvapp: "{{ not owned and new_id != '' and is_state_attr('media_player.master_bedroom_appletv', 'app_id', 'com.apple.TVWatchList') and (state_attr('media_player.master_bedroom_appletv', 'media_duration') or 0) > 0 }}"
       title: "{{ state_attr('media_player.master_bedroom_appletv', 'media_series_title') or state_attr('media_player.master_bedroom_appletv', 'media_title') or '' }}"
-      changed: "{{ new_id != (state_attr('sensor.master_bedroom_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.master_bedroom_appletv_info', 'lookup_version') | int(0)) != 3 }}"
+      changed: "{{ new_id != (state_attr('sensor.master_bedroom_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.master_bedroom_appletv_info', 'lookup_version') | int(0)) != 4 }}"
     actions:
       - if:
           - condition: template
@@ -285,6 +302,18 @@ template:
                         {%- if se %}tv/{{ show.id }}/season/{{ se[0] }}/episode/{{ se[1] }}?append_to_response=credits{% else %}tv/{{ show.id }}?append_to_response=credits{% endif %}{% endif %}
                     response_variable: tdetail
                     continue_on_error: true
+                  # The series' own details carry each season's poster.
+                  - if:
+                      - condition: template
+                        value_template: >
+                          {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{{ r.kind == 'tv-episode' and (r.trackName | regex_findall('Season (\\d+), Episode (\\d+)') | count) > 0 }}
+                    then:
+                      - action: rest_command.tmdb_get
+                        data:
+                          path: >
+                            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{% set res = tsearch.content.results %}{% set shows = res | selectattr('first_air_date', 'defined') | rejectattr('first_air_date', 'eq', '') | selectattr('first_air_date', 'le', r.releaseDate[:10]) | sort(attribute='first_air_date', reverse=true) | list %}tv/{{ ((shows or res) | first).id }}
+                        response_variable: tshow
+                        continue_on_error: true
       - if:
           - condition: template
             value_template: "{{ active and tvapp and changed and title != '' }}"
@@ -324,7 +353,7 @@ template:
           {% endif %}
         attributes:
           content_id: "{{ new_id if (active and (owned or tvapp)) else '' }}"
-          lookup_version: "{{ 3 }}"
+          lookup_version: "{{ 4 }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
               {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
@@ -342,6 +371,8 @@ template:
               {% set ep = r.kind | default('') == 'tv-episode' %}
               {% set crew = ((t.get('credits') or {}).get('crew') or []) + (t.get('crew') or []) %}
               {% set se = (r.trackName | default('')) | regex_findall('Season (\\d+), Episode (\\d+)(?:: (.*))?') | first | default([]) %}
+              {% set tsh = tshow.content if (tshow is defined and tshow.status == 200 and tshow.content is mapping) else {} %}
+              {% set spp = ((tsh.get('seasons') or []) | selectattr('season_number', 'eq', se[0] | int) | map(attribute='poster_path') | select | first | default('', true)) if se else '' %}
               {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
               {{ {
                 'year': (r.releaseDate | default(''))[:4],
@@ -366,7 +397,8 @@ template:
                 'language': lang,
                 'seasons': 0,
                 'status': '',
-                'episode': {'season': se[0] | int, 'number': se[1] | int, 'name': t.get('name') or se[2], 'air_date': t.get('air_date') or (r.releaseDate | default(''))[:10]} if ep and se else {}
+                'episode': {'season': se[0] | int, 'number': se[1] | int, 'name': t.get('name') or se[2], 'air_date': t.get('air_date') or (r.releaseDate | default(''))[:10]} if ep and se else {},
+                'season_poster': ('https://image.tmdb.org/t/p/w780' ~ spp) if spp else ''
               } }}
             {% elif active and tvapp and tdetail is defined and tdetail.status == 200 and tdetail.content is mapping %}
               {% set t = tdetail.content %}{% set tv = 'first_air_date' in t %}
@@ -384,6 +416,7 @@ template:
               {% set crew = (t.get('credits') or {}).get('crew') or [] %}
               {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
               {% set ps = state_attr('media_player.master_bedroom_appletv', 'media_season') %}{% set pe = state_attr('media_player.master_bedroom_appletv', 'media_episode') %}{% set pt = state_attr('media_player.master_bedroom_appletv', 'media_title') or '' %}
+              {% set spp = ((t.get('seasons') or []) | selectattr('season_number', 'eq', ps | int(0)) | map(attribute='poster_path') | select | first | default('', true)) if tv and ps else '' %}
               {{ {
                 'year': (t.get('first_air_date') or t.get('release_date') or '')[:4],
                 'rating': rating,
@@ -407,7 +440,8 @@ template:
                 'language': lang,
                 'seasons': (t.get('number_of_seasons') or 0) if tv else 0,
                 'status': (t.get('status') or '') if tv else '',
-                'episode': {'season': ps | int, 'number': pe | int, 'name': pt if pt != title else '', 'air_date': ''} if tv and ps and pe else {}
+                'episode': {'season': ps | int, 'number': pe | int, 'name': pt if pt != title else '', 'air_date': ''} if tv and ps and pe else {},
+                'season_poster': ('https://image.tmdb.org/t/p/w780' ~ spp) if spp else ''
               } }}
             {% elif active and (owned or tvapp) and not changed %}
               {{ this.attributes.details | default({}) }}
@@ -428,7 +462,7 @@ template:
       owned: "{{ new_id is match('^[0-9]+$') }}"
       tvapp: "{{ not owned and new_id != '' and is_state_attr('media_player.family_room_appletv', 'app_id', 'com.apple.TVWatchList') and (state_attr('media_player.family_room_appletv', 'media_duration') or 0) > 0 }}"
       title: "{{ state_attr('media_player.family_room_appletv', 'media_series_title') or state_attr('media_player.family_room_appletv', 'media_title') or '' }}"
-      changed: "{{ new_id != (state_attr('sensor.family_room_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.family_room_appletv_info', 'lookup_version') | int(0)) != 3 }}"
+      changed: "{{ new_id != (state_attr('sensor.family_room_appletv_info', 'content_id') | default('', true) | string) or (state_attr('sensor.family_room_appletv_info', 'lookup_version') | int(0)) != 4 }}"
     actions:
       - if:
           - condition: template
@@ -463,6 +497,18 @@ template:
                         {%- if se %}tv/{{ show.id }}/season/{{ se[0] }}/episode/{{ se[1] }}?append_to_response=credits{% else %}tv/{{ show.id }}?append_to_response=credits{% endif %}{% endif %}
                     response_variable: tdetail
                     continue_on_error: true
+                  # The series' own details carry each season's poster.
+                  - if:
+                      - condition: template
+                        value_template: >
+                          {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{{ r.kind == 'tv-episode' and (r.trackName | regex_findall('Season (\\d+), Episode (\\d+)') | count) > 0 }}
+                    then:
+                      - action: rest_command.tmdb_get
+                        data:
+                          path: >
+                            {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}{% set res = tsearch.content.results %}{% set shows = res | selectattr('first_air_date', 'defined') | rejectattr('first_air_date', 'eq', '') | selectattr('first_air_date', 'le', r.releaseDate[:10]) | sort(attribute='first_air_date', reverse=true) | list %}tv/{{ ((shows or res) | first).id }}
+                        response_variable: tshow
+                        continue_on_error: true
       - if:
           - condition: template
             value_template: "{{ active and tvapp and changed and title != '' }}"
@@ -502,7 +548,7 @@ template:
           {% endif %}
         attributes:
           content_id: "{{ new_id if (active and (owned or tvapp)) else '' }}"
-          lookup_version: "{{ 3 }}"
+          lookup_version: "{{ 4 }}"
           details: >
             {% if active and owned and itunes is defined and itunes.status == 200 %}
               {% set c = itunes.content if itunes.content is mapping else (itunes.content | from_json) %}{% set r = c.results | first | default({}) %}
@@ -520,6 +566,8 @@ template:
               {% set ep = r.kind | default('') == 'tv-episode' %}
               {% set crew = ((t.get('credits') or {}).get('crew') or []) + (t.get('crew') or []) %}
               {% set se = (r.trackName | default('')) | regex_findall('Season (\\d+), Episode (\\d+)(?:: (.*))?') | first | default([]) %}
+              {% set tsh = tshow.content if (tshow is defined and tshow.status == 200 and tshow.content is mapping) else {} %}
+              {% set spp = ((tsh.get('seasons') or []) | selectattr('season_number', 'eq', se[0] | int) | map(attribute='poster_path') | select | first | default('', true)) if se else '' %}
               {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
               {{ {
                 'year': (r.releaseDate | default(''))[:4],
@@ -544,7 +592,8 @@ template:
                 'language': lang,
                 'seasons': 0,
                 'status': '',
-                'episode': {'season': se[0] | int, 'number': se[1] | int, 'name': t.get('name') or se[2], 'air_date': t.get('air_date') or (r.releaseDate | default(''))[:10]} if ep and se else {}
+                'episode': {'season': se[0] | int, 'number': se[1] | int, 'name': t.get('name') or se[2], 'air_date': t.get('air_date') or (r.releaseDate | default(''))[:10]} if ep and se else {},
+                'season_poster': ('https://image.tmdb.org/t/p/w780' ~ spp) if spp else ''
               } }}
             {% elif active and tvapp and tdetail is defined and tdetail.status == 200 and tdetail.content is mapping %}
               {% set t = tdetail.content %}{% set tv = 'first_air_date' in t %}
@@ -562,6 +611,7 @@ template:
               {% set crew = (t.get('credits') or {}).get('crew') or [] %}
               {% set lang = '' if (t.get('original_language') or 'en') == 'en' else ((t.get('spoken_languages') or []) | selectattr('iso_639_1', 'eq', t.original_language) | map(attribute='english_name') | first | default(t.original_language, true)) %}
               {% set ps = state_attr('media_player.family_room_appletv', 'media_season') %}{% set pe = state_attr('media_player.family_room_appletv', 'media_episode') %}{% set pt = state_attr('media_player.family_room_appletv', 'media_title') or '' %}
+              {% set spp = ((t.get('seasons') or []) | selectattr('season_number', 'eq', ps | int(0)) | map(attribute='poster_path') | select | first | default('', true)) if tv and ps else '' %}
               {{ {
                 'year': (t.get('first_air_date') or t.get('release_date') or '')[:4],
                 'rating': rating,
@@ -585,7 +635,8 @@ template:
                 'language': lang,
                 'seasons': (t.get('number_of_seasons') or 0) if tv else 0,
                 'status': (t.get('status') or '') if tv else '',
-                'episode': {'season': ps | int, 'number': pe | int, 'name': pt if pt != title else '', 'air_date': ''} if tv and ps and pe else {}
+                'episode': {'season': ps | int, 'number': pe | int, 'name': pt if pt != title else '', 'air_date': ''} if tv and ps and pe else {},
+                'season_poster': ('https://image.tmdb.org/t/p/w780' ~ spp) if spp else ''
               } }}
             {% elif active and (owned or tvapp) and not changed %}
               {{ this.attributes.details | default({}) }}
