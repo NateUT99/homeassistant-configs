@@ -2,26 +2,16 @@ id: "1791211624555"
 alias: "Living Room: Fireplace Auto Off"
 description: >-
   Keeps the gas fireplace from running unattended. Turns it off when
-  everyone leaves or goes to sleep, or after 4 hours in heat mode or with
-  the relay held closed, and immediately turns it back off if it is switched
-  on while no one is home or everyone is asleep. Sends a push when it acts.
+  everyone leaves or goes to sleep, or after 4 hours on, and immediately
+  turns it back off if it comes on while no one is home or everyone is
+  asleep. Sends a push when it acts.
 triggers:
   - trigger: state
-    entity_id: climate.living_room_fireplace
-    to: heat
-    for: "04:00:00"
-    id: runtime_limit
-    alias: Fireplace in heat mode for 4 hours
-  - trigger: state
-    entity_id: switch.living_room_fireplace
+    entity_id: switch.living_room_fireplace_relay
     to: "on"
     for: "04:00:00"
     id: runtime_limit
-    alias: Fireplace relay closed for 4 hours
-    note: >-
-      Backstop for the relay being on outside the thermostat's control. In
-      normal use the thermostat cycles the relay, so the heat-mode trigger
-      fires first.
+    alias: Fireplace on for 4 hours
   - trigger: state
     entity_id: zone.home
     to: "0"
@@ -33,33 +23,22 @@ triggers:
     id: everyone_asleep
     alias: Everyone went to sleep
   - trigger: state
-    entity_id: climate.living_room_fireplace
-    to: heat
-    id: turned_on
-    alias: Fireplace set to heat mode
-    note: >-
-      Also fires when heat mode is restored after an HA restart, so a
-      restart while away or asleep is caught too.
-  - trigger: state
-    entity_id: switch.living_room_fireplace
+    entity_id: switch.living_room_fireplace_relay
     to: "on"
     id: turned_on
     alias: Fireplace relay closed
+    note: >-
+      Backstop behind the Fireplace switch's gate. Also fires when the relay
+      comes back on after an HA restart, so a restart while away or asleep is
+      caught too.
 conditions:
   - alias: Fireplace is on
     note: >-
       Keeps a departure or bedtime with the fireplace already off from
       sending a push.
-    condition: or
-    conditions:
-      - condition: state
-        entity_id: climate.living_room_fireplace
-        state: heat
-        alias: Thermostat in heat mode
-      - condition: state
-        entity_id: switch.living_room_fireplace
-        state: "on"
-        alias: Relay closed
+    condition: state
+    entity_id: switch.living_room_fireplace_relay
+    state: "on"
 actions:
   - alias: Decide whether to shut the fireplace off
     choose:
@@ -79,16 +58,10 @@ actions:
                 state: "on"
                 alias: Everyone is asleep
         sequence:
-          - alias: Set the fireplace thermostat to off
-            action: climate.set_hvac_mode
-            target:
-              entity_id: climate.living_room_fireplace
-            data:
-              hvac_mode: "off"
           - alias: Open the fireplace relay
             action: switch.turn_off
             target:
-              entity_id: switch.living_room_fireplace
+              entity_id: switch.living_room_fireplace_relay
           - alias: Push that the fireplace was blocked
             action: notify.mobile_app_nates_iphone
             data:
@@ -107,20 +80,10 @@ actions:
               - everyone_left
               - everyone_asleep
         sequence:
-          - alias: Set the fireplace thermostat to off
-            action: climate.set_hvac_mode
-            target:
-              entity_id: climate.living_room_fireplace
-            data:
-              hvac_mode: "off"
           - alias: Open the fireplace relay
-            note: >-
-              Turning the thermostat off should already open the relay; this
-              makes sure, and covers the case where the relay was closed
-              directly.
             action: switch.turn_off
             target:
-              entity_id: switch.living_room_fireplace
+              entity_id: switch.living_room_fireplace_relay
           - alias: Push that the fireplace was shut off
             action: notify.mobile_app_nates_iphone
             data:

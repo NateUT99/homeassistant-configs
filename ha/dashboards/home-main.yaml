@@ -815,6 +815,41 @@ views:
               action: toggle
             hold_action:
               action: more-info
+        - type: custom:bubble-card
+          card_type: button
+          button_type: state
+          modules:
+          - apple_tile
+          rows: 1.2
+          entity: switch.living_room_fireplace
+          name: Fireplace
+          icon: mdi:fireplace
+          state_content: state
+          tap_action:
+            action: perform-action
+            perform_action: switch.turn_off
+            target:
+              entity_id: switch.living_room_fireplace
+          hold_action:
+            action: perform-action
+            perform_action: switch.turn_on
+            target:
+              entity_id: switch.living_room_fireplace
+          double_tap_action:
+            action: none
+          button_action:
+            tap_action:
+              action: perform-action
+              perform_action: switch.turn_off
+              target:
+                entity_id: switch.living_room_fireplace
+            hold_action:
+              action: perform-action
+              perform_action: switch.turn_on
+              target:
+                entity_id: switch.living_room_fireplace
+            double_tap_action:
+              action: none
     background: true
   - type: grid
     cards:
@@ -2040,8 +2075,54 @@ views:
         card_type: climate
         entity: climate.living_room_thermostat
       - type: custom:bubble-card
-        card_type: climate
-        entity: climate.living_room_fireplace
+        card_type: button
+        button_type: name
+        entity: switch.living_room_fireplace
+        name: Fireplace
+        icon: mdi:fireplace
+        show_state: true
+        state_content: '{% set r = ''switch.living_room_fireplace'' %}{% if is_state(r, ''on'') %}{% set left = [(as_timestamp(states[r].last_changed) + 14400 - as_timestamp(now())) | int, 0] | max %}On
+          · shuts off in {{ (left // 3600) ~ ''h '' ~ ((left % 3600) // 60) ~ ''m'' if left >= 3600 else ((left // 60) ~ '' min'') }}{% else %}Off · hold to light{% endif %}'
+        rows: 1
+        tap_action:
+          action: perform-action
+          perform_action: switch.turn_off
+          target:
+            entity_id: switch.living_room_fireplace
+        hold_action:
+          action: perform-action
+          perform_action: switch.turn_on
+          target:
+            entity_id: switch.living_room_fireplace
+        double_tap_action:
+          action: none
+        button_action:
+          tap_action:
+            action: perform-action
+            perform_action: switch.turn_off
+            target:
+              entity_id: switch.living_room_fireplace
+          hold_action:
+            action: perform-action
+            perform_action: switch.turn_on
+            target:
+              entity_id: switch.living_room_fireplace
+          double_tap_action:
+            action: none
+        styles: '{% set on = is_state(''switch.living_room_fireplace'', ''on'') %}{% set c = ''var(--amber-color)'' %}
+
+          .bubble-container.bubble-button-card-container { border-radius: 24px !important; background: {{ ''color-mix(in srgb, '' ~ c ~ '' 22%, transparent)'' if on else ''color-mix(in srgb, var(--primary-text-color)
+          8%, transparent)'' }} !important; {% if on %}box-shadow: inset 0 0 0 1px color-mix(in srgb, {{ c }} 45%, transparent) !important;{% endif %} }
+
+          .bubble-background { background-color: transparent !important; }
+
+          .bubble-name { font-size: 22px !important; font-weight: 300 !important; line-height: 1.1 !important; }
+
+          .bubble-state { color: {{ c if on else ''var(--secondary-text-color)'' }} !important; opacity: 1 !important; }
+
+          .bubble-icon-container { background: {{ c if on else ''transparent'' }} !important; }
+
+          .bubble-icon { color: {{ ''var(--primary-background-color)'' if on else ''var(--secondary-text-color)'' }} !important; }'
     - type: custom:bubble-card
       card_type: pop-up
       hash: '#living-room-remote'
@@ -4933,33 +5014,54 @@ views:
                 data:
                   preset_mode: sleep
       - type: custom:bubble-card
-        card_type: climate
-        entity: climate.living_room_fireplace
+        card_type: button
+        button_type: name
+        entity: switch.living_room_fireplace
+        name: Fireplace
+        icon: mdi:fireplace
+        show_state: true
+        state_content: '{% set r = ''switch.living_room_fireplace'' %}{% if is_state(r, ''on'') %}{% set left = [(as_timestamp(states[r].last_changed) + 14400 - as_timestamp(now())) | int, 0] | max %}On
+          · shuts off in {{ (left // 3600) ~ ''h '' ~ ((left % 3600) // 60) ~ ''m'' if left >= 3600 else ((left // 60) ~ '' min'') }}{% else %}Off · hold to light{% endif %}'
+        rows: 1
         tap_action:
-          action: more-info
+          action: perform-action
+          perform_action: switch.turn_off
+          target:
+            entity_id: switch.living_room_fireplace
         hold_action:
           action: perform-action
-          perform_action: climate.toggle
+          perform_action: switch.turn_on
           target:
-            entity_id: climate.living_room_fireplace
+            entity_id: switch.living_room_fireplace
+        double_tap_action:
+          action: none
         button_action:
           tap_action:
-            action: more-info
+            action: perform-action
+            perform_action: switch.turn_off
+            target:
+              entity_id: switch.living_room_fireplace
           hold_action:
             action: perform-action
-            perform_action: climate.toggle
+            perform_action: switch.turn_on
             target:
-              entity_id: climate.living_room_fireplace
-        styles: '{% set on = not is_state(''climate.living_room_fireplace'', ''off'') %}
+              entity_id: switch.living_room_fireplace
+          double_tap_action:
+            action: none
+        styles: '{% set on = is_state(''switch.living_room_fireplace'', ''on'') %}{% set c = ''var(--amber-color)'' %}
 
-          {% if on %}.bubble-container.bubble-climate-container { background: color-mix(in srgb, var(--amber-color) 22%, transparent) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber-color)
-          45%, transparent) !important; }
+          .bubble-container.bubble-button-card-container { border-radius: 24px !important; background: {{ ''color-mix(in srgb, '' ~ c ~ '' 22%, transparent)'' if on else ''color-mix(in srgb, var(--primary-text-color)
+          8%, transparent)'' }} !important; {% if on %}box-shadow: inset 0 0 0 1px color-mix(in srgb, {{ c }} 45%, transparent) !important;{% endif %} }
 
           .bubble-background { background-color: transparent !important; }
 
-          .bubble-icon-container { background: var(--amber-color) !important; }
+          .bubble-name { font-size: 22px !important; font-weight: 300 !important; line-height: 1.1 !important; }
 
-          .bubble-icon { color: var(--primary-background-color) !important; }{% endif %}'
+          .bubble-state { color: {{ c if on else ''var(--secondary-text-color)'' }} !important; opacity: 1 !important; }
+
+          .bubble-icon-container { background: {{ c if on else ''transparent'' }} !important; }
+
+          .bubble-icon { color: {{ ''var(--primary-background-color)'' if on else ''var(--secondary-text-color)'' }} !important; }'
       - type: heading
         heading: Today
         heading_style: subtitle
