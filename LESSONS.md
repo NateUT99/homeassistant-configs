@@ -236,6 +236,8 @@ Before v3.4, Bubble Card's `state_display` field half-supported Jinja: simple `s
 
 Use `state_content` (not `state_display`) for the line under the name. Always quote templates — unquoted `{{ }}` is read by YAML as a mapping and the card rejects it. Prefer templates over the old JavaScript `${...}` / `innerText` injection in `styles`; reserve JS templates for things Jinja can't reach.
 
+Because the server renders them from the real state, `scripts/dashboard_preview.py`'s `STATES=` override (which fakes state in the preview browser only) doesn't reach Jinja templates — only card conditions and JS templates see the fake. A preview mixing the two can show a header from the real state next to styling from the fake one.
+
 ### Native HA cards do not auto-format `device_class: date` template sensors
 
 The tile card and other native HA cards call `computeStateDisplay` which formats `input_datetime` entities as human-readable dates. Template sensors with `device_class: date` are **not** formatted this way — they display their raw ISO state string (`2026-06-15`). If a template sensor needs to display a date in a card, the sensor state itself must be the formatted string.
@@ -572,6 +574,20 @@ whatever isn't set. Setting only `tap_action: none` leaves double-tap on `toggle
 Set `tap_action`, `double_tap_action` and `hold_action` to `none`, both on the card and under
 `button_action`, for any slider on an entity that can't be toggled.
 
+### A Bubble `css_class` containing a space applies no class at all
+
+A sub-button with `css_class: rc-ch lt-13-1` rendered with neither class (seen Oct 2026 on the
+Live TV card's presets): Bubble passes the value to `classList.add`, which rejects a token
+containing whitespace, and the error is swallowed. Give each sub-button one class, and select
+groups of buttons with an attribute selector instead (`.bubble-sub-button[class*="lt-"]`).
+
+### A template sensor attribute that looks like a number arrives as a number
+
+HA parses template attribute output, so an attribute rendered as `13.1` is the float `13.1` in
+the state object, not the string. A JavaScript style template calling
+`.replace('.', '-')` on it throws, so the dynamic styling never applies. Wrap it:
+`String(attr ?? '')`.
+
 ---
 
 ## TTS & Media
@@ -731,6 +747,21 @@ The fix that worked: play the clip on the soundbar itself with `media_player.pla
 ### Sonos soundbar state doesn't reflect whether its HDMI ARC source is actually producing sound
 
 A Sonos soundbar connected to the TV via HDMI ARC (`source: TV`) reports `playing` continuously based on the input being selected, not on whether the upstream source (an AppleTV, in this case) is actually outputting audio — Sonos's own `media_content_id` for this input is `x-sonos-htastream:<device>:spdif` regardless of the physical connection being ARC rather than optical/SPDIF, so don't infer the cable type from that string. Live-verified 2026-09-26: pausing the AppleTV mid-show left the soundbar's own state and `last_changed` completely unchanged, even though the room went silent. A "should I duck this" check must snapshot the *source's* playback state once, up front — re-reading the soundbar afterward to decide whether to resume it is not reliable, since it never leaves `playing` regardless of what the source is doing.
+
+### An LG webOS HDMI input can be missing from `source_list`, so `select_source` can't reach it
+
+The Living Room LG reports its HDMI 1 input (renamed "AppleTV" on the TV) as `source: AppleTV`
+while it is showing, but `source_list` never includes it; it lists `Apple TV` (with a space),
+which is LG's Apple TV app. `media_player.select_source` with `AppleTV` fails with "Source
+AppleTV not found in the sources list" (Oct 2026). Launch the input directly instead:
+`webostv.command` with `command: system.launcher/launch` and `payload: {id:
+com.webos.app.hdmi1}`. The `app_id` attribute while the input is showing gives the right ID.
+
+### An LG webOS TV goes `unavailable` a few minutes after it's turned off
+
+The LG TVs report `off`, then `unavailable` 2–8 minutes later (Living Room LG logbook, Oct 2026), as the TV drops off the
+network in standby. That is normal, not a fault: a dashboard that reads a TV's attributes
+(volume, source) must treat `unavailable` like `off` rather than as an error.
 
 ---
 
