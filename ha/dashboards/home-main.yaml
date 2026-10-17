@@ -312,7 +312,7 @@ views:
           - fill_width: false
             state_background: false
             light_background: false
-            show_name: false
+            show_name: true
             custom_height: 40
             entity: climate.living_room_thermostat
             css_class: qa-climate
@@ -323,7 +323,7 @@ views:
               navigation_path: '#hvac'
             hold_action:
               action: more-info
-            name: HVAC
+            name: '{% set t = state_attr(''climate.living_room_thermostat'', ''current_temperature'') %}{{ (t | round(0) | int) ~ ''°'' if t is not none else '''' }}'
           - fill_width: false
             state_background: false
             light_background: false
@@ -403,6 +403,9 @@ views:
 
         .qa-climate ha-icon { color: {{ ''var(--amber-color)'' if not is_state(''input_select.household_hvac_mode_before_pause'',''none'') or is_state(''binary_sensor.household_hvac_heating'',''on'') else
         (''var(--blue-color)'' if is_state(''binary_sensor.household_hvac_cooling'',''on'') else ''var(--secondary-text-color)'') }} !important; }
+
+        {% if state_attr(''climate.living_room_thermostat'', ''current_temperature'') is none %}.qa-climate .bubble-sub-button-name-container { display: none !important; }{% endif %}
+
 
         .qa-vac ha-icon { color: {{ ''var(--red-color)'' if is_state(''binary_sensor.vacuum_stuck'',''on'') or states(''sensor.living_room_vacuum_vacuum_error'') not in [''none'',''unknown'',''unavailable'']
         or states(''sensor.living_room_vacuum_dock_dock_error'') not in [''ok'',''unknown'',''unavailable''] else (''var(--amber-color)'' if is_state(''input_boolean.vacuum_routine_pause'',''on'') or is_state(''vacuum.living_room_vacuum'',''paused'')
