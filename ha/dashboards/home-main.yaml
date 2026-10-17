@@ -782,254 +782,199 @@ views:
           entity: binary_sensor.living_room_tv_live_active
           state: 'on'
         card:
-          type: vertical-stack
-          cards:
-          - type: custom:bubble-card
-            card_type: button
-            button_type: name
-            entity: binary_sensor.living_room_tv_live_active
-            name: '{{ state_attr(''binary_sensor.living_room_tv_live_active'', ''network'') }}'
-            icon: '{{ state_attr(''binary_sensor.living_room_tv_live_active'', ''icon'') }}'
-            show_state: true
-            state_content: '{% set c = state_attr(''binary_sensor.living_room_tv_live_active'', ''channel'') %}Live TV{{ ('' · '' ~ c) if c }}'
+          type: custom:bubble-card
+          card_type: button
+          button_type: name
+          entity: binary_sensor.living_room_tv_live_active
+          name: '{{ state_attr(''binary_sensor.living_room_tv_live_active'', ''network'') }}'
+          icon: '{{ state_attr(''binary_sensor.living_room_tv_live_active'', ''icon'') }}'
+          show_state: true
+          state_content: '{% set c = state_attr(''binary_sensor.living_room_tv_live_active'', ''channel'') %}Live TV{{ ('' · '' ~ c) if c }}'
+          tap_action:
+            action: navigate
+            navigation_path: '#living-room-remote'
+          button_action:
             tap_action:
               action: navigate
               navigation_path: '#living-room-remote'
-            button_action:
+          sub_button:
+            main:
+            - name: Apple TV
+              icon: phu:appletv-sim
+              show_name: false
+              state_background: false
+              light_background: false
               tap_action:
-                action: navigate
-                navigation_path: '#living-room-remote'
-            sub_button:
-              main:
-              - name: Apple TV
-                icon: phu:appletv-sim
+                action: none
+              hold_action:
+                action: perform-action
+                perform_action: webostv.command
+                data:
+                  entity_id: media_player.living_room_tv
+                  command: system.launcher/launch
+                  payload:
+                    id: com.webos.app.hdmi1
+            bottom_layout: rows
+            bottom:
+            - name: Channels
+              buttons_layout: inline
+              group:
+              - name: CBS
                 show_name: false
+                show_icon: true
+                css_class: lt-11-1
                 state_background: false
                 light_background: false
+                custom_height: 44
                 tap_action:
-                  action: none
-                hold_action:
                   action: perform-action
-                  perform_action: webostv.command
+                  perform_action: media_player.play_media
+                  target:
+                    entity_id: media_player.living_room_tv
+                  data:
+                    media_content_type: channel
+                    media_content_id: 11-1
+                icon: phu:cbs
+              - name: ABC
+                show_name: false
+                show_icon: true
+                css_class: lt-13-1
+                state_background: false
+                light_background: false
+                custom_height: 44
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.play_media
+                  target:
+                    entity_id: media_player.living_room_tv
+                  data:
+                    media_content_type: channel
+                    media_content_id: 13-1
+                icon: phu:abc
+              - name: NBC
+                show_name: false
+                show_icon: true
+                css_class: lt-24-1
+                state_background: false
+                light_background: false
+                custom_height: 44
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.play_media
+                  target:
+                    entity_id: media_player.living_room_tv
+                  data:
+                    media_content_type: channel
+                    media_content_id: 24-1
+                icon: phu:nbc
+              - name: Fox
+                show_name: false
+                show_icon: true
+                css_class: lt-36-1
+                state_background: false
+                light_background: false
+                custom_height: 44
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.play_media
+                  target:
+                    entity_id: media_player.living_room_tv
+                  data:
+                    media_content_type: channel
+                    media_content_id: 36-1
+                icon: phu:fox
+              - name: Channel down
+                icon: mdi:chevron-down
+                show_name: false
+                css_class: lt-step
+                state_background: false
+                light_background: false
+                custom_height: 44
+                tap_action:
+                  action: perform-action
+                  perform_action: webostv.button
                   data:
                     entity_id: media_player.living_room_tv
-                    command: system.launcher/launch
-                    payload:
-                      id: com.webos.app.hdmi1
-              bottom: []
-            styles: '.bubble-icon { --mdc-icon-size: 30px; }
-
-
-              .bubble-name { font-size: 16px !important; font-weight: 600 !important; }
-
-              '
-          - type: custom:bubble-card
-            card_type: sub-buttons
-            hide_main_background: true
-            rows: 0.9
-            scrolling_effect: false
-            sub_button:
-              main: []
-              bottom:
-              - name: Channels
-                buttons_layout: inline
-                group:
-                - name: CBS
-                  show_name: false
-                  show_icon: true
-                  css_class: lt-11-1
-                  state_background: false
-                  light_background: false
-                  custom_height: 44
-                  tap_action:
-                    action: perform-action
-                    perform_action: media_player.play_media
-                    target:
-                      entity_id: media_player.living_room_tv
-                    data:
-                      media_content_type: channel
-                      media_content_id: 11-1
-                  icon: phu:cbs
-                - name: ABC
-                  show_name: false
-                  show_icon: true
-                  css_class: lt-13-1
-                  state_background: false
-                  light_background: false
-                  custom_height: 44
-                  tap_action:
-                    action: perform-action
-                    perform_action: media_player.play_media
-                    target:
-                      entity_id: media_player.living_room_tv
-                    data:
-                      media_content_type: channel
-                      media_content_id: 13-1
-                  icon: phu:abc
-                - name: NBC
-                  show_name: false
-                  show_icon: true
-                  css_class: lt-24-1
-                  state_background: false
-                  light_background: false
-                  custom_height: 44
-                  tap_action:
-                    action: perform-action
-                    perform_action: media_player.play_media
-                    target:
-                      entity_id: media_player.living_room_tv
-                    data:
-                      media_content_type: channel
-                      media_content_id: 24-1
-                  icon: phu:nbc
-                - name: Fox
-                  show_name: false
-                  show_icon: true
-                  css_class: lt-36-1
-                  state_background: false
-                  light_background: false
-                  custom_height: 44
-                  tap_action:
-                    action: perform-action
-                    perform_action: media_player.play_media
-                    target:
-                      entity_id: media_player.living_room_tv
-                    data:
-                      media_content_type: channel
-                      media_content_id: 36-1
-                  icon: phu:fox
-                - name: Channel down
-                  icon: mdi:chevron-down
-                  show_name: false
-                  css_class: lt-step
-                  state_background: false
-                  light_background: false
-                  custom_height: 44
-                  tap_action:
-                    action: perform-action
-                    perform_action: webostv.button
-                    data:
-                      entity_id: media_player.living_room_tv
-                      button: CHANNELDOWN
-                - name: Channel up
-                  icon: mdi:chevron-up
-                  show_name: false
-                  css_class: lt-step
-                  state_background: false
-                  light_background: false
-                  custom_height: 44
-                  tap_action:
-                    action: perform-action
-                    perform_action: webostv.button
-                    data:
-                      entity_id: media_player.living_room_tv
-                      button: CHANNELUP
-            styles: '.bubble-sub-button-bottom-container { justify-content: stretch !important; }
-
-              .bubble-sub-button-group { width: 100% !important; gap: 8px !important; flex-wrap: nowrap !important; }
-
-              .bubble-sub-button { flex: 1 1 0 !important; justify-content: center !important; border-radius: 16px !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important;
-              }
-
-              .bubble-sub-button .bubble-sub-button-name-container { font-size: 15px !important; font-weight: 600 !important; }
-
-              .bubble-sub-button { --mdc-icon-size: 34px; }
-
-              .lt-step { flex: 0 0 44px !important; --mdc-icon-size: 24px; }
-
-
-              ${(() => { const c = String(hass.states[''binary_sensor.living_room_tv_live_active'']?.attributes?.channel ?? '''').replace(''.'', ''-''); return c ? ''.lt-'' + c + '' { background: var(--primary-text-color)
-              !important; } .lt-'' + c + '' ha-icon { color: var(--primary-background-color) !important; }'' : ''''; })()}
-
-              '
-          - type: custom:bubble-card
-            card_type: sub-buttons
-            hide_main_background: true
-            rows: 0.9
-            scrolling_effect: false
-            sub_button:
-              main: []
-              bottom:
-              - name: Volume
-                buttons_layout: inline
-                group:
-                - state_background: false
-                  light_background: false
-                  custom_height: 44
-                  entity: media_player.living_room_soundbar
-                  name: Mute
-                  show_name: false
-                  icon: '{{ ''mdi:volume-off'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'') else ''mdi:volume-high'' }}'
-                  css_class: rc-mute
-                  tap_action:
-                    action: perform-action
-                    perform_action: script.household_media_toggle_mute
-                    data:
-                      entity_id: media_player.living_room_soundbar
-                - state_background: false
-                  light_background: false
-                  custom_height: 44
-                  name: Volume down
-                  icon: mdi:minus
-                  show_name: false
-                  css_class: rc-vol-down
-                  tap_action:
-                    action: perform-action
-                    perform_action: media_player.volume_down
-                    target:
-                      entity_id: media_player.living_room_soundbar
-                - state_background: false
-                  light_background: false
-                  custom_height: 44
-                  entity: media_player.living_room_soundbar
-                  name: '{{ ''Unavailable'' if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] else ''Muted'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'')
-                    else ((((state_attr(''media_player.living_room_soundbar'', ''volume_level'') | float(0)) * 100) | round | int) ~ ''%'') }}'
-                  show_name: true
-                  show_icon: false
-                  sub_button_type: default
-                  css_class: rc-vol-level
-                  tap_action:
-                    action: none
-                - state_background: false
-                  light_background: false
-                  custom_height: 44
-                  name: Volume up
-                  icon: mdi:plus
-                  show_name: false
-                  css_class: rc-vol-up
-                  tap_action:
-                    action: perform-action
-                    perform_action: media_player.volume_up
-                    target:
-                      entity_id: media_player.living_room_soundbar
-            styles: '.bubble-sub-button-bottom-container { justify-content: stretch !important; }
-
-              .bubble-sub-button-group { width: 100% !important; gap: 0 !important; flex-wrap: nowrap !important; }
-
-              .bubble-sub-button { justify-content: center !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; border-radius: 0 !important; --mdc-icon-size:
-              22px; }
-
-              .rc-mute { flex: 0 0 56px !important; border-radius: 16px !important; margin-right: 8px !important; }
-
-              .rc-vol-down { flex: 1 1 0 !important; border-radius: 16px 0 0 16px !important; }
-
-              .rc-vol-level { flex: 0 0 72px !important; }
-
-              .rc-vol-level .bubble-sub-button-name-container { font-size: 16px !important; font-weight: 600 !important; font-variant-numeric: tabular-nums; }
-
-              .rc-vol-up { flex: 1 1 0 !important; border-radius: 0 16px 16px 0 !important; }
-
-              {% if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'') %}.rc-mute { background: var(--primary-text-color) !important; }
-
-              .rc-mute ha-icon { color: var(--primary-background-color) !important; }
-
-              .rc-vol-level .bubble-sub-button-name-container { color: var(--secondary-text-color) !important; }{% endif %}
-
-              {% if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] %}.rc-vol-level { flex: 0 0 110px !important; }
-
-              .rc-vol-level .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }{% endif %}
-
-              '
+                    button: CHANNELDOWN
+              - name: Channel up
+                icon: mdi:chevron-up
+                show_name: false
+                css_class: lt-step
+                state_background: false
+                light_background: false
+                custom_height: 44
+                tap_action:
+                  action: perform-action
+                  perform_action: webostv.button
+                  data:
+                    entity_id: media_player.living_room_tv
+                    button: CHANNELUP
+            - name: Volume
+              buttons_layout: inline
+              group:
+              - state_background: false
+                light_background: false
+                custom_height: 44
+                entity: media_player.living_room_soundbar
+                name: Mute
+                show_name: false
+                icon: '{{ ''mdi:volume-off'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'') else ''mdi:volume-high'' }}'
+                css_class: rc-mute
+                tap_action:
+                  action: perform-action
+                  perform_action: script.household_media_toggle_mute
+                  data:
+                    entity_id: media_player.living_room_soundbar
+              - state_background: false
+                light_background: false
+                custom_height: 44
+                name: Volume down
+                icon: mdi:minus
+                show_name: false
+                css_class: rc-vol-down
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.volume_down
+                  target:
+                    entity_id: media_player.living_room_soundbar
+              - state_background: false
+                light_background: false
+                custom_height: 44
+                entity: media_player.living_room_soundbar
+                name: '{{ ''Unavailable'' if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] else ''Muted'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'')
+                  else ((((state_attr(''media_player.living_room_soundbar'', ''volume_level'') | float(0)) * 100) | round | int) ~ ''%'') }}'
+                show_name: true
+                show_icon: false
+                sub_button_type: default
+                css_class: rc-vol-level
+                tap_action:
+                  action: none
+              - state_background: false
+                light_background: false
+                custom_height: 44
+                name: Volume up
+                icon: mdi:plus
+                show_name: false
+                css_class: rc-vol-up
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.volume_up
+                  target:
+                    entity_id: media_player.living_room_soundbar
+          styles: ".bubble-icon { --mdc-icon-size: 30px; }\n.bubble-name { font-size: 16px !important; font-weight: 600 !important; }\n.bubble-sub-button-bottom-container { justify-content: stretch !important;\
+            \ gap: 8px !important; }\n.bubble-sub-button-bottom-container .bubble-sub-button-group { width: 100% !important; gap: 8px !important; flex-wrap: nowrap !important; }\n.bubble-sub-button-bottom-container\
+            \ .bubble-sub-button { justify-content: center !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }\n.bubble-sub-button[class*=\"lt-\"] { flex:\
+            \ 1 1 0 !important; border-radius: 16px !important; --mdc-icon-size: 34px; }\n.bubble-sub-button.lt-step { flex: 0 0 44px !important; --mdc-icon-size: 24px; }\n.bubble-sub-button-group:has(.rc-mute)\
+            \ { gap: 0 !important; }\n.bubble-sub-button[class*=\"rc-\"] { border-radius: 0 !important; --mdc-icon-size: 22px; }\n.bubble-sub-button.rc-mute { flex: 0 0 56px !important; border-radius: 16px\
+            \ !important; margin-right: 8px !important; }\n.bubble-sub-button.rc-vol-down { flex: 1 1 0 !important; border-radius: 16px 0 0 16px !important; }\n.bubble-sub-button.rc-vol-level { flex: 0\
+            \ 0 72px !important; }\n.rc-vol-level .bubble-sub-button-name-container { font-size: 16px !important; font-weight: 600 !important; font-variant-numeric: tabular-nums; }\n.bubble-sub-button.rc-vol-up\
+            \ { flex: 1 1 0 !important; border-radius: 0 16px 16px 0 !important; }\n${(() => {\n  const ch = String(hass.states['binary_sensor.living_room_tv_live_active']?.attributes?.channel ?? '').replace('.',\
+            \ '-');\n  const sb = hass.states['media_player.living_room_soundbar'];\n  const gone = !sb || ['unavailable', 'unknown'].includes(sb.state);\n  let css = '';\n  if (ch) css += '.bubble-sub-button.lt-'\
+            \ + ch + ' { background: var(--primary-text-color) !important; } .lt-' + ch + ' ha-icon { color: var(--primary-background-color) !important; } ';\n  if (!gone && sb.attributes.is_volume_muted)\
+            \ css += '.bubble-sub-button.rc-mute { background: var(--primary-text-color) !important; } .rc-mute ha-icon { color: var(--primary-background-color) !important; } .rc-vol-level .bubble-sub-button-name-container\
+            \ { color: var(--secondary-text-color) !important; } ';\n  if (gone) css += '.bubble-sub-button.rc-vol-level { flex: 0 0 110px !important; } .rc-vol-level .bubble-sub-button-name-container {\
+            \ font-size: 14px !important; color: var(--secondary-text-color) !important; } ';\n  return css;\n})()}\n"
+          rows: 2.65
       - type: grid
         columns: 2
         square: false
@@ -2272,254 +2217,199 @@ views:
           entity: binary_sensor.living_room_tv_live_active
           state: 'on'
         card:
-          type: vertical-stack
-          cards:
-          - type: custom:bubble-card
-            card_type: button
-            button_type: name
-            entity: binary_sensor.living_room_tv_live_active
-            name: '{{ state_attr(''binary_sensor.living_room_tv_live_active'', ''network'') }}'
-            icon: '{{ state_attr(''binary_sensor.living_room_tv_live_active'', ''icon'') }}'
-            show_state: true
-            state_content: '{% set c = state_attr(''binary_sensor.living_room_tv_live_active'', ''channel'') %}Live TV{{ ('' · '' ~ c) if c }}'
+          type: custom:bubble-card
+          card_type: button
+          button_type: name
+          entity: binary_sensor.living_room_tv_live_active
+          name: '{{ state_attr(''binary_sensor.living_room_tv_live_active'', ''network'') }}'
+          icon: '{{ state_attr(''binary_sensor.living_room_tv_live_active'', ''icon'') }}'
+          show_state: true
+          state_content: '{% set c = state_attr(''binary_sensor.living_room_tv_live_active'', ''channel'') %}Live TV{{ ('' · '' ~ c) if c }}'
+          tap_action:
+            action: navigate
+            navigation_path: '#living-room-remote'
+          button_action:
             tap_action:
               action: navigate
               navigation_path: '#living-room-remote'
-            button_action:
+          sub_button:
+            main:
+            - name: Apple TV
+              icon: phu:appletv-sim
+              show_name: false
+              state_background: false
+              light_background: false
               tap_action:
-                action: navigate
-                navigation_path: '#living-room-remote'
-            sub_button:
-              main:
-              - name: Apple TV
-                icon: phu:appletv-sim
+                action: none
+              hold_action:
+                action: perform-action
+                perform_action: webostv.command
+                data:
+                  entity_id: media_player.living_room_tv
+                  command: system.launcher/launch
+                  payload:
+                    id: com.webos.app.hdmi1
+            bottom_layout: rows
+            bottom:
+            - name: Channels
+              buttons_layout: inline
+              group:
+              - name: CBS
                 show_name: false
+                show_icon: true
+                css_class: lt-11-1
                 state_background: false
                 light_background: false
+                custom_height: 44
                 tap_action:
-                  action: none
-                hold_action:
                   action: perform-action
-                  perform_action: webostv.command
+                  perform_action: media_player.play_media
+                  target:
+                    entity_id: media_player.living_room_tv
+                  data:
+                    media_content_type: channel
+                    media_content_id: 11-1
+                icon: phu:cbs
+              - name: ABC
+                show_name: false
+                show_icon: true
+                css_class: lt-13-1
+                state_background: false
+                light_background: false
+                custom_height: 44
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.play_media
+                  target:
+                    entity_id: media_player.living_room_tv
+                  data:
+                    media_content_type: channel
+                    media_content_id: 13-1
+                icon: phu:abc
+              - name: NBC
+                show_name: false
+                show_icon: true
+                css_class: lt-24-1
+                state_background: false
+                light_background: false
+                custom_height: 44
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.play_media
+                  target:
+                    entity_id: media_player.living_room_tv
+                  data:
+                    media_content_type: channel
+                    media_content_id: 24-1
+                icon: phu:nbc
+              - name: Fox
+                show_name: false
+                show_icon: true
+                css_class: lt-36-1
+                state_background: false
+                light_background: false
+                custom_height: 44
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.play_media
+                  target:
+                    entity_id: media_player.living_room_tv
+                  data:
+                    media_content_type: channel
+                    media_content_id: 36-1
+                icon: phu:fox
+              - name: Channel down
+                icon: mdi:chevron-down
+                show_name: false
+                css_class: lt-step
+                state_background: false
+                light_background: false
+                custom_height: 44
+                tap_action:
+                  action: perform-action
+                  perform_action: webostv.button
                   data:
                     entity_id: media_player.living_room_tv
-                    command: system.launcher/launch
-                    payload:
-                      id: com.webos.app.hdmi1
-              bottom: []
-            styles: '.bubble-icon { --mdc-icon-size: 30px; }
-
-
-              .bubble-name { font-size: 16px !important; font-weight: 600 !important; }
-
-              '
-          - type: custom:bubble-card
-            card_type: sub-buttons
-            hide_main_background: true
-            rows: 0.9
-            scrolling_effect: false
-            sub_button:
-              main: []
-              bottom:
-              - name: Channels
-                buttons_layout: inline
-                group:
-                - name: CBS
-                  show_name: false
-                  show_icon: true
-                  css_class: lt-11-1
-                  state_background: false
-                  light_background: false
-                  custom_height: 44
-                  tap_action:
-                    action: perform-action
-                    perform_action: media_player.play_media
-                    target:
-                      entity_id: media_player.living_room_tv
-                    data:
-                      media_content_type: channel
-                      media_content_id: 11-1
-                  icon: phu:cbs
-                - name: ABC
-                  show_name: false
-                  show_icon: true
-                  css_class: lt-13-1
-                  state_background: false
-                  light_background: false
-                  custom_height: 44
-                  tap_action:
-                    action: perform-action
-                    perform_action: media_player.play_media
-                    target:
-                      entity_id: media_player.living_room_tv
-                    data:
-                      media_content_type: channel
-                      media_content_id: 13-1
-                  icon: phu:abc
-                - name: NBC
-                  show_name: false
-                  show_icon: true
-                  css_class: lt-24-1
-                  state_background: false
-                  light_background: false
-                  custom_height: 44
-                  tap_action:
-                    action: perform-action
-                    perform_action: media_player.play_media
-                    target:
-                      entity_id: media_player.living_room_tv
-                    data:
-                      media_content_type: channel
-                      media_content_id: 24-1
-                  icon: phu:nbc
-                - name: Fox
-                  show_name: false
-                  show_icon: true
-                  css_class: lt-36-1
-                  state_background: false
-                  light_background: false
-                  custom_height: 44
-                  tap_action:
-                    action: perform-action
-                    perform_action: media_player.play_media
-                    target:
-                      entity_id: media_player.living_room_tv
-                    data:
-                      media_content_type: channel
-                      media_content_id: 36-1
-                  icon: phu:fox
-                - name: Channel down
-                  icon: mdi:chevron-down
-                  show_name: false
-                  css_class: lt-step
-                  state_background: false
-                  light_background: false
-                  custom_height: 44
-                  tap_action:
-                    action: perform-action
-                    perform_action: webostv.button
-                    data:
-                      entity_id: media_player.living_room_tv
-                      button: CHANNELDOWN
-                - name: Channel up
-                  icon: mdi:chevron-up
-                  show_name: false
-                  css_class: lt-step
-                  state_background: false
-                  light_background: false
-                  custom_height: 44
-                  tap_action:
-                    action: perform-action
-                    perform_action: webostv.button
-                    data:
-                      entity_id: media_player.living_room_tv
-                      button: CHANNELUP
-            styles: '.bubble-sub-button-bottom-container { justify-content: stretch !important; }
-
-              .bubble-sub-button-group { width: 100% !important; gap: 8px !important; flex-wrap: nowrap !important; }
-
-              .bubble-sub-button { flex: 1 1 0 !important; justify-content: center !important; border-radius: 16px !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important;
-              }
-
-              .bubble-sub-button .bubble-sub-button-name-container { font-size: 15px !important; font-weight: 600 !important; }
-
-              .bubble-sub-button { --mdc-icon-size: 34px; }
-
-              .lt-step { flex: 0 0 44px !important; --mdc-icon-size: 24px; }
-
-
-              ${(() => { const c = String(hass.states[''binary_sensor.living_room_tv_live_active'']?.attributes?.channel ?? '''').replace(''.'', ''-''); return c ? ''.lt-'' + c + '' { background: var(--primary-text-color)
-              !important; } .lt-'' + c + '' ha-icon { color: var(--primary-background-color) !important; }'' : ''''; })()}
-
-              '
-          - type: custom:bubble-card
-            card_type: sub-buttons
-            hide_main_background: true
-            rows: 0.9
-            scrolling_effect: false
-            sub_button:
-              main: []
-              bottom:
-              - name: Volume
-                buttons_layout: inline
-                group:
-                - state_background: false
-                  light_background: false
-                  custom_height: 44
-                  entity: media_player.living_room_soundbar
-                  name: Mute
-                  show_name: false
-                  icon: '{{ ''mdi:volume-off'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'') else ''mdi:volume-high'' }}'
-                  css_class: rc-mute
-                  tap_action:
-                    action: perform-action
-                    perform_action: script.household_media_toggle_mute
-                    data:
-                      entity_id: media_player.living_room_soundbar
-                - state_background: false
-                  light_background: false
-                  custom_height: 44
-                  name: Volume down
-                  icon: mdi:minus
-                  show_name: false
-                  css_class: rc-vol-down
-                  tap_action:
-                    action: perform-action
-                    perform_action: media_player.volume_down
-                    target:
-                      entity_id: media_player.living_room_soundbar
-                - state_background: false
-                  light_background: false
-                  custom_height: 44
-                  entity: media_player.living_room_soundbar
-                  name: '{{ ''Unavailable'' if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] else ''Muted'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'')
-                    else ((((state_attr(''media_player.living_room_soundbar'', ''volume_level'') | float(0)) * 100) | round | int) ~ ''%'') }}'
-                  show_name: true
-                  show_icon: false
-                  sub_button_type: default
-                  css_class: rc-vol-level
-                  tap_action:
-                    action: none
-                - state_background: false
-                  light_background: false
-                  custom_height: 44
-                  name: Volume up
-                  icon: mdi:plus
-                  show_name: false
-                  css_class: rc-vol-up
-                  tap_action:
-                    action: perform-action
-                    perform_action: media_player.volume_up
-                    target:
-                      entity_id: media_player.living_room_soundbar
-            styles: '.bubble-sub-button-bottom-container { justify-content: stretch !important; }
-
-              .bubble-sub-button-group { width: 100% !important; gap: 0 !important; flex-wrap: nowrap !important; }
-
-              .bubble-sub-button { justify-content: center !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; border-radius: 0 !important; --mdc-icon-size:
-              22px; }
-
-              .rc-mute { flex: 0 0 56px !important; border-radius: 16px !important; margin-right: 8px !important; }
-
-              .rc-vol-down { flex: 1 1 0 !important; border-radius: 16px 0 0 16px !important; }
-
-              .rc-vol-level { flex: 0 0 72px !important; }
-
-              .rc-vol-level .bubble-sub-button-name-container { font-size: 16px !important; font-weight: 600 !important; font-variant-numeric: tabular-nums; }
-
-              .rc-vol-up { flex: 1 1 0 !important; border-radius: 0 16px 16px 0 !important; }
-
-              {% if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'') %}.rc-mute { background: var(--primary-text-color) !important; }
-
-              .rc-mute ha-icon { color: var(--primary-background-color) !important; }
-
-              .rc-vol-level .bubble-sub-button-name-container { color: var(--secondary-text-color) !important; }{% endif %}
-
-              {% if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] %}.rc-vol-level { flex: 0 0 110px !important; }
-
-              .rc-vol-level .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }{% endif %}
-
-              '
+                    button: CHANNELDOWN
+              - name: Channel up
+                icon: mdi:chevron-up
+                show_name: false
+                css_class: lt-step
+                state_background: false
+                light_background: false
+                custom_height: 44
+                tap_action:
+                  action: perform-action
+                  perform_action: webostv.button
+                  data:
+                    entity_id: media_player.living_room_tv
+                    button: CHANNELUP
+            - name: Volume
+              buttons_layout: inline
+              group:
+              - state_background: false
+                light_background: false
+                custom_height: 44
+                entity: media_player.living_room_soundbar
+                name: Mute
+                show_name: false
+                icon: '{{ ''mdi:volume-off'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'') else ''mdi:volume-high'' }}'
+                css_class: rc-mute
+                tap_action:
+                  action: perform-action
+                  perform_action: script.household_media_toggle_mute
+                  data:
+                    entity_id: media_player.living_room_soundbar
+              - state_background: false
+                light_background: false
+                custom_height: 44
+                name: Volume down
+                icon: mdi:minus
+                show_name: false
+                css_class: rc-vol-down
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.volume_down
+                  target:
+                    entity_id: media_player.living_room_soundbar
+              - state_background: false
+                light_background: false
+                custom_height: 44
+                entity: media_player.living_room_soundbar
+                name: '{{ ''Unavailable'' if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] else ''Muted'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'')
+                  else ((((state_attr(''media_player.living_room_soundbar'', ''volume_level'') | float(0)) * 100) | round | int) ~ ''%'') }}'
+                show_name: true
+                show_icon: false
+                sub_button_type: default
+                css_class: rc-vol-level
+                tap_action:
+                  action: none
+              - state_background: false
+                light_background: false
+                custom_height: 44
+                name: Volume up
+                icon: mdi:plus
+                show_name: false
+                css_class: rc-vol-up
+                tap_action:
+                  action: perform-action
+                  perform_action: media_player.volume_up
+                  target:
+                    entity_id: media_player.living_room_soundbar
+          styles: ".bubble-icon { --mdc-icon-size: 30px; }\n.bubble-name { font-size: 16px !important; font-weight: 600 !important; }\n.bubble-sub-button-bottom-container { justify-content: stretch !important;\
+            \ gap: 8px !important; }\n.bubble-sub-button-bottom-container .bubble-sub-button-group { width: 100% !important; gap: 8px !important; flex-wrap: nowrap !important; }\n.bubble-sub-button-bottom-container\
+            \ .bubble-sub-button { justify-content: center !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }\n.bubble-sub-button[class*=\"lt-\"] { flex:\
+            \ 1 1 0 !important; border-radius: 16px !important; --mdc-icon-size: 34px; }\n.bubble-sub-button.lt-step { flex: 0 0 44px !important; --mdc-icon-size: 24px; }\n.bubble-sub-button-group:has(.rc-mute)\
+            \ { gap: 0 !important; }\n.bubble-sub-button[class*=\"rc-\"] { border-radius: 0 !important; --mdc-icon-size: 22px; }\n.bubble-sub-button.rc-mute { flex: 0 0 56px !important; border-radius: 16px\
+            \ !important; margin-right: 8px !important; }\n.bubble-sub-button.rc-vol-down { flex: 1 1 0 !important; border-radius: 16px 0 0 16px !important; }\n.bubble-sub-button.rc-vol-level { flex: 0\
+            \ 0 72px !important; }\n.rc-vol-level .bubble-sub-button-name-container { font-size: 16px !important; font-weight: 600 !important; font-variant-numeric: tabular-nums; }\n.bubble-sub-button.rc-vol-up\
+            \ { flex: 1 1 0 !important; border-radius: 0 16px 16px 0 !important; }\n${(() => {\n  const ch = String(hass.states['binary_sensor.living_room_tv_live_active']?.attributes?.channel ?? '').replace('.',\
+            \ '-');\n  const sb = hass.states['media_player.living_room_soundbar'];\n  const gone = !sb || ['unavailable', 'unknown'].includes(sb.state);\n  let css = '';\n  if (ch) css += '.bubble-sub-button.lt-'\
+            \ + ch + ' { background: var(--primary-text-color) !important; } .lt-' + ch + ' ha-icon { color: var(--primary-background-color) !important; } ';\n  if (!gone && sb.attributes.is_volume_muted)\
+            \ css += '.bubble-sub-button.rc-mute { background: var(--primary-text-color) !important; } .rc-mute ha-icon { color: var(--primary-background-color) !important; } .rc-vol-level .bubble-sub-button-name-container\
+            \ { color: var(--secondary-text-color) !important; } ';\n  if (gone) css += '.bubble-sub-button.rc-vol-level { flex: 0 0 110px !important; } .rc-vol-level .bubble-sub-button-name-container {\
+            \ font-size: 14px !important; color: var(--secondary-text-color) !important; } ';\n  return css;\n})()}\n"
+          rows: 2.65
       - type: conditional
         conditions:
         - condition: state
@@ -7717,254 +7607,199 @@ views:
               entity: binary_sensor.living_room_tv_live_active
               state: 'on'
             card:
-              type: vertical-stack
-              cards:
-              - type: custom:bubble-card
-                card_type: button
-                button_type: name
-                entity: binary_sensor.living_room_tv_live_active
-                name: '{{ state_attr(''binary_sensor.living_room_tv_live_active'', ''network'') }}'
-                icon: '{{ state_attr(''binary_sensor.living_room_tv_live_active'', ''icon'') }}'
-                show_state: true
-                state_content: '{% set c = state_attr(''binary_sensor.living_room_tv_live_active'', ''channel'') %}Live TV{{ ('' · '' ~ c) if c }}'
+              type: custom:bubble-card
+              card_type: button
+              button_type: name
+              entity: binary_sensor.living_room_tv_live_active
+              name: '{{ state_attr(''binary_sensor.living_room_tv_live_active'', ''network'') }}'
+              icon: '{{ state_attr(''binary_sensor.living_room_tv_live_active'', ''icon'') }}'
+              show_state: true
+              state_content: '{% set c = state_attr(''binary_sensor.living_room_tv_live_active'', ''channel'') %}Live TV{{ ('' · '' ~ c) if c }}'
+              tap_action:
+                action: navigate
+                navigation_path: '#living-room-remote'
+              button_action:
                 tap_action:
                   action: navigate
                   navigation_path: '#living-room-remote'
-                button_action:
+              sub_button:
+                main:
+                - name: Apple TV
+                  icon: phu:appletv-sim
+                  show_name: false
+                  state_background: false
+                  light_background: false
                   tap_action:
-                    action: navigate
-                    navigation_path: '#living-room-remote'
-                sub_button:
-                  main:
-                  - name: Apple TV
-                    icon: phu:appletv-sim
+                    action: none
+                  hold_action:
+                    action: perform-action
+                    perform_action: webostv.command
+                    data:
+                      entity_id: media_player.living_room_tv
+                      command: system.launcher/launch
+                      payload:
+                        id: com.webos.app.hdmi1
+                bottom_layout: rows
+                bottom:
+                - name: Channels
+                  buttons_layout: inline
+                  group:
+                  - name: CBS
                     show_name: false
+                    show_icon: true
+                    css_class: lt-11-1
                     state_background: false
                     light_background: false
+                    custom_height: 44
                     tap_action:
-                      action: none
-                    hold_action:
                       action: perform-action
-                      perform_action: webostv.command
+                      perform_action: media_player.play_media
+                      target:
+                        entity_id: media_player.living_room_tv
+                      data:
+                        media_content_type: channel
+                        media_content_id: 11-1
+                    icon: phu:cbs
+                  - name: ABC
+                    show_name: false
+                    show_icon: true
+                    css_class: lt-13-1
+                    state_background: false
+                    light_background: false
+                    custom_height: 44
+                    tap_action:
+                      action: perform-action
+                      perform_action: media_player.play_media
+                      target:
+                        entity_id: media_player.living_room_tv
+                      data:
+                        media_content_type: channel
+                        media_content_id: 13-1
+                    icon: phu:abc
+                  - name: NBC
+                    show_name: false
+                    show_icon: true
+                    css_class: lt-24-1
+                    state_background: false
+                    light_background: false
+                    custom_height: 44
+                    tap_action:
+                      action: perform-action
+                      perform_action: media_player.play_media
+                      target:
+                        entity_id: media_player.living_room_tv
+                      data:
+                        media_content_type: channel
+                        media_content_id: 24-1
+                    icon: phu:nbc
+                  - name: Fox
+                    show_name: false
+                    show_icon: true
+                    css_class: lt-36-1
+                    state_background: false
+                    light_background: false
+                    custom_height: 44
+                    tap_action:
+                      action: perform-action
+                      perform_action: media_player.play_media
+                      target:
+                        entity_id: media_player.living_room_tv
+                      data:
+                        media_content_type: channel
+                        media_content_id: 36-1
+                    icon: phu:fox
+                  - name: Channel down
+                    icon: mdi:chevron-down
+                    show_name: false
+                    css_class: lt-step
+                    state_background: false
+                    light_background: false
+                    custom_height: 44
+                    tap_action:
+                      action: perform-action
+                      perform_action: webostv.button
                       data:
                         entity_id: media_player.living_room_tv
-                        command: system.launcher/launch
-                        payload:
-                          id: com.webos.app.hdmi1
-                  bottom: []
-                styles: '.bubble-icon { --mdc-icon-size: 30px; }
-
-
-                  .bubble-name { font-size: 16px !important; font-weight: 600 !important; }
-
-                  '
-              - type: custom:bubble-card
-                card_type: sub-buttons
-                hide_main_background: true
-                rows: 0.9
-                scrolling_effect: false
-                sub_button:
-                  main: []
-                  bottom:
-                  - name: Channels
-                    buttons_layout: inline
-                    group:
-                    - name: CBS
-                      show_name: false
-                      show_icon: true
-                      css_class: lt-11-1
-                      state_background: false
-                      light_background: false
-                      custom_height: 44
-                      tap_action:
-                        action: perform-action
-                        perform_action: media_player.play_media
-                        target:
-                          entity_id: media_player.living_room_tv
-                        data:
-                          media_content_type: channel
-                          media_content_id: 11-1
-                      icon: phu:cbs
-                    - name: ABC
-                      show_name: false
-                      show_icon: true
-                      css_class: lt-13-1
-                      state_background: false
-                      light_background: false
-                      custom_height: 44
-                      tap_action:
-                        action: perform-action
-                        perform_action: media_player.play_media
-                        target:
-                          entity_id: media_player.living_room_tv
-                        data:
-                          media_content_type: channel
-                          media_content_id: 13-1
-                      icon: phu:abc
-                    - name: NBC
-                      show_name: false
-                      show_icon: true
-                      css_class: lt-24-1
-                      state_background: false
-                      light_background: false
-                      custom_height: 44
-                      tap_action:
-                        action: perform-action
-                        perform_action: media_player.play_media
-                        target:
-                          entity_id: media_player.living_room_tv
-                        data:
-                          media_content_type: channel
-                          media_content_id: 24-1
-                      icon: phu:nbc
-                    - name: Fox
-                      show_name: false
-                      show_icon: true
-                      css_class: lt-36-1
-                      state_background: false
-                      light_background: false
-                      custom_height: 44
-                      tap_action:
-                        action: perform-action
-                        perform_action: media_player.play_media
-                        target:
-                          entity_id: media_player.living_room_tv
-                        data:
-                          media_content_type: channel
-                          media_content_id: 36-1
-                      icon: phu:fox
-                    - name: Channel down
-                      icon: mdi:chevron-down
-                      show_name: false
-                      css_class: lt-step
-                      state_background: false
-                      light_background: false
-                      custom_height: 44
-                      tap_action:
-                        action: perform-action
-                        perform_action: webostv.button
-                        data:
-                          entity_id: media_player.living_room_tv
-                          button: CHANNELDOWN
-                    - name: Channel up
-                      icon: mdi:chevron-up
-                      show_name: false
-                      css_class: lt-step
-                      state_background: false
-                      light_background: false
-                      custom_height: 44
-                      tap_action:
-                        action: perform-action
-                        perform_action: webostv.button
-                        data:
-                          entity_id: media_player.living_room_tv
-                          button: CHANNELUP
-                styles: '.bubble-sub-button-bottom-container { justify-content: stretch !important; }
-
-                  .bubble-sub-button-group { width: 100% !important; gap: 8px !important; flex-wrap: nowrap !important; }
-
-                  .bubble-sub-button { flex: 1 1 0 !important; justify-content: center !important; border-radius: 16px !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent)
-                  !important; }
-
-                  .bubble-sub-button .bubble-sub-button-name-container { font-size: 15px !important; font-weight: 600 !important; }
-
-                  .bubble-sub-button { --mdc-icon-size: 34px; }
-
-                  .lt-step { flex: 0 0 44px !important; --mdc-icon-size: 24px; }
-
-
-                  ${(() => { const c = String(hass.states[''binary_sensor.living_room_tv_live_active'']?.attributes?.channel ?? '''').replace(''.'', ''-''); return c ? ''.lt-'' + c + '' { background: var(--primary-text-color)
-                  !important; } .lt-'' + c + '' ha-icon { color: var(--primary-background-color) !important; }'' : ''''; })()}
-
-                  '
-              - type: custom:bubble-card
-                card_type: sub-buttons
-                hide_main_background: true
-                rows: 0.9
-                scrolling_effect: false
-                sub_button:
-                  main: []
-                  bottom:
-                  - name: Volume
-                    buttons_layout: inline
-                    group:
-                    - state_background: false
-                      light_background: false
-                      custom_height: 44
-                      entity: media_player.living_room_soundbar
-                      name: Mute
-                      show_name: false
-                      icon: '{{ ''mdi:volume-off'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'') else ''mdi:volume-high'' }}'
-                      css_class: rc-mute
-                      tap_action:
-                        action: perform-action
-                        perform_action: script.household_media_toggle_mute
-                        data:
-                          entity_id: media_player.living_room_soundbar
-                    - state_background: false
-                      light_background: false
-                      custom_height: 44
-                      name: Volume down
-                      icon: mdi:minus
-                      show_name: false
-                      css_class: rc-vol-down
-                      tap_action:
-                        action: perform-action
-                        perform_action: media_player.volume_down
-                        target:
-                          entity_id: media_player.living_room_soundbar
-                    - state_background: false
-                      light_background: false
-                      custom_height: 44
-                      entity: media_player.living_room_soundbar
-                      name: '{{ ''Unavailable'' if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] else ''Muted'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'')
-                        else ((((state_attr(''media_player.living_room_soundbar'', ''volume_level'') | float(0)) * 100) | round | int) ~ ''%'') }}'
-                      show_name: true
-                      show_icon: false
-                      sub_button_type: default
-                      css_class: rc-vol-level
-                      tap_action:
-                        action: none
-                    - state_background: false
-                      light_background: false
-                      custom_height: 44
-                      name: Volume up
-                      icon: mdi:plus
-                      show_name: false
-                      css_class: rc-vol-up
-                      tap_action:
-                        action: perform-action
-                        perform_action: media_player.volume_up
-                        target:
-                          entity_id: media_player.living_room_soundbar
-                styles: '.bubble-sub-button-bottom-container { justify-content: stretch !important; }
-
-                  .bubble-sub-button-group { width: 100% !important; gap: 0 !important; flex-wrap: nowrap !important; }
-
-                  .bubble-sub-button { justify-content: center !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; border-radius: 0 !important; --mdc-icon-size:
-                  22px; }
-
-                  .rc-mute { flex: 0 0 56px !important; border-radius: 16px !important; margin-right: 8px !important; }
-
-                  .rc-vol-down { flex: 1 1 0 !important; border-radius: 16px 0 0 16px !important; }
-
-                  .rc-vol-level { flex: 0 0 72px !important; }
-
-                  .rc-vol-level .bubble-sub-button-name-container { font-size: 16px !important; font-weight: 600 !important; font-variant-numeric: tabular-nums; }
-
-                  .rc-vol-up { flex: 1 1 0 !important; border-radius: 0 16px 16px 0 !important; }
-
-                  {% if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'') %}.rc-mute { background: var(--primary-text-color) !important; }
-
-                  .rc-mute ha-icon { color: var(--primary-background-color) !important; }
-
-                  .rc-vol-level .bubble-sub-button-name-container { color: var(--secondary-text-color) !important; }{% endif %}
-
-                  {% if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] %}.rc-vol-level { flex: 0 0 110px !important; }
-
-                  .rc-vol-level .bubble-sub-button-name-container { font-size: 14px !important; color: var(--secondary-text-color) !important; }{% endif %}
-
-                  '
+                        button: CHANNELDOWN
+                  - name: Channel up
+                    icon: mdi:chevron-up
+                    show_name: false
+                    css_class: lt-step
+                    state_background: false
+                    light_background: false
+                    custom_height: 44
+                    tap_action:
+                      action: perform-action
+                      perform_action: webostv.button
+                      data:
+                        entity_id: media_player.living_room_tv
+                        button: CHANNELUP
+                - name: Volume
+                  buttons_layout: inline
+                  group:
+                  - state_background: false
+                    light_background: false
+                    custom_height: 44
+                    entity: media_player.living_room_soundbar
+                    name: Mute
+                    show_name: false
+                    icon: '{{ ''mdi:volume-off'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'') else ''mdi:volume-high'' }}'
+                    css_class: rc-mute
+                    tap_action:
+                      action: perform-action
+                      perform_action: script.household_media_toggle_mute
+                      data:
+                        entity_id: media_player.living_room_soundbar
+                  - state_background: false
+                    light_background: false
+                    custom_height: 44
+                    name: Volume down
+                    icon: mdi:minus
+                    show_name: false
+                    css_class: rc-vol-down
+                    tap_action:
+                      action: perform-action
+                      perform_action: media_player.volume_down
+                      target:
+                        entity_id: media_player.living_room_soundbar
+                  - state_background: false
+                    light_background: false
+                    custom_height: 44
+                    entity: media_player.living_room_soundbar
+                    name: '{{ ''Unavailable'' if states(''media_player.living_room_soundbar'') in [''unavailable'', ''unknown''] else ''Muted'' if state_attr(''media_player.living_room_soundbar'', ''is_volume_muted'')
+                      else ((((state_attr(''media_player.living_room_soundbar'', ''volume_level'') | float(0)) * 100) | round | int) ~ ''%'') }}'
+                    show_name: true
+                    show_icon: false
+                    sub_button_type: default
+                    css_class: rc-vol-level
+                    tap_action:
+                      action: none
+                  - state_background: false
+                    light_background: false
+                    custom_height: 44
+                    name: Volume up
+                    icon: mdi:plus
+                    show_name: false
+                    css_class: rc-vol-up
+                    tap_action:
+                      action: perform-action
+                      perform_action: media_player.volume_up
+                      target:
+                        entity_id: media_player.living_room_soundbar
+              styles: ".bubble-icon { --mdc-icon-size: 30px; }\n.bubble-name { font-size: 16px !important; font-weight: 600 !important; }\n.bubble-sub-button-bottom-container { justify-content: stretch\
+                \ !important; gap: 8px !important; }\n.bubble-sub-button-bottom-container .bubble-sub-button-group { width: 100% !important; gap: 8px !important; flex-wrap: nowrap !important; }\n.bubble-sub-button-bottom-container\
+                \ .bubble-sub-button { justify-content: center !important; background: color-mix(in srgb, var(--primary-text-color) 7%, transparent) !important; }\n.bubble-sub-button[class*=\"lt-\"] { flex:\
+                \ 1 1 0 !important; border-radius: 16px !important; --mdc-icon-size: 34px; }\n.bubble-sub-button.lt-step { flex: 0 0 44px !important; --mdc-icon-size: 24px; }\n.bubble-sub-button-group:has(.rc-mute)\
+                \ { gap: 0 !important; }\n.bubble-sub-button[class*=\"rc-\"] { border-radius: 0 !important; --mdc-icon-size: 22px; }\n.bubble-sub-button.rc-mute { flex: 0 0 56px !important; border-radius:\
+                \ 16px !important; margin-right: 8px !important; }\n.bubble-sub-button.rc-vol-down { flex: 1 1 0 !important; border-radius: 16px 0 0 16px !important; }\n.bubble-sub-button.rc-vol-level {\
+                \ flex: 0 0 72px !important; }\n.rc-vol-level .bubble-sub-button-name-container { font-size: 16px !important; font-weight: 600 !important; font-variant-numeric: tabular-nums; }\n.bubble-sub-button.rc-vol-up\
+                \ { flex: 1 1 0 !important; border-radius: 0 16px 16px 0 !important; }\n${(() => {\n  const ch = String(hass.states['binary_sensor.living_room_tv_live_active']?.attributes?.channel ?? '').replace('.',\
+                \ '-');\n  const sb = hass.states['media_player.living_room_soundbar'];\n  const gone = !sb || ['unavailable', 'unknown'].includes(sb.state);\n  let css = '';\n  if (ch) css += '.bubble-sub-button.lt-'\
+                \ + ch + ' { background: var(--primary-text-color) !important; } .lt-' + ch + ' ha-icon { color: var(--primary-background-color) !important; } ';\n  if (!gone && sb.attributes.is_volume_muted)\
+                \ css += '.bubble-sub-button.rc-mute { background: var(--primary-text-color) !important; } .rc-mute ha-icon { color: var(--primary-background-color) !important; } .rc-vol-level .bubble-sub-button-name-container\
+                \ { color: var(--secondary-text-color) !important; } ';\n  if (gone) css += '.bubble-sub-button.rc-vol-level { flex: 0 0 110px !important; } .rc-vol-level .bubble-sub-button-name-container\
+                \ { font-size: 14px !important; color: var(--secondary-text-color) !important; } ';\n  return css;\n})()}\n"
+              rows: 2.65
       - type: conditional
         conditions:
         - condition: or

@@ -282,23 +282,33 @@ own volume button (it drives the HomePod itself) and a scrubbable progress bar
 
 *The Living Room LG on Live TV* gets a Live TV card, shown while
 `binary_sensor.living_room_tv_live_active` is on (Home, `#living-room` and `#media`; the Apple TV
-card, and in `#living-room` the compact Apple TV card, hide meanwhile). It is a vertical stack of
-three Bubble cards:
+card, and in `#living-room` the compact Apple TV card, hide meanwhile). It is one Bubble
+button card on the sensor, with the presets and volume as two rows of bottom sub-buttons
+(`sub_button.bottom_layout: rows`, `rows: 2.65`), so the three rows share one background and
+read as one control:
 
-- **Header** — a button card on the sensor: the network's logo as the icon, the network as the
-  name, "Live TV · 36.1" as the state (all from the sensor's attributes; an unmapped station
-  shows its call sign and `mdi:antenna`). Tapping it opens `#living-room-remote`. One icon
-  sub-button, Apple TV (`phu:appletv-sim`), switches the input on a hold (a tap does nothing,
-  so a stray touch can't change the input): `webostv.command` `system.launcher/launch` with
-  `id: com.webos.app.hdmi1`. It can't use `media_player.select_source`: the LG reports the Apple TV's HDMI 1 input as `AppleTV` while
-  it is showing, but leaves it out of `source_list`, so `select_source` rejects it.
-- **Presets** — the remote's CBS / ABC / NBC / FOX row, then channel down and up
-  (`webostv.button` `CHANNELDOWN` / `CHANNELUP`, 44 px wide). The station that's on is filled
-  (`--primary-text-color`, logo in the background colour) by a JavaScript style template that
-  reads the sensor's `channel` attribute and targets the preset's `lt-13-1`-style `css_class`.
-  The attribute arrives as a number (HA parses `13.1`), so the template wraps it in `String()`;
-  each preset carries a single class because Bubble rejects a `css_class` containing a space.
-- **Volume** — the remote's Soundbar row.
+- **Main row** — the network's logo as the icon, the network as the name, "Live TV · 36.1" as
+  the state (all from the sensor's attributes; an unmapped station shows its call sign and
+  `mdi:antenna`). Tapping the card opens `#living-room-remote`. One icon sub-button, Apple TV
+  (`phu:appletv-sim`), switches the input on a hold (a tap does nothing, so a stray touch can't
+  change the input): `webostv.command` `system.launcher/launch` with
+  `id: com.webos.app.hdmi1`. It can't use `media_player.select_source`: the LG reports the
+  Apple TV's HDMI 1 input as `AppleTV` while it is showing, but leaves it out of `source_list`,
+  so `select_source` rejects it.
+- **Presets** — the remote's CBS / ABC / NBC / FOX buttons, then channel down and up
+  (`webostv.button` `CHANNELDOWN` / `CHANNELUP`, 44 px wide).
+- **Volume** — the remote's Soundbar buttons (mute, −, level, +).
+
+Bubble gives a sub-button row no class of its own, so the styles address the buttons by their
+`css_class` (`lt-*` presets, `rc-*` volume) and find the volume row with
+`.bubble-sub-button-group:has(.rc-mute)` to join its − / level / + into one bar. Each button
+carries a single class because Bubble rejects a `css_class` containing a space. The dynamic
+styling is one JavaScript template: the station that's on is filled (`--primary-text-color`,
+logo in the background colour) by reading the sensor's `channel` attribute, which arrives as a
+number (HA parses `13.1`) and so is wrapped in `String()`; the mute button fills while the
+Soundbar is muted; and the level slot widens and dims while the Soundbar is unavailable. The
+level text itself (a percentage, "Muted" or "Unavailable") is the same Jinja `name` template
+as the remote's volume row.
 
 The Apple TV card's look comes from CSS in its `uix.style`. The selectors are YAMP internals,
 checked against YAMP 2026.10.1, so recheck them after a YAMP update. To measure, render a card
