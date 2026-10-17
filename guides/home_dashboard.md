@@ -288,8 +288,9 @@ three Bubble cards:
 - **Header** — a button card on the sensor: the network's logo as the icon, the network as the
   name, "Live TV · 36.1" as the state (all from the sensor's attributes; an unmapped station
   shows its call sign and `mdi:antenna`). Tapping it opens `#living-room-remote`. One icon
-  sub-button, Apple TV (`phu:appletv-sim`), runs `webostv.command` `system.launcher/launch` with `id: com.webos.app.hdmi1`. It can't use
-  `media_player.select_source`: the LG reports the Apple TV's HDMI 1 input as `AppleTV` while
+  sub-button, Apple TV (`phu:appletv-sim`), switches the input on a hold (a tap does nothing,
+  so a stray touch can't change the input): `webostv.command` `system.launcher/launch` with
+  `id: com.webos.app.hdmi1`. It can't use `media_player.select_source`: the LG reports the Apple TV's HDMI 1 input as `AppleTV` while
   it is showing, but leaves it out of `source_list`, so `select_source` rejects it.
 - **Presets** — the remote's CBS / ABC / NBC / FOX row, then channel down and up
   (`webostv.button` `CHANNELDOWN` / `CHANNELUP`, 44 px wide). The station that's on is filled

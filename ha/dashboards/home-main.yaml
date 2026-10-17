@@ -807,6 +807,8 @@ views:
                 state_background: false
                 light_background: false
                 tap_action:
+                  action: none
+                hold_action:
                   action: perform-action
                   perform_action: webostv.command
                   data:
@@ -2295,6 +2297,8 @@ views:
                 state_background: false
                 light_background: false
                 tap_action:
+                  action: none
+                hold_action:
                   action: perform-action
                   perform_action: webostv.command
                   data:
@@ -7734,6 +7738,8 @@ views:
                     state_background: false
                     light_background: false
                     tap_action:
+                      action: none
+                    hold_action:
                       action: perform-action
                       perform_action: webostv.command
                       data:
