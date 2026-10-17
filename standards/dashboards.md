@@ -1,6 +1,6 @@
 # Dashboard Design Standard
 
-*Version 1.26.0 — October 2026*
+*Version 1.27.0 — October 2026*
 
 ---
 
@@ -8,6 +8,7 @@
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.27.0 | October 2026 | §8.3 TV room media box: one framework for every TV room; Yet Another Media Player and Universal Remote Card listed in §3 |
 | 1.26.0 | October 2026 | One font, set in the theme; cards never set `font-family` |
 | 1.25.0 | October 2026 | AI Insight history keeps a month; Sunday weekly notes are teal |
 | 1.24.0 | October 2026 | AI content moves into its sections: AI Insight cards on Climate and Energy with an amber sparkle navbar badge until reviewed; briefing tip in `#weather`; AI chip and `#ai` pop-up removed |
@@ -94,7 +95,9 @@ and an update to this table.
 | UIX | HACS integration | CSS escape hatch for cases Bubble styles can't reach (e.g. heading margins in a markdown card, vacuum map crop). Must be added as an integration; card key is `uix: style:` |
 | chore-calendar-card | Bundled with Chore Calendar | Chores view |
 | Battery State Card | HACS frontend | Battery list on the Maintenance view (auto-discovered, threshold-filtered) |
-| Expander Card | HACS frontend | Collapsible sections on long secondary views |
+| Expander Card | HACS frontend | Collapsible sections on long secondary views; with `clear: false` and no collapse button, a plain box (`#media` room containers, §8.3 media box) |
+| Yet Another Media Player | HACS frontend | Apple TV artwork cards (room media cards, §8.3). Its layout is re-shaped with `uix` CSS; the overrides live in the guide |
+| Universal Remote Card | HACS frontend | Apple TV and LG remotes in the remote pop-ups, and the §8.3 touchpad |
 | apexcharts-card | HACS frontend | Time-series charts in pop-ups (the `#hvac` charts). Colours as theme variables (`color: var(--amber-color)`) |
 | Bubble Media Player Enhanced, Bubble Weather | Bubble Module Store (author: Clooos) | Media cards and the `#weather` card. Store-installed third-party modules: not mirrored in `ha/bubble_modules/` (§13); update them from the Module Store |
 | Bubble Graphs | Clooos Patreon (paid, licence forbids redistribution) | History graph inside a Bubble button for one numeric sensor (Climate view rooms and humidity, `card_layout: stacked`). Multi-series, attribute, binary-sensor and forecast charts stay on apexcharts-card. Not mirrored in `ha/bubble_modules/`: the repo is public; reinstall from Patreon or an HA backup |
@@ -235,6 +238,25 @@ Bind actions on both the icon (`tap_action`/`hold_action`) and the body
 `reject('is_hidden_entity')`. Hide an indicator or group member in the entity registry
 instead of excluding it in a template. See `LESSONS.md` → *An area's `light.*` entities
 include indicator LEDs*.
+
+### 8.3 TV room media box
+
+Every room with a TV uses the same media box. The Living Room is the reference
+implementation; its entities, cards and measurements are in `guides/home_dashboard.md` →
+*Room media cards*. A new TV room copies that structure; only the room's inputs, its volume
+entity and the cards for its non-Apple-TV inputs differ. A room that seems to need something
+else is raised as a change to this section before it is built.
+
+| Part | Rule |
+|---|---|
+| Input selector | `select.<room>_tv_input`, a template select in `ha/packages/media_inputs.yaml`, even for a single input. State from the TV's `app_id`; options launch the input's app (`system.launcher/launch`), waking the source first. Never `media_player.select_source` |
+| Activity | Per streaming box: an *active* sensor (playing, or paused in the app that last played; 30 s hold) and a *browsing* sensor (on its input and not active by the same rule; 3 s `delay_on`), in `ha/packages/media_activity.yaml` |
+| Box | An Expander Card plain box, shown while the TV is on or the box is active, on Home and in the room pop-up. `#media` stays playing-only |
+| Frame | A `vertical-stack` clipped to 16:9 (`uix`), holding the artwork card (no controls of its own) or the touchpad. Cards that swap must never move what is below them |
+| Other inputs | One card per non-Apple-TV input (Live TV, game console, disc player) at the box's width |
+| Control row | One Bubble `sub-buttons` row of 36 px buttons: input dropdown; the current input's keys; touchpad toggle; the room's volume as − / level / + with tap-to-mute, reading Muted or Unavailable. Nothing that duplicates a control already in the row |
+| Touchpad toggle | `input_boolean.<room>_appletv_touchpad`, reset by an automation when a new title starts from idle, the box returns to its menus, or the TV turns off |
+| Verification | Screenshot each mode; measure the artwork at 16:9 and sample a heading below the box while toggling, so a one-frame jump is caught |
 
 ---
 
@@ -396,6 +418,7 @@ dependencies (§3), updated from the store and not copied into the repo.
 | Room tile | Bubble `button`; tap → pop-up, hold → primary light; ≤ 2 primary sub-buttons | §8 |
 | Room eligibility | Controllable from the dashboard more than occasionally | §8.1 |
 | Light count | Shared macro with `reject('is_hidden_entity')` | §8.2, §9.2 |
+| TV room | Living Room media box: input select, active/browsing sensors, 16:9 frame, one control row | §8.3 |
 | Pop-up | `pop-up`, `popup_mode: adaptive-dialog`, `popup_style: bubble` | §5 |
 | Dynamic text/icon | Quoted Jinja | §9.1 |
 | Shared logic / look | `custom_templates` macro / Bubble module | §9.2 |
